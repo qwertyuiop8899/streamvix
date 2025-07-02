@@ -135,9 +135,7 @@ function filterAnimeResults(results: { version: AnimeSaturnResult; language_type
 function normalizeTitleForSearch(title: string): string {
   const replacements: Record<string, string> = {
     'Attack on Titan': "L'attacco dei Giganti",
-    'Season': '',
     'Shippuuden': 'Shippuden',
-    '-': '',
     'Ore dake Level Up na Ken': 'Solo Leveling',
     'Lupin the Third: The Woman Called Fujiko Mine': 'Lupin III - La donna chiamata Fujiko Mine ',
     'Slam Dunk: National Domination! Sakuragi Hanamichi': 'Slam Dunk: Zenkoku Seiha Da! Sakuragi Hanamichi'
