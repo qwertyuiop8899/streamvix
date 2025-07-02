@@ -3,6 +3,7 @@ export interface AnimeUnityConfig {
   mfpPassword: string;
   bothLink: boolean;
   enabled: boolean;
+  tmdbApiKey?: string;
 }
 
 export interface AnimeUnityResult {
@@ -52,6 +53,7 @@ export interface AnimeSaturnConfig {
   mfpPassword: string;
   bothLink: boolean;
   enabled: boolean;
+  tmdbApiKey?: string;
 }
 
 export interface AnimeSaturnResult {
