@@ -23,9 +23,9 @@ interface AddonConfig {
 // Base manifest configuration
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "2.0.1",
+    version: "3.0.0",
     name: "StreamViX",
-    description: "Addon for Vixsrc and AnimeUnity streams.", 
+    description: "AStreamV addon con Vixsrc, AnimeUnity e AnimeSaturn", 
     icon: "/public/icon.png",
     background: "/public/backround.png",
     types: ["movie", "series"],
@@ -39,7 +39,7 @@ const baseManifest: Manifest = {
         {
             key: "tmdbApiKey",
             title: "TMDB API Key",
-            type: "password"
+            type: "text"
         },
         {
             key: "mediaFlowProxyUrl", 
@@ -49,7 +49,7 @@ const baseManifest: Manifest = {
         {
             key: "mediaFlowProxyPassword",
             title: "MediaFlow Proxy Password ", 
-            type: "password"
+            type: "text"
         },
         {
             key: "bothLinks",
@@ -58,12 +58,12 @@ const baseManifest: Manifest = {
         },
         {
             key: "animeunityEnabled",
-            title: "Enable AnimeUnity (Kitsu Catalog)",
+            title: "Abilita AnimeUnity",
             type: "checkbox"
         },
         {
             key: "animesaturnEnabled",
-            title: "Enable AnimeSaturn (Kitsu/MAL Catalog)",
+            title: "Abilita AnimeSaturn",
             type: "checkbox"
         }
     ]
