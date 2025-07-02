@@ -152,13 +152,34 @@ function normalizeTitleForSearch(title: string): string {
   return normalized.trim();
 }
 
+// Funzione di normalizzazione caratteri speciali per titoli
+function normalizeSpecialChars(str: string): string {
+  return str
+    .replace(/'/g, '\u2019') // apostrofo normale in unicode
+    .replace(/:/g, '\u003A'); // due punti in unicode (aggiungi altri se necessario)
+}
+
+// Funzione per convertire caratteri unicode "speciali" in caratteri normali
+function normalizeUnicodeToAscii(str: string): string {
+  return str
+    .replace(/\u2019|’/g, "'") // apostrofo unicode in apostrofo normale
+    .replace(/\u2018|‘/g, "'") // apostrofo sinistro unicode
+    .replace(/\u201C|\u201D|"|"/g, '"') // virgolette unicode in doppie virgolette
+    .replace(/\u003A|:/g, ':'); // due punti unicode in normale
+}
+
 export class AnimeSaturnProvider {
   private kitsuProvider = new KitsuProvider();
   constructor(private config: AnimeSaturnConfig) {}
 
   // Ricerca tutte le versioni (AnimeSaturn non distingue SUB/ITA/CR, ma puoi inferirlo dal titolo)
   private async searchAllVersions(title: string): Promise<{ version: AnimeSaturnResult; language_type: string }[]> {
-    const results: AnimeSaturnResult[] = await invokePythonScraper(['search', '--query', title]);
+    let results: AnimeSaturnResult[] = await invokePythonScraper(['search', '--query', title]);
+    // Normalizza i titoli dei risultati per confronto robusto
+    results = results.map(r => ({
+      ...r,
+      title: normalizeUnicodeToAscii(r.title)
+    }));
     return results.map(r => {
       const nameLower = r.title.toLowerCase();
       let language_type = 'SUB';
