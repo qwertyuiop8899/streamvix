@@ -1,22 +1,13 @@
-## 🔗 Aggiunta Nuova Entry
+## 🔗 Nuova normalizzazione
 
-### Cosa aggiunge questa PR?
-- [ ] Nuova riga/entry nel file: `_____`
-- [ ] Categoria: `_____`
-
-### Dettagli della Entry
-**Nome/Titolo**: 
-**URL**: 
-**Descrizione**: 
+| Campo | Valore |
+|-------|--------|
+| **MAL English name** | <!-- AUTO --> |
+| **AnimeSaturn name** | <!-- AUTO --> |
 
 ### Checklist
-- [ ] Ho verificato che l'URL funzioni correttamente
-- [ ] Ho controllato che non sia duplicata
-- [ ] La formattazione rispetta gli standard del progetto
-- [ ] Ho testato la risorsa personalmente
+- [ ] Compilazione corretta secondo Issue
+- [ ] I test esistenti passano
+- [ ] Non rompe altre normalizzazioni
 
-### Issue Collegata
-Closes #___
-
----
-*PR generata automaticamente da issue template*
+_Questa PR è stata generata automaticamente dalla Issue #<!-- AUTO -->._
