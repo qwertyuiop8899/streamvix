@@ -98,6 +98,26 @@ function filterAnimeResults(results: { version: AnimeSaturnResult; language_type
   return filtered;
 }
 
+// Funzione di normalizzazione custom per la ricerca
+function normalizeTitleForSearch(title: string): string {
+  const replacements: Record<string, string> = {
+    'Attack on Titan': "L'attacco dei Giganti",
+    'Season': '',
+    'Shippuuden': 'Shippuden',
+    '-': '',
+    'Ore dake Level Up na Ken': 'Solo Leveling',
+    // Qui puoi aggiungere altre normalizzazioni custom
+  };
+  let normalized = title;
+  for (const [key, value] of Object.entries(replacements)) {
+    normalized = normalized.replace(key, value);
+  }
+  if (normalized.includes('Naruto:')) {
+    normalized = normalized.replace(':', '');
+  }
+  return normalized.trim();
+}
+
 export class AnimeSaturnProvider {
   private kitsuProvider = new KitsuProvider();
   constructor(private config: AnimeSaturnConfig) {}
@@ -192,11 +212,12 @@ export class AnimeSaturnProvider {
 
   // Funzione generica per gestire la ricerca dato un titolo
   async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false): Promise<{ streams: StreamForStremio[] }> {
-    console.log(`[AnimeSaturn] Titolo normalizzato per ricerca: ${title}`);
-    let animeVersions = await this.searchAllVersions(title);
-    animeVersions = filterAnimeResults(animeVersions, title);
+    const normalizedTitle = normalizeTitleForSearch(title);
+    console.log(`[AnimeSaturn] Titolo normalizzato per ricerca: ${normalizedTitle}`);
+    let animeVersions = await this.searchAllVersions(normalizedTitle);
+    animeVersions = filterAnimeResults(animeVersions, normalizedTitle);
     if (!animeVersions.length) {
-      console.warn('[AnimeSaturn] Nessun risultato trovato per il titolo:', title);
+      console.warn('[AnimeSaturn] Nessun risultato trovato per il titolo:', normalizedTitle);
       return { streams: [] };
     }
     const streams: StreamForStremio[] = [];
