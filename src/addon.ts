@@ -23,9 +23,9 @@ interface AddonConfig {
 // Base manifest configuration
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "3.0.0",
+    version: "2.0.1",
     name: "StreamViX",
-    description: "AStreamV addon con Vixsrc, AnimeUnity e AnimeSaturn", 
+    description: "Addon for Vixsrc and AnimeUnity streams.", 
     icon: "/public/icon.png",
     background: "/public/backround.png",
     types: ["movie", "series"],
@@ -39,7 +39,7 @@ const baseManifest: Manifest = {
         {
             key: "tmdbApiKey",
             title: "TMDB API Key",
-            type: "text"
+            type: "password"
         },
         {
             key: "mediaFlowProxyUrl", 
@@ -49,7 +49,7 @@ const baseManifest: Manifest = {
         {
             key: "mediaFlowProxyPassword",
             title: "MediaFlow Proxy Password ", 
-            type: "text"
+            type: "password"
         },
         {
             key: "bothLinks",
@@ -58,12 +58,12 @@ const baseManifest: Manifest = {
         },
         {
             key: "animeunityEnabled",
-            title: "Abilita AnimeUnity",
+            title: "Enable AnimeUnity (Kitsu Catalog)",
             type: "checkbox"
         },
         {
             key: "animesaturnEnabled",
-            title: "Abilita AnimeSaturn",
+            title: "Enable AnimeSaturn (Kitsu/MAL Catalog)",
             type: "checkbox"
         }
     ]
@@ -204,7 +204,9 @@ function createBuilder(config: AddonConfig = {}) {
                             }
                             if (animeUnityResult && animeUnityResult.streams) {
                                 animeUnityStreams = animeUnityResult.streams;
-                                allStreams.push(...animeUnityResult.streams);
+                                for (const s of animeUnityResult.streams) {
+                                    allStreams.push({ ...s, name: 'StreamViX AU' });
+                                }
                             }
                         } catch (error) {
                             console.error('🚨 AnimeUnity error:', error);
@@ -231,7 +233,9 @@ function createBuilder(config: AddonConfig = {}) {
                             }
                             if (animeSaturnResult && animeSaturnResult.streams) {
                                 animeSaturnStreams = animeSaturnResult.streams;
-                                allStreams.push(...animeSaturnResult.streams);
+                                for (const s of animeSaturnResult.streams) {
+                                    allStreams.push({ ...s, name: 'StreamViX AS' });
+                                }
                             }
                         } catch (error) {
                             console.error('[AnimeSaturn] Errore:', error);
@@ -265,11 +269,9 @@ function createBuilder(config: AddonConfig = {}) {
                             
                             console.log(`Adding stream with title: "${st.name}"`);
 
-                            const streamName = st.source === 'proxy' ? 'StreamViX (Proxy)' : 'StreamViX';
-                            
                             allStreams.push({
                                 title: st.name,
-                                name: streamName,
+                                name: 'StreamViX Vx',
                                 url: st.streamUrl,
                                 behaviorHints: {
                                     notWebReady: true,
