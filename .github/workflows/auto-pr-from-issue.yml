@@ -1,0 +1,33 @@
+name: Auto PR da Issue
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  create-pr:
+    if: contains(github.event.issue.labels.*.name, 'richiesta')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Estrai dati dall'issue
+        id: parse-issue
+        run: |
+          # Script per estrarre i dati dal corpo dell'issue
+          # e creare la nuova riga nel file appropriato
+          
+      - name: Crea PR automatica
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Aggiungi: ${{ steps.parse-issue.outputs.title }}"
+          title: "[AUTO] Aggiunta: ${{ steps.parse-issue.outputs.title }}"
+          body: |
+            Aggiunta automatica da issue #${{ github.event.issue.number }}
+            
+            **Entry**: ${{ steps.parse-issue.outputs.title }}
+            **URL**: ${{ steps.parse-issue.outputs.url }}
+            **Categoria**: ${{ steps.parse-issue.outputs.categoria }}
+          branch: aggiunta-${{ github.event.issue.number }}
