@@ -17,7 +17,7 @@ body:
     id: mal_name
     attributes:
       label: MAL English name
-      placeholder: Esempio Slam Dunk: National Domination! Sakuragi Hanamichi
+      placeholder: Naruto : Shipuuden
     validations:
       required: true
 
@@ -25,7 +25,7 @@ body:
     id: as_name
     attributes:
       label: AnimeSaturn name
-      placeholder: Esempio Slam Dunk: Zenkoku Seiha Da! Sakuragi Hanamichi
+      placeholder: Naruto : Shipuden
     validations:
       required: true
 
