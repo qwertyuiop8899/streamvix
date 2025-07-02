@@ -17,7 +17,7 @@ body:
     id: mal_name
     attributes:
       label: MAL English name
-      placeholder: Naruto : Shipuuden
+      placeholder: Slam Dunk National Domination! Sakuragi Hanamichi
     validations:
       required: true
 
@@ -25,7 +25,7 @@ body:
     id: as_name
     attributes:
       label: AnimeSaturn name
-      placeholder: Naruto : Shipuden
+      placeholder: Slam Dunk Zenkoku Seiha Da! Sakuragi Hanamichi
     validations:
       required: true
 
