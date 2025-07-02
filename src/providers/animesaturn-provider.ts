@@ -138,6 +138,7 @@ function normalizeTitleForSearch(title: string): string {
     'Shippuuden': 'Shippuden',
     '-': '',
     'Ore dake Level Up na Ken': 'Solo Leveling',
+    'Lupin the Third: The Woman Called Fujiko Mine': 'Lupin III - La donna chiamata Fujiko Mine '
     // Qui puoi aggiungere altre normalizzazioni custom
   };
   let normalized = title;
