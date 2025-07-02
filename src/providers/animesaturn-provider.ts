@@ -42,40 +42,76 @@ async function invokePythonScraper(args: string[]): Promise<any> {
 // Funzione universale per ottenere il titolo inglese da qualsiasi ID
 async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|'mal'): Promise<string> {
   let malId: string | null = null;
+  let tmdbId: string | null = null;
+  let fallbackTitle: string | null = null;
+  const tmdbApiKey = process.env.TMDB_API_KEY || '';
   if (type === 'imdb') {
-    // Devi implementare la conversione IMDB -> TMDB (usa la tua funzione esistente)
-    // Qui simuliamo che tu abbia una funzione getTmdbIdFromImdbId
+    if (!tmdbApiKey) throw new Error('TMDB_API_KEY non configurata');
     const { getTmdbIdFromImdbId } = await import('../extractor');
-    const tmdbId = await getTmdbIdFromImdbId(id);
+    tmdbId = await getTmdbIdFromImdbId(id, tmdbApiKey);
     if (!tmdbId) throw new Error('TMDB ID non trovato per IMDB: ' + id);
-    // Poi TMDB -> MAL
-    const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
-    malId = haglundResp[0]?.myanimelist?.toString() || null;
+    // Prova TMDB -> MAL
+    try {
+      const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
+      malId = haglundResp[0]?.myanimelist?.toString() || null;
+    } catch {}
   } else if (type === 'tmdb') {
-    const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${id}&include=kitsu,myanimelist`)).json();
-    malId = haglundResp[0]?.myanimelist?.toString() || null;
+    tmdbId = id;
+    try {
+      const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
+      malId = haglundResp[0]?.myanimelist?.toString() || null;
+    } catch {}
   } else if (type === 'kitsu') {
-    // Kitsu -> MAL
     const mappingsResp = await (await fetch(`https://kitsu.io/api/edge/anime/${id}/mappings`)).json();
     const malMapping = mappingsResp.data?.find((m: any) => m.attributes.externalSite === 'myanimelist/anime');
     malId = malMapping?.attributes?.externalId?.toString() || null;
   } else if (type === 'mal') {
     malId = id;
   }
-  if (!malId) throw new Error('MAL ID non trovato per ' + type + ': ' + id);
-  // Ora prendi il titolo inglese da Jikan
-  const jikanResp = await (await fetch(`https://api.jikan.moe/v4/anime/${malId}`)).json();
-  let englishTitle = '';
-  if (jikanResp.data && Array.isArray(jikanResp.data.titles)) {
-    const en = jikanResp.data.titles.find((t: any) => t.type === 'English');
-    englishTitle = en?.title || '';
+  // Prova a ottenere il titolo inglese da Jikan
+  if (malId) {
+    try {
+      const jikanResp = await (await fetch(`https://api.jikan.moe/v4/anime/${malId}`)).json();
+      let englishTitle = '';
+      if (jikanResp.data && Array.isArray(jikanResp.data.titles)) {
+        const en = jikanResp.data.titles.find((t: any) => t.type === 'English');
+        englishTitle = en?.title || '';
+      }
+      if (!englishTitle && jikanResp.data) {
+        englishTitle = jikanResp.data.title_english || jikanResp.data.title || jikanResp.data.title_japanese || '';
+      }
+      if (englishTitle) {
+        console.log(`[UniversalTitle] Titolo inglese trovato da Jikan: ${englishTitle}`);
+        return englishTitle;
+      }
+    } catch (err) {
+      console.warn('[UniversalTitle] Errore Jikan, provo fallback TMDB:', err);
+    }
   }
-  if (!englishTitle && jikanResp.data) {
-    englishTitle = jikanResp.data.title_english || jikanResp.data.title || jikanResp.data.title_japanese || '';
+  // Fallback: prendi titolo da TMDB
+  if (tmdbId && tmdbApiKey) {
+    try {
+      // Prova come serie
+      let tmdbResp = await (await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${tmdbApiKey}`)).json();
+      if (tmdbResp && tmdbResp.name) {
+        fallbackTitle = tmdbResp.name;
+      }
+      // Se non trovato, prova come film
+      if (!fallbackTitle) {
+        tmdbResp = await (await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${tmdbApiKey}`)).json();
+        if (tmdbResp && tmdbResp.title) {
+          fallbackTitle = tmdbResp.title;
+        }
+      }
+      if (fallbackTitle) {
+        console.warn(`[UniversalTitle] Fallback: uso titolo da TMDB: ${fallbackTitle}`);
+        return fallbackTitle;
+      }
+    } catch (err) {
+      console.warn('[UniversalTitle] Errore fallback TMDB:', err);
+    }
   }
-  if (!englishTitle) throw new Error('Titolo inglese non trovato su Jikan per MAL: ' + malId);
-  console.log(`[UniversalTitle] Titolo inglese trovato: ${englishTitle}`);
-  return englishTitle;
+  throw new Error('Impossibile ottenere titolo inglese da nessuna fonte per ' + id);
 }
 
 // Funzione filtro risultati
