@@ -12,6 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Debug step (opzionale, rimuovi dopo il test)
+      - name: Debug labels
+        run: |
+          echo "Issue labels: ${{ github.event.issue.labels.*.name }}"
+
       # 1. Estrai i dati dal corpo dell'Issue Form
       - id: parse
         run: |
