@@ -112,28 +112,38 @@ export class AnimeSaturnProvider {
 
   // Funzione generica per gestire la ricerca dato un titolo
   async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false): Promise<{ streams: StreamForStremio[] }> {
+    console.log(`[AnimeSaturn] Titolo normalizzato per ricerca: ${title}`);
     const animeVersions = await this.searchAllVersions(title);
-    if (!animeVersions.length) return { streams: [] };
+    console.log(`[AnimeSaturn] Risultati searchAllVersions:`, animeVersions.map(v => v.version.title));
+    if (!animeVersions.length) {
+      console.warn('[AnimeSaturn] Nessun risultato trovato per il titolo:', title);
+      return { streams: [] };
+    }
     const streams: StreamForStremio[] = [];
     for (const { version, language_type } of animeVersions) {
       const episodes: AnimeSaturnEpisode[] = await invokePythonScraper(['get_episodes', '--anime-url', version.url]);
+      console.log(`[AnimeSaturn] Episodi trovati per ${version.title}:`, episodes.map(e => e.title));
       let targetEpisode: AnimeSaturnEpisode | undefined;
       if (isMovie) {
         targetEpisode = episodes[0];
+        console.log(`[AnimeSaturn] Selezionato primo episodio (movie):`, targetEpisode?.title);
       } else if (episodeNumber != null) {
-        // Cerca episodio con numero corrispondente (es. E5)
         targetEpisode = episodes.find(ep => {
           const match = ep.title.match(/E(\d+)/i);
           if (match) {
             return parseInt(match[1]) === episodeNumber;
           }
-          // fallback: cerca per numero puro
           return ep.title.includes(String(episodeNumber));
         });
+        console.log(`[AnimeSaturn] Episodio selezionato per E${episodeNumber}:`, targetEpisode?.title);
       } else {
         targetEpisode = episodes[0];
+        console.log(`[AnimeSaturn] Selezionato primo episodio (default):`, targetEpisode?.title);
       }
-      if (!targetEpisode) continue;
+      if (!targetEpisode) {
+        console.warn(`[AnimeSaturn] Nessun episodio trovato per la richiesta: S${seasonNumber}E${episodeNumber}`);
+        continue;
+      }
       const streamResult = await invokePythonScraper(['get_stream', '--episode-url', targetEpisode.url]);
       let streamUrl = streamResult.url;
       let streamHeaders = streamResult.headers || undefined;
