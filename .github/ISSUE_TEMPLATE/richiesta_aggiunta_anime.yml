@@ -13,6 +13,12 @@ body:
         | MAL English name | Slam Dunk: National Domination! Sakuragi Hanamichi |
         | AnimeSaturn name | Slam Dunk: Zenkoku Seiha Da! Sakuragi Hanamichi |
 
+# Adare su https://myanimelist.net/ cercare il titolo e usare il nome in basso al titolo originale (è grigio più scuro) 
+#
+# Per AnimeSatur andare su https://www.animesaturn.cx/ cercare il titolo, 
+# apritelo e copiate il nome del titolo senza info sulla lingua sub ita o (ITA) copiare solamente il nome
+# per esempio Dan Da Dan Sub ITA, copiare solamente Dan Da Dan
+
   - type: input
     id: mal_name
     attributes:
