@@ -40,17 +40,16 @@ async function invokePythonScraper(args: string[]): Promise<any> {
 }
 
 // Funzione universale per ottenere il titolo inglese da qualsiasi ID
-async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|'mal'): Promise<string> {
+async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|'mal', tmdbApiKey?: string): Promise<string> {
   let malId: string | null = null;
   let tmdbId: string | null = null;
   let fallbackTitle: string | null = null;
-  const tmdbApiKey = process.env.TMDB_API_KEY || '';
+  const tmdbKey = tmdbApiKey || process.env.TMDB_API_KEY || '';
   if (type === 'imdb') {
-    if (!tmdbApiKey) throw new Error('TMDB_API_KEY non configurata');
+    if (!tmdbKey) throw new Error('TMDB_API_KEY non configurata');
     const { getTmdbIdFromImdbId } = await import('../extractor');
-    tmdbId = await getTmdbIdFromImdbId(id, tmdbApiKey);
+    tmdbId = await getTmdbIdFromImdbId(id, tmdbKey);
     if (!tmdbId) throw new Error('TMDB ID non trovato per IMDB: ' + id);
-    // Prova TMDB -> MAL
     try {
       const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
       malId = haglundResp[0]?.myanimelist?.toString() || null;
@@ -68,7 +67,6 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
   } else if (type === 'mal') {
     malId = id;
   }
-  // Prova a ottenere il titolo inglese da Jikan
   if (malId) {
     try {
       const jikanResp = await (await fetch(`https://api.jikan.moe/v4/anime/${malId}`)).json();
@@ -88,17 +86,14 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
       console.warn('[UniversalTitle] Errore Jikan, provo fallback TMDB:', err);
     }
   }
-  // Fallback: prendi titolo da TMDB
-  if (tmdbId && tmdbApiKey) {
+  if (tmdbId && tmdbKey) {
     try {
-      // Prova come serie
-      let tmdbResp = await (await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${tmdbApiKey}`)).json();
+      let tmdbResp = await (await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${tmdbKey}`)).json();
       if (tmdbResp && tmdbResp.name) {
         fallbackTitle = tmdbResp.name;
       }
-      // Se non trovato, prova come film
       if (!fallbackTitle) {
-        tmdbResp = await (await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${tmdbApiKey}`)).json();
+        tmdbResp = await (await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${tmdbKey}`)).json();
         if (tmdbResp && tmdbResp.title) {
           fallbackTitle = tmdbResp.title;
         }
@@ -180,7 +175,7 @@ export class AnimeSaturnProvider {
     }
     try {
       const { kitsuId, seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(kitsuIdString);
-      const englishTitle = await getEnglishTitleFromAnyId(kitsuId, 'kitsu');
+      const englishTitle = await getEnglishTitleFromAnyId(kitsuId, 'kitsu', this.config.tmdbApiKey);
       console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
     } catch (error) {
@@ -209,7 +204,7 @@ export class AnimeSaturnProvider {
         seasonNumber = parseInt(parts[2]);
         episodeNumber = parseInt(parts[3]);
       }
-      const englishTitle = await getEnglishTitleFromAnyId(malId, 'mal');
+      const englishTitle = await getEnglishTitleFromAnyId(malId, 'mal', this.config.tmdbApiKey);
       console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
     } catch (error) {
@@ -223,7 +218,7 @@ export class AnimeSaturnProvider {
       return { streams: [] };
     }
     try {
-      const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb');
+      const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
       console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
     } catch (error) {
@@ -237,7 +232,7 @@ export class AnimeSaturnProvider {
       return { streams: [] };
     }
     try {
-      const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb');
+      const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
       console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
     } catch (error) {
