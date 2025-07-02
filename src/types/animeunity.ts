@@ -46,3 +46,20 @@ export interface StreamForStremio {
     [key: string]: any;
   };
 }
+
+export interface AnimeSaturnConfig {
+  mfpUrl: string;
+  mfpPassword: string;
+  bothLink: boolean;
+  enabled: boolean;
+}
+
+export interface AnimeSaturnResult {
+  title: string;
+  url: string;
+}
+
+export interface AnimeSaturnEpisode {
+  title: string;
+  url: string;
+}
