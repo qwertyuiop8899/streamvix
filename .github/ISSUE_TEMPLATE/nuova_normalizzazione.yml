@@ -1,7 +1,7 @@
 name: 🌐 Nuova normalizzazione titolo
 description: Proponi una coppia MAL → AnimeSaturn da aggiungere alla funzione normalizeTitleForSearch
 title: "[NORMALIZZA]: "
-labels: ["richiesta", "normalizzazione"]
+labels: ["normalizzazione"]
 
 body:
   - type: markdown
