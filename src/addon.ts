@@ -145,8 +145,12 @@ function createBuilder(config: AddonConfig = {}) {
                 const animeUnityEnabled = (config.animeunityEnabled === 'on') || 
                                         (process.env.ANIMEUNITY_ENABLED?.toLowerCase() === 'true');
                 
-                // Gestione parallela AnimeUnity e AnimeSaturn per ID Kitsu o MAL
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:')) && (animeUnityEnabled || config.animesaturnEnabled === 'on')) {
+                // Gestione AnimeSaturn per ID Kitsu o MAL con fallback variabile ambiente
+                const animeSaturnEnabled = (config.animesaturnEnabled === 'on') || 
+                                        (process.env.ANIMESATURN_ENABLED?.toLowerCase() === 'true');
+                
+                // Gestione parallela AnimeUnity e AnimeSaturn per ID Kitsu, MAL, IMDB, TMDB
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled)) {
                     const bothLinkValue = config.bothLinks === 'on';
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
@@ -155,13 +159,29 @@ function createBuilder(config: AddonConfig = {}) {
                         bothLink: bothLinkValue
                     };
                     const animeSaturnConfig = {
-                        enabled: config.animesaturnEnabled === 'on',
+                        enabled: animeSaturnEnabled,
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
                         mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
                         bothLink: bothLinkValue
                     };
                     let animeUnityStreams: Stream[] = [];
                     let animeSaturnStreams: Stream[] = [];
+                    // Parsing stagione/episodio per IMDB/TMDB
+                    let seasonNumber: number | null = null;
+                    let episodeNumber: number | null = null;
+                    let isMovie = false;
+                    if (id.startsWith('tt') || id.startsWith('tmdb:')) {
+                        // Esempio: tt1234567:1:2 oppure tmdb:12345:1:2
+                        const parts = id.split(':');
+                        if (parts.length === 1) {
+                            isMovie = true;
+                        } else if (parts.length === 2) {
+                            episodeNumber = parseInt(parts[1]);
+                        } else if (parts.length === 3) {
+                            seasonNumber = parseInt(parts[1]);
+                            episodeNumber = parseInt(parts[2]);
+                        }
+                    }
                     // AnimeUnity
                     if (animeUnityEnabled) {
                         try {
@@ -173,6 +193,12 @@ function createBuilder(config: AddonConfig = {}) {
                             } else if (id.startsWith('mal:')) {
                                 console.log(`[AnimeUnity] Processing MAL ID: ${id}`);
                                 animeUnityResult = await animeUnityProvider.handleMalRequest(id);
+                            } else if (id.startsWith('tt')) {
+                                console.log(`[AnimeUnity] Processing IMDB ID: ${id}`);
+                                animeUnityResult = await animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            } else if (id.startsWith('tmdb:')) {
+                                console.log(`[AnimeUnity] Processing TMDB ID: ${id}`);
+                                animeUnityResult = await animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             }
                             if (animeUnityResult && animeUnityResult.streams) {
                                 animeUnityStreams = animeUnityResult.streams;
@@ -183,7 +209,7 @@ function createBuilder(config: AddonConfig = {}) {
                         }
                     }
                     // AnimeSaturn
-                    if (config.animesaturnEnabled === 'on') {
+                    if (animeSaturnEnabled) {
                         try {
                             const { AnimeSaturnProvider } = await import('./providers/animesaturn-provider');
                             const animeSaturnProvider = new AnimeSaturnProvider(animeSaturnConfig);
@@ -194,6 +220,12 @@ function createBuilder(config: AddonConfig = {}) {
                             } else if (id.startsWith('mal:')) {
                                 console.log(`[AnimeSaturn] Processing MAL ID: ${id}`);
                                 animeSaturnResult = await animeSaturnProvider.handleMalRequest(id);
+                            } else if (id.startsWith('tt')) {
+                                console.log(`[AnimeSaturn] Processing IMDB ID: ${id}`);
+                                animeSaturnResult = await animeSaturnProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            } else if (id.startsWith('tmdb:')) {
+                                console.log(`[AnimeSaturn] Processing TMDB ID: ${id}`);
+                                animeSaturnResult = await animeSaturnProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             }
                             if (animeSaturnResult && animeSaturnResult.streams) {
                                 animeSaturnStreams = animeSaturnResult.streams;
