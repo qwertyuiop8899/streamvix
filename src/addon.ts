@@ -145,59 +145,63 @@ function createBuilder(config: AddonConfig = {}) {
                 const animeUnityEnabled = (config.animeunityEnabled === 'on') || 
                                         (process.env.ANIMEUNITY_ENABLED?.toLowerCase() === 'true');
                 
-                if (animeUnityEnabled && (id.startsWith('kitsu:') || id.startsWith('mal:'))) {
-                    console.log(`🎌 Processing Kitsu or MAL ID: ${id}`);
-                    try {
-                        const bothLinkValue = config.bothLinks === 'on';
-                        const animeUnityConfig: AnimeUnityConfig = {
-                            enabled: true,
-                            mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
-                            mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
-                            bothLink: bothLinkValue
-                        };
-                        const animeUnityProvider = new AnimeUnityProvider(animeUnityConfig);
-                        let animeUnityResult;
-                        if (id.startsWith('kitsu:')) {
-                            animeUnityResult = await animeUnityProvider.handleKitsuRequest(id);
-                        } else if (id.startsWith('mal:')) {
-                            animeUnityResult = await animeUnityProvider.handleMalRequest(id);
+                // Gestione parallela AnimeUnity e AnimeSaturn per ID Kitsu o MAL
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:')) && (animeUnityEnabled || config.animesaturnEnabled === 'on')) {
+                    const bothLinkValue = config.bothLinks === 'on';
+                    const animeUnityConfig: AnimeUnityConfig = {
+                        enabled: animeUnityEnabled,
+                        mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
+                        mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
+                        bothLink: bothLinkValue
+                    };
+                    const animeSaturnConfig = {
+                        enabled: config.animesaturnEnabled === 'on',
+                        mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
+                        mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
+                        bothLink: bothLinkValue
+                    };
+                    let animeUnityStreams: Stream[] = [];
+                    let animeSaturnStreams: Stream[] = [];
+                    // AnimeUnity
+                    if (animeUnityEnabled) {
+                        try {
+                            const animeUnityProvider = new AnimeUnityProvider(animeUnityConfig);
+                            let animeUnityResult;
+                            if (id.startsWith('kitsu:')) {
+                                console.log(`[AnimeUnity] Processing Kitsu ID: ${id}`);
+                                animeUnityResult = await animeUnityProvider.handleKitsuRequest(id);
+                            } else if (id.startsWith('mal:')) {
+                                console.log(`[AnimeUnity] Processing MAL ID: ${id}`);
+                                animeUnityResult = await animeUnityProvider.handleMalRequest(id);
+                            }
+                            if (animeUnityResult && animeUnityResult.streams) {
+                                animeUnityStreams = animeUnityResult.streams;
+                                allStreams.push(...animeUnityResult.streams);
+                            }
+                        } catch (error) {
+                            console.error('🚨 AnimeUnity error:', error);
                         }
-                        if (animeUnityResult && animeUnityResult.streams) {
-                            allStreams.push(...animeUnityResult.streams);
-                        }
-                    } catch (error) {
-                        console.error('🚨 AnimeUnity error:', error);
                     }
-                }
-                
-                // Gestione AnimeSaturn per ID animesaturn:
-                const animeSaturnEnabled = (config.animesaturnEnabled === 'on') || 
-                                        (process.env.ANIMESATURN_ENABLED?.toLowerCase() === 'true');
-                if (animeSaturnEnabled && id.startsWith('animesaturn:')) {
-                    try {
-                        const bothLinkValue = config.bothLinks === 'on';
-                        const animeSaturnConfig = {
-                            enabled: true,
-                            mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
-                            mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
-                            bothLink: bothLinkValue
-                        };
-                        const { AnimeSaturnProvider } = await import('./providers/animesaturn-provider');
-                        const animeSaturnProvider = new AnimeSaturnProvider(animeSaturnConfig);
-                        let animeSaturnResult;
-                        if (id.startsWith('animesaturn:kitsu:')) {
-                            animeSaturnResult = await animeSaturnProvider.handleKitsuRequest(id.replace('animesaturn:', ''));
-                        } else if (id.startsWith('animesaturn:mal:')) {
-                            animeSaturnResult = await animeSaturnProvider.handleMalRequest(id.replace('animesaturn:', ''));
-                        } else {
-                            // fallback: tratta tutto dopo animesaturn: come titolo
-                            animeSaturnResult = await animeSaturnProvider.handleTitleRequest(id.replace('animesaturn:', ''), 1, 1);
+                    // AnimeSaturn
+                    if (config.animesaturnEnabled === 'on') {
+                        try {
+                            const { AnimeSaturnProvider } = await import('./providers/animesaturn-provider');
+                            const animeSaturnProvider = new AnimeSaturnProvider(animeSaturnConfig);
+                            let animeSaturnResult;
+                            if (id.startsWith('kitsu:')) {
+                                console.log(`[AnimeSaturn] Processing Kitsu ID: ${id}`);
+                                animeSaturnResult = await animeSaturnProvider.handleKitsuRequest(id);
+                            } else if (id.startsWith('mal:')) {
+                                console.log(`[AnimeSaturn] Processing MAL ID: ${id}`);
+                                animeSaturnResult = await animeSaturnProvider.handleMalRequest(id);
+                            }
+                            if (animeSaturnResult && animeSaturnResult.streams) {
+                                animeSaturnStreams = animeSaturnResult.streams;
+                                allStreams.push(...animeSaturnResult.streams);
+                            }
+                        } catch (error) {
+                            console.error('[AnimeSaturn] Errore:', error);
                         }
-                        if (animeSaturnResult && animeSaturnResult.streams) {
-                            allStreams.push(...animeSaturnResult.streams);
-                        }
-                    } catch (error) {
-                        console.error('🚨 AnimeSaturn error:', error);
                     }
                 }
                 
