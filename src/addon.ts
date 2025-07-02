@@ -156,13 +156,15 @@ function createBuilder(config: AddonConfig = {}) {
                         enabled: animeUnityEnabled,
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
                         mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
-                        bothLink: bothLinkValue
+                        bothLink: bothLinkValue,
+                        tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || ''
                     };
                     const animeSaturnConfig = {
                         enabled: animeSaturnEnabled,
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
                         mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
-                        bothLink: bothLinkValue
+                        bothLink: bothLinkValue,
+                        tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || ''
                     };
                     let animeUnityStreams: Stream[] = [];
                     let animeSaturnStreams: Stream[] = [];
