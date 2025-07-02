@@ -39,7 +39,7 @@ const baseManifest: Manifest = {
         {
             key: "tmdbApiKey",
             title: "TMDB API Key",
-            type: "password"
+            type: "text"
         },
         {
             key: "mediaFlowProxyUrl", 
@@ -49,7 +49,7 @@ const baseManifest: Manifest = {
         {
             key: "mediaFlowProxyPassword",
             title: "MediaFlow Proxy Password ", 
-            type: "password"
+            type: "text"
         },
         {
             key: "bothLinks",
@@ -58,12 +58,12 @@ const baseManifest: Manifest = {
         },
         {
             key: "animeunityEnabled",
-            title: "Enable AnimeUnity (Kitsu Catalog)",
+            title: "Enable AnimeUnity",
             type: "checkbox"
         },
         {
             key: "animesaturnEnabled",
-            title: "Enable AnimeSaturn (Kitsu/MAL Catalog)",
+            title: "Enable AnimeSaturn",
             type: "checkbox"
         }
     ]
