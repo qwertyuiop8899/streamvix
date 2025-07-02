@@ -67,6 +67,59 @@ interface AnimeUnityStreamData {
     mp4_url: string;
 }
 
+// Funzione universale per ottenere il titolo inglese da qualsiasi ID
+async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|'mal'): Promise<string> {
+  let malId: string | null = null;
+  if (type === 'imdb') {
+    const { getTmdbIdFromImdbId } = await import('../extractor');
+    const tmdbId = await getTmdbIdFromImdbId(id);
+    if (!tmdbId) throw new Error('TMDB ID non trovato per IMDB: ' + id);
+    const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
+    malId = haglundResp[0]?.myanimelist?.toString() || null;
+  } else if (type === 'tmdb') {
+    const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${id}&include=kitsu,myanimelist`)).json();
+    malId = haglundResp[0]?.myanimelist?.toString() || null;
+  } else if (type === 'kitsu') {
+    const mappingsResp = await (await fetch(`https://kitsu.io/api/edge/anime/${id}/mappings`)).json();
+    const malMapping = mappingsResp.data?.find((m: any) => m.attributes.externalSite === 'myanimelist/anime');
+    malId = malMapping?.attributes?.externalId?.toString() || null;
+  } else if (type === 'mal') {
+    malId = id;
+  }
+  if (!malId) throw new Error('MAL ID non trovato per ' + type + ': ' + id);
+  const jikanResp = await (await fetch(`https://api.jikan.moe/v4/anime/${malId}`)).json();
+  let englishTitle = '';
+  if (jikanResp.data && Array.isArray(jikanResp.data.titles)) {
+    const en = jikanResp.data.titles.find((t: any) => t.type === 'English');
+    englishTitle = en?.title || '';
+  }
+  if (!englishTitle && jikanResp.data) {
+    englishTitle = jikanResp.data.title_english || jikanResp.data.title || jikanResp.data.title_japanese || '';
+  }
+  if (!englishTitle) throw new Error('Titolo inglese non trovato su Jikan per MAL: ' + malId);
+  console.log(`[UniversalTitle] Titolo inglese trovato: ${englishTitle}`);
+  return englishTitle;
+}
+
+function filterAnimeResults(results: { version: AnimeUnitySearchResult; language_type: string }[], englishTitle: string) {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+  const base = norm(englishTitle);
+  const allowed = [
+    base,
+    `${base} (ita)`,
+    `${base} (cr)`,
+    `${base} (ita) (cr)`
+  ];
+  const isAllowed = (title: string) => {
+    const t = norm(title.replace(/\s*\([^)]*\)/g, match => match.toLowerCase()));
+    return allowed.some(a => t === a);
+  };
+  const filtered = results.filter(r => isAllowed(r.version.name));
+  console.log(`[UniversalTitle] Risultati prima del filtro:`, results.map(r => r.version.name));
+  console.log(`[UniversalTitle] Risultati dopo il filtro:`, filtered.map(r => r.version.name));
+  return filtered;
+}
+
 export class AnimeUnityProvider {
   private kitsuProvider = new KitsuProvider();
 
@@ -101,126 +154,9 @@ export class AnimeUnityProvider {
 
     try {
       const { kitsuId, seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(kitsuIdString);
-      const animeInfo = await this.kitsuProvider.getAnimeInfo(kitsuId);
-      if (!animeInfo) {
-        return { streams: [] };
-      }
-
-      // 1. Prova a recuperare l'ID MAL tramite API Kitsu
-      let malId: string | null = null;
-      try {
-        const mappingsUrl = `https://kitsu.io/api/edge/anime/${kitsuId}/mappings`;
-        const resp = await axios.get(mappingsUrl, { timeout: 10000 });
-        const mappings = resp.data.data;
-        const malMapping = mappings.find((m: any) => m.attributes.externalSite === 'myanimelist/anime');
-        if (malMapping) {
-          malId = malMapping.attributes.externalId;
-          console.log(`[AnimeUnity][DEBUG] KitsuID ${kitsuId} -> MAL ID trovato: ${malId}`);
-        } else {
-          console.log(`[AnimeUnity][DEBUG] KitsuID ${kitsuId} -> Nessun MAL ID trovato nei mappings`);
-        }
-      } catch (err) {
-        console.warn('[AnimeUnity] Errore nel recupero mapping MAL da Kitsu:', err);
-      }
-
-      // 2. Se trovato, chiama handleMalRequest con la stringa mal:ID[:STAGIONE][:EPISODIO]
-      if (malId) {
-        let malIdString = `mal:${malId}`;
-        if (!isMovie && episodeNumber) {
-          if (seasonNumber) {
-            malIdString += `:${seasonNumber}:${episodeNumber}`;
-          } else {
-            malIdString += `:${episodeNumber}`;
-          }
-        }
-        return await this.handleMalRequest(malIdString);
-      }
-
-      // 3. Fallback: ricerca col titolo Kitsu
-      console.log(`[AnimeUnity] Titolo Kitsu: ${animeInfo.title}`);
-      const normalizedTitle = this.kitsuProvider.normalizeTitle(animeInfo.title);
-      console.log(`[AnimeUnity] Titolo normalizzato per ricerca: ${normalizedTitle}`);
-      const animeVersions = await this.searchAllVersions(normalizedTitle);
-      if (!animeVersions.length) {
-        return { streams: [] };
-      }
-      if (isMovie) {
-        const episodeToFind = "1";
-        const streams: StreamForStremio[] = [];
-        for (const { version, language_type } of animeVersions) {
-          const episodes: AnimeUnityEpisode[] = await invokePythonScraper(['get_episodes', '--anime-id', String(version.id)]);
-          const targetEpisode = episodes.find(ep => ep.number === episodeToFind);
-          if (targetEpisode) {
-            const streamResult: AnimeUnityStreamData = await invokePythonScraper([
-              'get_stream',
-              '--anime-id', String(version.id),
-              '--anime-slug', version.slug,
-              '--episode-id', String(targetEpisode.id)
-            ]);
-            if (streamResult.mp4_url) {
-              streams.push({
-                title: `🎬 AnimeUnity ${language_type} (Movie)`,
-                url: streamResult.mp4_url,
-                behaviorHints: { notWebReady: true }
-              });
-            }
-          }
-        }
-        return { streams };
-      }
-      const streams: StreamForStremio[] = [];
-      for (const { version, language_type } of animeVersions) {
-        try {
-          const episodes: AnimeUnityEpisode[] = await invokePythonScraper(['get_episodes', '--anime-id', String(version.id)]);
-          const targetEpisode = episodes.find(ep => String(ep.number) === String(episodeNumber));
-          if (!targetEpisode) continue;
-          const streamResult: AnimeUnityStreamData = await invokePythonScraper([
-            'get_stream',
-            '--anime-id', String(version.id),
-            '--anime-slug', version.slug,
-            '--episode-id', String(targetEpisode.id)
-          ]);
-          if (streamResult.mp4_url) {
-            const mediaFlowUrl = formatMediaFlowUrl(
-              streamResult.mp4_url,
-              this.config.mfpUrl,
-              this.config.mfpPassword
-            );
-            const cleanName = version.name
-              .replace(/\s*\(ITA\)/i, '')
-              .replace(/\s*\(CR\)/i, '')
-              .replace(/ITA/gi, '')
-              .replace(/CR/gi, '')
-              .trim();
-            const isDub = language_type === 'DUB';
-            const mainName = isDub ? `${cleanName} ITA` : cleanName;
-            const sNum = seasonNumber || 1;
-            let streamTitle = `${capitalize(cleanName)} ${language_type} S${sNum}`;
-            if (episodeNumber) {
-              streamTitle += `E${episodeNumber}`;
-            }
-            streams.push({
-              title: streamTitle,
-              url: mediaFlowUrl,
-              behaviorHints: {
-                notWebReady: true
-              }
-            });
-            if (this.config.bothLink && streamResult.embed_url) {
-              streams.push({
-                title: `[E] ${streamTitle}`,
-                url: streamResult.embed_url,
-                behaviorHints: {
-                  notWebReady: true
-                }
-              });
-            }
-          }
-        } catch (error) {
-          console.error(`Error processing version ${language_type}:`, error);
-        }
-      }
-      return { streams };
+      const englishTitle = await getEnglishTitleFromAnyId(kitsuId, 'kitsu');
+      console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
+      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
     } catch (error) {
       console.error('Error handling Kitsu request:', error);
       return { streams: [] };
@@ -235,7 +171,6 @@ export class AnimeUnityProvider {
       return { streams: [] };
     }
     try {
-      // Parsing: mal:ID[:STAGIONE][:EPISODIO]
       const parts = malIdString.split(':');
       if (parts.length < 2) throw new Error('Formato MAL ID non valido. Usa: mal:ID o mal:ID:EPISODIO o mal:ID:STAGIONE:EPISODIO');
       const malId = parts[1];
@@ -250,103 +185,112 @@ export class AnimeUnityProvider {
         seasonNumber = parseInt(parts[2]);
         episodeNumber = parseInt(parts[3]);
       }
-      // Prendi titolo da Jikan
-      const jikanUrl = `https://api.jikan.moe/v4/anime/${malId}`;
-      const jikanResp = await axios.get(jikanUrl, { timeout: 10000 });
-      const malData = jikanResp.data.data;
-      const title = malData.title_english || malData.title || malData.title_japanese;
-      if (!title) throw new Error('Titolo non trovato su Jikan/MAL');
-      // Normalizza titolo come per Kitsu
-      const normalizedTitle = this.kitsuProvider.normalizeTitle(title);
-      const animeVersions = await this.searchAllVersions(normalizedTitle);
-      if (!animeVersions.length) {
-        return { streams: [] };
-      }
-      // Log titoli
-      console.log(`[AnimeUnity] Titolo MAL: ${title}`);
-      console.log(`[AnimeUnity] Titolo normalizzato per ricerca: ${normalizedTitle}`);
-      // Copio la logica da handleKitsuRequest per movie/episodio
-      if (isMovie) {
-        const episodeToFind = "1";
-        const streams: StreamForStremio[] = [];
-        for (const { version, language_type } of animeVersions) {
-          const episodes: AnimeUnityEpisode[] = await invokePythonScraper(['get_episodes', '--anime-id', String(version.id)]);
-          const targetEpisode = episodes.find(ep => ep.number === episodeToFind);
-          if (targetEpisode) {
-            const streamResult: AnimeUnityStreamData = await invokePythonScraper([
-              'get_stream',
-              '--anime-id', String(version.id),
-              '--anime-slug', version.slug,
-              '--episode-id', String(targetEpisode.id)
-            ]);
-            if (streamResult.mp4_url) {
-              streams.push({
-                title: `🎬 AnimeUnity ${language_type} (Movie)`,
-                url: streamResult.mp4_url,
-                behaviorHints: { notWebReady: true }
-              });
-            }
-          }
-        }
-        return { streams };
-      }
-      const streams: StreamForStremio[] = [];
-      for (const { version, language_type } of animeVersions) {
-        try {
-          const episodes: AnimeUnityEpisode[] = await invokePythonScraper(['get_episodes', '--anime-id', String(version.id)]);
-          const targetEpisode = episodes.find(ep => String(ep.number) === String(episodeNumber));
-          if (!targetEpisode) continue;
-          const streamResult: AnimeUnityStreamData = await invokePythonScraper([
-            'get_stream',
-            '--anime-id', String(version.id),
-            '--anime-slug', version.slug,
-            '--episode-id', String(targetEpisode.id)
-          ]);
-          if (streamResult.mp4_url) {
-            const mediaFlowUrl = formatMediaFlowUrl(
-              streamResult.mp4_url,
-              this.config.mfpUrl,
-              this.config.mfpPassword
-            );
-            const cleanName = version.name
-              .replace(/\s*\(ITA\)/i, '')
-              .replace(/\s*\(CR\)/i, '')
-              .replace(/ITA/gi, '')
-              .replace(/CR/gi, '')
-              .trim();
-            const isDub = language_type === 'DUB';
-            const mainName = isDub ? `${cleanName} ITA` : cleanName;
-            const sNum = seasonNumber || 1;
-            let streamTitle = `${capitalize(cleanName)} ${language_type} S${sNum}`;
-            if (episodeNumber) {
-              streamTitle += `E${episodeNumber}`;
-            }
-            streams.push({
-              title: streamTitle,
-              url: mediaFlowUrl,
-              behaviorHints: {
-                notWebReady: true
-              }
-            });
-            if (this.config.bothLink && streamResult.embed_url) {
-              streams.push({
-                title: `[E] ${streamTitle}`,
-                url: streamResult.embed_url,
-                behaviorHints: {
-                  notWebReady: true
-                }
-              });
-            }
-          }
-        } catch (error) {
-          console.error(`Error processing version ${language_type}:`, error);
-        }
-      }
-      return { streams };
+      const englishTitle = await getEnglishTitleFromAnyId(malId, 'mal');
+      console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
+      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
     } catch (error) {
       console.error('Error handling MAL request:', error);
       return { streams: [] };
     }
+  }
+
+  async handleImdbRequest(imdbId: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false): Promise<{ streams: StreamForStremio[] }> {
+    if (!this.config.enabled) {
+      return { streams: [] };
+    }
+    try {
+      const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb');
+      console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
+      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+    } catch (error) {
+      console.error('Error handling IMDB request:', error);
+      return { streams: [] };
+    }
+  }
+
+  async handleTmdbRequest(tmdbId: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false): Promise<{ streams: StreamForStremio[] }> {
+    if (!this.config.enabled) {
+      return { streams: [] };
+    }
+    try {
+      const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb');
+      console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
+      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+    } catch (error) {
+      console.error('Error handling TMDB request:', error);
+      return { streams: [] };
+    }
+  }
+
+  async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false): Promise<{ streams: StreamForStremio[] }> {
+    console.log(`[AnimeUnity] Titolo normalizzato per ricerca: ${title}`);
+    let animeVersions = await this.searchAllVersions(title);
+    animeVersions = filterAnimeResults(animeVersions, title);
+    if (!animeVersions.length) {
+      console.warn('[AnimeUnity] Nessun risultato trovato per il titolo:', title);
+      return { streams: [] };
+    }
+    const streams: StreamForStremio[] = [];
+    for (const { version, language_type } of animeVersions) {
+      const episodes: AnimeUnityEpisode[] = await invokePythonScraper(['get_episodes', '--anime-id', String(version.id)]);
+      console.log(`[AnimeUnity] Episodi trovati per ${version.name}:`, episodes.map(e => e.name));
+      let targetEpisode: AnimeUnityEpisode | undefined;
+      if (isMovie) {
+        targetEpisode = episodes[0];
+        console.log(`[AnimeUnity] Selezionato primo episodio (movie):`, targetEpisode?.name);
+      } else if (episodeNumber != null) {
+        targetEpisode = episodes.find(ep => String(ep.number) === String(episodeNumber));
+        console.log(`[AnimeUnity] Episodio selezionato per E${episodeNumber}:`, targetEpisode?.name);
+      } else {
+        targetEpisode = episodes[0];
+        console.log(`[AnimeUnity] Selezionato primo episodio (default):`, targetEpisode?.name);
+      }
+      if (!targetEpisode) {
+        console.warn(`[AnimeUnity] Nessun episodio trovato per la richiesta: S${seasonNumber}E${episodeNumber}`);
+        continue;
+      }
+      const streamResult: AnimeUnityStreamData = await invokePythonScraper([
+        'get_stream',
+        '--anime-id', String(version.id),
+        '--anime-slug', version.slug,
+        '--episode-id', String(targetEpisode.id)
+      ]);
+      if (streamResult.mp4_url) {
+        const mediaFlowUrl = formatMediaFlowUrl(
+          streamResult.mp4_url,
+          this.config.mfpUrl,
+          this.config.mfpPassword
+        );
+        const cleanName = version.name
+          .replace(/\s*\(ITA\)/i, '')
+          .replace(/\s*\(CR\)/i, '')
+          .replace(/ITA/gi, '')
+          .replace(/CR/gi, '')
+          .trim();
+        const sNum = seasonNumber || 1;
+        let streamTitle = `${capitalize(cleanName)} ${language_type} S${sNum}`;
+        if (episodeNumber) {
+          streamTitle += `E${episodeNumber}`;
+        }
+        streams.push({
+          title: streamTitle,
+          url: mediaFlowUrl,
+          behaviorHints: {
+            notWebReady: true
+          }
+        });
+        if (this.config.bothLink && streamResult.embed_url) {
+          streams.push({
+            title: `[E] ${streamTitle}`,
+            url: streamResult.embed_url,
+            behaviorHints: {
+              notWebReady: true
+            }
+          });
+        }
+      }
+    }
+    return { streams };
   }
 }
 
