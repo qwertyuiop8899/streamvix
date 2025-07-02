@@ -5,7 +5,7 @@
   "main": "dist/addon.js",
   "packageManager": "pnpm@8.15.5",
   "scripts": {
-    "build": "tsc && shx cp src/providers/animeunity_scraper.py dist/providers/",
+    "build": "tsc && shx cp src/providers/animeunity_scraper.py dist/providers/ && shx cp src/providers/animesaturn.py dist/providers/",
     "start": "node dist/addon.js",
     "dev": "ts-node src/addon.ts"
   },
