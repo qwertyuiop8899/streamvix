@@ -6,7 +6,7 @@ on:
 
 jobs:
   generate-pr:
-    if: contains(github.event.issue.labels.*.name, 'normalizzazione')
+    if: contains(github.event.issue.labels.*.name, 'anime')
     runs-on: ubuntu-latest
 
     steps:
