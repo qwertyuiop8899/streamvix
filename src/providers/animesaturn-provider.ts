@@ -112,7 +112,8 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
 
 // Funzione filtro risultati
 function filterAnimeResults(results: { version: AnimeSaturnResult; language_type: string }[], englishTitle: string) {
-  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+  // Normalizza unicode su entrambi i lati del confronto
+  const norm = (s: string) => normalizeUnicodeToAscii(s.toLowerCase().replace(/\s+/g, ' ').trim());
   const base = norm(englishTitle);
   const allowed = [
     base,
