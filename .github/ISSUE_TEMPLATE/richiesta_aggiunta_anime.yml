@@ -1,80 +1,38 @@
-name: 🔗 Richiesta Aggiunta Riga
-description: Richiedi l'aggiunta di una nuova riga al progetto in modo semplice
-title: "[AGGIUNTA]: "
-labels: ["richiesta", "aggiunta-contenuto"]
-assignees: 
-  - il-tuo-username
+name: 🌐 Nuova normalizzazione titolo
+description: Proponi una coppia MAL → AnimeSaturn da aggiungere alla funzione normalizeTitleForSearch
+title: "[NORMALIZZA]: "
+labels: ["richiesta", "normalizzazione"]
 
 body:
   - type: markdown
     attributes:
       value: |
-        ## 👋 Grazie per voler contribuire!
-        
-        Usa questo template per richiedere l'aggiunta di una nuova riga/entry al progetto.
-        Compila i campi seguenti e creeremo automaticamente una pull request per te.
+        Compila i campi sottostanti seguendo l’esempio:
+        | Campo | Esempio |
+        |-------|---------|
+        | MAL English name | Slam Dunk: National Domination! Sakuragi Hanamichi |
+        | AnimeSaturn name | Slam Dunk: Zenkoku Seiha Da! Sakuragi Hanamichi |
 
   - type: input
-    id: titolo-entry
+    id: mal_name
     attributes:
-      label: Titolo/Nome della Entry
-      description: Come si chiama quello che vuoi aggiungere?
-      placeholder: "Es: Attack on Titan, Spotify, Netflix..."
+      label: MAL English name
+      placeholder: Es. Slam Dunk: National Domination! Sakuragi Hanamichi
     validations:
       required: true
 
   - type: input
-    id: url-risorsa
+    id: as_name
     attributes:
-      label: URL della Risorsa
-      description: Inserisci l'URL completo della risorsa
-      placeholder: "https://esempio.com/risorsa"
+      label: AnimeSaturn name
+      placeholder: Es. Slam Dunk: Zenkoku Seiha Da! Sakuragi Hanamichi
     validations:
       required: true
-
-  - type: dropdown
-    id: categoria
-    attributes:
-      label: Categoria
-      description: In quale categoria inserire questa entry?
-      options:
-        - Anime/Manga
-        - Streaming Video
-        - Musica
-        - Giochi
-        - Altri/Varie
-    validations:
-      required: true
-
-  - type: textarea
-    id: descrizione
-    attributes:
-      label: Descrizione (Opzionale)
-      description: Aggiungi una breve descrizione se necessario
-      placeholder: "Breve descrizione della risorsa..."
-    validations:
-      required: false
 
   - type: checkboxes
-    id: verifiche
+    id: conferme
     attributes:
-      label: Verifiche
-      description: Conferma di aver verificato questi punti
+      label: Conferme
       options:
-        - label: Ho verificato che questa risorsa non sia già presente
+        - label: Ho controllato che la coppia non sia già presente nel file
           required: true
-        - label: L'URL funziona correttamente
-          required: true
-        - label: La risorsa rispetta i termini di servizio del progetto
-          required: true
-
-  - type: markdown
-    attributes:
-      value: |
-        ---
-        
-        **📝 Cosa succede dopo?**
-        
-        1. Il maintainer esaminerà la tua richiesta
-        2. Se approvata, verrà creata automaticamente una pull request
-        3. Riceverai una notifica quando la modifica sarà implementata
