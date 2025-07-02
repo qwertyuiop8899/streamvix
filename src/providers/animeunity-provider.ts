@@ -191,7 +191,12 @@ export class AnimeUnityProvider {
 
       // Unisci tutti i risultati (SUB e DUB), ma assegna ITA o CR se il nome contiene
       const allResults = [...subResults, ...dubResults];
+      // Filtra duplicati per nome e id
+      const seen = new Set();
       for (const r of allResults) {
+        const key = r.name + '|' + r.id;
+        if (seen.has(key)) continue;
+        seen.add(key);
         const nameLower = r.name.toLowerCase();
         let language_type = 'SUB';
         if (nameLower.includes('cr')) {
@@ -289,22 +294,28 @@ export class AnimeUnityProvider {
       return { streams: [] };
     }
     const streams: StreamForStremio[] = [];
+    const seenLinks = new Set();
     for (const { version, language_type } of animeVersions) {
       const episodes: AnimeUnityEpisode[] = await invokePythonScraper(['get_episodes', '--anime-id', String(version.id)]);
-      console.log(`[AnimeUnity] Episodi trovati per ${version.name}:`, episodes.map(e => e.name));
+      // Filtra undefined e episodi nulli
+      const validEpisodes = (episodes || []).filter(e => e && e.id && e.number);
+      if (!validEpisodes.length) {
+        console.warn(`[AnimeUnity] Nessun episodio valido trovato per la richiesta: S${seasonNumber}E${episodeNumber} (${version.name})`);
+        continue;
+      }
       let targetEpisode: AnimeUnityEpisode | undefined;
       if (isMovie) {
-        targetEpisode = episodes[0];
+        targetEpisode = validEpisodes[0];
         console.log(`[AnimeUnity] Selezionato primo episodio (movie):`, targetEpisode?.name);
       } else if (episodeNumber != null) {
-        targetEpisode = episodes.find(ep => String(ep.number) === String(episodeNumber));
+        targetEpisode = validEpisodes.find(ep => String(ep.number) === String(episodeNumber));
         console.log(`[AnimeUnity] Episodio selezionato per E${episodeNumber}:`, targetEpisode?.name);
       } else {
-        targetEpisode = episodes[0];
+        targetEpisode = validEpisodes[0];
         console.log(`[AnimeUnity] Selezionato primo episodio (default):`, targetEpisode?.name);
       }
       if (!targetEpisode) {
-        console.warn(`[AnimeUnity] Nessun episodio trovato per la richiesta: S${seasonNumber}E${episodeNumber}`);
+        console.warn(`[AnimeUnity] Nessun episodio trovato per la richiesta: S${seasonNumber}E${episodeNumber} (${version.name})`);
         continue;
       }
       const streamResult: AnimeUnityStreamData = await invokePythonScraper([
@@ -330,14 +341,18 @@ export class AnimeUnityProvider {
         if (episodeNumber) {
           streamTitle += `E${episodeNumber}`;
         }
-        streams.push({
-          title: streamTitle,
-          url: mediaFlowUrl,
-          behaviorHints: {
-            notWebReady: true
-          }
-        });
-        if (this.config.bothLink && streamResult.embed_url) {
+        // Filtra duplicati per url
+        if (!seenLinks.has(mediaFlowUrl)) {
+          streams.push({
+            title: streamTitle,
+            url: mediaFlowUrl,
+            behaviorHints: {
+              notWebReady: true
+            }
+          });
+          seenLinks.add(mediaFlowUrl);
+        }
+        if (this.config.bothLink && streamResult.embed_url && !seenLinks.has(streamResult.embed_url)) {
           streams.push({
             title: `[E] ${streamTitle}`,
             url: streamResult.embed_url,
@@ -345,6 +360,7 @@ export class AnimeUnityProvider {
               notWebReady: true
             }
           });
+          seenLinks.add(streamResult.embed_url);
         }
       }
     }
