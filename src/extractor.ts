@@ -72,7 +72,7 @@ function getObject(id: string) {
   };
 }
 
-async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string): Promise<string | null> {
+export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string): Promise<string | null> {
   if (!tmdbApiKey) { 
     console.error("TMDB_API_KEY is not configured.");
     return null;
