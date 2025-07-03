@@ -128,6 +128,16 @@ function filterAnimeResults(results: { version: AnimeSaturnResult; language_type
     return t.includes(base);
   };
 
+  // Log dettagliato per debug
+  console.log('DEBUG filtro:', {
+    base,
+    titoli: results.map(r => ({
+      raw: r.version.title,
+      norm: norm(r.version.title),
+      afterClean: norm(r.version.title).replace(/\s*\(.*?\)/g, '').replace(/\s*ita|\s*cr|\s*sub/gi, '').trim()
+    }))
+  });
+
   const filtered = results.filter(r => isAllowed(r.version.title));
   console.log(`[UniversalTitle] Risultati prima del filtro:`, results.map(r => r.version.title));
   console.log(`[UniversalTitle] Risultati dopo il filtro:`, filtered.map(r => r.version.title));
