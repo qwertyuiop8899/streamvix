@@ -44,37 +44,37 @@ jobs:
           AS_NAME: ${{ env.AS_NAME_ENV }}
         run: |
           python3 -c '
-import os
-import re
-import json
+          import os
+          import re
+          import json
 
-mal_name = os.environ.get("MAL_NAME")
-as_name = os.environ.get("AS_NAME")
+          mal_name = os.environ.get("MAL_NAME")
+          as_name = os.environ.get("AS_NAME")
 
-if not mal_name or not as_name:
-    print("Error: MAL or AnimeSaturn name is empty. Exiting.")
-    exit(1)
+          if not mal_name or not as_name:
+              print("Error: MAL or AnimeSaturn name is empty. Exiting.")
+              exit(1)
 
-with open("src/providers/animesaturn-provider.ts", "r", encoding="utf-8") as f:
-    content = f.read()
+          with open("src/providers/animesaturn-provider.ts", "r", encoding="utf-8") as f:
+              content = f.read()
 
-new_line = f"    {json.dumps(mal_name)}: {json.dumps(as_name)},"
+          new_line = f"    {json.dumps(mal_name)}: {json.dumps(as_name)},"
 
-# This pattern finds the comment and captures the indentation of that line
-pattern = re.compile(r"(\s*)// Qui puoi aggiungere altre normalizzazioni custom")
+          # This pattern finds the comment and captures the indentation of that line
+          pattern = re.compile(r"(\s*)// Qui puoi aggiungere altre normalizzazioni custom")
 
-# We replace the found pattern with the new line, a newline character, and then the original matched content
-new_content, num_replacements = pattern.subn(rf"{new_line}\n\g<0>", content, 1)
+          # We replace the found pattern with the new line, a newline character, and then the original matched content
+          new_content, num_replacements = pattern.subn(rf"{new_line}\n\g<0>", content, 1)
 
-if num_replacements == 0:
-    print("Error: The placeholder comment was not found in the file.")
-    exit(1)
+          if num_replacements == 0:
+              print("Error: The placeholder comment was not found in the file.")
+              exit(1)
 
-with open("src/providers/animesaturn-provider.ts", "w", encoding="utf-8") as f:
-    f.write(new_content)
+          with open("src/providers/animesaturn-provider.ts", "w", encoding="utf-8") as f:
+              f.write(new_content)
 
-print(f"Successfully added normalization: {new_line.strip()}")
-'
+          print(f"Successfully added normalization: {new_line.strip()}")
+          '
 
       - name: Crea PR
         uses: peter-evans/create-pull-request@v6
