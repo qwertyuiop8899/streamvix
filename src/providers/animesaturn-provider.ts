@@ -120,10 +120,12 @@ function filterAnimeResults(results: { version: AnimeSaturnResult; language_type
   const norm = (s: string) => normalizeApostrophes(normalizeUnicodeToAscii(s.toLowerCase().replace(/\s+/g, ' ').trim()));
   const base = norm(englishTitle);
 
-  // Accetta titoli che iniziano con il base, seguiti opzionalmente da (qualcosa) o suffissi ITA/CR
+  // Accetta titoli che contengono il base, ignorando suffissi e parentesi
   const isAllowed = (title: string) => {
-    const t = norm(title);
-    return t.startsWith(base);
+    let t = norm(title);
+    // Rimuovi suffissi comuni e parentesi
+    t = t.replace(/\s*\(.*?\)/g, '').replace(/\s*ita|\s*cr|\s*sub/gi, '').trim();
+    return t.includes(base);
   };
 
   const filtered = results.filter(r => isAllowed(r.version.title));
