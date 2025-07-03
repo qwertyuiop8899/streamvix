@@ -13,8 +13,7 @@ jobs:
 
       - name: Esci se manca la label
         if: |
-          !contains(github.event.issue.labels.*.name, 'normalizzazione') &&
-          !contains(github.event.issue.labels.*.name, 'richiesta')
+          !contains(github.event.issue.labels.*.name, 'normalizzazione')
         run: |
           echo "Etichetta mancante, esco"
           exit 1
