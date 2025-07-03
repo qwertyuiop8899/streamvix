@@ -11,6 +11,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Aggiungi label normalizzazione se manca
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: normalizzazione
+    
       - name: Esci se manca la label
         if: |
           !contains(github.event.issue.labels.*.name, 'normalizzazione')
