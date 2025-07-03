@@ -1,394 +1,296 @@
-import { spawn } from 'child_process';
-import { AnimeSaturnConfig, AnimeSaturnResult, AnimeSaturnEpisode, StreamForStremio } from '../types/animeunity';
-import * as path from 'path';
-import axios from 'axios';
-import { KitsuProvider } from './kitsu';
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+AnimeSaturn MP4 Link Extractor
+Estrae il link MP4 diretto dagli episodi di animesaturn.cx
+Dipendenze: requests, beautifulsoup4 (pip install requests beautifulsoup4)
+"""
 
-// Helper function to invoke the Python scraper
-async function invokePythonScraper(args: string[]): Promise<any> {
-    const scriptPath = path.join(__dirname, 'animesaturn.py');
-    const command = 'python3';
-    return new Promise((resolve, reject) => {
-        const pythonProcess = spawn(command, [scriptPath, ...args]);
-        let stdout = '';
-        let stderr = '';
-        pythonProcess.stdout.on('data', (data: Buffer) => {
-            stdout += data.toString();
-        });
-        pythonProcess.stderr.on('data', (data: Buffer) => {
-            stderr += data.toString();
-        });
-        pythonProcess.on('close', (code: number) => {
-            if (code !== 0) {
-                console.error(`Python script exited with code ${code}`);
-                console.error(stderr);
-                return reject(new Error(`Python script error: ${stderr}`));
+import requests
+from bs4 import BeautifulSoup
+import re
+import sys
+import json
+import urllib.parse
+import argparse
+
+BASE_URL = "https://www.animesaturn.cx"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+HEADERS = {"User-Agent": USER_AGENT}
+TIMEOUT = 20
+
+def safe_ascii_header(value):
+    # Remove or replace non-latin-1 characters (e.g., typographic apostrophes)
+    return value.encode('latin-1', 'ignore').decode('latin-1')
+
+def search_anime(query):
+    """Ricerca anime tramite la barra di ricerca di AnimeSaturn"""
+    search_url = f"{BASE_URL}/index.php?search=1&key={query.replace(' ', '+')}"
+    referer_query = urllib.parse.quote_plus(query)
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Referer": safe_ascii_header(f"{BASE_URL}/animelist?search={referer_query}"),
+        "X-Requested-With": "XMLHttpRequest",
+        "Accept": "application/json, text/javascript, */*; q=0.01"
+    }
+    resp = requests.get(search_url, headers=headers, timeout=TIMEOUT)
+    resp.raise_for_status()
+    results = []
+    for item in resp.json():
+        results.append({
+            "title": item["name"],
+            "url": f"{BASE_URL}/anime/{item['link']}"
+        })
+    return results
+
+def get_watch_url(episode_url):
+    resp = requests.get(episode_url, headers=HEADERS, timeout=TIMEOUT)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "html.parser")
+    # Cerca il link con testo "Guarda lo streaming"
+    for a in soup.find_all("a", href=True):
+        div = a.find("div")
+        if div and "Guarda lo streaming" in div.get_text():
+            return a["href"] if a["href"].startswith("http") else BASE_URL + a["href"]
+    # Fallback: cerca il link alla pagina watch come prima
+    watch_link = soup.find("a", href=re.compile(r"^/watch\\?file="))
+    if watch_link:
+        return BASE_URL + watch_link["href"]
+    iframe = soup.find("iframe", src=re.compile(r"^/watch\\?file="))
+    if iframe:
+        return BASE_URL + iframe["src"]
+    return None
+
+def extract_mp4_url(watch_url):
+    resp = requests.get(watch_url, headers=HEADERS, timeout=TIMEOUT)
+    resp.raise_for_status()
+    # Cerca direttamente il link mp4 nel sorgente
+    mp4_match = re.search(r'https://[\w\.-]+/[^"\']+\\.mp4', resp.text)
+    if mp4_match:
+        return mp4_match.group(0)
+    # In alternativa, analizza i tag video/source
+    soup = BeautifulSoup(resp.text, "html.parser")
+    video = soup.find("video")
+    if video:
+        source = video.find("source")
+        if source and source.get("src"):
+            return source["src"]
+    return None
+
+def get_episodes_list(anime_url):
+    resp = requests.get(anime_url, headers=HEADERS, timeout=TIMEOUT)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "html.parser")
+    episodes = []
+    for a in soup.select("a.bottone-ep"):
+        title = a.get_text(strip=True)
+        href = a["href"]
+        # Se il link è assoluto, usalo così, altrimenti aggiungi BASE_URL
+        if href.startswith("http"):
+            url = href
+        else:
+            url = BASE_URL + href
+        episodes.append({"title": title, "url": url})
+    return episodes
+
+def download_mp4(mp4_url, referer_url, filename=None):
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Referer": referer_url
+    }
+    if not filename:
+        filename = mp4_url.split("/")[-1].split("?")[0]
+    print(f"\n⬇️ Download in corso: {filename}\n")
+    r = requests.get(mp4_url, headers=headers, stream=True)
+    r.raise_for_status()
+    with open(filename, "wb") as f:
+        for chunk in r.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
+    print(f"✅ Download completato: {filename}\n")
+
+def search_anime_by_title_or_malid(title, mal_id):
+    print(f"[DEBUG] Avvio ricerca per title='{title}', mal_id='{mal_id}'", file=sys.stderr)
+
+    # Helper function to check a list of results for a MAL ID match
+    def check_results_for_mal_id(results_list, target_mal_id, search_step_name):
+        if not results_list:
+            print(f"[DEBUG] {search_step_name}: Nessun risultato da controllare.", file=sys.stderr)
+            return None
+        
+        print(f"[DEBUG] {search_step_name}: Controllo {len(results_list)} risultati...", file=sys.stderr)
+        for item in results_list:
+            try:
+                resp = requests.get(item["url"], headers=HEADERS, timeout=TIMEOUT)
+                resp.raise_for_status()
+                soup = BeautifulSoup(resp.text, "html.parser")
+                mal_btn = soup.find("a", href=re.compile(r"myanimelist\.net/anime/(\d+)"))
+                if mal_btn:
+                    found_id_match = re.search(r"myanimelist\.net/anime/(\d+)", mal_btn["href"])
+                    if found_id_match:
+                        found_id = found_id_match.group(1)
+                        print(f"[DEBUG] -> Controllo '{item['title']}': trovato MAL ID {found_id} (cerco {target_mal_id})", file=sys.stderr)
+                        if found_id == str(target_mal_id):
+                            print(f"[DEBUG] MATCH TROVATO!", file=sys.stderr)
+                            return [item]  # Match found
+            except Exception as e:
+                print(f"[DEBUG] Errore visitando '{item['title']}': {e}", file=sys.stderr)
+        
+        print(f"[DEBUG] {search_step_name}: Nessun match trovato.", file=sys.stderr)
+        return None  # No match in this batch
+
+    # --- Fallback Chain ---
+
+    # 1. Ricerca diretta per titolo completo
+    direct_results = search_anime(title)
+    match = check_results_for_mal_id(direct_results, mal_id, "Step 1: Ricerca Diretta")
+    if match:
+        return match
+
+    # 2. Fallback: Titolo troncato all'apostrofo
+    if "'" in title or "’" in title or "‘" in title:
+        last_apos = max(title.rfind(c) for c in ["'", "’", "‘"])
+        if last_apos != -1:
+            truncated_title = title[:last_apos].strip()
+            print(f"[DEBUG] Titolo troncato per Fallback #1: '{truncated_title}'", file=sys.stderr)
+            truncated_results = search_anime(truncated_title)
+            match = check_results_for_mal_id(truncated_results, mal_id, "Step 2: Ricerca Titolo Troncato")
+            if match:
+                return match
+
+    # 3. Fallback finale: Ricerca fuzzy con prime 3 lettere
+    short_key = title[:3]
+    fuzzy_results = search_anime(short_key)
+    # Evita di controllare di nuovo i risultati già visti
+    urls_to_skip = {r['url'] for r in direct_results}
+    unique_fuzzy_results = [r for r in fuzzy_results if r['url'] not in urls_to_skip]
+    match = check_results_for_mal_id(unique_fuzzy_results, mal_id, "Step 3: Ricerca Fuzzy")
+    if match:
+        return match
+            
+    print(f"[DEBUG] NESSUN MATCH TROVATO dopo tutti i tentativi.", file=sys.stderr)
+    return []
+
+def main():
+    print("🎬 === AnimeSaturn MP4 Link Extractor === 🎬")
+    print("Estrae il link MP4 diretto dagli episodi di animesaturn.cx\n")
+    query = input("🔍 Nome anime da cercare: ").strip()
+    if not query:
+        print("❌ Query vuota, uscita.")
+        return
+    print(f"\n⏳ Ricerca di '{query}' in corso...")
+    anime_results = search_anime(query)
+    if not anime_results:
+        print("❌ Nessun risultato trovato.")
+        return
+    print(f"\n✅ Trovati {len(anime_results)} risultati:")
+    for i, a in enumerate(anime_results, 1):
+        print(f"{i}) {a['title']}")
+    try:
+        idx = int(input("\n👆 Seleziona anime: ")) - 1
+        selected = anime_results[idx]
+    except Exception:
+        print("❌ Selezione non valida.")
+        return
+    print(f"\n⏳ Recupero episodi di '{selected['title']}'...")
+    episodes = get_episodes_list(selected["url"])
+    if not episodes:
+        print("❌ Nessun episodio trovato.")
+        return
+    print(f"\n✅ Trovati {len(episodes)} episodi:")
+    for i, ep in enumerate(episodes, 1):
+        print(f"{i}) {ep['title']}")
+    try:
+        ep_idx = int(input("\n👆 Seleziona episodio: ")) - 1
+        ep_selected = episodes[ep_idx]
+    except Exception:
+        print("❌ Selezione non valida.")
+        return
+    print(f"\n⏳ Recupero link stream per '{ep_selected['title']}'...")
+    watch_url = get_watch_url(ep_selected["url"])
+    if not watch_url:
+        print("❌ Link stream non trovato nella pagina episodio.")
+        return
+    print(f"\n🔗 Pagina stream: {watch_url}")
+    mp4_url = extract_mp4_url(watch_url)
+    if mp4_url:
+        print(f"\n🎬 LINK MP4 FINALE:\n   {mp4_url}\n")
+        print("🎉 ✅ Estrazione completata con successo!")
+        # Oggetto stream per Stremio
+        stremio_stream = {
+            "url": mp4_url,
+            "headers": {
+                "Referer": watch_url,
+                "User-Agent": USER_AGENT
             }
-            try {
-                resolve(JSON.parse(stdout));
-            } catch (e) {
-                console.error('Failed to parse Python script output:');
-                console.error(stdout);
-                reject(new Error('Failed to parse Python script output.'));
+        }
+        print("\n🔗 Oggetto stream per Stremio:")
+        print(json.dumps(stremio_stream, indent=2))
+        # Link proxy universale
+        proxy_base = "https://mfpi.pizzapi.uk/proxy/stream/"
+        filename = mp4_url.split("/")[-1].split("?")[0]
+        proxy_url = (
+            f"{proxy_base}{urllib.parse.quote(filename)}?d={urllib.parse.quote(mp4_url)}"
+            f"&api_password=mfp"
+            f"&h_user-agent={urllib.parse.quote(USER_AGENT)}"
+            f"&h_referer={urllib.parse.quote(watch_url)}"
+        )
+        print("\n🔗 Link proxy universale (VLC/Stremio/Browser):")
+        print(proxy_url)
+        # Download automatico (opzionale)
+        # download_mp4(mp4_url, watch_url)
+    else:
+        print("❌ LINK MP4 FINALE: Estrazione fallita")
+        print("\n💡 Possibili cause dell'errore:")
+        print("   • Episodio non disponibile")
+        print("   • Struttura della pagina cambiata")
+        print("   • Problemi di connessione")
+
+def main_cli():
+    parser = argparse.ArgumentParser(description="AnimeSaturn Scraper CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # Search command
+    search_parser = subparsers.add_parser("search", help="Search for an anime")
+    search_parser.add_argument("--query", required=True, help="Anime title to search for")
+    search_parser.add_argument("--mal-id", required=False, help="MAL ID to match in fallback search")
+
+    # Get episodes command
+    episodes_parser = subparsers.add_parser("get_episodes", help="Get episode list for an anime")
+    episodes_parser.add_argument("--anime-url", required=True, help="AnimeSaturn URL of the anime")
+
+    # Get stream command
+    stream_parser = subparsers.add_parser("get_stream", help="Get stream URL for an episode")
+    stream_parser.add_argument("--episode-url", required=True, help="AnimeSaturn episode URL")
+
+    args = parser.parse_args()
+
+    if args.command == "search":
+        if getattr(args, "mal_id", None):
+            results = search_anime_by_title_or_malid(args.query, args.mal_id)
+        else:
+            results = search_anime(args.query)
+        print(json.dumps(results, indent=2))
+    elif args.command == "get_episodes":
+        results = get_episodes_list(args.anime_url)
+        print(json.dumps(results, indent=2))
+    elif args.command == "get_stream":
+        watch_url = get_watch_url(args.episode_url)
+        mp4_url = extract_mp4_url(watch_url) if watch_url else None
+        stremio_stream = None
+        if mp4_url:
+            stremio_stream = {
+                "url": mp4_url,
+                "headers": {
+                    "Referer": watch_url,
+                    "User-Agent": USER_AGENT
+                }
             }
-        });
-        pythonProcess.on('error', (err: Error) => {
-            console.error('Failed to start Python script:', err);
-            reject(err);
-        });
-    });
-}
+        # Test: se vuoi solo il link mp4, restituisci {"url": mp4_url}
+        print(json.dumps(stremio_stream if stremio_stream else {"url": mp4_url}, indent=2))
 
-// Funzione universale per ottenere il titolo inglese da qualsiasi ID
-async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|'mal', tmdbApiKey?: string): Promise<string> {
-  let malId: string | null = null;
-  let tmdbId: string | null = null;
-  let fallbackTitle: string | null = null;
-  const tmdbKey = tmdbApiKey || process.env.TMDB_API_KEY || '';
-  if (type === 'imdb') {
-    if (!tmdbKey) throw new Error('TMDB_API_KEY non configurata');
-    const imdbIdOnly = id.split(':')[0];
-    const { getTmdbIdFromImdbId } = await import('../extractor');
-    tmdbId = await getTmdbIdFromImdbId(imdbIdOnly, tmdbKey);
-    if (!tmdbId) throw new Error('TMDB ID non trovato per IMDB: ' + id);
-    try {
-      const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
-      malId = haglundResp[0]?.myanimelist?.toString() || null;
-    } catch {}
-  } else if (type === 'tmdb') {
-    tmdbId = id;
-    try {
-      const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
-      malId = haglundResp[0]?.myanimelist?.toString() || null;
-    } catch {}
-  } else if (type === 'kitsu') {
-    const mappingsResp = await (await fetch(`https://kitsu.io/api/edge/anime/${id}/mappings`)).json();
-    const malMapping = mappingsResp.data?.find((m: any) => m.attributes.externalSite === 'myanimelist/anime');
-    malId = malMapping?.attributes?.externalId?.toString() || null;
-  } else if (type === 'mal') {
-    malId = id;
-  }
-  if (malId) {
-    try {
-      const jikanResp = await (await fetch(`https://api.jikan.moe/v4/anime/${malId}`)).json();
-      let englishTitle = '';
-      if (jikanResp.data && Array.isArray(jikanResp.data.titles)) {
-        const en = jikanResp.data.titles.find((t: any) => t.type === 'English');
-        englishTitle = en?.title || '';
-      }
-      if (!englishTitle && jikanResp.data) {
-        englishTitle = jikanResp.data.title_english || jikanResp.data.title || jikanResp.data.title_japanese || '';
-      }
-      if (englishTitle) {
-        console.log(`[UniversalTitle] Titolo inglese trovato da Jikan: ${englishTitle}`);
-        return englishTitle;
-      }
-    } catch (err) {
-      console.warn('[UniversalTitle] Errore Jikan, provo fallback TMDB:', err);
-    }
-  }
-  if (tmdbId && tmdbKey) {
-    try {
-      let tmdbResp = await (await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${tmdbKey}`)).json();
-      if (tmdbResp && tmdbResp.name) {
-        fallbackTitle = tmdbResp.name;
-      }
-      if (!fallbackTitle) {
-        tmdbResp = await (await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${tmdbKey}`)).json();
-        if (tmdbResp && tmdbResp.title) {
-          fallbackTitle = tmdbResp.title;
-        }
-      }
-      if (fallbackTitle) {
-        console.warn(`[UniversalTitle] Fallback: uso titolo da TMDB: ${fallbackTitle}`);
-        return fallbackTitle;
-      }
-    } catch (err) {
-      console.warn('[UniversalTitle] Errore fallback TMDB:', err);
-    }
-  }
-  throw new Error('Impossibile ottenere titolo inglese da nessuna fonte per ' + id);
-}
-
-// Funzione per normalizzare tutti i tipi di apostrofo in quello normale
-function normalizeApostrophes(str: string): string {
-  return str.replace(/['’‘]/g, "'");
-}
-
-// Funzione filtro risultati
-function filterAnimeResults(results: { version: AnimeSaturnResult; language_type: string }[], englishTitle: string) {
-  const norm = (s: string) => normalizeApostrophes(normalizeUnicodeToAscii(s.toLowerCase().replace(/\s+/g, ' ').trim()));
-  const base = norm(englishTitle);
-
-  // Accetta titoli che contengono il base, ignorando suffissi e parentesi
-  const isAllowed = (title: string) => {
-    let t = norm(title);
-    // Rimuovi suffissi comuni e parentesi
-    t = t.replace(/\s*\(.*?\)/g, '').replace(/\s*ita|\s*cr|\s*sub/gi, '').trim();
-    return t.includes(base);
-  };
-
-  // Log dettagliato per debug
-  console.log('DEBUG filtro:', {
-    base,
-    titoli: results.map(r => ({
-      raw: r.version.title,
-      norm: norm(r.version.title),
-      afterClean: norm(r.version.title).replace(/\s*\(.*?\)/g, '').replace(/\s*ita|\s*cr|\s*sub/gi, '').trim()
-    }))
-  });
-
-  const filtered = results.filter(r => isAllowed(r.version.title));
-  console.log(`[UniversalTitle] Risultati prima del filtro:`, results.map(r => r.version.title));
-  console.log(`[UniversalTitle] Risultati dopo il filtro:`, filtered.map(r => r.version.title));
-  return filtered;
-}
-
-// Funzione di normalizzazione custom per la ricerca
-function normalizeTitleForSearch(title: string): string {
-  const replacements: Record<string, string> = {
-    'Attack on Titan': "L'attacco dei Giganti",
-    'Season': '',
-    'Shippuuden': 'Shippuden',
-    '-': '',
-    'Ore dake Level Up na Ken': 'Solo Leveling',
-    'Lupin the Third: The Woman Called Fujiko Mine': 'Lupin III - La donna chiamata Fujiko Mine ',
-    'Slam Dunk: National Domination! Sakuragi Hanamichi': 'Slam Dunk: Zenkoku Seiha Da! Sakuragi Hanamichi',
-    // Qui puoi aggiungere altre normalizzazioni custom
-  };
-  let normalized = title;
-  for (const [key, value] of Object.entries(replacements)) {
-    normalized = normalized.replace(key, value);
-  }
-  if (normalized.includes('Naruto:')) {
-    normalized = normalized.replace(':', '');
-  }
-  return normalized.trim();
-}
-
-// Funzione di normalizzazione caratteri speciali per titoli
-function normalizeSpecialChars(str: string): string {
-  return str
-    .replace(/'/g, '\u2019') // apostrofo normale in unicode
-    .replace(/:/g, '\u003A'); // due punti in unicode (aggiungi altri se necessario)
-}
-
-// Funzione per convertire caratteri unicode "speciali" in caratteri normali
-function normalizeUnicodeToAscii(str: string): string {
-  return str
-    .replace(/[\u2019\u2018'']/g, "'") // tutti gli apostrofi unicode in apostrofo normale
-    .replace(/[\u201C\u201D""]/g, '"') // virgolette unicode in doppie virgolette
-    .replace(/\u003A/g, ':'); // due punti unicode in normale
-}
-
-export class AnimeSaturnProvider {
-  private kitsuProvider = new KitsuProvider();
-  constructor(private config: AnimeSaturnConfig) {}
-
-  // Ricerca tutte le versioni (AnimeSaturn non distingue SUB/ITA/CR, ma puoi inferirlo dal titolo)
-  private async searchAllVersions(title: string, malId?: string): Promise<{ version: AnimeSaturnResult; language_type: string }[]> {
-    let args = ['search', '--query', title];
-    if (malId) {
-      args.push('--mal-id', malId);
-    }
-    let results: AnimeSaturnResult[] = await invokePythonScraper(args);
-    // Se la ricerca trova solo una versione e il titolo contiene apostrofi, riprova con l'apostrofo tipografico
-    if (results.length <= 1 && title.includes("'")) {
-      const titleTypo = title.replace(/'/g, '’');
-      let typoArgs = ['search', '--query', titleTypo];
-      if (malId) {
-        typoArgs.push('--mal-id', malId);
-      }
-      const moreResults: AnimeSaturnResult[] = await invokePythonScraper(typoArgs);
-      // Unisci risultati senza duplicati (per url)
-      const seen = new Set(results.map(r => r.url));
-      for (const r of moreResults) {
-        if (!seen.has(r.url)) results.push(r);
-      }
-    }
-    // Normalizza i titoli dei risultati per confronto robusto
-    results = results.map(r => ({
-      ...r,
-      title: normalizeUnicodeToAscii(r.title)
-    }));
-    results.forEach(r => {
-      console.log('DEBUG titolo JSON normalizzato:', r.title);
-    });
-    return results.map(r => {
-      const nameLower = r.title.toLowerCase();
-      let language_type = 'SUB';
-      if (nameLower.includes('cr')) {
-        language_type = 'CR';
-      } else if (nameLower.includes('ita')) {
-        language_type = 'ITA';
-      }
-      // Qui la chiave 'title' è già normalizzata!
-      return { version: { ...r, title: r.title }, language_type };
-    });
-  }
-
-  // Uniformità: accetta sia Kitsu che MAL
-  async handleKitsuRequest(kitsuIdString: string): Promise<{ streams: StreamForStremio[] }> {
-    if (!this.config.enabled) {
-      return { streams: [] };
-    }
-    try {
-      const { kitsuId, seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(kitsuIdString);
-      const englishTitle = await getEnglishTitleFromAnyId(kitsuId, 'kitsu', this.config.tmdbApiKey);
-      // Recupera anche l'id MAL
-      let malId: string | undefined = undefined;
-      try {
-        const mappingsResp = await (await fetch(`https://kitsu.io/api/edge/anime/${kitsuId}/mappings`)).json();
-        const malMapping = mappingsResp.data?.find((m: any) => m.attributes.externalSite === 'myanimelist/anime');
-        malId = malMapping?.attributes?.externalId?.toString() || undefined;
-      } catch {}
-      console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
-      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie, malId);
-    } catch (error) {
-      console.error('Error handling Kitsu request:', error);
-      return { streams: [] };
-    }
-  }
-
-  async handleMalRequest(malIdString: string): Promise<{ streams: StreamForStremio[] }> {
-    if (!this.config.enabled) {
-      return { streams: [] };
-    }
-    try {
-      // Parsing: mal:ID[:STAGIONE][:EPISODIO]
-      const parts = malIdString.split(':');
-      if (parts.length < 2) throw new Error('Formato MAL ID non valido. Usa: mal:ID o mal:ID:EPISODIO o mal:ID:STAGIONE:EPISODIO');
-      const malId: string = parts[1];
-      let seasonNumber: number | null = null;
-      let episodeNumber: number | null = null;
-      let isMovie = false;
-      if (parts.length === 2) {
-        isMovie = true;
-      } else if (parts.length === 3) {
-        episodeNumber = parseInt(parts[2]);
-      } else if (parts.length === 4) {
-        seasonNumber = parseInt(parts[2]);
-        episodeNumber = parseInt(parts[3]);
-      }
-      const englishTitle = await getEnglishTitleFromAnyId(malId, 'mal', this.config.tmdbApiKey);
-      console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
-      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie, malId);
-    } catch (error) {
-      console.error('Error handling MAL request:', error);
-      return { streams: [] };
-    }
-  }
-
-  async handleImdbRequest(imdbId: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false): Promise<{ streams: StreamForStremio[] }> {
-    if (!this.config.enabled) {
-      return { streams: [] };
-    }
-    try {
-      const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
-      // Recupera anche l'id MAL tramite Haglund
-      let malId: string | undefined = undefined;
-      try {
-        const tmdbKey = this.config.tmdbApiKey || process.env.TMDB_API_KEY || '';
-        const imdbIdOnly = imdbId.split(':')[0];
-        const { getTmdbIdFromImdbId } = await import('../extractor');
-        const tmdbId = await getTmdbIdFromImdbId(imdbIdOnly, tmdbKey);
-        if (tmdbId) {
-          const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
-          malId = haglundResp[0]?.myanimelist?.toString() || undefined;
-        }
-      } catch {}
-      console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
-      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie, malId);
-    } catch (error) {
-      console.error('Error handling IMDB request:', error);
-      return { streams: [] };
-    }
-  }
-
-  async handleTmdbRequest(tmdbId: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false): Promise<{ streams: StreamForStremio[] }> {
-    if (!this.config.enabled) {
-      return { streams: [] };
-    }
-    try {
-      const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
-      // Recupera anche l'id MAL tramite Haglund
-      let malId: string | undefined = undefined;
-      try {
-        const tmdbKey = this.config.tmdbApiKey || process.env.TMDB_API_KEY || '';
-        const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
-        malId = haglundResp[0]?.myanimelist?.toString() || undefined;
-      } catch {}
-      console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
-      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie, malId);
-    } catch (error) {
-      console.error('Error handling TMDB request:', error);
-      return { streams: [] };
-    }
-  }
-
-  // Funzione generica per gestire la ricerca dato un titolo
-  async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false, malId?: string): Promise<{ streams: StreamForStremio[] }> {
-    const normalizedTitle = normalizeTitleForSearch(title);
-    console.log(`[AnimeSaturn] Titolo normalizzato per ricerca: ${normalizedTitle}`);
-    let animeVersions = await this.searchAllVersions(normalizedTitle, malId);
-    animeVersions = filterAnimeResults(animeVersions, normalizedTitle);
-    if (!animeVersions.length) {
-      console.warn('[AnimeSaturn] Nessun risultato trovato per il titolo:', normalizedTitle);
-      return { streams: [] };
-    }
-    const streams: StreamForStremio[] = [];
-    for (const { version, language_type } of animeVersions) {
-      const episodes: AnimeSaturnEpisode[] = await invokePythonScraper(['get_episodes', '--anime-url', version.url]);
-      console.log(`[AnimeSaturn] Episodi trovati per ${version.title}:`, episodes.map(e => e.title));
-      let targetEpisode: AnimeSaturnEpisode | undefined;
-      if (isMovie) {
-        targetEpisode = episodes[0];
-        console.log(`[AnimeSaturn] Selezionato primo episodio (movie):`, targetEpisode?.title);
-      } else if (episodeNumber != null) {
-        targetEpisode = episodes.find(ep => {
-          const match = ep.title.match(/E(\d+)/i);
-          if (match) {
-            return parseInt(match[1]) === episodeNumber;
-          }
-          return ep.title.includes(String(episodeNumber));
-        });
-        console.log(`[AnimeSaturn] Episodio selezionato per E${episodeNumber}:`, targetEpisode?.title);
-      } else {
-        targetEpisode = episodes[0];
-        console.log(`[AnimeSaturn] Selezionato primo episodio (default):`, targetEpisode?.title);
-      }
-      if (!targetEpisode) {
-        console.warn(`[AnimeSaturn] Nessun episodio trovato per la richiesta: S${seasonNumber}E${episodeNumber}`);
-        continue;
-      }
-      const streamResult = await invokePythonScraper(['get_stream', '--episode-url', targetEpisode.url]);
-      let streamUrl = streamResult.url;
-      let streamHeaders = streamResult.headers || undefined;
-      const cleanName = version.title
-        .replace(/\s*\(ITA\)/i, '')
-        .replace(/\s*\(CR\)/i, '')
-        .replace(/ITA/gi, '')
-        .replace(/CR/gi, '')
-        .trim();
-      const sNum = seasonNumber || 1;
-      let streamTitle = `${capitalize(cleanName)} ${language_type} S${sNum}`;
-      if (episodeNumber) {
-        streamTitle += `E${episodeNumber}`;
-      }
-      streams.push({
-        title: streamTitle,
-        url: streamUrl,
-        behaviorHints: {
-          notWebReady: true,
-          ...(streamHeaders ? { headers: streamHeaders } : {})
-        }
-      });
-    }
-    return { streams };
-  }
-}
-
-function capitalize(str: string) {
-  if (!str) return str;
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        main_cli()
+    else:
+        main()
