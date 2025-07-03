@@ -180,7 +180,7 @@ export class AnimeSaturnProvider {
       title: normalizeUnicodeToAscii(r.title)
     }));
     results.forEach(r => {
-      console.log('DEBUG titolo JSON:', r.title, '->', normalizeUnicodeToAscii(r.title));
+      console.log('DEBUG titolo JSON normalizzato:', r.title);
     });
     return results.map(r => {
       const nameLower = r.title.toLowerCase();
@@ -190,7 +190,8 @@ export class AnimeSaturnProvider {
       } else if (nameLower.includes('ita')) {
         language_type = 'ITA';
       }
-      return { version: r, language_type };
+      // Qui la chiave 'title' è già normalizzata!
+      return { version: { ...r, title: r.title }, language_type };
     });
   }
 
