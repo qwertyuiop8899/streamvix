@@ -192,7 +192,20 @@ export class AnimeSaturnProvider {
       args.push('--mal-id', malId);
     }
     let results: AnimeSaturnResult[] = await invokePythonScraper(args);
-    
+    // Se la ricerca trova solo una versione e il titolo contiene apostrofi, riprova con l'apostrofo tipografico
+    if (results.length <= 1 && title.includes("'")) {
+      const titleTypo = title.replace(/'/g, '’');
+      let typoArgs = ['search', '--query', titleTypo];
+      if (malId) {
+        typoArgs.push('--mal-id', malId);
+      }
+      const moreResults: AnimeSaturnResult[] = await invokePythonScraper(typoArgs);
+      // Unisci risultati senza duplicati (per link)
+      const seen = new Set(results.map(r => r.link));
+      for (const r of moreResults) {
+        if (!seen.has(r.link)) results.push(r);
+      }
+    }
     // Normalizza i titoli dei risultati per confronto robusto
     results = results.map(r => ({
       ...r,
