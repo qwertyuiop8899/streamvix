@@ -35,24 +35,24 @@ jobs:
       - name: Aggiungi riga di normalizzazione
         run: |
           python3 -c '
-import re
+          import re
 
-mal_name = '${{ steps.parse.outputs.mal_name }}'
-as_name = '${{ steps.parse.outputs.as_name }}'
+          mal_name = "${{ steps.parse.outputs.mal_name }}"
+          as_name = "${{ steps.parse.outputs.as_name }}"
 
-with open('src/providers/animesaturn-provider.ts', 'r', encoding='utf-8') as f:
-    content = f.read()
+          with open("src/providers/animesaturn-provider.ts", "r", encoding="utf-8") as f:
+              content = f.read()
 
-pattern = r'(.*?)(// Qui puoi aggiungere altre normalizzazioni custom)'
-replacement = r'\\1    \"' + mal_name + '\": \"' + as_name + '\",\n    \\2'
+          pattern = r"(.*?)(// Qui puoi aggiungere altre normalizzazioni custom)"
+          replacement = r"\1    \"" + mal_name + "\": \"" + as_name + "\",\n    \2"
 
-new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+          new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
 
-with open('src/providers/animesaturn-provider.ts', 'w', encoding='utf-8') as f:
-    f.write(new_content)
+          with open("src/providers/animesaturn-provider.ts", "w", encoding="utf-8") as f:
+              f.write(new_content)
 
-print(f'Added normalization: \"{mal_name}\": \"{as_name}\"')
-'
+          print(f"Added normalization: \"{mal_name}\": \"{as_name}\"")
+          '
 
       - name: Crea PR
         uses: peter-evans/create-pull-request@v6
