@@ -6,11 +6,18 @@ on:
 
 jobs:
   generate-pr:
-    if: contains(github.event.issue.labels.*.name, 'normalizzazione') || contains(github.event.issue.labels.*.name, 'richiesta')
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Esci se manca la label
+        if: |
+          !contains(github.event.issue.labels.*.name, 'normalizzazione') &&
+          !contains(github.event.issue.labels.*.name, 'richiesta')
+        run: |
+          echo "Etichetta mancante, esco"
+          exit 1
 
       - name: Debug issue body
         run: |
@@ -67,4 +74,4 @@ print(f'Added normalization: \"{mal_name}\": \"{as_name}\"')
             - [ ] I test esistenti passano
             - [ ] Non rompe altre normalizzazioni
 
-            _Questa PR è stata generata automaticamente dalla Issue #${{ github.event.issue.number }}._
+            _Questa PR è stata generata automaticamente dalla Issue #${{ github.event.issue.number }}._ 
