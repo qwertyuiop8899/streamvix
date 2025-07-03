@@ -105,36 +105,63 @@ def download_mp4(mp4_url, referer_url, filename=None):
     print(f"✅ Download completato: {filename}\n")
 
 def search_anime_by_title_or_malid(title, mal_id):
-    print(f"[DEBUG] Fallback attivo: title='{title}', mal_id='{mal_id}'")
+    # Print debug logs to stderr to avoid breaking JSON output
+    print(f"[DEBUG] Avvio ricerca per title='{title}', mal_id='{mal_id}'", file=sys.stderr)
+
     # 1. Ricerca diretta per titolo
-    results = search_anime(title)
-    if results:
-        print(f"[DEBUG] Ricerca diretta per titolo ha trovato {len(results)} risultati.")
-        return results
-    # 2. Fallback: ricerca fuzzy per prime 3 lettere
+    direct_results = search_anime(title)
+    print(f"[DEBUG] Ricerca diretta ha trovato {len(direct_results)} risultati.", file=sys.stderr)
+
+    # 1.1 Controlla i risultati diretti per un match su MAL ID
+    if direct_results:
+        for item in direct_results:
+            try:
+                # Controlla se la pagina ha il MAL ID corretto
+                resp = requests.get(item["url"], headers=HEADERS, timeout=TIMEOUT)
+                resp.raise_for_status()
+                soup = BeautifulSoup(resp.text, "html.parser")
+                mal_btn = soup.find("a", href=re.compile(r"myanimelist\.net/anime/(\d+)"))
+                if mal_btn:
+                    found_id_match = re.search(r"myanimelist\.net/anime/(\d+)", mal_btn["href"])
+                    if found_id_match:
+                        found_id = found_id_match.group(1)
+                        print(f"[DEBUG] Controllo risultato diretto '{item['title']}': trovato MAL ID {found_id} (cerco {mal_id})", file=sys.stderr)
+                        if found_id == str(mal_id):
+                            print(f"[DEBUG] MATCH DIRETTO trovato per MAL ID {mal_id}!", file=sys.stderr)
+                            return [item] # Trovato, restituisci subito
+            except Exception as e:
+                print(f"[DEBUG] Errore visitando risultato diretto '{item['title']}': {e}", file=sys.stderr)
+                continue
+
+    # 2. Se nessun match diretto, procedi con fallback fuzzy
+    print(f"[DEBUG] Nessun match diretto valido. Avvio ricerca fuzzy.", file=sys.stderr)
     short_key = title[:3]
     fuzzy_results = search_anime(short_key)
-    print(f"[DEBUG] Ricerca fuzzy con chiave '{short_key}' ha trovato {len(fuzzy_results)} risultati.")
+    print(f"[DEBUG] Ricerca fuzzy con chiave '{short_key}' ha trovato {len(fuzzy_results)} risultati.", file=sys.stderr)
+
     for item in fuzzy_results:
         try:
+            # Non ricontrollare risultati già analizzati
+            if any(r['url'] == item['url'] for r in direct_results):
+                continue
+            
             resp = requests.get(item["url"], headers=HEADERS, timeout=TIMEOUT)
             resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "html.parser")
             mal_btn = soup.find("a", href=re.compile(r"myanimelist\.net/anime/(\d+)"))
-            found_id = None
             if mal_btn:
-                found_id = re.search(r"myanimelist\.net/anime/(\d+)", mal_btn["href"])
-                if found_id:
-                    print(f"[DEBUG] Pagina '{item['title']}' ha MAL ID: {found_id.group(1)} (cerco {mal_id})")
-                if found_id and found_id.group(1) == str(mal_id):
-                    print(f"[DEBUG] MATCH trovato per MAL ID {mal_id} nella pagina '{item['title']}'")
-                    return [item]
-            else:
-                print(f"[DEBUG] Pagina '{item['title']}' non ha bottone MAL.")
+                found_id_match = re.search(r"myanimelist\.net/anime/(\d+)", mal_btn["href"])
+                if found_id_match:
+                    found_id = found_id_match.group(1)
+                    print(f"[DEBUG] Pagina fuzzy '{item['title']}' ha MAL ID: {found_id} (cerco {mal_id})", file=sys.stderr)
+                    if found_id == str(mal_id):
+                        print(f"[DEBUG] MATCH FUZZY trovato per MAL ID {mal_id}!", file=sys.stderr)
+                        return [item]
         except Exception as e:
-            print(f"[DEBUG] Errore visitando '{item['title']}': {e}")
+            print(f"[DEBUG] Errore visitando pagina fuzzy '{item['title']}': {e}", file=sys.stderr)
             continue
-    print(f"[DEBUG] Nessun match su MAL ID {mal_id} trovato tra i risultati fuzzy.")
+            
+    print(f"[DEBUG] Nessun match su MAL ID {mal_id} trovato dopo tutti i tentativi.", file=sys.stderr)
     return []
 
 def main():
