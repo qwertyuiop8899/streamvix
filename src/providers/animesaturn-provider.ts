@@ -174,6 +174,12 @@ export class AnimeSaturnProvider {
   // Ricerca tutte le versioni (AnimeSaturn non distingue SUB/ITA/CR, ma puoi inferirlo dal titolo)
   private async searchAllVersions(title: string): Promise<{ version: AnimeSaturnResult; language_type: string }[]> {
     let results: AnimeSaturnResult[] = await invokePythonScraper(['search', '--query', title]);
+    // Fallback: se non trova nulla e il titolo contiene apostrofi, riprova senza apostrofi
+    if ((!results || results.length === 0) && /['’‘]/.test(title)) {
+      const titleNoApostrophe = title.replace(/['’‘]/g, '');
+      console.log(`[AnimeSaturn] Fallback: ritento ricerca senza apostrofi: ${titleNoApostrophe}`);
+      results = await invokePythonScraper(['search', '--query', titleNoApostrophe]);
+    }
     // Normalizza i titoli dei risultati per confronto robusto
     results = results.map(r => ({
       ...r,
