@@ -178,16 +178,7 @@ export class AnimeSaturnProvider {
       args.push('--mal-id', malId);
     }
     let results: AnimeSaturnResult[] = await invokePythonScraper(args);
-    // Fallback: se non trova nulla e il titolo contiene apostrofi, riprova senza apostrofi
-    if ((!results || results.length === 0) && /[''']/.test(title)) {
-      const titleNoApostrophe = title.replace(/[''']/g, '');
-      console.log(`[AnimeSaturn] Fallback: ritento ricerca senza apostrofi: ${titleNoApostrophe}`);
-      let fallbackArgs = ['search', '--query', titleNoApostrophe];
-      if (malId) {
-        fallbackArgs.push('--mal-id', malId);
-      }
-      results = await invokePythonScraper(fallbackArgs);
-    }
+    
     // Normalizza i titoli dei risultati per confronto robusto
     results = results.map(r => ({
       ...r,
