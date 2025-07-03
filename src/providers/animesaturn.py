@@ -145,20 +145,16 @@ def search_anime_by_title_or_malid(title, mal_id):
 
     # 1. Ricerca diretta per titolo completo
     direct_results = search_anime(title)
-    match = check_results_for_mal_id(direct_results, mal_id, "Step 1: Ricerca Diretta")
-    if match:
-        return match
+    matches = check_results_for_mal_id(direct_results, mal_id, "Step 1: Ricerca Diretta") or []
 
     # 2. Fallback: Titolo troncato all'apostrofo
-    if "'" in title or "’" in title or "‘" in title:
+    if not matches and ("'" in title or "’" in title or "‘" in title):
         last_apos = max(title.rfind(c) for c in ["'", "’", "‘"])
         if last_apos != -1:
             truncated_title = title[:last_apos].strip()
             print(f"[DEBUG] Titolo troncato per Fallback #1: '{truncated_title}'", file=sys.stderr)
             truncated_results = search_anime(truncated_title)
-            match = check_results_for_mal_id(truncated_results, mal_id, "Step 2: Ricerca Titolo Troncato")
-            if match:
-                return match
+            matches += check_results_for_mal_id(truncated_results, mal_id, "Step 2: Ricerca Titolo Troncato") or []
 
     # 3. Fallback finale: Ricerca fuzzy con prime 3 lettere
     if not matches:
@@ -167,7 +163,7 @@ def search_anime_by_title_or_malid(title, mal_id):
         # Evita duplicati
         urls_to_skip = {r['url'] for r in (direct_results or [])}
         unique_fuzzy_results = [r for r in fuzzy_results if r['url'] not in urls_to_skip]
-        fuzzy_matches = check_results_for_mal_id(unique_fuzzy_results, mal_id, "Step 3: Ricerca Fuzzy")
+        fuzzy_matches = check_results_for_mal_id(unique_fuzzy_results, mal_id, "Step 3: Ricerca Fuzzy") or []
         if fuzzy_matches and len(fuzzy_matches) >= 2:
             # Se troviamo almeno 2 versioni (es. SUB e ITA), fermati e ritorna subito
             seen = set()
