@@ -24,23 +24,32 @@ def safe_ascii_header(value):
     return value.encode('latin-1', 'ignore').decode('latin-1')
 
 def search_anime(query):
-    """Ricerca anime tramite la barra di ricerca di AnimeSaturn"""
-    search_url = f"{BASE_URL}/index.php?search=1&key={query.replace(' ', '+')}"
-    referer_query = urllib.parse.quote_plus(query)
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Referer": safe_ascii_header(f"{BASE_URL}/animelist?search={referer_query}"),
-        "X-Requested-With": "XMLHttpRequest",
-        "Accept": "application/json, text/javascript, */*; q=0.01"
-    }
-    resp = requests.get(search_url, headers=headers, timeout=TIMEOUT)
-    resp.raise_for_status()
+    """Ricerca anime tramite la barra di ricerca di AnimeSaturn, con paginazione"""
     results = []
-    for item in resp.json():
-        results.append({
-            "title": item["name"],
-            "url": f"{BASE_URL}/anime/{item['link']}"
-        })
+    page = 1
+    while True:
+        search_url = f"{BASE_URL}/index.php?search=1&key={query.replace(' ', '+')}&page={page}"
+        referer_query = urllib.parse.quote_plus(query)
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Referer": safe_ascii_header(f"{BASE_URL}/animelist?search={referer_query}"),
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json, text/javascript, */*; q=0.01"
+        }
+        resp = requests.get(search_url, headers=headers, timeout=TIMEOUT)
+        resp.raise_for_status()
+        page_results = resp.json()
+        if not page_results:
+            break
+        for item in page_results:
+            results.append({
+                "title": item["name"],
+                "url": f"{BASE_URL}/anime/{item['link']}"
+            })
+        # Se meno di 20 risultati (o la quantità che AnimeSaturn mostra per pagina), siamo all'ultima pagina
+        if len(page_results) < 20:
+            break
+        page += 1
     return results
 
 def get_watch_url(episode_url):
@@ -109,8 +118,32 @@ def download_mp4(mp4_url, referer_url, filename=None):
                 f.write(chunk)
     print(f"✅ Download completato: {filename}\n")
 
+def search_anime_html(query, max_pages=3):
+    """Ricerca anime tramite la pagina HTML di AnimeSaturn, con paginazione solo se necessario"""
+    results = []
+    page = 1
+    while page <= max_pages:
+        url = f'{BASE_URL}/animelist?search={urllib.parse.quote_plus(query)}&page={page}'
+        resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        # Seleziona solo i link principali ai dettagli anime
+        for a in soup.select('div.item-archivio h3 a[href^="/anime/"], div.item-archivio h3 a[href^="https://www.animesaturn.cx/anime/"]'):
+            title = a.get_text(strip=True)
+            href = a['href']
+            if not href.startswith('http'):
+                href = BASE_URL + href
+            if not any(r['url'] == href for r in results):
+                results.append({'title': title, 'url': href, 'page': page})
+                print(f"[DEBUG] Trovato titolo: {title} (url: {href})", file=sys.stderr)
+        pagination = soup.select_one('ul.pagination')
+        next_btn = soup.select_one('li.page-item.next:not(.disabled)')
+        if not (pagination and next_btn):
+            break
+        page += 1
+    return results
+
 def search_anime_by_title_or_malid(title, mal_id):
-    print(f"[DEBUG] Avvio ricerca per title='{title}', mal_id='{mal_id}'", file=sys.stderr)
+    print(f"[DEBUG] INIZIO: title={title}, mal_id={mal_id}", file=sys.stderr)
 
     # Helper function to check a list of results for a MAL ID match
     def check_results_for_mal_id(results_list, target_mal_id, search_step_name):
@@ -160,14 +193,20 @@ def search_anime_by_title_or_malid(title, mal_id):
 
     # 3. Fallback finale: Ricerca fuzzy con prime 3 lettere
     if not matches:
+        print(f"[DEBUG] PRIMA DELLA FUZZY: matches={matches}", file=sys.stderr)
         short_key = title[:3]
         print(f"[DEBUG] Avvio fallback fuzzy: chiave '{short_key}'", file=sys.stderr)
-        fuzzy_results = search_anime(short_key)
+        # Usa la ricerca HTML per la fuzzy search
+        fuzzy_results = search_anime_html(short_key)
         print(f"[DEBUG] Fuzzy search ha trovato {len(fuzzy_results)} risultati", file=sys.stderr)
         # Evita duplicati
         urls_to_skip = {r['url'] for r in (direct_results or [])}
         unique_fuzzy_results = [r for r in fuzzy_results if r['url'] not in urls_to_skip]
         fuzzy_matches = []
+        found_normal = None
+        found_ita = None
+        found_cr = None
+        found_count = 0
         for item in unique_fuzzy_results:
             try:
                 print(f"[DEBUG] Visito URL: {item['url']}", file=sys.stderr)
@@ -182,12 +221,32 @@ def search_anime_by_title_or_malid(title, mal_id):
                         print(f"[DEBUG] -> Controllo '{item['title']}': trovato MAL ID {found_id} (cerco {mal_id})", file=sys.stderr)
                         if found_id == str(mal_id):
                             print(f"[DEBUG] MATCH TROVATO!", file=sys.stderr)
-                            fuzzy_matches.append(item)
+                            t_upper = item['title'].upper()
+                            if not found_normal and '(ITA' not in t_upper and '(CR' not in t_upper:
+                                found_normal = item
+                                found_count += 1
+                            elif not found_ita and '(ITA' in t_upper:
+                                found_ita = item
+                                found_count += 1
+                            elif not found_cr and '(CR' in t_upper:
+                                found_cr = item
+                            # Se hai trovato normal e ita, continua a cercare CR fino a fine terza pagina
+                            if found_normal and found_ita and found_cr:
+                                break
             except Exception as e:
                 print(f"[DEBUG] Errore visitando '{item['title']}': {e}", file=sys.stderr)
+            # Se hai già trovato normal e ita e sei oltre la terza pagina, esci
+            if item.get('page', 1) >= 3 and found_normal and found_ita:
+                break
+        # Aggiungi le versioni trovate
+        if found_normal:
+            fuzzy_matches.append(found_normal)
+        if found_ita:
+            fuzzy_matches.append(found_ita)
+        if found_cr:
+            fuzzy_matches.append(found_cr)
         print(f"[DEBUG] fuzzy_matches trovati: {fuzzy_matches}", file=sys.stderr)
         if fuzzy_matches and len(fuzzy_matches) >= 2:
-            # Se troviamo almeno 2 versioni (es. SUB e ITA), fermati e ritorna subito
             seen = set()
             deduped = []
             for m in fuzzy_matches:
