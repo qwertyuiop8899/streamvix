@@ -200,10 +200,10 @@ export class AnimeSaturnProvider {
         typoArgs.push('--mal-id', malId);
       }
       const moreResults: AnimeSaturnResult[] = await invokePythonScraper(typoArgs);
-      // Unisci risultati senza duplicati (per link)
-      const seen = new Set(results.map(r => r.link));
+      // Unisci risultati senza duplicati (per url)
+      const seen = new Set(results.map(r => r.url));
       for (const r of moreResults) {
-        if (!seen.has(r.link)) results.push(r);
+        if (!seen.has(r.url)) results.push(r);
       }
     }
     // Normalizza i titoli dei risultati per confronto robusto
