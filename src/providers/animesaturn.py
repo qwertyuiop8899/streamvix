@@ -119,6 +119,7 @@ def search_anime_by_title_or_malid(title, mal_id):
             return None
         
         print(f"[DEBUG] {search_step_name}: Controllo {len(results_list)} risultati...", file=sys.stderr)
+        matched_items = []
         for item in results_list:
             try:
                 resp = requests.get(item["url"], headers=HEADERS, timeout=TIMEOUT)
@@ -132,10 +133,11 @@ def search_anime_by_title_or_malid(title, mal_id):
                         print(f"[DEBUG] -> Controllo '{item['title']}': trovato MAL ID {found_id} (cerco {target_mal_id})", file=sys.stderr)
                         if found_id == str(target_mal_id):
                             print(f"[DEBUG] MATCH TROVATO!", file=sys.stderr)
-                            return [item]  # Match found
+                            matched_items.append(item)
             except Exception as e:
                 print(f"[DEBUG] Errore visitando '{item['title']}': {e}", file=sys.stderr)
-        
+        if matched_items:
+            return matched_items
         print(f"[DEBUG] {search_step_name}: Nessun match trovato.", file=sys.stderr)
         return None  # No match in this batch
 
