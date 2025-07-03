@@ -163,6 +163,8 @@ function normalizeTitleForSearch(title: string): string {
     'Lupin the Third: The Woman Called Fujiko Mine': 'Lupin III - La donna chiamata Fujiko Mine ',
     'Slam Dunk: National Domination! Sakuragi Hanamichi': 'Slam Dunk: Zenkoku Seiha Da! Sakuragi Hanamichi',
     "Slam Dunk: Roar!! Basket Man Spiriy": "Slam Dunk: Hoero Basketman-damashii! Hanamichi to Rukawa no Atsuki Natsu",
+    "Parasyte: The Maxim": "Kiseijuu",
+
 
     // Qui puoi aggiungere altre normalizzazioni custom
   };
