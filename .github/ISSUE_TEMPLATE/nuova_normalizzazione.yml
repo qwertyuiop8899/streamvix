@@ -19,6 +19,15 @@ body:
 # apritelo e copiate il nome del titolo senza info sulla lingua sub ita o (ITA) copiare solamente il nome
 # per esempio Dan Da Dan Sub ITA, copiare solamente Dan Da Dan
 
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ I dati che inserisci nei campi qui sotto saranno riportati come testo semplice nell’issue. Non modificare i titoli (### MAL English name, ### AnimeSaturn name) per permettere l’automazione!
+        📝 Istruzioni MAL : Adare su https://myanimelist.net/ cercare il titolo e usare il nome in basso al titolo originale (è grigio più scuro) 
+        📝 Istruzioni AnimeSaturn : Per AnimeSatur andare su https://www.animesaturn.cx/ cercare il titolo, 
+            apritelo e copiate il nome del titolo senza info sulla lingua sub ita o (ITA) copiare solamente il nome
+            per esempio Dan Da Dan Sub ITA, copiare solamente Dan Da Dan
+       
   - type: input
     id: mal_name
     attributes:
