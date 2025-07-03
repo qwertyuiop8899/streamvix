@@ -146,6 +146,7 @@ def search_anime_by_title_or_malid(title, mal_id):
     # 1. Ricerca diretta per titolo completo
     direct_results = search_anime(title)
     matches = check_results_for_mal_id(direct_results, mal_id, "Step 1: Ricerca Diretta") or []
+    print(f"[DEBUG] matches dopo ricerca diretta: {matches}", file=sys.stderr)
 
     # 2. Fallback: Titolo troncato all'apostrofo
     if not matches and ("'" in title or "’" in title or "‘" in title):
@@ -155,6 +156,7 @@ def search_anime_by_title_or_malid(title, mal_id):
             print(f"[DEBUG] Titolo troncato per Fallback #1: '{truncated_title}'", file=sys.stderr)
             truncated_results = search_anime(truncated_title)
             matches += check_results_for_mal_id(truncated_results, mal_id, "Step 2: Ricerca Titolo Troncato") or []
+    print(f"[DEBUG] matches dopo troncato: {matches}", file=sys.stderr)
 
     # 3. Fallback finale: Ricerca fuzzy con prime 3 lettere
     if not matches:
@@ -183,6 +185,7 @@ def search_anime_by_title_or_malid(title, mal_id):
                             fuzzy_matches.append(item)
             except Exception as e:
                 print(f"[DEBUG] Errore visitando '{item['title']}': {e}", file=sys.stderr)
+        print(f"[DEBUG] fuzzy_matches trovati: {fuzzy_matches}", file=sys.stderr)
         if fuzzy_matches and len(fuzzy_matches) >= 2:
             # Se troviamo almeno 2 versioni (es. SUB e ITA), fermati e ritorna subito
             seen = set()
@@ -193,7 +196,8 @@ def search_anime_by_title_or_malid(title, mal_id):
                     seen.add(m['url'])
             return deduped
         matches += fuzzy_matches
-            
+    print(f"[DEBUG] matches finali: {matches}", file=sys.stderr)
+
     if matches:
         # Deduplica per url
         seen = set()
