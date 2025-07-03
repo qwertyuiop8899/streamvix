@@ -2,7 +2,7 @@ name: Crea PR da Issue di normalizzazione
 
 on:
   issues:
-    types: [opened]
+    types: [opened, edited]
 
 jobs:
   generate-pr:
@@ -12,53 +12,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Debug step (opzionale, rimuovi dopo il test)
-      - name: Debug labels
+      - name: Debug issue body
         run: |
-          echo "Issue labels: ${{ github.event.issue.labels.*.name }}"
+          echo "${{ github.event.issue.body }}"
 
-      # 1. Estrai i dati dal corpo dell'Issue Form
       - id: parse
         run: |
-          # Estrai i valori dai campi del form YAML
-          MAL_NAME=$(echo "${{ github.event.issue.body }}" | grep -A1 "MAL English name" | tail -n1 | sed 's/^[[:space:]]*//')
-          AS_NAME=$(echo "${{ github.event.issue.body }}" | grep -A1 "AnimeSaturn name" | tail -n1 | sed 's/^[[:space:]]*//')
-          
-          # Rimuovi caratteri di escape e spazi extra
-          MAL_NAME=$(echo "$MAL_NAME" | sed 's/^"//;s/"$//')
-          AS_NAME=$(echo "$AS_NAME" | sed 's/^"//;s/"$//')
-          
+          MAL_NAME=$(echo "${{ github.event.issue.body }}" | awk '/^### MAL English name/{getline; print $0}' | xargs)
+          AS_NAME=$(echo "${{ github.event.issue.body }}" | awk '/^### AnimeSaturn name/{getline; print $0}' | xargs)
           echo "mal_name=$MAL_NAME" >> $GITHUB_OUTPUT
           echo "as_name=$AS_NAME" >> $GITHUB_OUTPUT
-          
           echo "Parsed MAL name: '$MAL_NAME'"
           echo "Parsed AS name: '$AS_NAME'"
 
-      # 2. Applica la patch al file TypeScript con Python
       - name: Aggiungi riga di normalizzazione
         run: |
           python3 -c "
-          import re
-          
-          mal_name = '${{ steps.parse.outputs.mal_name }}'
-          as_name = '${{ steps.parse.outputs.as_name }}'
-          
-          with open('src/providers/animesaturn-provider.ts', 'r') as f:
-              content = f.read()
-          
-          # Trova il commento e inserisci prima
-          pattern = r'(.*?)(// Qui puoi aggiungere altre normalizzazioni custom)'
-          replacement = r'\1    \"' + mal_name + '\": \"' + as_name + '\",\n    \2'
-          
-          new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
-          
-          with open('src/providers/animesaturn-provider.ts', 'w') as f:
-              f.write(new_content)
-          
-          print(f'Added normalization: \"{mal_name}\": \"{as_name}\"')
-          "
+import re
 
-      # 3. Crea la Pull Request
+mal_name = '${{ steps.parse.outputs.mal_name }}'
+as_name = '${{ steps.parse.outputs.as_name }}'
+
+with open('src/providers/animesaturn-provider.ts', 'r', encoding='utf-8') as f:
+    content = f.read()
+
+pattern = r'(.*?)(// Qui puoi aggiungere altre normalizzazioni custom)'
+replacement = r'\\1    \"' + mal_name + '\": \"' + as_name + '\",\n    \\2'
+
+new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+
+with open('src/providers/animesaturn-provider.ts', 'w', encoding='utf-8') as f:
+    f.write(new_content)
+
+print(f'Added normalization: \"{mal_name}\": \"{as_name}\"')
+"
+
       - name: Crea PR
         uses: peter-evans/create-pull-request@v6
         with:
