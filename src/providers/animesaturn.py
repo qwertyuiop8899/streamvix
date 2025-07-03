@@ -19,12 +19,17 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 HEADERS = {"User-Agent": USER_AGENT}
 TIMEOUT = 20
 
+def safe_ascii_header(value):
+    # Remove or replace non-latin-1 characters (e.g., typographic apostrophes)
+    return value.encode('latin-1', 'ignore').decode('latin-1')
+
 def search_anime(query):
     """Ricerca anime tramite la barra di ricerca di AnimeSaturn"""
     search_url = f"{BASE_URL}/index.php?search=1&key={query.replace(' ', '+')}"
+    referer_query = urllib.parse.quote_plus(query)
     headers = {
         "User-Agent": USER_AGENT,
-        "Referer": f"{BASE_URL}/animelist?search={query.replace(' ', '+')}",
+        "Referer": safe_ascii_header(f"{BASE_URL}/animelist?search={referer_query}"),
         "X-Requested-With": "XMLHttpRequest",
         "Accept": "application/json, text/javascript, */*; q=0.01"
     }
