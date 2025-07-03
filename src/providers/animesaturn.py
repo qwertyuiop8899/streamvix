@@ -161,14 +161,23 @@ def search_anime_by_title_or_malid(title, mal_id):
                 return match
 
     # 3. Fallback finale: Ricerca fuzzy con prime 3 lettere
-    short_key = title[:3]
-    fuzzy_results = search_anime(short_key)
-    # Evita di controllare di nuovo i risultati già visti
-    urls_to_skip = {r['url'] for r in direct_results}
-    unique_fuzzy_results = [r for r in fuzzy_results if r['url'] not in urls_to_skip]
-    match = check_results_for_mal_id(unique_fuzzy_results, mal_id, "Step 3: Ricerca Fuzzy")
-    if match:
-        return match
+    if not matches:
+        short_key = title[:3]
+        fuzzy_results = search_anime(short_key)
+        # Evita duplicati
+        urls_to_skip = {r['url'] for r in (direct_results or [])}
+        unique_fuzzy_results = [r for r in fuzzy_results if r['url'] not in urls_to_skip]
+        fuzzy_matches = check_results_for_mal_id(unique_fuzzy_results, mal_id, "Step 3: Ricerca Fuzzy")
+        if fuzzy_matches and len(fuzzy_matches) >= 2:
+            # Se troviamo almeno 2 versioni (es. SUB e ITA), fermati e ritorna subito
+            seen = set()
+            deduped = []
+            for m in fuzzy_matches:
+                if m['url'] not in seen:
+                    deduped.append(m)
+                    seen.add(m['url'])
+            return deduped
+        matches += fuzzy_matches
             
     print(f"[DEBUG] NESSUN MATCH TROVATO dopo tutti i tentativi.", file=sys.stderr)
     return []
