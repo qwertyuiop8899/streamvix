@@ -66,7 +66,7 @@ jobs:
           pattern = re.compile(r"(\s*)// Qui puoi aggiungere altre normalizzazioni custom")
 
           # We replace the found pattern with the new line, a newline character, and then the original matched content
-          new_content, num_replacements = pattern.subn(rf"{new_line}\n\g<0>", content, 1)
+          new_content, num_replacements = pattern.subn(rf"\n{new_line}\n\g<0>", content, 1)
 
           if num_replacements == 0:
               print("Error: The placeholder comment was not found in the file.")
