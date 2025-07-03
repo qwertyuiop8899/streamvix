@@ -29,8 +29,10 @@ jobs:
 
       - id: parse
         run: |
-          MAL_NAME=$(echo "${{ github.event.issue.body }}" | awk '/^### MAL English name/{getline; print $0}' | xargs)
-          AS_NAME=$(echo "${{ github.event.issue.body }}" | awk '/^### AnimeSaturn name/{getline; print $0}' | xargs)
+          MAL_NAME=$(echo "${{ github.event.issue.body }}" | awk '/^### MAL English name/{getline; while($0 ~ /^ *$/){getline}; print $0}')
+          AS_NAME=$(echo "${{ github.event.issue.body }}" | awk '/^### AnimeSaturn name/{getline; while($0 ~ /^ *$/){getline}; print $0}')
+          echo "Estratto MAL_NAME: $MAL_NAME"
+          echo "Estratto AS_NAME: $AS_NAME"
           echo "mal_name=$MAL_NAME" >> $GITHUB_OUTPUT
           echo "as_name=$AS_NAME" >> $GITHUB_OUTPUT
           echo "MAL_NAME_ENV=$MAL_NAME" >> $GITHUB_ENV
