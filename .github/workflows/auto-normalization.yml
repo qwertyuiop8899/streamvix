@@ -11,15 +11,17 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
-      
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Aggiungi label normalizzazione se manca
-        uses: actions-ecosystem/action-add-labels@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          labels: normalizzazione
+      - name: Esci se manca la label
+        if: |
+          !contains(github.event.issue.labels.*.name, 'normalizzazione') &&
+          !contains(github.event.issue.labels.*.name, 'richiesta')
+        run: |
+          echo "Etichetta mancante, esco"
+          exit 1
 
       - name: Debug issue body
         run: |
@@ -31,30 +33,48 @@ jobs:
           AS_NAME=$(echo "${{ github.event.issue.body }}" | awk '/^### AnimeSaturn name/{getline; print $0}' | xargs)
           echo "mal_name=$MAL_NAME" >> $GITHUB_OUTPUT
           echo "as_name=$AS_NAME" >> $GITHUB_OUTPUT
+          echo "MAL_NAME_ENV=$MAL_NAME" >> $GITHUB_ENV
+          echo "AS_NAME_ENV=$AS_NAME" >> $GITHUB_ENV
           echo "Parsed MAL name: '$MAL_NAME'"
           echo "Parsed AS name: '$AS_NAME'"
 
       - name: Aggiungi riga di normalizzazione
+        env:
+          MAL_NAME: ${{ env.MAL_NAME_ENV }}
+          AS_NAME: ${{ env.AS_NAME_ENV }}
         run: |
           python3 -c '
-          import re
+import os
+import re
+import json
 
-          mal_name = "${{ steps.parse.outputs.mal_name }}"
-          as_name = "${{ steps.parse.outputs.as_name }}"
+mal_name = os.environ.get("MAL_NAME")
+as_name = os.environ.get("AS_NAME")
 
-          with open("src/providers/animesaturn-provider.ts", "r", encoding="utf-8") as f:
-              content = f.read()
+if not mal_name or not as_name:
+    print("Error: MAL or AnimeSaturn name is empty. Exiting.")
+    exit(1)
 
-          pattern = r"(.*?)(// Qui puoi aggiungere altre normalizzazioni custom)"
-          replacement = r"\1    \"" + mal_name + "\": \"" + as_name + "\",\n    \2"
+with open("src/providers/animesaturn-provider.ts", "r", encoding="utf-8") as f:
+    content = f.read()
 
-          new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+new_line = f"    {json.dumps(mal_name)}: {json.dumps(as_name)},"
 
-          with open("src/providers/animesaturn-provider.ts", "w", encoding="utf-8") as f:
-              f.write(new_content)
+# This pattern finds the comment and captures the indentation of that line
+pattern = re.compile(r"(\s*)// Qui puoi aggiungere altre normalizzazioni custom")
 
-          print(f"Added normalization: \"{mal_name}\": \"{as_name}\"")
-          '
+# We replace the found pattern with the new line, a newline character, and then the original matched content
+new_content, num_replacements = pattern.subn(rf"{new_line}\n\g<0>", content, 1)
+
+if num_replacements == 0:
+    print("Error: The placeholder comment was not found in the file.")
+    exit(1)
+
+with open("src/providers/animesaturn-provider.ts", "w", encoding="utf-8") as f:
+    f.write(new_content)
+
+print(f"Successfully added normalization: {new_line.strip()}")
+'
 
       - name: Crea PR
         uses: peter-evans/create-pull-request@v6
