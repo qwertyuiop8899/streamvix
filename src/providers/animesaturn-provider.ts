@@ -116,7 +116,15 @@ function normalizeApostrophes(str: string): string {
 }
 
 // Funzione filtro risultati
-function filterAnimeResults(results: { version: AnimeSaturnResult; language_type: string }[], englishTitle: string) {
+function filterAnimeResults(
+  results: { version: AnimeSaturnResult; language_type: string }[],
+  englishTitle: string,
+  malId?: string
+) {
+  if (malId) {
+    // Se la ricerca Python è stata fatta con MAL ID, accetta tutti i risultati
+    return results;
+  }
   const norm = (s: string) => normalizeApostrophes(normalizeUnicodeToAscii(s.toLowerCase().replace(/\s+/g, ' ').trim()));
   const base = norm(englishTitle);
 
@@ -332,7 +340,7 @@ export class AnimeSaturnProvider {
     console.log(`[AnimeSaturn] Titolo normalizzato per ricerca: ${normalizedTitle}`);
     console.log(`[AnimeSaturn] MAL ID passato a searchAllVersions:`, malId ? malId : '(nessuno)');
     let animeVersions = await this.searchAllVersions(normalizedTitle, malId);
-    animeVersions = filterAnimeResults(animeVersions, normalizedTitle);
+    animeVersions = filterAnimeResults(animeVersions, normalizedTitle, malId);
     if (!animeVersions.length) {
       console.warn('[AnimeSaturn] Nessun risultato trovato per il titolo:', normalizedTitle);
       return { streams: [] };
