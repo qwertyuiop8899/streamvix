@@ -112,7 +112,6 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
 
 // Funzione filtro risultati
 function filterAnimeResults(results: { version: AnimeSaturnResult; language_type: string }[], englishTitle: string) {
-  // Normalizza unicode su entrambi i lati del confronto
   const norm = (s: string) => normalizeUnicodeToAscii(s.toLowerCase().replace(/\s+/g, ' ').trim());
   const base = norm(englishTitle);
   const allowed = [
@@ -135,10 +134,12 @@ function filterAnimeResults(results: { version: AnimeSaturnResult; language_type
 function normalizeTitleForSearch(title: string): string {
   const replacements: Record<string, string> = {
     'Attack on Titan': "L'attacco dei Giganti",
+    'Season': '',
     'Shippuuden': 'Shippuden',
+    '-': '',
     'Ore dake Level Up na Ken': 'Solo Leveling',
     'Lupin the Third: The Woman Called Fujiko Mine': 'Lupin III - La donna chiamata Fujiko Mine ',
-    'Slam Dunk: National Domination! Sakuragi Hanamichi': 'Slam Dunk: Zenkoku Seiha Da! - Sakuragi Hanamichi',
+    'Slam Dunk: National Domination! Sakuragi Hanamichi': 'Slam Dunk: Zenkoku Seiha Da! Sakuragi Hanamichi'
     // Qui puoi aggiungere altre normalizzazioni custom
   };
   let normalized = title;
@@ -161,10 +162,9 @@ function normalizeSpecialChars(str: string): string {
 // Funzione per convertire caratteri unicode "speciali" in caratteri normali
 function normalizeUnicodeToAscii(str: string): string {
   return str
-    .replace(/\u2019|’/g, "'") // apostrofo unicode in apostrofo normale
-    .replace(/\u2018|‘/g, "'") // apostrofo sinistro unicode
-    .replace(/\u201C|\u201D|"|"/g, '"') // virgolette unicode in doppie virgolette
-    .replace(/\u003A|:/g, ':'); // due punti unicode in normale
+    .replace(/[\u2019\u2018'']/g, "'") // tutti gli apostrofi unicode in apostrofo normale
+    .replace(/[\u201C\u201D""]/g, '"') // virgolette unicode in doppie virgolette
+    .replace(/\u003A/g, ':'); // due punti unicode in normale
 }
 
 export class AnimeSaturnProvider {
