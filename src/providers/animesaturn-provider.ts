@@ -179,6 +179,9 @@ export class AnimeSaturnProvider {
       ...r,
       title: normalizeUnicodeToAscii(r.title)
     }));
+    results.forEach(r => {
+      console.log('DEBUG titolo JSON:', r.title, '->', normalizeUnicodeToAscii(r.title));
+    });
     return results.map(r => {
       const nameLower = r.title.toLowerCase();
       let language_type = 'SUB';
@@ -200,6 +203,10 @@ export class AnimeSaturnProvider {
       const { kitsuId, seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(kitsuIdString);
       const englishTitle = await getEnglishTitleFromAnyId(kitsuId, 'kitsu', this.config.tmdbApiKey);
       console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
+      results.forEach(r => {
+        console.log('DEBUG titolo JSON:', r.version.title, '->', normalizeUnicodeToAscii(r.version.title));
+      });
+      console.log('DEBUG titolo richiesto:', englishTitle, '->', normalizeUnicodeToAscii(englishTitle));
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
     } catch (error) {
       console.error('Error handling Kitsu request:', error);
@@ -229,6 +236,10 @@ export class AnimeSaturnProvider {
       }
       const englishTitle = await getEnglishTitleFromAnyId(malId, 'mal', this.config.tmdbApiKey);
       console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
+      results.forEach(r => {
+        console.log('DEBUG titolo JSON:', r.version.title, '->', normalizeUnicodeToAscii(r.version.title));
+      });
+      console.log('DEBUG titolo richiesto:', englishTitle, '->', normalizeUnicodeToAscii(englishTitle));
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
     } catch (error) {
       console.error('Error handling MAL request:', error);
@@ -243,6 +254,10 @@ export class AnimeSaturnProvider {
     try {
       const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
       console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
+      results.forEach(r => {
+        console.log('DEBUG titolo JSON:', r.version.title, '->', normalizeUnicodeToAscii(r.version.title));
+      });
+      console.log('DEBUG titolo richiesto:', englishTitle, '->', normalizeUnicodeToAscii(englishTitle));
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
     } catch (error) {
       console.error('Error handling IMDB request:', error);
@@ -257,6 +272,10 @@ export class AnimeSaturnProvider {
     try {
       const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
       console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
+      results.forEach(r => {
+        console.log('DEBUG titolo JSON:', r.version.title, '->', normalizeUnicodeToAscii(r.version.title));
+      });
+      console.log('DEBUG titolo richiesto:', englishTitle, '->', normalizeUnicodeToAscii(englishTitle));
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
     } catch (error) {
       console.error('Error handling TMDB request:', error);
