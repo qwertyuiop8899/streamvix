@@ -330,6 +330,7 @@ export class AnimeSaturnProvider {
   async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false, malId?: string): Promise<{ streams: StreamForStremio[] }> {
     const normalizedTitle = normalizeTitleForSearch(title);
     console.log(`[AnimeSaturn] Titolo normalizzato per ricerca: ${normalizedTitle}`);
+    console.log(`[AnimeSaturn] MAL ID passato a searchAllVersions:`, malId ? malId : '(nessuno)');
     let animeVersions = await this.searchAllVersions(normalizedTitle, malId);
     animeVersions = filterAnimeResults(animeVersions, normalizedTitle);
     if (!animeVersions.length) {
