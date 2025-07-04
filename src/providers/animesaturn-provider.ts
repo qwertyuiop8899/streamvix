@@ -164,6 +164,8 @@ function normalizeTitleForSearch(title: string): string {
     'Slam Dunk: National Domination! Sakuragi Hanamichi': 'Slam Dunk: Zenkoku Seiha Da! Sakuragi Hanamichi',
     "Slam Dunk: Roar!! Basket Man Spiriy": "Slam Dunk: Hoero Basketman-damashii! Hanamichi to Rukawa no Atsuki Natsu",
     "Parasyte: The Maxim": "Kiseijuu",
+    "Attack on Titan OAD": "L'attacco dei Giganti: Il taccuino di Ilse Sub ITA",
+
 
 
     // Qui puoi aggiungere altre normalizzazioni custom
