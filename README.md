@@ -20,7 +20,7 @@ Puoi installare StreamViX solamente in locale, su un server casalingo o su una V
 per il resto, animesaturn e vixsrc va bene anche Huggingface.
 
 Oppure usare questa versione senza gia configurata, serve solo aggiungere la TMDB api key e MFP url e psw, animeunity non funzionerà!
-https://streamvix-streamvix.hf.space](https://streamvix-streamvix-anime.hf.space
+https://streamvix-streamvix-anime.hf.space
 ---
 
 ### 🚀 Metodo 1: Hugging Face (Consigliato per Tutti)
@@ -48,7 +48,7 @@ Salva il seguente contenuto in un file chiamato `docker-compose.yml`, oppure agg
 ```yaml
 services:
   streamvixau:
-    build: https://github.com/qwertyuiop8899/StreamVix-AU.git#main
+    build: https://github.com/qwertyuiop8899/StreamViX.git#main
     container_name: streamvixau
     restart: unless-stopped
     ports:
