@@ -1,262 +1,325 @@
-#!/usr/bin/env python3
-"""
-Server di debug per verificare le richieste di Stremio agli endpoints TV
-"""
+import { addonBuilder, getRouter, Manifest, Stream } from "stremio-addon-sdk";
+import { getStreamContent, VixCloudStreamInfo, ExtractorConfig } from "./extractor";
+import * as fs from 'fs';
+import { landingTemplate } from './landingPage';
+import * as path from 'path';
+import express, { Request, Response, NextFunction } from 'express'; // ✅ CORRETTO: Import tipizzato
+import { AnimeUnityProvider } from './providers/animeunity-provider';
+import { KitsuProvider } from './providers/kitsu'; 
+import { formatMediaFlowUrl } from './utils/mediaflow';
+import { AnimeUnityConfig } from "./types/animeunity";
 
-import json
-import os
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs, unquote
-import time
-from typing import Dict, Any
+// Interfaccia per la configurazione URL
+interface AddonConfig {
+  mediaFlowProxyUrl?: string;
+  mediaFlowProxyPassword?: string;
+  tmdbApiKey?: string;
+  bothLinks?: string;
+  animeunityEnabled?: string;
+  animesaturnEnabled?: string;
+  [key: string]: any;
+}
 
-class DebugRequestHandler(BaseHTTPRequestHandler):
-    
-    def log_request_details(self, method: str):
-        """Log dettagliato di ogni richiesta"""
-        timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-        print(f"\n🌐 [{timestamp}] INCOMING {method} REQUEST:")
-        print(f"   URL: {self.path}")
-        print(f"   Headers: {dict(self.headers)}")
-        print(f"   Client: {self.client_address}")
-        print(f"   User-Agent: {self.headers.get('User-Agent', 'N/A')}")
-        print(f"────────────────────────────────────────────────────────────")
-    
-    def send_json_response(self, data: Dict[str, Any], status_code: int = 200):
-        """Invia una risposta JSON"""
-        response_json = json.dumps(data, indent=2)
-        timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-        
-        print(f"📤 [{timestamp}] RESPONSE:")
-        print(f"   Status: {status_code}")
-        print(f"   Body: {response_json[:500]}{'...' if len(response_json) > 500 else ''}")
-        print(f"════════════════════════════════════════════════════════════\n")
-        
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Headers', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.end_headers()
-        self.wfile.write(response_json.encode('utf-8'))
-    
-    def load_tv_channels(self):
-        """Carica i canali TV"""
-        try:
-            with open('config/tv_channels.json', 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"❌ Error loading TV channels: {e}")
-            return []
-    
-    def get_manifest(self, config_str: str = ""):
-        """Genera il manifest dell'addon"""
-        return {
-            "id": f"org.streamvix.debug{f'.{config_str}' if config_str else ''}",
-            "name": "StreamViX TV Debug",
-            "description": "Debug addon for TV channels",
-            "version": "1.0.0",
-            "catalogs": [
-                {
-                    "type": "tv",
-                    "id": "tv_channels",
-                    "name": "TV Channels (Debug)"
-                }
-            ],
-            "resources": ["catalog", "meta", "stream"],
-            "types": ["tv"],
-            "idPrefixes": ["tv:"]
+// Base manifest configuration
+const baseManifest: Manifest = {
+    id: "org.stremio.vixcloud",
+    version: "2.0.1",
+    name: "StreamViX",
+    description: "Addon for Vixsrc and AnimeUnity streams.", 
+    icon: "/public/icon.png",
+    background: "/public/backround.png",
+    types: ["movie", "series"],
+    idPrefixes: ["tt", "kitsu"],
+    catalogs: [],
+    resources: ["stream"],
+    behaviorHints: {
+        configurable: true
+    },
+    config: [
+        {
+            key: "tmdbApiKey",
+            title: "TMDB API Key",
+            type: "text"
+        },
+        {
+            key: "mediaFlowProxyUrl", 
+            title: "MediaFlow Proxy URL",
+            type: "text"
+        },
+        {
+            key: "mediaFlowProxyPassword",
+            title: "MediaFlow Proxy Password ", 
+            type: "text"
+        },
+        {
+            key: "bothLinks",
+            title: "Mostra entrambi i link (Proxy e Direct)",
+            type: "checkbox"
+        },
+        {
+            key: "animeunityEnabled",
+            title: "Enable AnimeUnity",
+            type: "checkbox"
+        },
+        {
+            key: "animesaturnEnabled",
+            title: "Enable AnimeSaturn",
+            type: "checkbox"
         }
-    
-    def get_catalog(self, type_param: str, id_param: str):
-        """Genera il catalogo TV"""
-        if type_param == "tv" and id_param == "tv_channels":
-            tv_channels = self.load_tv_channels()
-            metas = []
-            
-            for channel in tv_channels:
-                meta = {
-                    "id": f"tv:{channel['id']}",
-                    "type": "tv",
-                    "name": channel["name"],
-                    "poster": channel.get("logo", "https://via.placeholder.com/300x450/0066cc/ffffff?text=TV"),
-                    "description": f"Live TV channel: {channel['name']}",
-                    "genres": ["Live TV"]
-                }
-                metas.append(meta)
-            
-            return {"metas": metas}
-        
-        return {"metas": []}
-    
-    def get_meta(self, type_param: str, id_param: str):
-        """Genera metadata per un canale specifico"""
-        print(f"🔍 META REQUEST: type={type_param}, id={id_param}")
-        
-        if type_param == "tv" and id_param.startswith("tv:"):
-            channel_id = id_param.replace("tv:", "")
-            tv_channels = self.load_tv_channels()
-            
-            channel = next((c for c in tv_channels if c["id"] == channel_id), None)
-            if channel:
-                meta = {
-                    "id": id_param,
-                    "type": "tv",
-                    "name": channel["name"],
-                    "poster": channel.get("logo", "https://via.placeholder.com/300x450/0066cc/ffffff?text=TV"),
-                    "description": f"Live TV channel: {channel['name']}",
-                    "genres": ["Live TV"],
-                    "runtime": "Live",
-                    "year": 2024
-                }
-                return {"meta": meta}
-        
-        print(f"❌ No meta found for {type_param}:{id_param}")
-        return {"meta": None}
-    
-    def get_streams(self, type_param: str, id_param: str):
-        """Genera stream per un canale specifico"""
-        print(f"🎬 STREAM REQUEST: type={type_param}, id={id_param}")
-        
-        if type_param == "tv" and id_param.startswith("tv:"):
-            channel_id = id_param.replace("tv:", "")
-            tv_channels = self.load_tv_channels()
-            
-            channel = next((c for c in tv_channels if c["id"] == channel_id), None)
-            if channel:
-                streams = []
-                
-                # Stream principale
-                if channel.get("staticUrl"):
-                    stream = {
-                        "url": channel["staticUrl"],
-                        "title": f"📺 {channel['name']} (Direct)",
-                        "description": "Direct stream URL"
-                    }
-                    streams.append(stream)
-                
-                # Stream di backup se disponibile
-                if channel.get("vavooNames"):
-                    backup_stream = {
-                        "url": f"https://example.com/backup/{channel_id}.m3u8",
-                        "title": f"📺 {channel['name']} (Backup)",
-                        "description": "Backup stream via Vavoo"
-                    }
-                    streams.append(backup_stream)
-                
-                print(f"✅ Returning {len(streams)} streams for {channel['name']}")
-                return {"streams": streams}
-        
-        print(f"❌ No streams found for {type_param}:{id_param}")
-        return {"streams": []}
-    
-    def do_GET(self):
-        """Gestisce le richieste GET"""
-        self.log_request_details("GET")
-        
-        # Parse URL
-        parsed_url = urlparse(self.path)
-        path_parts = [p for p in parsed_url.path.split('/') if p]
-        
-        try:
-            # Manifest
-            if len(path_parts) == 1 and path_parts[0] == "manifest.json":
-                response = self.get_manifest()
-                self.send_json_response(response)
-                return
-            
-            # Manifest con config
-            if len(path_parts) == 2 and path_parts[1] == "manifest.json":
-                config_str = path_parts[0]
-                response = self.get_manifest(config_str)
-                self.send_json_response(response)
-                return
-            
-            # Catalog
-            if "catalog" in path_parts:
-                catalog_idx = path_parts.index("catalog")
-                if len(path_parts) > catalog_idx + 2:
-                    type_param = path_parts[catalog_idx + 1]
-                    id_param = path_parts[catalog_idx + 2].replace(".json", "")
-                    response = self.get_catalog(type_param, id_param)
-                    self.send_json_response(response)
-                    return
-            
-            # Meta
-            if "meta" in path_parts:
-                meta_idx = path_parts.index("meta")
-                if len(path_parts) > meta_idx + 2:
-                    type_param = path_parts[meta_idx + 1]
-                    id_param = path_parts[meta_idx + 2].replace(".json", "")
-                    response = self.get_meta(type_param, id_param)
-                    self.send_json_response(response)
-                    return
-            
-            # Stream  
-            if "stream" in path_parts:
-                stream_idx = path_parts.index("stream")
-                if len(path_parts) > stream_idx + 2:
-                    type_param = path_parts[stream_idx + 1]
-                    id_param = path_parts[stream_idx + 2].replace(".json", "")
-                    response = self.get_streams(type_param, id_param)
-                    self.send_json_response(response)
-                    return
-            
-            # 404 per tutti gli altri path
-            print(f"❌ Unknown path: {self.path}")
-            self.send_json_response({"error": "Not found"}, 404)
-            
-        except Exception as e:
-            print(f"❌ Error handling request: {e}")
-            self.send_json_response({"error": str(e)}, 500)
-    
-    def do_OPTIONS(self):
-        """Gestisce le richieste OPTIONS (CORS preflight)"""
-        self.log_request_details("OPTIONS")
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Headers', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.end_headers()
+    ]
+};
 
-def main():
-    print("🚀 Starting StreamViX TV Debug Server...")
-    print("📺 Loading TV channels...")
+// Load custom configuration if available
+function loadCustomConfig(): Manifest {
+    try {
+        const configPath = path.join(__dirname, '..', 'addon-config.json');
+        
+        if (fs.existsSync(configPath)) {
+            const customConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            
+            return {
+                ...baseManifest,
+                id: customConfig.addonId || baseManifest.id,
+                name: customConfig.addonName || baseManifest.name,
+                description: customConfig.addonDescription || baseManifest.description,
+                version: customConfig.addonVersion || baseManifest.version,
+                logo: customConfig.addonLogo || baseManifest.logo,
+                icon: customConfig.addonLogo || baseManifest.icon,
+                background: baseManifest.background
+            };
+        }
+    } catch (error) {
+        console.error('Error loading custom configuration:', error);
+    }
     
-    # Verifica che i file esistano
-    if not os.path.exists('config/tv_channels.json'):
-        print("❌ config/tv_channels.json not found!")
-        return
-    
-    # Carica e mostra i canali
-    try:
-        with open('config/tv_channels.json', 'r', encoding='utf-8') as f:
-            tv_channels = json.load(f)
-        print(f"✅ Loaded {len(tv_channels)} TV channels:")
-        for channel in tv_channels:
-            print(f"   - {channel['name']} (id: {channel['id']})")
-    except Exception as e:
-        print(f"❌ Error loading channels: {e}")
-        return
-    
-    # Avvia il server
-    port = 8080
-    server = HTTPServer(('0.0.0.0', port), DebugRequestHandler)
-    print(f"\n🌐 Server running on http://localhost:{port}")
-    print(f"📱 Add this URL in Stremio: http://localhost:{port}/manifest.json")
-    print(f"🔍 All requests will be logged in detail!")
-    print(f"\n📋 Available endpoints:")
-    print(f"   - Manifest: http://localhost:{port}/manifest.json")
-    print(f"   - Catalog:  http://localhost:{port}/catalog/tv/tv_channels.json")
-    print(f"   - Meta:     http://localhost:{port}/meta/tv/tv:CHANNEL_ID.json")
-    print(f"   - Stream:   http://localhost:{port}/stream/tv/tv:CHANNEL_ID.json")
-    print(f"\n🛑 Press Ctrl+C to stop the server")
-    print("=" * 60)
-    
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print(f"\n🛑 Server stopped")
+    return baseManifest;
+}
 
-if __name__ == "__main__":
-    main()
+// Funzione per parsare la configurazione dall'URL
+function parseConfigFromArgs(args: any): AddonConfig {
+    const config: AddonConfig = {};
+    
+    if (typeof args === 'string') {
+        try {
+            const decoded = decodeURIComponent(args);
+            const parsed = JSON.parse(decoded);
+            return parsed;
+        } catch (error) {
+            return {};
+        }
+    }
+    
+    if (typeof args === 'object' && args !== null) {
+        return args;
+    }
+    
+    return config;
+}
+
+// Funzione per creare il builder con configurazione dinamica
+function createBuilder(config: AddonConfig = {}) {
+    const manifest = loadCustomConfig();
+    
+    if (config.mediaFlowProxyUrl || config.bothLinks || config.tmdbApiKey) {
+        manifest.name;
+    }
+    
+    const builder = new addonBuilder(manifest);
+
+    builder.defineStreamHandler(
+        async ({
+            id,
+            type,
+        }: {  // ✅ CORRETTO: Annotazioni di tipo esplicite
+            id: string;
+            type: string;
+        }): Promise<{
+            streams: Stream[];
+        }> => {
+            try {
+                console.log(`🔍 Stream request: ${type}/${id}`);
+                
+                const allStreams: Stream[] = [];
+                
+                // Gestione AnimeUnity per ID Kitsu o MAL con fallback variabile ambiente
+                const animeUnityEnabled = (config.animeunityEnabled === 'on') || 
+                                        (process.env.ANIMEUNITY_ENABLED?.toLowerCase() === 'true');
+                
+                // Gestione AnimeSaturn per ID Kitsu o MAL con fallback variabile ambiente
+                const animeSaturnEnabled = (config.animesaturnEnabled === 'on') || 
+                                        (process.env.ANIMESATURN_ENABLED?.toLowerCase() === 'true');
+                
+                // Gestione parallela AnimeUnity e AnimeSaturn per ID Kitsu, MAL, IMDB, TMDB
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled)) {
+                    const bothLinkValue = config.bothLinks === 'on';
+                    const animeUnityConfig: AnimeUnityConfig = {
+                        enabled: animeUnityEnabled,
+                        mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
+                        mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
+                        bothLink: bothLinkValue,
+                        tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || ''
+                    };
+                    const animeSaturnConfig = {
+                        enabled: animeSaturnEnabled,
+                        mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
+                        mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
+                        bothLink: bothLinkValue,
+                        tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || ''
+                    };
+                    let animeUnityStreams: Stream[] = [];
+                    let animeSaturnStreams: Stream[] = [];
+                    // Parsing stagione/episodio per IMDB/TMDB
+                    let seasonNumber: number | null = null;
+                    let episodeNumber: number | null = null;
+                    let isMovie = false;
+                    if (id.startsWith('tt') || id.startsWith('tmdb:')) {
+                        // Esempio: tt1234567:1:2 oppure tmdb:12345:1:2
+                        const parts = id.split(':');
+                        if (parts.length === 1) {
+                            isMovie = true;
+                        } else if (parts.length === 2) {
+                            episodeNumber = parseInt(parts[1]);
+                        } else if (parts.length === 3) {
+                            seasonNumber = parseInt(parts[1]);
+                            episodeNumber = parseInt(parts[2]);
+                        }
+                    }
+                    // AnimeUnity
+                    if (animeUnityEnabled) {
+                        try {
+                            const animeUnityProvider = new AnimeUnityProvider(animeUnityConfig);
+                            let animeUnityResult;
+                            if (id.startsWith('kitsu:')) {
+                                console.log(`[AnimeUnity] Processing Kitsu ID: ${id}`);
+                                animeUnityResult = await animeUnityProvider.handleKitsuRequest(id);
+                            } else if (id.startsWith('mal:')) {
+                                console.log(`[AnimeUnity] Processing MAL ID: ${id}`);
+                                animeUnityResult = await animeUnityProvider.handleMalRequest(id);
+                            } else if (id.startsWith('tt')) {
+                                console.log(`[AnimeUnity] Processing IMDB ID: ${id}`);
+                                animeUnityResult = await animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            } else if (id.startsWith('tmdb:')) {
+                                console.log(`[AnimeUnity] Processing TMDB ID: ${id}`);
+                                animeUnityResult = await animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            }
+                            if (animeUnityResult && animeUnityResult.streams) {
+                                animeUnityStreams = animeUnityResult.streams;
+                                for (const s of animeUnityResult.streams) {
+                                    allStreams.push({ ...s, name: 'StreamViX AU' });
+                                }
+                            }
+                        } catch (error) {
+                            console.error('🚨 AnimeUnity error:', error);
+                        }
+                    }
+                    // AnimeSaturn
+                    if (animeSaturnEnabled) {
+                        try {
+                            const { AnimeSaturnProvider } = await import('./providers/animesaturn-provider');
+                            const animeSaturnProvider = new AnimeSaturnProvider(animeSaturnConfig);
+                            let animeSaturnResult;
+                            if (id.startsWith('kitsu:')) {
+                                console.log(`[AnimeSaturn] Processing Kitsu ID: ${id}`);
+                                animeSaturnResult = await animeSaturnProvider.handleKitsuRequest(id);
+                            } else if (id.startsWith('mal:')) {
+                                console.log(`[AnimeSaturn] Processing MAL ID: ${id}`);
+                                animeSaturnResult = await animeSaturnProvider.handleMalRequest(id);
+                            } else if (id.startsWith('tt')) {
+                                console.log(`[AnimeSaturn] Processing IMDB ID: ${id}`);
+                                animeSaturnResult = await animeSaturnProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            } else if (id.startsWith('tmdb:')) {
+                                console.log(`[AnimeSaturn] Processing TMDB ID: ${id}`);
+                                animeSaturnResult = await animeSaturnProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            }
+                            if (animeSaturnResult && animeSaturnResult.streams) {
+                                animeSaturnStreams = animeSaturnResult.streams;
+                                for (const s of animeSaturnResult.streams) {
+                                    allStreams.push({ ...s, name: 'StreamViX AS' });
+                                }
+                            }
+                        } catch (error) {
+                            console.error('[AnimeSaturn] Errore:', error);
+                        }
+                    }
+                }
+                
+                // Mantieni logica VixSrc per tutti gli altri ID
+                if (!id.startsWith('kitsu:') && !id.startsWith('mal:')) {
+                    console.log(`📺 Processing non-Kitsu or MAL ID with VixSrc: ${id}`);
+                    
+                    let bothLinkValue: boolean;
+                    if (config.bothLinks !== undefined) {
+                        bothLinkValue = config.bothLinks === 'on';
+                    } else {
+                        bothLinkValue = process.env.BOTHLINK?.toLowerCase() === 'true';
+                    }
+
+                    const finalConfig: ExtractorConfig = {
+                        tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY,
+                        mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL,
+                        mfpPsw: config.mediaFlowProxyPassword || process.env.MFP_PSW,
+                        bothLink: bothLinkValue
+                    };
+
+                    const res: VixCloudStreamInfo[] | null = await getStreamContent(id, type, finalConfig);
+
+                    if (res) {
+                        for (const st of res) {
+                            if (st.streamUrl == null) continue;
+                            
+                            console.log(`Adding stream with title: "${st.name}"`);
+
+                            allStreams.push({
+                                title: st.name,
+                                name: 'StreamViX Vx',
+                                url: st.streamUrl,
+                                behaviorHints: {
+                                    notWebReady: true,
+                                    headers: { "Referer": st.referer },
+                                },
+                            });
+                        }
+                        console.log(`📺 VixSrc streams found: ${res.length}`);
+                    }
+                }
+                
+                console.log(`✅ Total streams returned: ${allStreams.length}`);
+                return { streams: allStreams };
+            } catch (error) {
+                console.error('Stream extraction failed:', error);
+                return { streams: [] };
+            }
+        }
+    );
+
+    return builder;
+}
+
+// Server Express
+const app = express();
+
+app.use('/public', express.static(path.join(__dirname, '..', 'public')));
+
+// ✅ CORRETTO: Annotazioni di tipo esplicite per Express
+app.get('/', (_: Request, res: Response) => {
+    const manifest = loadCustomConfig();
+    const landingHTML = landingTemplate(manifest);
+    res.setHeader('Content-Type', 'text/html');
+    res.send(landingHTML);
+});
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+    const configString = req.path.split('/')[1];
+    const config = parseConfigFromArgs(configString);
+    const builder = createBuilder(config);
+    
+    const addonInterface = builder.getInterface();
+    const router = getRouter(addonInterface);
+    
+    router(req, res, next);
+});
+
+const PORT = process.env.PORT || 7860;
+app.listen(PORT, () => {
+    console.log(`Addon server running on http://127.0.0.1:${PORT}`);
+});
