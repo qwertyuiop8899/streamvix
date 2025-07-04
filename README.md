@@ -92,7 +92,7 @@ Usa questo metodo se vuoi modificare il codice sorgente, testare nuove funzional
 1.  **Clona il repository:**
 
     ```bash
-    git clone [https://github.com/qwertyuiop8899/StreamViX.git](https://github.com/qwertyuiop8899/StreamViX.git) # Assicurati che sia il repository corretto di StreamViX
+    git clone https://github.com/qwertyuiop8899/StreamViX.git # Assicurati che sia il repository corretto di StreamViX
     cd StreamViX # Entra nella directory del progetto appena clonata
     ```
 
