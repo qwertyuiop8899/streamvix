@@ -9,19 +9,18 @@ Un addon per Stremio che estrae sorgenti streaming dai siti vixsrc e animeunity 
 
 * **✅ Supporto Film:** Trova flussi streaming per i film utilizzando il loro ID TMDB.
 * **📺 Supporto Serie TV:** Trova flussi per ogni episodio di una serie TV, basandosi su ID TMDB in formato stagione/episodio.
-* **⛩️ Supporto Anime:** Trova flussi per ogni episodio di una determinato Anime, basandosi su ID KITSU in formato stagione/episodio.
+* **⛩️ Supporto Anime:** Trova flussi per ogni episodio di una determinato Anime, ora supporta ricerca sia da cinemeta, sia da tmdb che da kitsu.
 * **🔗 Integrazione Perfetta:** Si integra meravigliosamente con l'interfaccia di Stremio per un'esperienza utente fluida.
 
 ---
 
 ## ⚙️ Installazione
 
-Puoi installare StreamViX-AU solamente in locale, su un server casalingo o su una VPN non flaggata o con smartdns.
+Puoi installare StreamViX solamente in locale, su un server casalingo o su una VPN non flaggata o con smartdns per verdere animeunity, 
+per il resto, animesaturn e vixsrc va bene anche Huggingface.
 
-### 🔍 Per animeunity bisogna cercare solamente tramite il catalogo Kitsu https://anime-kitsu.strem.fun/manifest.json
-
-Oppure usare questa versione senza Anime, serve solo aggiungere la TMDB api key e MFP url e psw
-https://streamvix-streamvix.hf.space
+Oppure usare questa versione senza gia configurata, serve solo aggiungere la TMDB api key e MFP url e psw, animeunity non funzionerà!
+https://streamvix-streamvix.hf.space](https://streamvix-streamvix-anime.hf.space
 ---
 
 ### 🚀 Metodo 1: Hugging Face (Consigliato per Tutti)
@@ -55,7 +54,7 @@ services:
     ports:
       - '7860:7860'
 ```
-Sostituisci il link con il tuo fork se preferisci https://github.com/qwertyuiop8899/StreamVix-AU.git#main
+Sostituisci il link con il tuo fork se preferisci https://github.com/qwertyuiop8899/StreamViX.git#main
 
 TMDB Api KEY, MFP link e MFP password e i due flag necessari verranno gestiti dalla pagina di installazione.
 
@@ -93,8 +92,8 @@ Usa questo metodo se vuoi modificare il codice sorgente, testare nuove funzional
 1.  **Clona il repository:**
 
     ```bash
-    git clone [https://github.com/qwertyuiop8899/StreamVix-AU.git](https://github.com/qwertyuiop8899/StreamVix-AU.git) # Assicurati che sia il repository corretto di StreamViX-AU
-    cd StreamVix-AU # Entra nella directory del progetto appena clonata
+    git clone [https://github.com/qwertyuiop8899/StreamViX.git](https://github.com/qwertyuiop8899/StreamViX.git) # Assicurati che sia il repository corretto di StreamViX
+    cd StreamViX # Entra nella directory del progetto appena clonata
     ```
 
 2.  **Installa le dipendenze:**
