@@ -17,13 +17,11 @@ Un addon per Stremio che estrae sorgenti streaming dai siti vixsrc e animeunity 
 ## ⚙️ Installazione
 
 Puoi installare StreamViX solamente in locale, su un server casalingo o su una VPN non flaggata o con smartdns per verdere animeunity, 
-per il resto, animesaturn e vixsrc va bene anche Huggingface.
+per il resto, animesaturn e vixsrc va bene anche Huggingface, ma hanno iniziato a bannare StreamViX, quindi a tuo rischio e pericolo.
 
-Oppure usare questa versione senza gia configurata, serve solo aggiungere la TMDB api key e MFP url e psw, animeunity non funzionerà!
-https://streamvix-streamvix-anime.hf.space
 ---
 
-### 🚀 Metodo 1: Hugging Face (Consigliato per Tutti)
+### 🚀 Metodo 1: Hugging Face (Consigliato per Tutti) MA A RISCHIO BAN! ACCOUNT E SPAZIO
 
 Questo metodo ti permette di avere la tua istanza personale dell'addon online, gratuitamente e con la massima semplicità.
 
@@ -56,7 +54,7 @@ Questo metodo ti permette di avere la tua istanza personale dell'addon online, g
     * Torna alla scheda `Files` del tuo Space.
     * Clicca su `Add file` e seleziona `Create a new file`.
     * Chiamalo `Dockerfile` (senza estensioni, con la "D" maiuscola).
-    * Incolla all'interno il contenuto del [Dockerfile](https://github.com/qwertyuiop8899/StreamViX/blob/main/Dockerfile) che trovi nel repository ufficiale di StreamViX.
+    * Fai un fork del repo e sostituisci il link di github nel docker file con il tuo fork, oppure Incolla all'interno il contenuto del [Dockerfile](https://github.com/qwertyuiop8899/StreamViX/blob/main/Dockerfile) che trovi nel repository ufficiale di StreamViX.
     * Clicca su `Commit new file to main`.
 
 4.  **Build e Deploy 🚀**
