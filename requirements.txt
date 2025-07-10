@@ -1,2 +1,5 @@
 requests
-beautifulsoup4 
+beautifulsoup4
+json
+os
+re 

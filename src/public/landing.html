@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamVix Addon for Stremio</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 2em; max-width: 800px; margin: auto; background: #1a1a1a; color: #e0e0e0; }
+        h1 { color: #ae4545; }
+        a { color: #ae4545; }
+        .install-button-container { padding: 2em 0; }
+        .install-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #ae4545;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <h1>StreamVix Stremio Addon</h1>
+    <p>This addon provides streams from VixSrc for movies and series.</p>
+    <div class="install-button-container">
+        <a id="install-link" href="#" class="install-button">Install Addon</a>
+    </div>
+    <script>
+        const installLink = document.getElementById('install-link');
+        const manifestUrl = `${window.location.protocol}//${window.location.host}/manifest.json`;
+        installLink.href = `stremio://install-addon/${encodeURIComponent(manifestUrl)}`;
+    </script>
+</body>
+</html>
