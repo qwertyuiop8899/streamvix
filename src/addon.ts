@@ -140,8 +140,8 @@ const baseManifest: Manifest = {
             type: "text"
         },
         {
-            key: "mfpProxyPassword Render for MPD",
-            title: "MFP Proxy Password",
+            key: "mfpProxyPassword",
+            title: "MFP Proxy Password Render for MPD",
             type: "text"
         },
         {
