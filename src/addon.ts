@@ -900,7 +900,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // staticUrlD
                     if ((channel as any).staticUrlD) {
                         if (mfpUrl && mfpPsw) {
-                            const daddyProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent((channel as any).staticUrlD)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                            const daddyProxyUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
                             streams.push({
                                 url: daddyProxyUrl,
                                 title: `[🌐D] ${channel.name}`
