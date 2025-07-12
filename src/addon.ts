@@ -25,9 +25,6 @@ interface AddonConfig {
   animeunityEnabled?: string;
   animesaturnEnabled?: string;
   enableLiveTV?: string;
-  mfpProxyUrl?: string;
-  mfpProxyPassword?: string;
-  tvProxyUrl?: string;
   [key: string]: any;
 }
 
@@ -35,9 +32,6 @@ interface AddonConfig {
 const configCache: AddonConfig = {
   mediaFlowProxyUrl: process.env.MFP_URL,
   mediaFlowProxyPassword: process.env.MFP_PSW,
-  mfpProxyUrl: process.env.MFP_URL,
-  mfpProxyPassword: process.env.MFP_PSW,
-  tvProxyUrl: process.env.TV_PROXY_URL,
   enableLiveTV: 'on'
 };
 
@@ -111,7 +105,7 @@ const baseManifest: Manifest = {
         },
         {
             key: "mediaFlowProxyPassword",
-            title: "MediaFlow Proxy Password ", 
+            title: "MediaFlow Proxy Password", 
             type: "text"
         },
         {
@@ -133,21 +127,6 @@ const baseManifest: Manifest = {
             key: "enableLiveTV",
             title: "Enable Live TV",
             type: "checkbox"
-        },
-        {
-            key: "mfpProxyUrl",
-            title: "MFP Proxy URL Render for MPD",
-            type: "text"
-        },
-        {
-            key: "mfpProxyPassword",
-            title: "MFP Proxy Password Render for MPD",
-            type: "text"
-        },
-        {
-            key: "tvProxyUrl",
-            title: "TV Proxy URL",
-            type: "text"
         }
     ]
 };
@@ -836,10 +815,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const allStreams: Stream[] = [];
                 
                 // Prima della logica degli stream TV, aggiungi:
-                // SAFE: separa sempre i proxy per TV
-                let mfpUrl = config.mfpProxyUrl ? normalizeProxyUrl(config.mfpProxyUrl) : '';
-                let mfpPsw = config.mfpProxyPassword || '';
-                let tvProxyUrl = config.tvProxyUrl ? normalizeProxyUrl(config.tvProxyUrl) : '';
+                // Usa sempre lo stesso proxy per tutto
+                let mfpUrl = config.mediaFlowProxyUrl ? normalizeProxyUrl(config.mediaFlowProxyUrl) : '';
+                let mfpPsw = config.mediaFlowProxyPassword || '';
 
                 // === LOGICA TV ===
                 if (type === "tv") {
@@ -871,11 +849,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     console.log(`✅ Found channel: ${channel.name}`);
                     
                     // Debug della configurazione proxy
-                    debugLog(`Config DEBUG - mfpProxyUrl: ${config.mfpProxyUrl}`);
                     debugLog(`Config DEBUG - mediaFlowProxyUrl: ${config.mediaFlowProxyUrl}`);
-                    debugLog(`Config DEBUG - mfpProxyPassword: ${config.mfpProxyPassword ? '***' : 'NOT SET'}`);
                     debugLog(`Config DEBUG - mediaFlowProxyPassword: ${config.mediaFlowProxyPassword ? '***' : 'NOT SET'}`);
-                    debugLog(`Config DEBUG - tvProxyUrl: ${config.tvProxyUrl}`);
                     
                     let streams: { url: string; title: string }[] = [];
 
@@ -924,13 +899,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     // staticUrlD
                     if ((channel as any).staticUrlD) {
-                        if (tvProxyUrl) {
-                            const daddyProxyUrl = `${tvProxyUrl}/proxy/m3u?url=${encodeURIComponent((channel as any).staticUrlD)}`;
+                        if (mfpUrl && mfpPsw) {
+                            const daddyProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent((channel as any).staticUrlD)}&api_password=${encodeURIComponent(mfpPsw)}`;
                             streams.push({
                                 url: daddyProxyUrl,
                                 title: `[🌐D] ${channel.name}`
                             });
-                            debugLog(`Aggiunto staticUrlD Proxy (TV): ${daddyProxyUrl}`);
+                            debugLog(`Aggiunto staticUrlD Proxy (MFP): ${daddyProxyUrl}`);
                         } else {
                             streams.push({
                                 url: (channel as any).staticUrlD,
@@ -993,8 +968,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (foundVavooLinks.length > 0) {
                             foundVavooLinks.forEach(({ url, key }, idx) => {
                                 const streamTitle = `[✌️V-${idx + 1}] ${channel.name}`;
-                                if (tvProxyUrl) {
-                                    const vavooProxyUrl = `${tvProxyUrl}/proxy/m3u?url=${encodeURIComponent(url)}`;
+                                if (mfpUrl && mfpPsw) {
+                                    const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                     streams.push({
                                         title: streamTitle,
                                         url: vavooProxyUrl
@@ -1014,8 +989,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const links = Array.isArray(exact) ? exact : [exact];
                                 links.forEach((url, idx) => {
                                     const streamTitle = `[✌️V-${idx + 1}] ${channel.name}`;
-                                    if (tvProxyUrl) {
-                                        const vavooProxyUrl = `${tvProxyUrl}/proxy/m3u?url=${encodeURIComponent(url)}`;
+                                    if (mfpUrl && mfpPsw) {
+                                        const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                         streams.push({
                                             title: streamTitle,
                                             url: vavooProxyUrl
@@ -1164,6 +1139,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     } else {
                         bothLinkValue = process.env.BOTHLINK?.toLowerCase() === 'true';
                     }
+
+                    console.log(`🔧 DEBUG - bothLinks config: "${config.bothLinks}"`);
+                    console.log(`🔧 DEBUG - bothLinks env: "${process.env.BOTHLINK}"`);
+                    console.log(`🔧 DEBUG - bothLinkValue final: ${bothLinkValue}`);
 
                     const finalConfig: ExtractorConfig = {
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY,
