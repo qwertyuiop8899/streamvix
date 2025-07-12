@@ -10,7 +10,34 @@ Un addon per Stremio che estrae sorgenti streaming dai siti vixsrc e animeunity 
 * **✅ Supporto Film:** Trova flussi streaming per i film utilizzando il loro ID TMDB.
 * **📺 Supporto Serie TV:** Trova flussi per ogni episodio di una serie TV, basandosi su ID TMDB in formato stagione/episodio.
 * **⛩️ Supporto Anime:** Trova flussi per ogni episodio di una determinato Anime, ora supporta ricerca sia da cinemeta, sia da tmdb che da kitsu.
+* **📡 Supporto Live TV:** Canali TV italiani con EPG integrato.
 * **🔗 Integrazione Perfetta:** Si integra meravigliosamente con l'interfaccia di Stremio per un'esperienza utente fluida.
+* **🌐 Proxy Unificato:** Un solo proxy MFP per tutti i contenuti (film, serie, anime, TV).
+
+---
+
+## 🔧 Configurazione Semplificata
+
+StreamViX utilizza un **sistema di proxy unificato** che semplifica la configurazione:
+
+### 🌐 Proxy MFP Unificato
+- **Un solo URL e password** per tutti i contenuti (film, serie, anime, TV)
+- **Formati URL supportati:**
+  - `/proxy/stream/` per file MP4 (film, serie, anime)
+  - `/proxy/mpd/manifest.m3u8` per stream MPD (TV staticUrl/staticUrl2)
+  - `/proxy/hls/manifest.m3u8` per stream HLS (TV staticUrlD, Vavoo)
+
+### 📋 Configurazione Richiesta
+- `MFP_URL`: URL del tuo proxy MFP (es. `https://username-mfp.hf.space`)
+- `MFP_PSW`: Password del proxy MFP
+- `TMDB_API_KEY`: Chiave API TMDB per metadati
+- `BOTHLINK`: Mostra link diretti e proxy (true/false)
+- `ANIMEUNITY_ENABLED`: Abilita AnimeUnity (true/false)
+- `ANIMESATURN_ENABLED`: Abilita AnimeSaturn (true/false)
+
+### 🔄 Logica BothLink
+- **Se `BOTHLINK=true`**: Mostra sia link proxy che diretti
+- **Se `BOTHLINK=false`**: Mostra solo link proxy (se configurato) o solo diretti (se proxy non configurato)
 
 ---
 
@@ -48,7 +75,9 @@ Questo metodo ti permette di avere la tua istanza personale dell'addon online, g
         * `Name: TMDB_API_KEY` -> `Value: la_tua_chiave_api_di_tmdb`
         * `Name: MFP_URL` -> `Value: l_url_della_tua_istanza_mfp` (es. `https://username-mfp.hf.space`, **senza la `/` finale**)
         * `Name: MFP_PSW` -> `Value: la_password_che_hai_impostato_per_mfp`
-        * `name: BOTHLINK ` -> `Value: "false"   true o false (mostra entrambi i link MFP e DIRECT)`    
+        * `Name: BOTHLINK` -> `Value: "false"` (true o false - mostra entrambi i link MFP e DIRECT)
+        * `Name: ANIMEUNITY_ENABLED` -> `Value: "true"` (abilita AnimeUnity)
+        * `Name: ANIMESATURN_ENABLED` -> `Value: "true"` (abilita AnimeSaturn)    
 
 3.  **Configura il Dockerfile 📝**
     * Torna alla scheda `Files` del tuo Space.
@@ -137,11 +166,12 @@ Crea il file `.env`: Crea un file chiamato `.env` nella root del progetto (nella
 
 
     TMDB_API_KEY=la_tua_chiave_api_di_tmdb
-    MFP_URL=[https://username-mfp.hf.space](https://username-mfp.hf.space)
+    MFP_URL=https://username-mfp.hf.space
     MFP_PSW=la_tua_password_mfp
-    PORT="portacustom"
-    BOTHLINK="true"   true o false (mostra entrambi i link MFP e DIRECT)    
-    ANIMEUNITY_ENABLED="true" abilita animeunity
+    PORT=7860
+    BOTHLINK=true
+    ANIMEUNITY_ENABLED=true
+    ANIMESATURN_ENABLED=true
 
 4.  **Compila il progetto:**
     ```
