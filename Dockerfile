@@ -1,5 +1,5 @@
 # Scegli un'immagine Node.js di base
-FROM node:18-slim
+FROM node:20-alpine
 
 # Installa git, python3 e pip
 USER root 
@@ -50,3 +50,4 @@ RUN pnpm run build
 
 # Definisci il comando per avviare l'applicazione
 CMD [ "pnpm", "start" ]
+
