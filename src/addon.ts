@@ -55,6 +55,9 @@ interface AddonConfig {
   animeunityEnabled?: string;
   animesaturnEnabled?: string;
   enableLiveTV?: string;
+  mfpProxyUrl?: string;
+  mfpProxyPassword?: string;
+  tvProxyUrl?: string;
   [key: string]: any;
 }
 
@@ -62,6 +65,9 @@ interface AddonConfig {
 const configCache: AddonConfig = {
   mediaFlowProxyUrl: process.env.MFP_URL,
   mediaFlowProxyPassword: process.env.MFP_PSW,
+  mfpProxyUrl: process.env.MFP_URL,
+  mfpProxyPassword: process.env.MFP_PSW,
+  tvProxyUrl: process.env.TV_PROXY_URL,
   enableLiveTV: 'on'
 };
 
@@ -135,7 +141,7 @@ const baseManifest: Manifest = {
         },
         {
             key: "mediaFlowProxyPassword",
-            title: "MediaFlow Proxy Password", 
+            title: "MediaFlow Proxy Password ", 
             type: "text"
         },
         {
@@ -157,6 +163,21 @@ const baseManifest: Manifest = {
             key: "enableLiveTV",
             title: "Enable Live TV",
             type: "checkbox"
+        },
+        {
+            key: "mfpProxyUrl",
+            title: "MFP Proxy URL Render for MPD",
+            type: "text"
+        },
+        {
+            key: "mfpProxyPassword",
+            title: "MFP Proxy Password Render for MPD",
+            type: "text"
+        },
+        {
+            key: "tvProxyUrl",
+            title: "TV Proxy URL",
+            type: "text"
         }
     ]
 };
@@ -480,37 +501,7 @@ try {
     if (epgConfig.enabled) {
         epgManager = new EPGManager(epgConfig);
         console.log(`📺 EPG Manager inizializzato con URL: ${epgConfig.epgUrl}`);
-        
-        // Avvia aggiornamento EPG in background senza bloccare l'avvio
-        setTimeout(() => {
-            if (epgManager) {
-                epgManager.updateEPG().then(success => {
-                    if (success) {
-                        console.log(`✅ EPG aggiornato con successo in background`);
-                    } else {
-                        console.log(`⚠️ Aggiornamento EPG fallito in background, verrà ritentato al prossimo utilizzo`);
-                    }
-                }).catch(error => {
-                    console.error(`❌ Errore durante l'aggiornamento EPG in background:`, error);
-                });
-            }
-        }, 1000);
-        
-        // Programma aggiornamenti periodici dell'EPG (ogni 6 ore)
-        setInterval(() => {
-            if (epgManager) {
-                console.log(`🔄 Aggiornamento EPG periodico avviato...`);
-                epgManager.updateEPG().then(success => {
-                    if (success) {
-                        console.log(`✅ EPG aggiornato periodicamente con successo`);
-                    } else {
-                        console.log(`⚠️ Aggiornamento EPG periodico fallito`);
-                    }
-                }).catch(error => {
-                    console.error(`❌ Errore durante l'aggiornamento EPG periodico:`, error);
-                });
-            }
-        }, epgConfig.updateInterval);
+        console.log(`📺 EPG configurato in modalità LIVE - i dati verranno caricati solo su richiesta`);
     }
 } catch (error) {
     console.error('❌ Errore nel caricamento dei file di configurazione TV:', error);
@@ -711,7 +702,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 if (epgManager) {
                     try {
                         const epgChannelIds = (channel as any).epgChannelIds;
-                        const epgChannelId = epgManager.findEPGChannelId(channel.name, epgChannelIds);
+                        const epgChannelId = await epgManager.findEPGChannelId(channel.name, epgChannelIds);
                         
                         if (epgChannelId) {
                             const currentProgram = await epgManager.getCurrentProgram(epgChannelId);
@@ -780,7 +771,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 if (epgManager) {
                     try {
                         const epgChannelIds = (channel as any).epgChannelIds;
-                        const epgChannelId = epgManager.findEPGChannelId(channel.name, epgChannelIds);
+                        const epgChannelId = await epgManager.findEPGChannelId(channel.name, epgChannelIds);
                         
                         if (epgChannelId) {
                             const currentProgram = await epgManager.getCurrentProgram(epgChannelId);
@@ -845,9 +836,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const allStreams: Stream[] = [];
                 
                 // Prima della logica degli stream TV, aggiungi:
-                // Usa sempre lo stesso proxy per tutto
-                let mfpUrl = config.mediaFlowProxyUrl ? normalizeProxyUrl(config.mediaFlowProxyUrl) : '';
-                let mfpPsw = config.mediaFlowProxyPassword || '';
+                // SAFE: separa sempre i proxy per TV
+                let mfpUrl = config.mfpProxyUrl ? normalizeProxyUrl(config.mfpProxyUrl) : '';
+                let mfpPsw = config.mfpProxyPassword || '';
+                let tvProxyUrl = config.tvProxyUrl ? normalizeProxyUrl(config.tvProxyUrl) : '';
 
                 // === LOGICA TV ===
                 if (type === "tv") {
@@ -879,8 +871,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     console.log(`✅ Found channel: ${channel.name}`);
                     
                     // Debug della configurazione proxy
+                    debugLog(`Config DEBUG - mfpProxyUrl: ${config.mfpProxyUrl}`);
                     debugLog(`Config DEBUG - mediaFlowProxyUrl: ${config.mediaFlowProxyUrl}`);
+                    debugLog(`Config DEBUG - mfpProxyPassword: ${config.mfpProxyPassword ? '***' : 'NOT SET'}`);
                     debugLog(`Config DEBUG - mediaFlowProxyPassword: ${config.mediaFlowProxyPassword ? '***' : 'NOT SET'}`);
+                    debugLog(`Config DEBUG - tvProxyUrl: ${config.tvProxyUrl}`);
                     
                     let streams: { url: string; title: string }[] = [];
 
@@ -895,12 +890,23 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     // staticUrl
                     if ((channel as any).staticUrl) {
-                        console.log(`🔧 [staticUrl] Raw URL: ${(channel as any).staticUrl}`);
                         const decodedUrl = decodeStaticUrl((channel as any).staticUrl);
-                        console.log(`🔧 [staticUrl] Decoded URL: ${decodedUrl}`);
-                        
                         if (mfpUrl && mfpPsw) {
-                            const proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(decodedUrl)}`;
+                            // Parse l'URL decodificato per separare l'URL base dai parametri
+                            const urlParts = decodedUrl.split('&');
+                            const baseUrl = urlParts[0]; // Primo elemento è l'URL base
+                            const additionalParams = urlParts.slice(1); // Resto sono i parametri aggiuntivi
+                            
+                            // Costruisci l'URL del proxy con l'URL base nel parametro d
+                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                            
+                            // Aggiungi i parametri aggiuntivi (key_id, key, etc.) direttamente all'URL del proxy
+                            for (const param of additionalParams) {
+                                if (param) {
+                                    proxyUrl += `&${param}`;
+                                }
+                            }
+                            
                             streams.push({
                                 url: proxyUrl,
                                 title: `[📺HD] ${channel.name}`
@@ -916,12 +922,23 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     // staticUrl2
                     if ((channel as any).staticUrl2) {
-                        console.log(`🔧 [staticUrl2] Raw URL: ${(channel as any).staticUrl2}`);
                         const decodedUrl = decodeStaticUrl((channel as any).staticUrl2);
-                        console.log(`🔧 [staticUrl2] Decoded URL: ${decodedUrl}`);
-                        
                         if (mfpUrl && mfpPsw) {
-                            const proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(decodedUrl)}`;
+                            // Parse l'URL decodificato per separare l'URL base dai parametri
+                            const urlParts = decodedUrl.split('&');
+                            const baseUrl = urlParts[0]; // Primo elemento è l'URL base
+                            const additionalParams = urlParts.slice(1); // Resto sono i parametri aggiuntivi
+                            
+                            // Costruisci l'URL del proxy con l'URL base nel parametro d
+                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                            
+                            // Aggiungi i parametri aggiuntivi (key_id, key, etc.) direttamente all'URL del proxy
+                            for (const param of additionalParams) {
+                                if (param) {
+                                    proxyUrl += `&${param}`;
+                                }
+                            }
+                            
                             streams.push({
                                 url: proxyUrl,
                                 title: `[📽️FHD] ${channel.name}`
@@ -937,61 +954,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     // staticUrlD
                     if ((channel as any).staticUrlD) {
-                        if (mfpUrl && mfpPsw) {
-                            // Nuova logica: chiama extractor/video con redirect_stream=false, poi costruisci il link proxy/hls/manifest.m3u8
-                            const daddyApiBase = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
-                            try {
-                                const res = await fetch(daddyApiBase);
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    let finalUrl = data.mediaflow_proxy_url || `${mfpUrl}/proxy/hls/manifest.m3u8`;
-                                    // Aggiungi i parametri di query se presenti
-                                    if (data.query_params) {
-                                        const params = new URLSearchParams();
-                                        for (const [key, value] of Object.entries(data.query_params)) {
-                                            if (value !== null) {
-                                                params.append(key, String(value));
-                                            }
-                                        }
-                                        finalUrl += (finalUrl.includes('?') ? '&' : '?') + params.toString();
-                                    }
-                                    // Aggiungi il parametro d per il destination_url
-                                    if (data.destination_url) {
-                                        const destParam = 'd=' + encodeURIComponent(data.destination_url);
-                                        finalUrl += (finalUrl.includes('?') ? '&' : '?') + destParam;
-                                    }
-                                    // Aggiungi gli header come parametri h_
-                                    if (data.request_headers) {
-                                        for (const [key, value] of Object.entries(data.request_headers)) {
-                                            if (value !== null) {
-                                                const headerParam = `h_${key}=${encodeURIComponent(String(value))}`;
-                                                finalUrl += '&' + headerParam;
-                                            }
-                                        }
-                                    }
-                                    streams.push({
-                                        url: finalUrl,
-                                        title: `[🌐D] ${channel.name}`
-                                    });
-                                    debugLog(`Aggiunto staticUrlD Proxy (MFP, nuova logica): ${finalUrl}`);
-                                } else {
-                                    // Fallback: vecchio link
-                                    const daddyProxyUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
-                                    streams.push({
-                                        url: daddyProxyUrl,
-                                        title: `[🌐D] ${channel.name}`
-                                    });
-                                    debugLog(`Aggiunto staticUrlD Proxy (MFP, fallback): ${daddyProxyUrl}`);
-                                }
-                            } catch (err) {
-                                // Fallback: vecchio link
-                                const daddyProxyUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
-                                streams.push({
-                                    url: daddyProxyUrl,
-                                    title: `[🌐D] ${channel.name}`
-                                });
-                                debugLog(`Aggiunto staticUrlD Proxy (MFP, errore): ${daddyProxyUrl}`);
-                            }
+                        if (tvProxyUrl) {
+                            const daddyProxyUrl = `${tvProxyUrl}/proxy/m3u?url=${encodeURIComponent((channel as any).staticUrlD)}`;
+                            streams.push({
+                                url: daddyProxyUrl,
+                                title: `[🌐D] ${channel.name}`
+                            });
+                            debugLog(`Aggiunto staticUrlD Proxy (TV): ${daddyProxyUrl}`);
                         } else {
                             streams.push({
                                 url: (channel as any).staticUrlD,
@@ -1054,8 +1023,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (foundVavooLinks.length > 0) {
                             foundVavooLinks.forEach(({ url, key }, idx) => {
                                 const streamTitle = `[✌️V-${idx + 1}] ${channel.name}`;
-                                if (mfpUrl && mfpPsw) {
-                                    const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                if (tvProxyUrl) {
+                                    const vavooProxyUrl = `${tvProxyUrl}/proxy/m3u?url=${encodeURIComponent(url)}`;
                                     streams.push({
                                         title: streamTitle,
                                         url: vavooProxyUrl
@@ -1075,8 +1044,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const links = Array.isArray(exact) ? exact : [exact];
                                 links.forEach((url, idx) => {
                                     const streamTitle = `[✌️V-${idx + 1}] ${channel.name}`;
-                                    if (mfpUrl && mfpPsw) {
-                                        const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                    if (tvProxyUrl) {
+                                        const vavooProxyUrl = `${tvProxyUrl}/proxy/m3u?url=${encodeURIComponent(url)}`;
                                         streams.push({
                                             title: streamTitle,
                                             url: vavooProxyUrl
@@ -1225,10 +1194,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     } else {
                         bothLinkValue = process.env.BOTHLINK?.toLowerCase() === 'true';
                     }
-
-                    console.log(`🔧 DEBUG - bothLinks config: "${config.bothLinks}"`);
-                    console.log(`🔧 DEBUG - bothLinks env: "${process.env.BOTHLINK}"`);
-                    console.log(`🔧 DEBUG - bothLinkValue final: ${bothLinkValue}`);
 
                     const finalConfig: ExtractorConfig = {
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY,
