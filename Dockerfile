@@ -1,5 +1,5 @@
 # Scegli un'immagine Node.js di base
-FROM node:20-alpine
+FROM node:20-slim
 
 # Installa git, python3 e pip
 USER root 
@@ -37,7 +37,8 @@ USER node
 RUN pnpm install --prod=false # Installa anche devDependencies per il build
 # Copia il resto del codice sorgente (questo non è più necessario se tutto viene da git clone)
 # COPY . . 
-
+# Fix per il problema undici su ARM/Raspberry Pi
+RUN pnpm add undici@6.19.8
 # Esegui il build dell'applicazione TypeScript
 RUN pnpm run build
 
@@ -50,4 +51,5 @@ RUN pnpm run build
 
 # Definisci il comando per avviare l'applicazione
 CMD [ "pnpm", "start" ]
+
 
