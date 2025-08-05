@@ -314,14 +314,14 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         const obj = getObject(id);
         finalNameForProxy += ` (S${obj.season}E${obj.episode})`;
       }
-      finalNameForProxy += ' (Proxy)'; // Aggiungi sempre (Proxy)
+      finalNameForProxy += ' (Proxy) [ITA]'; // Aggiungi sempre (Proxy)
     } else { // Titolo TMDB non trovato, usa il fallback
       if (type === 'movie') {
-        finalNameForProxy = 'Movie Stream (Proxy)';
+        finalNameForProxy = 'Movie Stream (Proxy) [ITA]';
       } else { // Serie
         const obj = getObject(id);
         // Per richiesta utente, anche i titoli di fallback delle serie dovrebbero avere S/E
-        finalNameForProxy = `Series Stream (Proxy) (S${obj.season}E${obj.episode})`;
+        finalNameForProxy = `Series Stream (Proxy) (S${obj.season}E${obj.episode}) [ITA]`;
       }
     }
     
@@ -442,19 +442,19 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       if (baseTitle) {
         // Se abbiamo un titolo, ora siamo sicuri che sia una stringa.
         if (type === 'movie') {
-          determinedName = baseTitle;
+          determinedName = `${baseTitle} [ITA]`;
         } else { // È una serie, aggiungi info S/E
           const obj = getObject(id);
-          determinedName = `${baseTitle} (S${obj.season}E${obj.episode})`;
+          determinedName = `${baseTitle} (S${obj.season}E${obj.episode}) [ITA]`;
         }
       } else {
         // Se non abbiamo un titolo (baseTitle è null), usiamo un nome di fallback.
         if (type === 'movie') {
-          determinedName = 'Movie Stream (Direct)';
+          determinedName = 'Movie Stream (Direct) [ITA]';
         } else { // È una serie
           const obj = getObject(id);
           // Per richiesta utente, anche i titoli di fallback delle serie dovrebbero avere S/E
-          determinedName = `Series Stream (Direct) (S${obj.season}E${obj.episode})`;
+          determinedName = `Series Stream (Direct) (S${obj.season}E${obj.episode}) [ITA]`;
         }
       }
       
@@ -507,3 +507,4 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     }
   }
 }
+
