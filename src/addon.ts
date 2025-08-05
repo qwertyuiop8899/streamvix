@@ -888,7 +888,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     if ((channel as any).staticUrlF) {
                         streams.push({
                             url: (channel as any).staticUrlF,
-                            title: `[🌍dTV] ${channel.name}`
+                            title: `[🌍dTV] ${channel.name} [ITA]`
                         });
                         debugLog(`Aggiunto staticUrlF Direct: ${(channel as any).staticUrlF}`);
                     }
@@ -919,13 +919,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             
                             streams.push({
                                 url: proxyUrl,
-                                title: `[📺HD] ${channel.name}`
+                                title: `[📺HD] ${channel.name} [ITA]`
                             });
                             debugLog(`Aggiunto staticUrl Proxy (MFP): ${proxyUrl}`);
                         } else {
                             streams.push({
                                 url: decodedUrl,
-                                title: `[❌Proxy][📺HD] ${channel.name}`
+                                title: `[❌Proxy][📺HD] ${channel.name} [ITA]`
                             });
                             debugLog(`Aggiunto staticUrl Direct: ${decodedUrl}`);
                         }
@@ -956,13 +956,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             
                             streams.push({
                                 url: proxyUrl,
-                                title: `[📽️FHD] ${channel.name}`
+                                title: `[📽️FHD] ${channel.name} [ITA]`
                             });
                             debugLog(`Aggiunto staticUrl2 Proxy (MFP): ${proxyUrl}`);
                         } else {
                             streams.push({
                                 url: decodedUrl,
-                                title: `[❌Proxy][📽️FHD] ${channel.name}`
+                                title: `[❌Proxy][📽️FHD] ${channel.name} [ITA]`
                             });
                             debugLog(`Aggiunto staticUrl2 Direct: ${decodedUrl}`);
                         }
@@ -1003,7 +1003,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     }
                                     streams.push({
                                         url: finalUrl,
-                                        title: `[🌐D] ${channel.name}`
+                                        title: `[🌐D] ${channel.name} [ITA]`
                                     });
                                     debugLog(`Aggiunto staticUrlD Proxy (MFP, nuova logica): ${finalUrl}`);
                                 } else {
@@ -1011,7 +1011,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     const daddyProxyUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
                                     streams.push({
                                         url: daddyProxyUrl,
-                                        title: `[🌐D] ${channel.name}`
+                                        title: `[🌐D] ${channel.name} [ITA]`
                                     });
                                     debugLog(`Aggiunto staticUrlD Proxy (MFP, fallback): ${daddyProxyUrl}`);
                                 }
@@ -1020,14 +1020,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const daddyProxyUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
                                 streams.push({
                                     url: daddyProxyUrl,
-                                    title: `[🌐D] ${channel.name}`
+                                    title: `[🌐D] ${channel.name} [ITA]`
                                 });
                                 debugLog(`Aggiunto staticUrlD Proxy (MFP, errore): ${daddyProxyUrl}`);
                             }
                         } else {
                             streams.push({
                                 url: (channel as any).staticUrlD,
-                                title: `[❌Proxy][🌐D] ${channel.name}`
+                                title: `[❌Proxy][🌐D] ${channel.name} [ITA]`
                             });
                             debugLog(`Aggiunto staticUrlD Direct: ${(channel as any).staticUrlD}`);
                         }
@@ -1085,7 +1085,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         // Se trovi almeno un link, aggiungi tutti come stream separati numerati
                         if (foundVavooLinks.length > 0) {
                             foundVavooLinks.forEach(({ url, key }, idx) => {
-                                const streamTitle = `[✌️V-${idx + 1}] ${channel.name}`;
+                                const streamTitle = `[✌️V-${idx + 1}] ${channel.name} [ITA]`;
                                 if (mfpUrl && mfpPsw) {
                                     const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                     streams.push({
@@ -1106,7 +1106,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (exact) {
                                 const links = Array.isArray(exact) ? exact : [exact];
                                 links.forEach((url, idx) => {
-                                    const streamTitle = `[✌️V-${idx + 1}] ${channel.name}`;
+                                    const streamTitle = `[✌️V-${idx + 1}] ${channel.name} [ITA]`;
                                     if (mfpUrl && mfpPsw) {
                                         const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                         streams.push({
