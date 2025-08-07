@@ -407,16 +407,6 @@ export class AnimeUnityProvider {
           });
           seenLinks.add(mediaFlowUrl);
         }
-        if (this.config.bothLink && streamResult.embed_url && !seenLinks.has(streamResult.embed_url)) {
-          streams.push({
-            title: `[E] ${streamTitle}`,
-            url: streamResult.embed_url,
-            behaviorHints: {
-              notWebReady: true
-            }
-          });
-          seenLinks.add(streamResult.embed_url);
-        }
       }
     }
     return { streams };
