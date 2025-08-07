@@ -1955,7 +1955,7 @@
     "name": "TopGear",
     "poster": "https://images.pluto.tv/channels/64c109a4798def0008a6e03e/colorLogoPNG.png",
     "description": "Pluto",
-    "category": "Pluto",
+    "category": "pluto",
     "epgChannelIds": [
       "64c109a4798def0008a6e03e"
     ],
@@ -1967,7 +1967,7 @@
   "name": "Pluto TV Alberto Sordi",
   "poster": "https://images.pluto.tv/channels/661f8f01801af800083d9d81/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "661f8f01801af800083d9d81"
   ],
@@ -1979,7 +1979,7 @@
   "name": "South Park",
   "poster": "https://images.pluto.tv/channels/62bc1f502b70e3000706298e/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "62bc1f502b70e3000706298e"
   ],
@@ -1991,7 +1991,7 @@
   "name": "Case Pazzesche",
   "poster": "https://images.pluto.tv/channels/626bb07a58b8dd0007e9f36e/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "626bb07a58b8dd0007e9f36e"
   ],
@@ -2003,7 +2003,7 @@
   "name": "Extreme Makeover Home Edition",
   "poster": "https://images.pluto.tv/channels/6661739641af6400080cd8f1/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6661739641af6400080cd8f1"
   ],
@@ -2015,7 +2015,7 @@
   "name": "16 Anni e Incinta",
   "poster": "https://images.pluto.tv/channels/60940a07d88ba90007b9cb71/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "60940a07d88ba90007b9cb71"
   ],
@@ -2027,7 +2027,7 @@
   "name": "Il Testimone",
   "poster": "https://images.pluto.tv/channels/61fbd3f0733df400076c9a2d/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "61fbd3f0733df400076c9a2d"
   ],
@@ -2039,7 +2039,7 @@
   "name": "Catfish",
   "poster": "https://images.pluto.tv/channels/6093f9ed2c75660007322bb7/colorLogoPNG_1750862971704.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6093f9ed2c75660007322bb7"
   ],
@@ -2051,7 +2051,7 @@
   "name": "Teen Mom",
   "poster": "https://images.pluto.tv/channels/62e7fc8c0d061100083946a9/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "62e7fc8c0d061100083946a9"
   ],
@@ -2063,7 +2063,7 @@
   "name": "Pluto TV Documentari",
   "poster": "https://images.pluto.tv/channels/608aa8a5709d6b0007b132fe/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608aa8a5709d6b0007b132fe"
   ],
@@ -2075,7 +2075,7 @@
   "name": "Pluto TV Storia",
   "poster": "https://images.pluto.tv/channels/65253fdf3fd33c00080214a3/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "65253fdf3fd33c00080214a3"
   ],
@@ -2087,7 +2087,7 @@
   "name": "Naturescape",
   "poster": "https://images.pluto.tv/channels/610a9ebe8c2ac2000734776e/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "610a9ebe8c2ac2000734776e"
   ],
@@ -2099,7 +2099,7 @@
   "name": "Pluto TV Natura",
   "poster": "https://images.pluto.tv/channels/60802b37709d6b0007b0c549/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "60802b37709d6b0007b0c549"
   ],
@@ -2111,7 +2111,7 @@
   "name": "Euronews",
   "poster": "https://images.pluto.tv/channels/61b86ea479a4390007c6d5fc/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "61b86ea479a4390007c6d5fc"
   ],
@@ -2123,7 +2123,7 @@
   "name": "CBS News 24/7",
   "poster": "https://images.pluto.tv/channels/6231ec4b62cd1f0007093c7b/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6231ec4b62cd1f0007093c7b"
   ],
@@ -2135,7 +2135,7 @@
   "name": "I soliti idioti",
   "poster": "https://images.pluto.tv/channels/6602acadb2abe500081cf28a/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6602acadb2abe500081cf28a"
   ],
@@ -2147,7 +2147,7 @@
   "name": "Pluto TV Scherzi e risate",
   "poster": "https://images.pluto.tv/channels/609404b0a8ec810007d8de9d/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "609404b0a8ec810007d8de9d"
   ],
@@ -2159,7 +2159,7 @@
   "name": "FailArmy",
   "poster": "https://images.pluto.tv/channels/608014d19a26320007c92ab6/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608014d19a26320007c92ab6"
   ],
@@ -2171,7 +2171,7 @@
   "name": "Just for Laughs GAGS",
   "poster": "https://images.pluto.tv/channels/6093f48c95132a00075fd859/colorLogoPNG_1745912777006.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6093f48c95132a00075fd859"
   ],
@@ -2183,7 +2183,7 @@
   "name": "I Jefferson",
   "poster": "https://images.pluto.tv/channels/62442f28afe626000747f195/colorLogoPNG-1652710570039.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "62442f28afe626000747f195"
   ],
@@ -2195,7 +2195,7 @@
   "name": "Baywatch",
   "poster": "https://images.pluto.tv/channels/660fc6630cd4630008fae92f/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "660fc6630cd4630008fae92f"
   ],
@@ -2207,7 +2207,7 @@
   "name": "Pluto TV Totò",
   "poster": "https://images.pluto.tv/channels/65253f9881f942000833ccd5/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "65253f9881f942000833ccd5"
   ],
@@ -2219,7 +2219,7 @@
   "name": "Settimo Cielo",
   "poster": "https://images.pluto.tv/channels/6245d3792792150007e20634/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6245d3792792150007e20634"
   ],
@@ -2231,7 +2231,7 @@
   "name": "Pluto TV Serie",
   "poster": "https://images.pluto.tv/channels/60b9ff2722bfa400072676ef/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "60b9ff2722bfa400072676ef"
   ],
@@ -2243,7 +2243,7 @@
   "name": "BBC Drama",
   "poster": "https://images.pluto.tv/channels/62e7fa5ab5062e0007dcf97d/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "62e7fa5ab5062e0007dcf97d"
   ],
@@ -2255,7 +2255,7 @@
   "name": "Mai dire sì",
   "poster": "https://images.pluto.tv/channels/6349279ed5023700078f2bc2/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6349279ed5023700078f2bc2"
   ],
@@ -2267,7 +2267,7 @@
   "name": "Top Serie",
   "poster": "https://images.pluto.tv/channels/654c955683595c00081d9d87/colorLogoPNG_1748417004383.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "654c955683595c00081d9d87"
   ],
@@ -2279,7 +2279,7 @@
   "name": "Sulle tracce del crimine",
   "poster": "https://images.pluto.tv/channels/66d9a98961dbf00008efb5fc/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "66d9a98961dbf00008efb5fc"
   ],
@@ -2291,7 +2291,7 @@
   "name": "Pluto TV Serie Crime",
   "poster": "https://images.pluto.tv/channels/608aa777b907770007e5d05d/colorLogoPNG_1750402183051.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608aa777b907770007e5d05d"
   ],
@@ -2303,7 +2303,7 @@
   "name": "Cin Cin",
   "poster": "https://images.pluto.tv/channels/65cb78b83a116800079e2e35/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "65cb78b83a116800079e2e35"
   ],
@@ -2315,7 +2315,7 @@
   "name": "Love Boat",
   "poster": "https://images.pluto.tv/channels/65cb76723a116800079e1fc3/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "65cb76723a116800079e1fc3"
   ],
@@ -2327,7 +2327,7 @@
   "name": "Mission Impossible",
   "poster": "https://images.pluto.tv/channels/65cb77853ba51e00084cba02/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "65cb77853ba51e00084cba02"
   ],
@@ -2339,7 +2339,7 @@
   "name": "Renegade",
   "poster": "https://images.pluto.tv/channels/634926e4b51d2d00077819a2/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "634926e4b51d2d00077819a2"
   ],
@@ -2351,7 +2351,7 @@
   "name": "MacGyver",
   "poster": "https://images.pluto.tv/channels/6245d4511358320007029cdf/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6245d4511358320007029cdf"
   ],
@@ -2363,7 +2363,7 @@
   "name": "Pluto TV Film",
   "poster": "https://images.pluto.tv/channels/608aa17fb9f4490007e6419a/colorLogoPNG_1733013735186.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608aa17fb9f4490007e6419a"
   ],
@@ -2375,7 +2375,7 @@
   "name": "Pluto TV Sala Cinema",
   "poster": "https://images.pluto.tv/channels/67b368ca60720de3cd6f8f46/colorLogoPNG_1745818749515.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "67b368ca60720de3cd6f8f46"
   ],
@@ -2387,7 +2387,7 @@
   "name": "Pluto TV Film Azione",
   "poster": "https://images.pluto.tv/channels/608aa20a2e7f270007c4878d/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608aa20a2e7f270007c4878d"
   ],
@@ -2399,7 +2399,7 @@
   "name": "Pluto TV Horror",
   "poster": "https://images.pluto.tv/channels/61c09e3ac210ed0007606620/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "61c09e3ac210ed0007606620"
   ],
@@ -2411,7 +2411,7 @@
   "name": "Pluto TV Film Thriller",
   "poster": "https://images.pluto.tv/channels/608aa5e995132a00075f7005/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608aa5e995132a00075f7005"
   ],
@@ -2423,7 +2423,7 @@
   "name": "Pluto TV Legami Letali",
   "poster": "https://images.pluto.tv/channels/64808a8c536e0c0008a276d1/colorLogoPNG_1747395859514.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "64808a8c536e0c0008a276d1"
   ],
@@ -2435,7 +2435,7 @@
   "name": "Pluto TV Film Romantici",
   "poster": "https://images.pluto.tv/channels/608aa4a4cc92820007b663af/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608aa4a4cc92820007b663af"
   ],
@@ -2447,7 +2447,7 @@
   "name": "Pluto TV Film Commedia",
   "poster": "https://images.pluto.tv/channels/608aa512d67fd900072323db/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608aa512d67fd900072323db"
   ],
@@ -2459,7 +2459,7 @@
   "name": "Pluto TV Cinema Emozione",
   "poster": "https://images.pluto.tv/channels/608aa42b5c2b8f0007197529/colorLogoPNG_1746815914026.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608aa42b5c2b8f0007197529"
   ],
@@ -2471,7 +2471,7 @@
   "name": "Pluto TV Film Classici",
   "poster": "https://images.pluto.tv/channels/608aa3c446d73500075f0e24/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608aa3c446d73500075f0e24"
   ],
@@ -2483,7 +2483,7 @@
   "name": "Pluto TV Western",
   "poster": "https://images.pluto.tv/channels/62e7fb67478a5b0007e6c50c/colorLogoPNG_1732029652283.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "62e7fb67478a5b0007e6c50c"
   ],
@@ -2495,7 +2495,7 @@
   "name": "Pluto TV Cinema Italiano",
   "poster": "https://images.pluto.tv/channels/608aa7d8359b270007861489/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608aa7d8359b270007861489"
   ],
@@ -2507,7 +2507,7 @@
   "name": "Cinema Poliziottesco",
   "poster": "https://images.pluto.tv/channels/671754d8e482950008962aaf/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "671754d8e482950008962aaf"
   ],
@@ -2519,7 +2519,7 @@
   "name": "Pluto TV Eros",
   "poster": "https://images.pluto.tv/channels/66335489307fa300082bd6e4/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "66335489307fa300082bd6e4"
   ],
@@ -2531,7 +2531,7 @@
   "name": "Pluto TV Cinema Orientale",
   "poster": "https://images.pluto.tv/channels/6786235bd648bf0008c2780a/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6786235bd648bf0008c2780a"
   ],
@@ -2543,7 +2543,7 @@
   "name": "Duri a Morire",
   "poster": "https://images.pluto.tv/channels/65f865a62873090008d06382/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "65f865a62873090008d06382"
   ],
@@ -2555,7 +2555,7 @@
   "name": "Gli Immortali | Van Damme vs Lundgren",
   "poster": "https://images.pluto.tv/channels/6536608b4f123d000876b78b/colorLogoPNG_1748416779748.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6536608b4f123d000876b78b"
   ],
@@ -2567,7 +2567,7 @@
   "name": "CineThriller",
   "poster": "https://images.pluto.tv/channels/653660b4295b840008a70ba3/colorLogoPNG_1749022092472.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "653660b4295b840008a70ba3"
   ],
@@ -2579,7 +2579,7 @@
   "name": "Pluto TV Shark Attack",
   "poster": "https://images.pluto.tv/channels/67e3b11a432a0e406fd1d55f/colorLogoPNG_1751458394679.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "67e3b11a432a0e406fd1d55f"
   ],
@@ -2591,7 +2591,7 @@
   "name": "Pluto TV Vampiri",
   "poster": "https://images.pluto.tv/channels/6633551323e24f00084744aa/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6633551323e24f00084744aa"
   ],
@@ -2603,7 +2603,7 @@
   "name": "Pluto TV Zombie",
   "poster": "https://images.pluto.tv/channels/663354f3cd43940008602115/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "663354f3cd43940008602115"
   ],
@@ -2615,7 +2615,7 @@
   "name": "Pluto TV Splatter",
   "poster": "https://images.pluto.tv/channels/66335533307fa300082bd80a/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "66335533307fa300082bd80a"
   ],
@@ -2627,7 +2627,7 @@
   "name": "Horror Club",
   "poster": "https://images.pluto.tv/channels/66c35c0c92b1af0008c8e83a/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "66c35c0c92b1af0008c8e83a"
   ],
@@ -2639,7 +2639,7 @@
   "name": "Pluto TV Paranormal",
   "poster": "https://images.pluto.tv/channels/66c70033b1a34600087bb09a/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "66c70033b1a34600087bb09a"
   ],
@@ -2651,7 +2651,7 @@
   "name": "Star Trek: The Original Series",
   "poster": "https://images.pluto.tv/channels/6581a09edfed030008e12b39/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6581a09edfed030008e12b39"
   ],
@@ -2663,7 +2663,7 @@
   "name": "Star Trek: Voyager",
   "poster": "https://images.pluto.tv/channels/65cb73d33ba51e00084cabad/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "65cb73d33ba51e00084cabad"
   ],
@@ -2675,7 +2675,7 @@
   "name": "Star Trek: Deep Space Nine",
   "poster": "https://images.pluto.tv/channels/65cb783b3af63d00087bedda/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "65cb783b3af63d00087bedda"
   ],
@@ -2687,7 +2687,7 @@
   "name": "Pluto TV Serie Sci-Fi",
   "poster": "https://images.pluto.tv/channels/67ed14aaf7c5d70b9089c3bf/colorLogoPNG_1750259768860.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "67ed14aaf7c5d70b9089c3bf"
   ],
@@ -2699,7 +2699,7 @@
   "name": "Pluto TV Sci-Fi",
   "poster": "https://images.pluto.tv/channels/61728bb9ee3773000840c1fa/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "61728bb9ee3773000840c1fa"
   ],
@@ -2711,7 +2711,7 @@
   "name": "Andromeda",
   "poster": "https://images.pluto.tv/channels/60802d37ee238e0007c94e64/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "60802d37ee238e0007c94e64"
   ],
@@ -2723,7 +2723,7 @@
   "name": "Pluto TV True Crime",
   "poster": "https://images.pluto.tv/channels/66d9ab4bf0f17500084e9b7e/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "66d9ab4bf0f17500084e9b7e"
   ],
@@ -2735,7 +2735,7 @@
   "name": "Storie Criminali",
   "poster": "https://images.pluto.tv/channels/66177d18c8311c0008d077d0/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "66177d18c8311c0008d077d0"
   ],
@@ -2747,7 +2747,7 @@
   "name": "Il Banco dei Pugni",
   "poster": "https://images.pluto.tv/channels/60e4507a06171800072339a3/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "60e4507a06171800072339a3"
   ],
@@ -2759,7 +2759,7 @@
   "name": "Affare Fatto",
   "poster": "https://images.pluto.tv/channels/64ec5c6644fe100009d114ae/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "64ec5c6644fe100009d114ae"
   ],
@@ -2771,7 +2771,7 @@
   "name": "Wicked Tuna",
   "poster": "https://images.pluto.tv/channels/67c832cc9b53325ee16fb899/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "67c832cc9b53325ee16fb899"
   ],
@@ -2783,7 +2783,7 @@
   "name": "Geordie Shore",
   "poster": "https://images.pluto.tv/channels/619263ee9541940007d20d60/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "619263ee9541940007d20d60"
   ],
@@ -2795,7 +2795,7 @@
   "name": "Pluto TV Shore",
   "poster": "https://images.pluto.tv/channels/67e3b0d2443f0671bc8a1297/colorLogoPNG_1747721158520.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "67e3b0d2443f0671bc8a1297"
   ],
@@ -2807,7 +2807,7 @@
   "name": "Pluto TV Reality",
   "poster": "https://images.pluto.tv/channels/61925f874b1ec000075e700a/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "61925f874b1ec000075e700a"
   ],
@@ -2819,7 +2819,7 @@
   "name": "Pimp My Ride",
   "poster": "https://images.pluto.tv/channels/636a4eaf77279a0007f14861/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "636a4eaf77279a0007f14861"
   ],
@@ -2831,7 +2831,7 @@
   "name": "FIFA+",
   "poster": "https://images.pluto.tv/channels/660bfc4424e1d000085b5f93/colorLogoPNG_1750064819565.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "660bfc4424e1d000085b5f93"
   ],
@@ -2843,7 +2843,7 @@
   "name": "World Poker Tour",
   "poster": "https://images.pluto.tv/channels/608016e446d73500075ea7e0/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608016e446d73500075ea7e0"
   ],
@@ -2855,7 +2855,7 @@
   "name": "Triton Poker",
   "poster": "https://images.pluto.tv/channels/6616a51124e1d00008761a7e/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6616a51124e1d00008761a7e"
   ],
@@ -2867,7 +2867,7 @@
   "name": "Billiard TV",
   "poster": "https://images.pluto.tv/channels/65df0b428b24c80008eec0b6/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "65df0b428b24c80008eec0b6"
   ],
@@ -2879,7 +2879,7 @@
   "name": "The Boat Show",
   "poster": "https://images.pluto.tv/channels/63eb58aa60bc8f0008caa8f8/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "63eb58aa60bc8f0008caa8f8"
   ],
@@ -2891,7 +2891,7 @@
   "name": "Pluto TV Sport",
   "poster": "https://images.pluto.tv/channels/608030eff4b6f70007e1684c/colorLogoPNG_1746816937164.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608030eff4b6f70007e1684c"
   ],
@@ -2903,7 +2903,7 @@
   "name": "UFC",
   "poster": "https://images.pluto.tv/channels/679203d4bc03978b9b4b79a6/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "679203d4bc03978b9b4b79a6"
   ],
@@ -2915,7 +2915,7 @@
   "name": "Monster Jam",
   "poster": "https://images.pluto.tv/channels/65bce7f1d77d450008b3a430/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "65bce7f1d77d450008b3a430"
   ],
@@ -2927,7 +2927,7 @@
   "name": "MODUS Super Series Darts",
   "poster": "https://images.pluto.tv/channels/671655b2daad7f00085d202d/colorLogoPNG_1732093506297.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "671655b2daad7f00085d202d"
   ],
@@ -2939,7 +2939,7 @@
   "name": "Super! SpongeBob",
   "poster": "https://images.pluto.tv/channels/6093f9281db477000759fce0/colorLogoPNG_1749451468739.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6093f9281db477000759fce0"
   ],
@@ -2951,7 +2951,7 @@
   "name": "Super! Cartoni Animati",
   "poster": "https://images.pluto.tv/channels/6093f6f8351eb0000754afb8/colorLogoPNG_1749626196712.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6093f6f8351eb0000754afb8"
   ],
@@ -2963,7 +2963,7 @@
   "name": "Super! Kids Classics",
   "poster": "https://images.pluto.tv/channels/67f4f99729b03f18cb36647e/colorLogoPNG_1749212422489.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "67f4f99729b03f18cb36647e"
   ],
@@ -2975,7 +2975,7 @@
   "name": "Yu-Gi-Oh!",
   "poster": "https://images.pluto.tv/channels/63eb82e24e83e70008ab735f/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "63eb82e24e83e70008ab735f"
   ],
@@ -2987,7 +2987,7 @@
   "name": "Pluto TV Anime",
   "poster": "https://images.pluto.tv/channels/65b90daed77d450008a43345/colorLogoPNG_1747395522672.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "65b90daed77d450008a43345"
   ],
@@ -2999,7 +2999,7 @@
   "name": "Teenage Mutant Ninja Turtles",
   "poster": "https://images.pluto.tv/channels/62619405c733e8000732d1fe/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "62619405c733e8000732d1fe"
   ],
@@ -3011,7 +3011,7 @@
   "name": "Gormiti",
   "poster": "https://images.pluto.tv/channels/66a8c64814a2bb00084d09d6/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "66a8c64814a2bb00084d09d6"
   ],
@@ -3023,7 +3023,7 @@
   "name": "Super! iCarly",
   "poster": "https://images.pluto.tv/channels/609401db8cf51c00084b592e/colorLogoPNG_1749451591847.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "609401db8cf51c00084b592e"
   ],
@@ -3035,7 +3035,7 @@
   "name": "Super! Victorious",
   "poster": "https://images.pluto.tv/channels/63c012504faf1c0007abfa93/colorLogoPNG_1749480683796.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "63c012504faf1c0007abfa93"
   ],
@@ -3047,7 +3047,7 @@
   "name": "Super! Zoey 101",
   "poster": "https://images.pluto.tv/channels/6304ed62410a4c00083c0291/colorLogoPNG_1749451764425.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6304ed62410a4c00083c0291"
   ],
@@ -3059,7 +3059,7 @@
   "name": "Super! Big Time Rush",
   "poster": "https://images.pluto.tv/channels/666174c9f999220008769012/colorLogoPNG_1749451832489.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "666174c9f999220008769012"
   ],
@@ -3071,7 +3071,7 @@
   "name": "Super! Pop",
   "poster": "https://images.pluto.tv/channels/6093f7b5bb49b90007cecaad/colorLogoPNG_1749451949815.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6093f7b5bb49b90007cecaad"
   ],
@@ -3083,7 +3083,7 @@
   "name": "Hell's Kitchen",
   "poster": "https://images.pluto.tv/channels/664f0ddbf78a8500092dcffa/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "664f0ddbf78a8500092dcffa"
   ],
@@ -3095,7 +3095,7 @@
   "name": "Pluto TV Cucina",
   "poster": "https://images.pluto.tv/channels/608aa718a8ec810007d87fee/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "608aa718a8ec810007d87fee"
   ],
@@ -3107,7 +3107,7 @@
   "name": "Pluto TV Real Life",
   "poster": "https://images.pluto.tv/channels/60801976f92a750007a0699c/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "60801976f92a750007a0699c"
   ],
@@ -3119,7 +3119,7 @@
   "name": "Pluto TV Viaggi",
   "poster": "https://images.pluto.tv/channels/63c923944207be0007fd0887/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "63c923944207be0007fd0887"
   ],
@@ -3131,7 +3131,7 @@
   "name": "Pluto TV ASMR",
   "poster": "https://images.pluto.tv/channels/66867b9919311200085313d9/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "66867b9919311200085313d9"
   ],
@@ -3143,7 +3143,7 @@
   "name": "CNN Headlines",
   "poster": "https://images.pluto.tv/channels/66c45ba803e3b20008d8c294/colorLogoPNG_1745489409673.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "66c45ba803e3b20008d8c294"
   ],
@@ -3155,7 +3155,7 @@
   "name": "Desi Play TV",
   "poster": "https://images.pluto.tv/channels/66c3139c21a4740008466116/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "66c3139c21a4740008466116"
   ],
@@ -3167,7 +3167,7 @@
   "name": "VH1+ Summer Vibes",
   "poster": "https://images.pluto.tv/channels/626180ec537f210007e94b52/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "626180ec537f210007e94b52"
   ],
@@ -3179,7 +3179,7 @@
   "name": "VH1+ Music Legends",
   "poster": "https://images.pluto.tv/channels/62e8cc10ca869f00078efca8/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "62e8cc10ca869f00078efca8"
   ],
@@ -3191,7 +3191,7 @@
   "name": "VH1+ Back to 90's",
   "poster": "https://images.pluto.tv/channels/6552085aab05240008b05f6c/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6552085aab05240008b05f6c"
   ],
@@ -3203,7 +3203,7 @@
   "name": "VH1+ Rock!",
   "poster": "https://images.pluto.tv/channels/636a4173e34fd50007534542/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "636a4173e34fd50007534542"
   ],
@@ -3215,7 +3215,7 @@
   "name": "VH1+ Dance",
   "poster": "https://images.pluto.tv/channels/65e5d9d2ec9fda0008c35f91/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "65e5d9d2ec9fda0008c35f91"
   ],
@@ -3227,7 +3227,7 @@
   "name": "VH1+ Classici",
   "poster": "https://images.pluto.tv/channels/6690f892d51259000880d1c4/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "6690f892d51259000880d1c4"
   ],
@@ -3239,7 +3239,7 @@
   "name": "VH1+ Canzoni Italiane",
   "poster": "https://images.pluto.tv/channels/63724270c7c2360007b170e8/colorLogoPNG.png",
   "description": "Pluto",
-  "category": "Pluto",
+  "category": "pluto",
   "epgChannelIds": [
     "63724270c7c2360007b170e8"
   ],
