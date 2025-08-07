@@ -1,7 +1,6 @@
 export interface AnimeUnityConfig {
   mfpUrl: string;
   mfpPassword: string;
-  bothLink: boolean;
   enabled: boolean;
   tmdbApiKey?: string;
 }
@@ -53,7 +52,6 @@ export interface AnimeSaturnConfig {
   mfpPassword: string;
   mfpProxyUrl: string;  // Aggiunto per supportare m3u8 proxy
   mfpProxyPassword: string;  // Aggiunto per supportare m3u8 proxy
-  bothLink: boolean;
   enabled: boolean;
   tmdbApiKey?: string;
 }
