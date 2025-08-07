@@ -555,6 +555,9 @@ function getChannelCategories(channel: any): string[] {
         if (name.includes('cinema') || name.includes('movie') || name.includes('warner')) {
             categories.push('movies');
         }
+        if (name.includes('pluto') || description.includes('pluto')) {
+            categories.push('pluto');
+        }
         
         if (categories.length === 0) {
             categories.push('general');
