@@ -51,7 +51,7 @@ interface AddonConfig {
   mediaFlowProxyUrl?: string;
   mediaFlowProxyPassword?: string;
   tmdbApiKey?: string;
-  bothLinks?: string;
+  enableMpd?: string;
   animeunityEnabled?: string;
   animesaturnEnabled?: string;
   enableLiveTV?: string;
@@ -139,8 +139,8 @@ const baseManifest: Manifest = {
             type: "text"
         },
         {
-            key: "bothLinks",
-            title: "Mostra entrambi i link (Proxy e Direct)",
+            key: "enableMpd",
+            title: "Enable MPD Streams",
             type: "checkbox"
         },
         {
@@ -652,7 +652,7 @@ function normalizeProxyUrl(url: string): string {
 function createBuilder(initialConfig: AddonConfig = {}) {
     const manifest = loadCustomConfig();
     
-    if (initialConfig.mediaFlowProxyUrl || initialConfig.bothLinks || initialConfig.tmdbApiKey) {
+    if (initialConfig.mediaFlowProxyUrl || initialConfig.enableMpd || initialConfig.tmdbApiKey) {
         manifest.name;
     }
     
@@ -679,7 +679,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     "Sport": "sport",
                     "Cinema": "movies",
                     "Generali": "general",
-                    "Documentari": "documentari"
+                    "Documentari": "documentari",
+                    "Pluto": "pluto"
                 };
                 
                 const targetCategory = genreMap[genre];
@@ -893,8 +894,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         debugLog(`Aggiunto staticUrlF Direct: ${(channel as any).staticUrlF}`);
                     }
 
-                    // staticUrl
-                    if ((channel as any).staticUrl) {
+                    // staticUrl (solo se enableMpd è attivo)
+                    if ((channel as any).staticUrl && (config.enableMpd === 'on' || process.env.ENABLE_MPD?.toLowerCase() === 'true')) {
                         console.log(`🔧 [staticUrl] Raw URL: ${(channel as any).staticUrl}`);
                         const decodedUrl = decodeStaticUrl((channel as any).staticUrl);
                         console.log(`🔧 [staticUrl] Decoded URL: ${decodedUrl}`);
@@ -930,8 +931,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             debugLog(`Aggiunto staticUrl Direct: ${decodedUrl}`);
                         }
                     }
-                    // staticUrl2
-                    if ((channel as any).staticUrl2) {
+                    // staticUrl2 (solo se enableMpd è attivo)
+                    if ((channel as any).staticUrl2 && (config.enableMpd === 'on' || process.env.ENABLE_MPD?.toLowerCase() === 'true')) {
                         console.log(`🔧 [staticUrl2] Raw URL: ${(channel as any).staticUrl2}`);
                         const decodedUrl = decodeStaticUrl((channel as any).staticUrl2);
                         console.log(`🔧 [staticUrl2] Decoded URL: ${decodedUrl}`);
@@ -1153,12 +1154,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 
                 // Gestione parallela AnimeUnity e AnimeSaturn per ID Kitsu, MAL, IMDB, TMDB
                 if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled)) {
-                    const bothLinkValue = config.bothLinks === 'on';
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
                         mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
-                        bothLink: bothLinkValue,
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || ''
                     };
                     const animeSaturnConfig = {
@@ -1167,7 +1166,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
                         mfpProxyUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
                         mfpProxyPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
-                        bothLink: bothLinkValue,
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || ''
                     };
                     let animeUnityStreams: Stream[] = [];
@@ -1251,22 +1249,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 if (!id.startsWith('kitsu:') && !id.startsWith('mal:') && !id.startsWith('tv:')) {
                     console.log(`📺 Processing non-Kitsu or MAL ID with VixSrc: ${id}`);
                     
-                    let bothLinkValue: boolean;
-                    if (config.bothLinks !== undefined) {
-                        bothLinkValue = config.bothLinks === 'on';
-                    } else {
-                        bothLinkValue = process.env.BOTHLINK?.toLowerCase() === 'true';
-                    }
-
-                    console.log(`🔧 DEBUG - bothLinks config: "${config.bothLinks}"`);
-                    console.log(`🔧 DEBUG - bothLinks env: "${process.env.BOTHLINK}"`);
-                    console.log(`🔧 DEBUG - bothLinkValue final: ${bothLinkValue}`);
-
                     const finalConfig: ExtractorConfig = {
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY,
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL,
-                        mfpPsw: config.mediaFlowProxyPassword || process.env.MFP_PSW,
-                        bothLink: bothLinkValue
+                        mfpPsw: config.mediaFlowProxyPassword || process.env.MFP_PSW
                     };
 
                     const res: VixCloudStreamInfo[] | null = await getStreamContent(id, type, finalConfig);
