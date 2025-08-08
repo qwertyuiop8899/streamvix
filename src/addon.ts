@@ -972,6 +972,45 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             debugLog(`Aggiunto staticUrl2 Direct: ${decodedUrl}`);
                         }
                     }
+
+                    // staticUrlMpd (sempre attivo se presente, non dipende da enableMpd)
+                    if ((channel as any).staticUrlMpd) {
+                        console.log(`🔧 [staticUrlMpd] Raw URL: ${(channel as any).staticUrlMpd}`);
+                        const decodedUrl = decodeStaticUrl((channel as any).staticUrlMpd);
+                        console.log(`🔧 [staticUrlMpd] Decoded URL: ${decodedUrl}`);
+                        console.log(`🔧 [staticUrlMpd] mfpUrl: ${mfpUrl}`);
+                        console.log(`🔧 [staticUrlMpd] mfpPsw: ${mfpPsw ? '***' : 'NOT SET'}`);
+                        
+                        if (mfpUrl && mfpPsw) {
+                            // Parse l'URL decodificato per separare l'URL base dai parametri
+                            const urlParts = decodedUrl.split('&');
+                            const baseUrl = urlParts[0]; // Primo elemento è l'URL base
+                            const additionalParams = urlParts.slice(1); // Resto sono i parametri aggiuntivi
+                            
+                            // Costruisci l'URL del proxy con l'URL base nel parametro d
+                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                            
+                            // Aggiungi i parametri aggiuntivi (key_id, key, etc.) direttamente all'URL del proxy
+                            for (const param of additionalParams) {
+                                if (param) {
+                                    proxyUrl += `&${param}`;
+                                }
+                            }
+                            
+                            streams.push({
+                                url: proxyUrl,
+                                title: `[🎬MPD] ${channel.name} [ITA]`
+                            });
+                            debugLog(`Aggiunto staticUrlMpd Proxy (MFP): ${proxyUrl}`);
+                        } else {
+                            streams.push({
+                                url: decodedUrl,
+                                title: `[❌Proxy][🎬MPD] ${channel.name} [ITA]`
+                            });
+                            debugLog(`Aggiunto staticUrlMpd Direct: ${decodedUrl}`);
+                        }
+                    }
+                    
                     // staticUrlD
                     if ((channel as any).staticUrlD) {
                         if (mfpUrl && mfpPsw) {
