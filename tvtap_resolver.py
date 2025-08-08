@@ -41,11 +41,21 @@ def payload():
         ret64 = b64encode(cipher.encrypt(_msg))
         return ret64
     except ImportError:
-        logga("pycryptodome not available, using fallback payload")
-        return b"fallback_payload"
+        logga("pycryptodome not available, script cannot work without it")
+        # Invece di un payload di fallback, solleva un'eccezione
+        raise ImportError("pycryptodome is required but not installed. Install with: pip install pycryptodome")
 
 def get_tvtap_channels():
     """Ottiene la lista dei canali italiani da TVTap usando il metodo originale"""
+    # Controlla se pycryptodome è disponibile prima di procedere
+    try:
+        from Crypto.Cipher import PKCS1_v1_5 as Cipher_PKCS1_v1_5
+        from Crypto.PublicKey import RSA
+    except ImportError:
+        logga("FATAL: pycryptodome not available. Install with: pip install pycryptodome")
+        print("ERROR: pycryptodome required", file=sys.stderr)
+        return []
+    
     user_agent = 'USER-AGENT-tvtap-APP-V2'
     
     headers = {
@@ -56,9 +66,10 @@ def get_tvtap_channels():
     }
     
     try:
+        payload_data = payload()
         r = requests.post('https://rocktalk.net/tv/index.php?case=get_all_channels', 
                          headers=headers, 
-                         data={"payload": payload(), "username": "603803577"}, 
+                         data={"payload": payload_data, "username": "603803577"}, 
                          timeout=15)
         
         logga(f'Response status: {r.status_code}')
@@ -69,6 +80,13 @@ def get_tvtap_channels():
             
         response_json = r.json()
         logga(f'Got response with keys: {list(response_json.keys()) if isinstance(response_json, dict) else "not a dict"}')
+        
+        # Controlla se c'è un errore nella risposta
+        if isinstance(response_json, dict) and "msg" in response_json:
+            msg = response_json["msg"]
+            if isinstance(msg, str) and ("error" in msg.lower() or "occured" in msg.lower()):
+                logga(f'API returned error: {msg}')
+                return get_static_italian_channels()
         
         # Filtra solo i canali italiani dalla risposta
         italian_channels = []
@@ -91,12 +109,16 @@ def get_tvtap_channels():
                 logga(f'Found {len(italian_channels)} Italian channels from API')
                 return italian_channels if italian_channels else get_static_italian_channels()
             else:
-                logga(f'Unexpected msg structure: {type(msg)}')
+                logga(f'Unexpected msg structure: {type(msg)}, falling back to static list')
                 return get_static_italian_channels()
         else:
-            logga(f'Unexpected response structure: {type(response_json)}')
+            logga(f'Unexpected response structure: {type(response_json)}, falling back to static list')
             return get_static_italian_channels()
         
+    except ImportError as ie:
+        logga(f'Import error: {ie}')
+        print("ERROR: Missing required library", file=sys.stderr)
+        return []
     except Exception as e:
         logga(f'Error getting channels from API: {e}, falling back to static list')
         return get_static_italian_channels()
@@ -105,10 +127,19 @@ def get_tvtap_stream(channel_id):
     """Ottiene lo stream di un canale specifico usando il metodo originale"""
     logga(f'Stream request for channel {channel_id}')
     
+    # Controlla se pycryptodome è disponibile per la decrittazione
     try:
+        from Crypto.Cipher import PKCS1_v1_5 as Cipher_PKCS1_v1_5
+        from Crypto.PublicKey import RSA
+    except ImportError:
+        logga("FATAL: pycryptodome not available. Install with: pip install pycryptodome")
+        return None
+    
+    try:
+        payload_data = payload()
         r = requests.post('https://rocktalk.net/tv/index.php?case=get_channel_link_with_token_latest', 
             headers={"app-token": "37a6259cc0c1dae299a7866489dff0bd"},
-            data={"payload": payload(), "channel_id": channel_id, "username": "603803577"},
+            data={"payload": payload_data, "channel_id": channel_id, "username": "603803577"},
             timeout=15)
 
         logga(f'Stream request for channel {channel_id}: {r.status_code}')
@@ -128,8 +159,8 @@ def get_tvtap_stream(channel_id):
         logga(f'Message response type: {type(msgRes)}, content: {str(msgRes)[:50]}...')
         
         if isinstance(msgRes, str):
-            if msgRes == "Invalid request!":
-                logga('Invalid request response')
+            if "error" in msgRes.lower() or "occured" in msgRes.lower():
+                logga(f'API returned error: {msgRes}')
                 return None
             else:
                 logga(f'Got string response: {msgRes}')
@@ -154,7 +185,7 @@ def get_tvtap_stream(channel_id):
                     if link:
                         link = link.decode("utf-8")
                         if not link == "dummytext" and link:
-                            logga(f'Decrypted stream: {link[:50]}...')
+                            logga(f'Found stream link for channel {channel_id}')
                             return link
             
         except ImportError:
@@ -164,6 +195,9 @@ def get_tvtap_stream(channel_id):
             logga(f'Decryption error: {e}')
             return None
             
+    except ImportError as ie:
+        logga(f'Import error: {ie}')
+        return None
     except Exception as e:
         logga(f'Error getting stream: {e}')
         return None
@@ -186,78 +220,6 @@ def normalize_channel_name(name):
     name = re.sub(r'[^\w\s]', '', name)
     
     return name
-
-def get_tvtap_channels():
-    """Ottiene la lista dei canali italiani da TVTap"""
-    user_agent = 'USER-AGENT-tvtap-APP-V2'
-    
-    headers = {
-        'User-Agent': user_agent,
-        'app-token': '37a6259cc0c1dae299a7866489dff0bd',
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'Host': 'taptube.net',
-    }
-    
-    try:
-        r = requests.post('https://rocktalk.net/tv/index.php?case=get_all_channels', 
-                         headers=headers, 
-                         data={"payload": payload(), "username": "603803577"}, 
-                         timeout=15)
-        
-        logga(f'Response status: {r.status_code}')
-        
-        if r.status_code != 200:
-            logga(f'HTTP error: {r.status_code}')
-            return get_static_italian_channels()
-            
-        response_json = r.json()
-        logga(f'Got response with keys: {list(response_json.keys()) if isinstance(response_json, dict) else "not a dict"}')
-        
-        # Filtra solo i canali italiani
-        italian_channels = []
-        
-        if isinstance(response_json, dict) and "msg" in response_json:
-            msg = response_json["msg"]
-            if isinstance(msg, dict) and "channels" in msg:
-                channels = msg["channels"]
-            elif isinstance(msg, str):
-                # Prova a parsare msg come JSON
-                try:
-                    msg_parsed = json.loads(msg)
-                    if isinstance(msg_parsed, dict) and "channels" in msg_parsed:
-                        channels = msg_parsed["channels"]
-                    else:
-                        logga(f'No channels in parsed msg: {list(msg_parsed.keys()) if isinstance(msg_parsed, dict) else type(msg_parsed)}')
-                        return get_static_italian_channels()
-                except json.JSONDecodeError:
-                    logga(f'Could not parse msg as JSON: {msg[:100]}...')
-                    return get_static_italian_channels()
-            elif isinstance(msg, list):
-                channels = msg
-            else:
-                logga(f'Unexpected msg structure: {type(msg)}')
-                return get_static_italian_channels()
-        elif isinstance(response_json, list):
-            channels = response_json
-        else:
-            logga(f'Unexpected response structure: {type(response_json)}')
-            return get_static_italian_channels()
-        
-        for channel in channels:
-            if isinstance(channel, dict) and channel.get("country") == "IT":
-                italian_channels.append({
-                    "id": channel.get("pk_id"),
-                    "name": channel.get("channel_name"),
-                    "country": channel.get("country"),
-                    "thumbnail": channel.get("img")
-                })
-        
-        logga(f'Found {len(italian_channels)} Italian channels from API')
-        return italian_channels if italian_channels else get_static_italian_channels()
-        
-    except Exception as e:
-        logga(f'Error getting channels from API: {e}, falling back to static list')
-        return get_static_italian_channels()
 
 def get_static_italian_channels():
     """Restituisce una lista statica dei canali italiani TVTap"""
@@ -337,84 +299,6 @@ def get_static_italian_channels():
         {"id": "592", "name": "Sky TG24", "country": "IT"},
         {"id": "593", "name": "Sky Uno", "country": "IT"}
     ]
-
-def get_tvtap_stream(channel_id):
-    """Ottiene il link stream per un canale specifico da TVTap"""
-    user_agent = 'USER-AGENT-tvtap-APP-V2'
-    player_user_agent = "mediaPlayerhttp/1.8 (Linux;Android 7.1.2) ExoPlayerLib/2.5.3"
-    key = b"98221122"
-    
-    try:
-        r = requests.post('https://rocktalk.net/tv/index.php?case=get_channel_link_with_token_latest', 
-            headers={"app-token": "37a6259cc0c1dae299a7866489dff0bd"},
-            data={"payload": payload(), "channel_id": channel_id, "username": "603803577"},
-            timeout=15)
-
-        logga(f'Stream request for channel {channel_id}: {r.status_code}')
-        
-        if r.status_code != 200:
-            return None
-            
-        response_json = r.json()
-        logga(f'Response keys: {list(response_json.keys()) if isinstance(response_json, dict) else "not a dict"}')
-        
-        msg_res = response_json.get("msg") if isinstance(response_json, dict) else response_json
-        logga(f'Message response type: {type(msg_res)}, content: {str(msg_res)[:100]}...')
-        
-        if isinstance(msg_res, str) and msg_res == "Invalid request!":
-            logga(f'Invalid request for channel {channel_id}')
-            return None
-        
-        # Se msg_res è una stringa, potrebbe essere un errore
-        if isinstance(msg_res, str):
-            logga(f'Got string response: {msg_res}')
-            return None
-        
-        # Importa Crypto per la decrittazione
-        try:
-            from Crypto.Cipher import DES
-            from Crypto.Util.Padding import unpad
-        except ImportError:
-            logga('pycryptodome not available, cannot decrypt TVTap streams')
-            logga('Install pycryptodome with: pip install pycryptodome')
-            return None
-        
-        channel_data = response_json.get("msg", {}).get("channel", [])
-        if not channel_data:
-            logga('No channel data found')
-            return None
-            
-        jch = channel_data[0]
-        
-        # Cerca i link stream
-        for stream_key in jch.keys():
-            if "stream" in stream_key or "chrome_cast" in stream_key:
-                try:
-                    # Usa DES con pycryptodome
-                    cipher = DES.new(key, DES.MODE_ECB)
-                    encrypted_data = jch[stream_key]
-                    decrypted_data = cipher.decrypt(b64decode(encrypted_data))
-                    
-                    # Rimuovi padding PKCS5
-                    try:
-                        link = unpad(decrypted_data, DES.block_size).decode("utf-8")
-                    except:
-                        # Fallback: rimuovi padding manualmente
-                        link = decrypted_data.rstrip(b'\x00').decode("utf-8", errors='ignore')
-            
-                    if link and link != "dummytext":
-                        logga(f'Found stream link for channel {channel_id}')
-                        return link
-                except Exception as decrypt_error:
-                    logga(f'Decryption error: {decrypt_error}')
-                    continue
-        
-        logga(f'No valid stream found for channel {channel_id}')
-        return None
-        
-    except Exception as e:
-        logga(f'Error getting stream for channel {channel_id}: {e}')
-        return None
 
 def find_channel_by_name(channel_name, channels):
     """Trova un canale per nome con matching flessibile"""
