@@ -2,4 +2,6 @@ requests
 beautifulsoup4
 json
 os
-re 
+re
+pyDes 
+pycryptodome 

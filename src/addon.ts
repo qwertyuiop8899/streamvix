@@ -429,6 +429,84 @@ try {
     
     console.log(`✅ Loaded ${tvChannels.length} TV channels`);
     
+    // ============ TVTAP INTEGRATION ============
+
+    // Cache per i link TVTap
+    interface TVTapCache {
+        timestamp: number;
+        channels: Map<string, string>;
+        updating: boolean;
+    }
+
+    const tvtapCache: TVTapCache = {
+        timestamp: 0,
+        channels: new Map<string, string>(),
+        updating: false
+    };
+
+    // Path del file di cache per TVTap
+    const tvtapCachePath = path.join(__dirname, '../cache/tvtap_cache.json');
+
+    // Funzione per caricare la cache TVTap dal file
+    function loadTVTapCache(): void {
+        try {
+            if (fs.existsSync(tvtapCachePath)) {
+                const rawCache = fs.readFileSync(tvtapCachePath, 'utf-8');
+                const cacheData = JSON.parse(rawCache);
+                tvtapCache.timestamp = cacheData.timestamp || 0;
+                tvtapCache.channels = new Map(Object.entries(cacheData.channels || {}));
+                console.log(`📺 TVTap cache caricata con ${tvtapCache.channels.size} canali, aggiornata il: ${new Date(tvtapCache.timestamp).toLocaleString()}`);
+            } else {
+                console.log("📺 File cache TVTap non trovato, verrà creato al primo aggiornamento");
+            }
+        } catch (error) {
+            console.error("❌ Errore nel caricamento cache TVTap:", error);
+            tvtapCache.timestamp = 0;
+            tvtapCache.channels = new Map();
+        }
+    }
+
+    // Funzione per aggiornare la cache TVTap
+    async function updateTVTapCache(): Promise<boolean> {
+        if (tvtapCache.updating) {
+            console.log('🔄 TVTap cache già in aggiornamento, salto...');
+            return false;
+        }
+
+        tvtapCache.updating = true;
+        console.log('🔄 Aggiornamento cache TVTap...');
+
+        try {
+            const options = {
+                timeout: 30000,
+                env: {
+                    ...process.env,
+                    PYTHONPATH: '/usr/local/lib/python3.9/site-packages'
+                }
+            };
+            
+            const { stdout, stderr } = await execFilePromise('python3', [path.join(__dirname, '../tvtap_resolver.py'), '--build-cache'], options);
+            
+            if (stderr) {
+                console.error(`[TVTap] Script stderr:`, stderr);
+            }
+            
+            console.log('✅ Cache TVTap aggiornata con successo');
+            
+            // Ricarica la cache aggiornata
+            loadTVTapCache();
+            
+            return true;
+        } catch (error: any) {
+            console.error('❌ Errore durante aggiornamento cache TVTap:', error.message || error);
+            return false;
+        } finally {
+            tvtapCache.updating = false;
+        }
+    }
+
+    // ============ END TVTAP INTEGRATION ============
+    
     // ✅ INIZIALIZZA IL ROUTER GLOBALE SUBITO DOPO IL CARICAMENTO
     console.log('🔧 Initializing global router after loading TV channels...');
     globalBuilder = createBuilder(configCache);
@@ -442,12 +520,14 @@ try {
     // Dopo il caricamento della cache Vavoo
     if (vavooCache && vavooCache.links) {
         try {
-            const cacheObj = Object.fromEntries(vavooCache.links);
-            console.log('[VAVOO] DUMP CACHE COMPLETA:', JSON.stringify(cacheObj, null, 2));
+            console.log(`[VAVOO] Cache caricata: ${vavooCache.links.size} canali`);
         } catch (e) {
             console.log('[VAVOO] ERRORE DUMP CACHE:', e);
         }
     }
+    
+    // Carica la cache TVTap
+    loadTVTapCache();
     
     // Aggiorna la cache Vavoo in background all'avvio
     setTimeout(() => {
@@ -461,6 +541,19 @@ try {
             console.error(`❌ Errore durante l'aggiornamento cache Vavoo all'avvio:`, error);
         });
     }, 2000);
+    
+    // Aggiorna la cache TVTap in background all'avvio
+    setTimeout(() => {
+        updateTVTapCache().then(success => {
+            if (success) {
+                console.log(`✅ Cache TVTap aggiornata con successo all'avvio`);
+            } else {
+                console.log(`⚠️ Aggiornamento cache TVTap fallito all'avvio, verrà ritentato periodicamente`);
+            }
+        }).catch(error => {
+            console.error(`❌ Errore durante l'aggiornamento cache TVTap all'avvio:`, error);
+        });
+    }, 4000); // Aspetta un po' di più per non sovraccaricare
     
     // Programma aggiornamenti periodici della cache Vavoo (ogni 12 ore)
     const VAVOO_UPDATE_INTERVAL = 12 * 60 * 60 * 1000; // 12 ore in millisecondi
@@ -476,6 +569,21 @@ try {
             console.error(`❌ Errore durante l'aggiornamento periodico cache Vavoo:`, error);
         });
     }, VAVOO_UPDATE_INTERVAL);
+    
+    // Programma aggiornamenti periodici della cache TVTap (ogni 12 ore, offset di 1 ora)
+    const TVTAP_UPDATE_INTERVAL = 12 * 60 * 60 * 1000; // 12 ore in millisecondi
+    setInterval(() => {
+        console.log(`🔄 Aggiornamento periodico cache TVTap avviato...`);
+        updateTVTapCache().then(success => {
+            if (success) {
+                console.log(`✅ Cache TVTap aggiornata periodicamente con successo`);
+            } else {
+                console.log(`⚠️ Aggiornamento periodico cache TVTap fallito`);
+            }
+        }).catch(error => {
+            console.error(`❌ Errore durante l'aggiornamento periodico cache TVTap:`, error);
+        });
+    }, TVTAP_UPDATE_INTERVAL);
     
     // Inizializza EPG Manager
     if (epgConfig.enabled) {
@@ -1171,6 +1279,86 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
 
+                    // --- TVTAP: cerca usando vavooNames ---
+                    const vavooNamesArr = (channel as any).vavooNames || [channel.name];
+                    console.log(`[TVTap] Cerco canale con vavooNames:`, vavooNamesArr);
+                    
+                    // Prova ogni nome nei vavooNames
+                    for (const vavooName of vavooNamesArr) {
+                        try {
+                            console.log(`[TVTap] Provo con nome: ${vavooName}`);
+                            
+                            const tvtapUrl = await new Promise<string | null>((resolve) => {
+                                const timeout = setTimeout(() => {
+                                    console.log(`[TVTap] Timeout per canale: ${vavooName}`);
+                                    resolve(null);
+                                }, 5000);
+
+                                const options = {
+                                    timeout: 5000,
+                                    env: {
+                                        ...process.env,
+                                        PYTHONPATH: '/usr/local/lib/python3.9/site-packages'
+                                    }
+                                };
+                                
+                                execFile('python3', [path.join(__dirname, '../tvtap_resolver.py'), vavooName], options, (error: Error | null, stdout: string, stderr: string) => {
+                                    clearTimeout(timeout);
+                                    
+                                    if (error) {
+                                        console.error(`[TVTap] Error for ${vavooName}:`, error.message);
+                                        return resolve(null);
+                                    }
+                                    
+                                    if (!stdout || stdout.trim() === '') {
+                                        console.log(`[TVTap] No output for ${vavooName}`);
+                                        return resolve(null);
+                                    }
+                                    
+                                    const result = stdout.trim();
+                                    if (result === 'NOT_FOUND' || result === 'NO_CHANNELS' || result === 'NO_ID' || result === 'STREAM_FAIL') {
+                                        console.log(`[TVTap] Channel not found: ${vavooName} (${result})`);
+                                        return resolve(null);
+                                    }
+                                    
+                                    if (result.startsWith('http')) {
+                                        console.log(`[TVTap] Trovato stream per ${vavooName}: ${result}`);
+                                        resolve(result);
+                                    } else {
+                                        console.log(`[TVTap] Output non valido per ${vavooName}: ${result}`);
+                                        resolve(null);
+                                    }
+                                });
+                            });
+                            
+                            if (tvtapUrl) {
+                                const streamTitle = `[📺 TvTap SD] ${channel.name} [ITA]`;
+                                if (mfpUrl && mfpPsw) {
+                                    const tvtapProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(tvtapUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                    streams.push({
+                                        title: streamTitle,
+                                        url: tvtapProxyUrl
+                                    });
+                                } else {
+                                    streams.push({
+                                        title: `[❌Proxy]${streamTitle}`,
+                                        url: tvtapUrl
+                                    });
+                                }
+                                console.log(`[TVTap] RISULTATO: stream aggiunto per ${channel.name} tramite ${vavooName}`);
+                                break; // Esci dal loop se trovi un risultato
+                            }
+                        } catch (error) {
+                            console.error(`[TVTap] Errore per vavooName ${vavooName}:`, error);
+                        }
+                    }
+                    
+                    if (streams.length === 0) {
+                        console.log(`[TVTap] RISULTATO: nessun stream trovato per ${channel.name}`);
+                    }
+
+                    // ============ END INTEGRATION SECTIONS ============
+
                     // Dopo aver popolato streams (nella logica TV):
                     for (const s of streams) {
                         allStreams.push({
@@ -1400,6 +1588,58 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     
     // USA SEMPRE il router globale
     globalRouter(req, res, next);
+});
+
+// ============ TVTAP RESOLVE ENDPOINT ============
+// Endpoint per risolvere i link TVTap in tempo reale
+app.get('/tvtap-resolve/:channelId', async (req: Request, res: Response) => {
+    const { channelId } = req.params;
+    console.log(`[TVTap] Richiesta risoluzione per canale ID: ${channelId}`);
+    
+    try {
+        // Chiama lo script Python per ottenere il link stream
+        const timeout = setTimeout(() => {
+            console.log(`[TVTap] Timeout per canale ID: ${channelId}`);
+            res.status(408).json({ error: 'TVTap timeout' });
+        }, 10000);
+
+        const options = {
+            timeout: 10000,
+            env: {
+                ...process.env,
+                PYTHONPATH: '/usr/local/lib/python3.9/site-packages'
+            }
+        };
+        
+        execFile('python3', [
+            path.join(__dirname, '../tvtap_resolver.py'), 
+            // Se channelId è un numero, usa il formato tvtap_id:, altrimenti cerca per nome
+            /^\d+$/.test(channelId) ? `tvtap_id:${channelId}` : channelId
+        ], options, (error: Error | null, stdout: string, stderr: string) => {
+            clearTimeout(timeout);
+            
+            if (error) {
+                console.error(`[TVTap] Error resolving channel ${channelId}:`, error.message);
+                if (stderr) console.error(`[TVTap] Stderr:`, stderr);
+                return res.status(500).json({ error: 'TVTap resolution failed' });
+            }
+            
+            if (!stdout || stdout.trim() === '') {
+                console.log(`[TVTap] No output for channel ${channelId}`);
+                return res.status(404).json({ error: 'TVTap stream not found' });
+            }
+            
+            const streamUrl = stdout.trim();
+            console.log(`[TVTap] Resolved channel ${channelId} to: ${streamUrl.substring(0, 50)}...`);
+            
+            // Redirigi al link stream
+            res.redirect(streamUrl);
+        });
+        
+    } catch (error) {
+        console.error(`[TVTap] Exception resolving channel ${channelId}:`, error);
+        res.status(500).json({ error: 'TVTap resolution exception' });
+    }
 });
 
 const PORT = process.env.PORT || 7860;
