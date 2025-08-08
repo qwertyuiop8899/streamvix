@@ -14,8 +14,8 @@ ARG GIT_BRANCH="tvtap"
 RUN git -c http.sslVerify=false clone --branch ${GIT_BRANCH} --depth 1 ${GIT_REPO_URL} .
 # Il "." alla fine clona il contenuto della repo direttamente in /usr/src/app
 
-# Installa le dipendenze Python dal file requirements.txt
-RUN if [ -f requirements.txt ]; then pip3 install --no-cache-dir --break-system-packages -r requirements.txt; else pip3 install --no-cache-dir --break-system-packages requests beautifulsoup4 pycryptodome pyDes; fi
+# Installa le dipendenze Python necessarie per TVTap, filtrando quelle problematiche
+RUN pip3 install --no-cache-dir --break-system-packages requests beautifulsoup4 pycryptodome pyDes
 
 # Installa una versione specifica di pnpm per evitare problemi di compatibilità della piattaforma
 RUN npm install -g pnpm@8.15.5
