@@ -45,6 +45,7 @@ StreamViX utilizza un **sistema di proxy unificato** che semplifica la configura
 
 Puoi installare StreamViX solamente in locale, su un server casalingo o su una VPN non flaggata o con smartdns per verdere animeunity, 
 per il resto, animesaturn e vixsrc va bene anche Huggingface, ma hanno iniziato a bannare StreamViX, quindi a tuo rischio e pericolo.
+per Le installazioni locali serve sempre un dominio https per installare l'addon.
 
 ---
 
@@ -75,7 +76,7 @@ Questo metodo ti permette di avere la tua istanza personale dell'addon online, g
         * `Name: TMDB_API_KEY` -> `Value: la_tua_chiave_api_di_tmdb`
         * `Name: MFP_URL` -> `Value: l_url_della_tua_istanza_mfp` (es. `https://username-mfp.hf.space`, **senza la `/` finale**)
         * `Name: MFP_PSW` -> `Value: la_password_che_hai_impostato_per_mfp`
-        * `Name: BOTHLINK` -> `Value: "false"` (true o false - mostra entrambi i link MFP e DIRECT)
+        * `Name: MPD` -> `Value: "false"` (true o false - mostra o nascondi i link MPD)
         * `Name: ANIMEUNITY_ENABLED` -> `Value: "true"` (abilita AnimeUnity)
         * `Name: ANIMESATURN_ENABLED` -> `Value: "true"` (abilita AnimeSaturn)    
 
@@ -106,14 +107,14 @@ Salva il seguente contenuto in un file chiamato `docker-compose.yml`, oppure agg
 
 ```yaml
 services:
-  streamvixau:
-    build: https://github.com/qwertyuiop8899/StreamViX.git#main
-    container_name: streamvixau
+  streamvix:
+    build: https://github.com/qwertyuiop8899/StreamViX_MFP.git#main
+    container_name: streamvix
     restart: unless-stopped
     ports:
       - '7860:7860'
 ```
-Sostituisci il link con il tuo fork se preferisci https://github.com/qwertyuiop8899/StreamViX.git#main
+Sostituisci il link con il tuo fork se preferisci https://github.com/qwertyuiop8899/StreamViX_MFP.git#main
 
 TMDB Api KEY, MFP link e MFP password e i due flag necessari verranno gestiti dalla pagina di installazione.
 
@@ -131,20 +132,20 @@ Se ci saranno aggiornamenti, eseguire i seguenti comandi :
 sudo docker compose down streamvixau
 
 # Rimuovi l'immagine specifica
-sudo docker rmi streamvixau
+sudo docker rmi streamvix
 
 # Pulisci la build cache
 sudo docker builder prune -f
 
 # Ricostruisci completamente senza cache
-sudo docker compose build --no-cache streamvixau
+sudo docker compose build --no-cache streamvix
 
 # Avvia
-sudo docker compose up -d streamvixau
+sudo docker compose up -d streamvix
 ```
 
 
-### 💻 Metodo 3: Installazione Locale (per Esperti)
+### 💻 Metodo 3: Installazione Locale (per Esperti NON TESTATO)
 
 Usa questo metodo se vuoi modificare il codice sorgente, testare nuove funzionalità o contribuire allo sviluppo di StreamViX.
 
@@ -194,3 +195,4 @@ Questo progetto è inteso esclusivamente a scopo educativo. L'utente è l'unico 
 Original extraction logic written by https://github.com/mhdzumair for the extractor code https://github.com/mhdzumair/mediaflow-proxy 
 Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for the main code and stremio addon
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
+
