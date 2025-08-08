@@ -1332,7 +1332,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             });
                             
                             if (tvtapUrl) {
-                                const streamTitle = `[📺T] ${channel.name} [ITA]`;
+                                const streamTitle = `[📺 TvTap SD] ${channel.name} [ITA]`;
                                 if (mfpUrl && mfpPsw) {
                                     const tvtapProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(tvtapUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                     streams.push({
