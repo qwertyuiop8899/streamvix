@@ -78,6 +78,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           }
         }
 
+        let removedPrevDay = 0;
         const filtered = data.filter(ch => {
           // Se manca eventStart lo manteniamo (non possiamo datarlo)
           if (!ch.eventStart) return true;
@@ -88,11 +89,16 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           if (nowRome < purgeThreshold) return true;
 
           // Dopo le 02:00 Rome: rimuovi se la data evento è minore di oggi
-          return chDate >= (todayRomeDateStr || '');
+          const keep = chDate >= (todayRomeDateStr || '');
+          if (!keep) removedPrevDay++;
+          return keep;
         });
 
         dynamicCache = filtered;
         lastLoad = now;
+        if (removedPrevDay > 0) {
+          try { console.log(`🧹 runtime filter: rimossi ${removedPrevDay} eventi del giorno precedente (dopo le 02:00 Rome)`); } catch {}
+        }
         return filtered;
       }
     }
@@ -147,8 +153,21 @@ export function purgeOldDynamicEvents(): { before: number; after: number; remove
         }
       }
     }
+    const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+    const nowMs = nowRome.getTime();
     const filtered = data.filter((ch: DynamicChannel) => {
-      if (!ch.eventStart) return true; // ancora sconosciuto: conserva
+      if (!ch.eventStart) {
+        // Usa createdAt per determinare età, se manca assegnalo ora e conserva (verrà valutato ai prossimi purge)
+        if (!ch.createdAt) {
+          ch.createdAt = new Date().toISOString();
+          return true;
+        }
+        const created = Date.parse(ch.createdAt);
+        if (isNaN(created)) return true; // formato invalido -> conserva
+        const age = nowMs - created;
+        if (age > TWO_DAYS_MS) return false; // elimina dopo 2 giorni
+        return true;
+      }
       const chDate = datePartRome(ch.eventStart);
       if (!chDate) return true;
       return chDate >= todayRomeStr; // rimuove se < oggi
