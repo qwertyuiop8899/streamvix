@@ -1,4 +1,5 @@
-https://github.com/qwertyuiop8899/StreamViX/blob/main/public/icon.png?raw=true
+
+<img width="230" height="293" alt="icon" src="https://github.com/user-attachments/assets/11ef8b0e-6d55-44a4-9ccc-ae7031e99f34" />
 
 # 🎬 StreamViX
 
@@ -173,6 +174,7 @@ Questo progetto è inteso esclusivamente a scopo educativo. L'utente è l'unico 
 Original extraction logic written by https://github.com/mhdzumair for the extractor code https://github.com/mhdzumair/mediaflow-proxy 
 Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for the main code and stremio addon
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
+
 
 
 
