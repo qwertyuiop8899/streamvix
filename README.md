@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/11956b44-f742-42cc-a9f0-40fbb1c9de61)
+![image]([https://github.com/user-attachments/assets/11956b44-f742-42cc-a9f0-40fbb1c9de61](https://github.com/qwertyuiop8899/StreamViX/blob/main/public/icon.png?raw=true))
 # 🎬 StreamViX
 
 Un addon per Stremio che estrae sorgenti streaming dai siti vixsrc e animeunity animesaturn daddy e vavoo per permetterti di guardare film, serie TV, anime e tv con la massima semplicità.
@@ -172,6 +172,7 @@ Questo progetto è inteso esclusivamente a scopo educativo. L'utente è l'unico 
 Original extraction logic written by https://github.com/mhdzumair for the extractor code https://github.com/mhdzumair/mediaflow-proxy 
 Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for the main code and stremio addon
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
+
 
 
 
