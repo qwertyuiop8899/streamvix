@@ -1186,6 +1186,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     debugLog(`Config DEBUG - mediaFlowProxyPassword: ${config.mediaFlowProxyPassword ? '***' : 'NOT SET'}`);
                     
                     let streams: { url: string; title: string }[] = [];
+                    // Stato toggle MPD (solo da config checkbox, niente override da env per evitare comportamento inatteso)
+                    const mpdEnabled = config.enableMpd === 'on';
 
                     // Dynamic event channels: dynamicDUrls -> usa stessa logica avanzata di staticUrlD per estrarre link finale
                     if ((channel as any)._dynamic && Array.isArray((channel as any).dynamicDUrls) && (channel as any).dynamicDUrls.length) {
@@ -1196,8 +1198,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             let providerTitle = providerRaw || 'Stream';
                             // Rimuovi parentesi isolate attorno al nome, es: (Italia 1 It) -> Italia 1 It
                             providerTitle = providerTitle.replace(/^\((.*)\)$/,'$1').trim();
-                            // Aggiungi bandiera 🇮🇹 a TUTTI i provider che terminano con IT/It/it (word boundary)
-                            if (/\bIT$/i.test(providerTitle) && !providerTitle.startsWith('🇮🇹')) {
+                            // Aggiungi bandiera 🇮🇹 a provider che terminano con IT / ITA / ITALY (case-insensitive)
+                            // Esempi validi: "Qualcosa IT", "Stream Ita", "Fonte italy", "Link ITALY"
+                            if (/\b(it|ita|italy|italian)$/i.test(providerTitle) && !providerTitle.startsWith('🇮🇹')) {
                                 providerTitle = `🇮🇹 ${providerTitle}`;
                             }
                             if (mfpUrl && mfpPsw) {
@@ -1238,8 +1241,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                         // Ordina: prima quelli con bandiera 🇮🇹 (aggiunta sopra)
                         dynamicTemp.sort((a, b) => {
-                            const itaA = a.title.startsWith('🇮🇹') ? 0 : 1;
-                            const itaB = b.title.startsWith('🇮🇹') ? 0 : 1;
+                            const itaRegex = /\b(it|ita|italy|italian)$/i;
+                            const itaA = a.title.startsWith('🇮🇹') || itaRegex.test(a.title) ? 0 : 1;
+                            const itaB = b.title.startsWith('🇮🇹') || itaRegex.test(b.title) ? 0 : 1;
                             if (itaA !== itaB) return itaA - itaB;
                             return a.title.localeCompare(b.title);
                         });
@@ -1271,7 +1275,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
 
                     // staticUrl (solo se enableMpd è attivo)
-                    if ((channel as any).staticUrl && (config.enableMpd === 'on' || process.env.ENABLE_MPD?.toLowerCase() === 'true')) {
+                    if ((channel as any).staticUrl && mpdEnabled) {
                         console.log(`🔧 [staticUrl] Raw URL: ${(channel as any).staticUrl}`);
                         const decodedUrl = decodeStaticUrl((channel as any).staticUrl);
                         console.log(`🔧 [staticUrl] Decoded URL: ${decodedUrl}`);
@@ -1308,7 +1312,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
                     // staticUrl2 (solo se enableMpd è attivo)
-                    if ((channel as any).staticUrl2 && (config.enableMpd === 'on' || process.env.ENABLE_MPD?.toLowerCase() === 'true')) {
+                    if ((channel as any).staticUrl2 && mpdEnabled) {
                         console.log(`🔧 [staticUrl2] Raw URL: ${(channel as any).staticUrl2}`);
                         const decodedUrl = decodeStaticUrl((channel as any).staticUrl2);
                         console.log(`🔧 [staticUrl2] Decoded URL: ${decodedUrl}`);
