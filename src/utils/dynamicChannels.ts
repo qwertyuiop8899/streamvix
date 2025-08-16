@@ -120,6 +120,12 @@ export function saveDynamicChannels(channels: DynamicChannel[]): void {
   }
 }
 
+// Invalida cache dinamica (usato da file watcher)
+export function invalidateDynamicChannels(): void {
+  dynamicCache = null;
+  lastLoad = 0;
+}
+
 // Purge: rimuove tutti gli eventi con eventStart del giorno precedente (Europe/Rome)
 // Mantiene eventi senza eventStart come richiesto.
 export function purgeOldDynamicEvents(): { before: number; after: number; removed: number } {
