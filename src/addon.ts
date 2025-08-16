@@ -7,7 +7,7 @@ import express, { Request, Response, NextFunction } from 'express'; // ✅ CORRE
 import { AnimeUnityProvider } from './providers/animeunity-provider';
 import { KitsuProvider } from './providers/kitsu'; 
 import { formatMediaFlowUrl } from './utils/mediaflow';
-import { mergeDynamic, loadDynamicChannels } from './utils/dynamicChannels';
+import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents } from './utils/dynamicChannels';
 
 // --- Lightweight declarations to avoid TS complaints if @types/node non installati ---
 // (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.)
@@ -1184,35 +1184,86 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     
                     let streams: { url: string; title: string }[] = [];
 
-                    // Dynamic event channels: use dynamicDUrls list -> treat each as staticUrlD style
+                    // Dynamic event channels: dynamicDUrls -> usa stessa logica avanzata di staticUrlD per estrarre link finale
                     if ((channel as any)._dynamic && Array.isArray((channel as any).dynamicDUrls) && (channel as any).dynamicDUrls.length) {
+                        const dynamicTemp: { url: string; title: string }[] = [];
                         for (const d of (channel as any).dynamicDUrls) {
                             if (!d.url) continue;
-                            const provider = (d.title || '').trim();
-                            const evtTitle = channel.name || '';
-                            // nuovo formato: (provider) // Evento  oppure solo Evento se provider mancante
-                            const baseTitle = provider ? `(${provider}) // ${evtTitle}` : evtTitle;
+                            const providerRaw = (d.title || '').trim();
+                            let providerTitle = providerRaw || 'Stream';
+                            // Rimuovi parentesi isolate attorno al nome, es: (Italia 1 It) -> Italia 1 It
+                            providerTitle = providerTitle.replace(/^\((.*)\)$/,'$1').trim();
+                            // Aggiungi bandiera 🇮🇹 a TUTTI i provider che terminano con IT/It/it (word boundary)
+                            if (/\bIT$/i.test(providerTitle) && !providerTitle.startsWith('🇮🇹')) {
+                                providerTitle = `🇮🇹 ${providerTitle}`;
+                            }
                             if (mfpUrl && mfpPsw) {
-                                const daddyProxyUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(d.url)}`;
-                                streams.push({
-                                    url: daddyProxyUrl,
-                                    title: baseTitle.trim()
-                                });
+                                const extractorUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(d.url)}`;
+                                try {
+                                    const res = await fetch(extractorUrl);
+                                    if (res.ok) {
+                                        const data = await res.json();
+                                        let finalUrl = data.mediaflow_proxy_url || `${mfpUrl}/proxy/hls/manifest.m3u8`;
+                                        if (data.query_params) {
+                                            const params = new URLSearchParams();
+                                            for (const [k, v] of Object.entries(data.query_params)) {
+                                                if (v !== null) params.append(k, String(v));
+                                            }
+                                            finalUrl += (finalUrl.includes('?') ? '&' : '?') + params.toString();
+                                        }
+                                        if (data.destination_url) {
+                                            finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'd=' + encodeURIComponent(data.destination_url);
+                                        }
+                                        if (data.request_headers) {
+                                            for (const [hk, hv] of Object.entries(data.request_headers)) {
+                                                if (hv !== null) finalUrl += '&h_' + hk + '=' + encodeURIComponent(String(hv));
+                                            }
+                                        }
+                                        dynamicTemp.push({ url: finalUrl, title: providerTitle });
+                                    } else {
+                                        // fallback redirect=true
+                                        const fallback = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(d.url)}`;
+                                        dynamicTemp.push({ url: fallback, title: providerTitle });
+                                    }
+                                } catch {
+                                    const fallback = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(d.url)}`;
+                                    dynamicTemp.push({ url: fallback, title: providerTitle });
+                                }
                             } else {
-                                streams.push({
-                                    url: d.url,
-                                    title: baseTitle.trim()
-                                });
+                                dynamicTemp.push({ url: d.url, title: providerTitle });
                             }
                         }
+                        // Ordina: prima quelli con bandiera 🇮🇹 (aggiunta sopra)
+                        dynamicTemp.sort((a, b) => {
+                            const itaA = a.title.startsWith('🇮🇹') ? 0 : 1;
+                            const itaB = b.title.startsWith('🇮🇹') ? 0 : 1;
+                            if (itaA !== itaB) return itaA - itaB;
+                            return a.title.localeCompare(b.title);
+                        });
+                        // Mantieni la bandiera su tutti gli stream italiani
+                        for (const dt of dynamicTemp) streams.push(dt);
                     } else {
                         // staticUrlF: Direct for non-dynamic
                         if ((channel as any).staticUrlF) {
+                            const originalF = (channel as any).staticUrlF;
+                            const nameLower = (channel.name || '').toLowerCase().trim();
+                            const raiMpdSet = new Set(['rai 1','rai 2','rai 3']);
+                            const raiHlsSet = new Set([
+                                'rai 4','rai 5','rai movie','rai premium','rai gulp','rai yoyo','rai news 24','rai storia','rai scuola','rai sport','rai 4k'
+                            ]);
+                            let finalFUrl = originalF;
+                            if (mfpUrl && mfpPsw && (raiMpdSet.has(nameLower) || raiHlsSet.has(nameLower))) {
+                                const pathType = raiMpdSet.has(nameLower) ? 'mpd' : 'hls';
+                                // Evita doppio proxy se già proxied
+                                if (!originalF.startsWith(mfpUrl)) {
+                                    finalFUrl = `${mfpUrl}/proxy/${pathType}/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(originalF)}`;
+                                }
+                            }
                             streams.push({
-                                url: (channel as any).staticUrlF,
+                                url: finalFUrl,
                                 title: `[🌍dTV] ${channel.name} [ITA]`
                             });
-                            debugLog(`Aggiunto staticUrlF Direct: ${(channel as any).staticUrlF}`);
+                            debugLog(`Aggiunto staticUrlF ${finalFUrl === originalF ? 'Direct' : 'Proxy'}: ${finalFUrl}`);
                         }
                     }
 
@@ -1870,6 +1921,20 @@ app.get('/live/update', async (req: Request, res: Response) => {
         return res.status(500).json({ ok: false, error: e?.message || String(e) });
     }
 });
+
+// ================= MANUAL PURGE ENDPOINT =====================
+// Esegue la stessa logica delle 02:00: rimuove dal file gli eventi del giorno precedente
+app.get('/live/purge', (req: Request, res: Response) => {
+    try {
+        const result = purgeOldDynamicEvents();
+        // Ricarica cache in memoria
+        loadDynamicChannels(true);
+        res.json({ ok: true, ...result });
+    } catch (e: any) {
+        res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
 // ================================================================
 
 const PORT = process.env.PORT || 7860;
