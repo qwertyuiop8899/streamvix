@@ -1254,23 +1254,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if ((channel as any).staticUrlF) {
                             const originalF = (channel as any).staticUrlF;
                             const nameLower = (channel.name || '').toLowerCase().trim();
-                            const raiMpdSet = new Set(['rai 1','rai 2','rai 3']);
-                            const raiHlsSet = new Set([
-                                'rai 4','rai 5','rai movie','rai premium','rai gulp','rai yoyo','rai news 24','rai storia','rai scuola','rai sport','rai 4k'
-                            ]);
+                            const raiMpdSet = new Set(['rai 1','rai 2','rai 3']); // Solo questi devono passare da proxy MPD
+                            // Altri canali RAI (4,5,Movie,Premium, ecc.) restano DIRECT (niente proxy HLS come richiesto)
                             let finalFUrl = originalF;
-                            if (mfpUrl && mfpPsw && (raiMpdSet.has(nameLower) || raiHlsSet.has(nameLower))) {
-                                const pathType = raiMpdSet.has(nameLower) ? 'mpd' : 'hls';
-                                // Evita doppio proxy se già proxied
+                            if (mfpUrl && mfpPsw && raiMpdSet.has(nameLower)) {
                                 if (!originalF.startsWith(mfpUrl)) {
-                                    finalFUrl = `${mfpUrl}/proxy/${pathType}/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(originalF)}`;
+                                    finalFUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(originalF)}`;
                                 }
                             }
                             streams.push({
                                 url: finalFUrl,
                                 title: `[🌍dTV] ${channel.name} [ITA]`
                             });
-                            debugLog(`Aggiunto staticUrlF ${finalFUrl === originalF ? 'Direct' : 'Proxy'}: ${finalFUrl}`);
+                            debugLog(`Aggiunto staticUrlF ${finalFUrl === originalF ? 'Direct' : 'Proxy(MPD)' }: ${finalFUrl}`);
                         }
                     }
 
