@@ -42,25 +42,55 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       const raw = fs.readFileSync(DYNAMIC_FILE, 'utf-8');
       const data = JSON.parse(raw);
       if (Array.isArray(data)) {
-        const filtered = data.map(ch => {
-          try {
-            if (!ch.expiresAt && ch.eventStart) {
-              // Calcola expiresAt = giorno successivo alle 02:00 Europe/Rome
-              const eventDate = new Date(ch.eventStart);
-              const romeString = eventDate.toLocaleString('en-US', { timeZone: 'Europe/Rome' });
-              const romeDate = new Date(romeString);
-              const expiryRome = new Date(romeDate);
-              expiryRome.setDate(expiryRome.getDate() + 1);
-              expiryRome.setHours(2, 0, 0, 0);
-              // Converti a ISO UTC
-              const expiresAt = new Date(expiryRome.getTime() - (expiryRome.getTimezoneOffset() * 60000)).toISOString();
-              ch.expiresAt = expiresAt;
+        // Nuova logica: niente expiresAt per singolo evento.
+        // Regola: ogni giorno alle 02:00 Europe/Rome vengono rimossi TUTTI gli eventi del giorno precedente.
+        // Fino alle 01:59 si possono ancora vedere quelli di ieri.
+
+        // Calcola ora locale Europe/Rome in modo robusto (senza lib esterne)
+        const nowRome = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+        const purgeThreshold = new Date(nowRome); // oggi 02:00 Rome
+        purgeThreshold.setHours(2, 0, 0, 0);
+
+        // Funzione helper per estrarre YYYY-MM-DD in Rome da una data ISO
+        const datePartRome = (iso?: string): string | null => {
+          if (!iso) return null;
+            try {
+              const d = new Date(iso);
+              if (isNaN(d.getTime())) return null;
+              const rome = new Date(d.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+              const y = rome.getFullYear();
+              const m = String(rome.getMonth() + 1).padStart(2, '0');
+              const da = String(rome.getDate()).padStart(2, '0');
+              return `${y}-${m}-${da}`;
+            } catch { return null; }
+        };
+
+        const todayRomeDateStr = datePartRome(nowRome.toISOString());
+
+        // Prima: se manca eventStart prova a derivarlo dall'id (pattern finale YYYYMMDD)
+        for (const ch of data) {
+          if (!ch.eventStart && typeof ch.id === 'string') {
+            const m = ch.id.match(/(20\d{2})(\d{2})(\d{2})$/);
+            if (m) {
+              const y = m[1]; const mm = m[2]; const dd = m[3];
+              try { ch.eventStart = new Date(Date.UTC(parseInt(y), parseInt(mm)-1, parseInt(dd), 0,0,0)).toISOString(); } catch { /* ignore */ }
             }
-          } catch (e) {
-            // ignore singular channel errors
           }
-          return ch;
-        }).filter(ch => !ch.expiresAt || Date.parse(ch.expiresAt) > now);
+        }
+
+        const filtered = data.filter(ch => {
+          // Se manca eventStart lo manteniamo (non possiamo datarlo)
+          if (!ch.eventStart) return true;
+          const chDate = datePartRome(ch.eventStart);
+          if (!chDate) return true;
+
+          // Se non abbiamo ancora raggiunto le 02:00 Rome, non facciamo purge (manteniamo anche ieri)
+          if (nowRome < purgeThreshold) return true;
+
+          // Dopo le 02:00 Rome: rimuovi se la data evento è minore di oggi
+          return chDate >= (todayRomeDateStr || '');
+        });
+
         dynamicCache = filtered;
         lastLoad = now;
         return filtered;
@@ -81,6 +111,56 @@ export function saveDynamicChannels(channels: DynamicChannel[]): void {
     lastLoad = Date.now();
   } catch (e) {
     console.error('❌ saveDynamicChannels error:', e);
+  }
+}
+
+// Purge: rimuove tutti gli eventi con eventStart del giorno precedente (Europe/Rome)
+// Mantiene eventi senza eventStart come richiesto.
+export function purgeOldDynamicEvents(): { before: number; after: number; removed: number } {
+  try {
+    if (!fs.existsSync(DYNAMIC_FILE)) return { before: 0, after: 0, removed: 0 };
+    const raw = fs.readFileSync(DYNAMIC_FILE, 'utf-8');
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data)) return { before: 0, after: 0, removed: 0 };
+    const before = data.length;
+    const nowRome = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+    const datePartRome = (iso?: string): string | null => {
+      if (!iso) return null;
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return null;
+        const rome = new Date(d.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+        const y = rome.getFullYear();
+        const m = String(rome.getMonth() + 1).padStart(2, '0');
+        const da = String(rome.getDate()).padStart(2, '0');
+        return `${y}-${m}-${da}`;
+      } catch { return null; }
+    };
+    const todayRomeStr = datePartRome(nowRome.toISOString()) || '';
+    // Deriva eventStart se mancante (00:00 del giorno codificato nell'id)
+    for (const ch of data) {
+      if (!ch.eventStart && typeof ch.id === 'string') {
+        const m = ch.id.match(/(20\d{2})(\d{2})(\d{2})$/);
+        if (m) {
+          const y = m[1]; const mm = m[2]; const dd = m[3];
+          try { ch.eventStart = new Date(Date.UTC(parseInt(y), parseInt(mm)-1, parseInt(dd), 0,0,0)).toISOString(); } catch { /* ignore */ }
+        }
+      }
+    }
+    const filtered = data.filter((ch: DynamicChannel) => {
+      if (!ch.eventStart) return true; // ancora sconosciuto: conserva
+      const chDate = datePartRome(ch.eventStart);
+      if (!chDate) return true;
+      return chDate >= todayRomeStr; // rimuove se < oggi
+    });
+    fs.writeFileSync(DYNAMIC_FILE, JSON.stringify(filtered, null, 2), 'utf-8');
+    // Invalida cache
+    dynamicCache = null;
+    const after = filtered.length;
+    return { before, after, removed: before - after };
+  } catch (e) {
+    console.error('❌ purgeOldDynamicEvents error:', e);
+    return { before: 0, after: 0, removed: 0 };
   }
 }
 
