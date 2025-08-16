@@ -2045,3 +2045,33 @@ setTimeout(() => {
     scheduleNextLiveRun();
 }, 5000);
 // ====================================================================
+
+// ================== AUTO PURGE SCHEDULER ============================
+function computeDelayToNextPurge(): number {
+    const romeNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+    const target = new Date(romeNow.getTime());
+    target.setHours(2, 5, 0, 0); // 02:05 Rome
+    let diff = target.getTime() - romeNow.getTime();
+    if (diff < 0) diff += 24 * 60 * 60 * 1000; // domani
+    return diff;
+}
+
+function scheduleNextAutoPurge() {
+    const delay = computeDelayToNextPurge();
+    console.log(`🗓️ Prossimo purge automatico alle 02:05 Rome tra ms: ${delay}`);
+    setTimeout(() => {
+        try {
+            const result = purgeOldDynamicEvents();
+            loadDynamicChannels(true);
+            console.log(`🧹 Purge automatico eseguito: removed=${result.removed} after=${result.after}`);
+        } catch (e) {
+            console.error('❌ Errore purge automatico:', e);
+        } finally {
+            scheduleNextAutoPurge();
+        }
+    }, delay);
+}
+
+// Avvia scheduling purge dopo avvio server (leggero delay per startup)
+setTimeout(() => scheduleNextAutoPurge(), 7000);
+// ====================================================================
