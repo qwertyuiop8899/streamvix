@@ -7,7 +7,7 @@ import express, { Request, Response, NextFunction } from 'express'; // ✅ CORRE
 import { AnimeUnityProvider } from './providers/animeunity-provider';
 import { KitsuProvider } from './providers/kitsu'; 
 import { formatMediaFlowUrl } from './utils/mediaflow';
-import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents } from './utils/dynamicChannels';
+import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels } from './utils/dynamicChannels';
 
 // --- Lightweight declarations to avoid TS complaints if @types/node non installati ---
 // (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.)
@@ -314,6 +314,7 @@ function parseConfigFromArgs(args: any): AddonConfig {
 
 // Carica canali TV e domini da file esterni
 let tvChannels: any[] = [];
+let staticBaseChannels: any[] = [];
 let domains: any = {};
 let epgConfig: any = {};
 let epgManager: EPGManager | null = null;
@@ -448,7 +449,8 @@ try {
     // Assicurati che le directory di cache esistano
     ensureCacheDirectories();
     
-    tvChannels = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/tv_channels.json'), 'utf-8'));
+    staticBaseChannels = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/tv_channels.json'), 'utf-8'));
+    tvChannels = [...staticBaseChannels];
     domains = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/domains.json'), 'utf-8'));
     epgConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/epg_config.json'), 'utf-8'));
     
@@ -799,9 +801,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
         console.log(`📺 CATALOG REQUEST: type=${type}, id=${id}, extra=${JSON.stringify(extra)}`);
         if (type === "tv") {
-            // Merge dynamic channels before filtering
+            // Ricostruisci lista canali ogni richiesta (static + dynamic freschi)
             try {
-                tvChannels = mergeDynamic(tvChannels);
+                tvChannels = mergeDynamic([...staticBaseChannels]);
             } catch (e) {
                 console.error('❌ Merge dynamic channels failed:', e);
             }
@@ -2074,4 +2076,22 @@ function scheduleNextAutoPurge() {
 
 // Avvia scheduling purge dopo avvio server (leggero delay per startup)
 setTimeout(() => scheduleNextAutoPurge(), 7000);
+// ====================================================================
+
+// =============== WATCHER dynamic_channels.json =======================
+try {
+    const dynamicFilePath = path.join(__dirname, '../config/dynamic_channels.json');
+    if (fs.existsSync(dynamicFilePath)) {
+        fs.watch(dynamicFilePath, { persistent: false }, (evt) => {
+            if (evt === 'change') {
+                console.log('🔄 Detected change in dynamic_channels.json -> invalidate & reload');
+                invalidateDynamicChannels();
+                loadDynamicChannels(true);
+            }
+        });
+        console.log('👁️  Watch attivo su dynamic_channels.json');
+    }
+} catch (e) {
+    console.error('❌ Impossibile attivare watcher dynamic_channels.json:', e);
+}
 // ====================================================================
