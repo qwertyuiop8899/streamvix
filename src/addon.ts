@@ -801,8 +801,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
         console.log(`📺 CATALOG REQUEST: type=${type}, id=${id}, extra=${JSON.stringify(extra)}`);
         if (type === "tv") {
-            // Ricostruisci lista canali ogni richiesta (static + dynamic freschi)
+            // Ricostruisci lista canali ogni richiesta (static + dynamic freschi) forzando reload file
             try {
+                loadDynamicChannels(true); // forza rilettura file (ignora cache)
                 tvChannels = mergeDynamic([...staticBaseChannels]);
             } catch (e) {
                 console.error('❌ Merge dynamic channels failed:', e);
@@ -1924,6 +1925,20 @@ app.get('/live/update', async (req: Request, res: Response) => {
     }
 });
 
+// ================= MANUAL RELOAD ENDPOINT =====================
+// Invalida la cache dinamica e forza una ricarica
+app.get('/live/reload', (_: Request, res: Response) => {
+    try {
+        invalidateDynamicChannels();
+        const dyn = loadDynamicChannels(true);
+        console.log(`🔄 /live/reload eseguito: canali dinamici attuali=${dyn.length}`);
+        res.json({ ok: true, dynamicCount: dyn.length });
+    } catch (e: any) {
+        res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
 // ================= MANUAL PURGE ENDPOINT =====================
 // Esegue la stessa logica delle 02:00: rimuove dal file gli eventi del giorno precedente
 app.get('/live/purge', (req: Request, res: Response) => {
@@ -2094,4 +2109,31 @@ try {
 } catch (e) {
     console.error('❌ Impossibile attivare watcher dynamic_channels.json:', e);
 }
+// ====================================================================
+
+// =============== DAILY 02:30 ROME RELOAD =============================
+function computeDelayToDailyReload(): number {
+    const romeNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+    const target = new Date(romeNow.getTime());
+    target.setHours(2, 30, 0, 0); // 02:30 Rome
+    let diff = target.getTime() - romeNow.getTime();
+    if (diff < 0) diff += 24 * 60 * 60 * 1000;
+    return diff;
+}
+function scheduleDailyReload() {
+    const delay = computeDelayToDailyReload();
+    console.log(`🗓️ Prossimo reload dinamici alle 02:30 Rome tra ms: ${delay}`);
+    setTimeout(() => {
+        try {
+            invalidateDynamicChannels();
+            const dyn = loadDynamicChannels(true);
+            console.log(`🔁 Reload automatico 02:30 completato: dynamicCount=${dyn.length}`);
+        } catch (e) {
+            console.error('❌ Errore reload automatico 02:30:', e);
+        } finally {
+            scheduleDailyReload();
+        }
+    }, delay);
+}
+setTimeout(() => scheduleDailyReload(), 9000);
 // ====================================================================
