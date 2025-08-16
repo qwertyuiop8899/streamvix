@@ -17,8 +17,11 @@ Un addon per Stremio che estrae sorgenti streaming dai siti vixsrc e animeunity 
 ---
 Comandi per Live TV da browser
 http://urladdon/live/update   aggiorna lista live events
+
 http://urladdon/live/purge    cancella vecchi eventi
+
 http://urladdon/live/reload   aggiorna il catalogo stremio 
+
 
 ## 🔧 Configurazione Semplificata
 
@@ -167,6 +170,7 @@ Questo progetto è inteso esclusivamente a scopo educativo. L'utente è l'unico 
 Original extraction logic written by https://github.com/mhdzumair for the extractor code https://github.com/mhdzumair/mediaflow-proxy 
 Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for the main code and stremio addon
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
+
 
 
 
