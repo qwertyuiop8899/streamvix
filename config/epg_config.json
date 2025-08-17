@@ -1,9 +1,12 @@
 {
-  "epgUrl": "https://github.com/nzo66/TV/raw/refs/heads/main/epg.xml",
-  "updateInterval": 21600000,
+  "epgUrl": "https://github.com/qwertyuiop8899/TV/raw/refs/heads/main/epg.xml",
+  "updateInterval": 43200000,
   "cacheDir": "cache",
   "enabled": true,
   "supportedFormats": ["xml"],
   "timeout": 30000,
-  "maxRetries": 3
+  "maxRetries": 3,
+  "lightMode": true,
+  "keepWindowHours": 26,
+  "storeDescription": false
 }
