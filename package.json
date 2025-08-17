@@ -1,7 +1,7 @@
 {
   "name": "streamvix",
-  "version": "4.2.3",
-  "description": "StreamV addon con Vixsrc, AnimeUnity, AnimeSaturn e TV",
+  "version": "5.2.3",
+  "description": "StreamV addon con Vixsrc, AnimeUnity, AnimeSaturn, TV ed Eventi Live",
   "main": "dist/addon.js",
   "packageManager": "pnpm@8.15.5",
   "scripts": {
@@ -32,3 +32,4 @@
     "typescript": "^5.0.0"
   }
 }
+
