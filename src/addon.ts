@@ -97,12 +97,12 @@ const debugLog = (message: string, ...params: any[]) => {
 
 // Base manifest configuration
 const baseManifest: Manifest = {
-    id: "org.stremio.vixcloud",
-    version: "4.0.1",
+    id: "org.stremio.streamvix",
+    version: "5.2.3",
     name: "StreamViX",
     description: "Addon for Vixsrc, AnimeUnity streams and Live TV.", 
-    icon: "/public/icon.png",
-    background: "/public/backround.png",
+    icon: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/icon.png",
+    background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/background.png",
     types: ["movie", "series", "tv"],
     idPrefixes: ["tt", "kitsu", "tv"],
     catalogs: [
