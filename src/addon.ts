@@ -102,7 +102,7 @@ const baseManifest: Manifest = {
     name: "StreamViX",
     description: "Addon for Vixsrc, AnimeUnity streams and Live TV.", 
     icon: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/icon.png",
-    background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/background.png",
+    background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
     types: ["movie", "series", "tv"],
     idPrefixes: ["tt", "kitsu", "tv"],
     catalogs: [
