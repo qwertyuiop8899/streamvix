@@ -97,7 +97,7 @@ const debugLog = (message: string, ...params: any[]) => {
 
 // Base manifest configuration
 const baseManifest: Manifest = {
-    id: "org.stremio.streamvix",
+    id: "org.stremio.vixcloud",
     version: "5.2.3",
     name: "StreamViX",
     description: "Addon for Vixsrc, AnimeUnity streams and Live TV.", 
@@ -118,12 +118,13 @@ const baseManifest: Manifest = {
                         "RAI",
                         "Mediaset", 
                         "Sky",
-                        "Bambini",
-                        "News",
                         "Sport",
                         "Cinema",
-                        "Generali",
                         "Documentari",
+                        "Discovery",
+                        "News",
+                        "Generali",
+                        "Bambini",
                         "Pluto",
                         "Serie A",
                         "Serie B",
@@ -884,6 +885,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     "Cinema": "movies",
                     "Generali": "general",
                     "Documentari": "documentari",
+                    "Discovery": "discovery",
                     "Pluto": "pluto",
                     "Serie A": "seriea",
                     "Serie B": "serieb",
