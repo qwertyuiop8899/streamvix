@@ -134,7 +134,10 @@
     "epgChannelIds": [
       "Nove.it"
     ],
-    "category": "general"
+    "category": [
+      "general",
+      "discovery"
+    ]
   },
   {
     "id": "20mediaset",
@@ -314,7 +317,10 @@
     "epgChannelIds": [
       "RealTime.it"
     ],
-    "category": "general"
+    "category": [
+      "general",
+      "discovery"
+    ]
   },
   {
     "id": "qvc",
@@ -344,7 +350,10 @@
     "epgChannelIds": [
       "FoodNetwork.it"
     ],
-    "category": "general"
+    "category": [
+      "discovery",
+      "general"
+    ]
   },
   {
     "id": "cine34",
@@ -407,7 +416,10 @@
     "epgChannelIds": [
       "WarnerTV.it"
     ],
-    "category": "movies"
+    "category": [
+      "discovery",
+      "cinema"
+    ]
   },
   {
     "id": "giallo",
@@ -422,7 +434,10 @@
     "epgChannelIds": [
       "GialloTV.it"
     ],
-    "category": "movies"
+    "category": [
+      "mediaset",
+      "general"
+    ]
   },
   {
     "id": "topcrime",
@@ -452,7 +467,10 @@
     "epgChannelIds": [
       "Boing.it"
     ],
-    "category": "mediaset"
+    "category": [
+      "mediaset",
+      "kids"
+    ]
   },
   {
     "id": "k2",
@@ -482,7 +500,10 @@
     "epgChannelIds": [
       "RaiGulp.it"
     ],
-    "category": "rai"
+    "category": [
+      "rai",
+      "kids"
+    ]
   },
   {
     "id": "raiyoyo",
@@ -497,7 +518,10 @@
     "epgChannelIds": [
       "RaiYoyo.it"
     ],
-    "category": "rai"
+    "category": [
+      "rai",
+      "kids"
+    ]
   },
   {
     "id": "frisbee",
@@ -527,7 +551,7 @@
     "epgChannelIds": [
       "Cartoonito.it"
     ],
-    "category": "mediaset"
+    "category": "kids"
   },
   {
     "id": "super",
@@ -542,7 +566,7 @@
     "epgChannelIds": [
       "Super.it"
     ],
-    "category": "mediaset"
+    "category": "kids"
   },
   {
     "id": "rainews24",
@@ -557,7 +581,7 @@
     "epgChannelIds": [
       "RaiNews24.it"
     ],
-    "category": "rai"
+    "category": "news"
   },
   {
     "id": "italia2",
@@ -587,7 +611,10 @@
     "epgChannelIds": [
       "SkyTG24.it"
     ],
-    "category": "sky"
+    "category": [
+      "sky",
+      "news"
+    ]
   },
   {
     "id": "tgcom24",
@@ -602,7 +629,10 @@
     "epgChannelIds": [
       "TGCom24.it"
     ],
-    "category": "mediaset"
+    "category": [
+      "mediaset",
+      "news"
+    ]
   },
   {
     "id": "dmax",
@@ -617,7 +647,10 @@
     "epgChannelIds": [
       "DMAX.it"
     ],
-    "category": "general"
+    "category": [
+      "discovery",
+      "general"
+    ]
   },
   {
     "id": "raistoria",
@@ -662,7 +695,10 @@
     "epgChannelIds": [
       "Home&GardenTV.it"
     ],
-    "category": "general"
+    "category": [
+      "general",
+      "discovery"
+    ]
   },
   {
     "id": "raiscuola",
@@ -708,7 +744,10 @@
     "epgChannelIds": [
       "MotorTrendTV.it"
     ],
-    "category": "general"
+    "category": [
+      "general",
+      "discovery"
+    ]
   },
   {
     "id": "sportitalia",
@@ -723,7 +762,10 @@
     "epgChannelIds": [
       "Sportitalia.it"
     ],
-    "category": "mediaset"
+    "category": [
+      "mediaset",
+      "sport"
+    ]
   },
   {
     "id": "supertennis",
@@ -738,7 +780,7 @@
     "epgChannelIds": [
       "SuperTennis.it"
     ],
-    "category": "mediaset"
+    "category": "sport"
   },
   {
     "id": "rai4k",
@@ -772,7 +814,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -792,7 +834,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -812,7 +854,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -832,7 +874,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -852,7 +894,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -872,7 +914,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -892,7 +934,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -912,7 +954,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -932,7 +974,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -969,7 +1011,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -988,7 +1030,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1149,7 +1191,10 @@
     "epgChannelIds": [
       "skysport24.it"
     ],
-    "category": "sky"
+    "category": [
+      "sky",
+      "sport"
+    ]
   },
   {
     "id": "skysportuno",
@@ -1617,7 +1662,10 @@
     "epgChannelIds": [
       "DeAKids.it"
     ],
-    "category": "sky"
+    "category": [
+      "sky",
+      "kids"
+    ]
   },
   {
     "id": "nickjr",
@@ -1632,7 +1680,10 @@
     "epgChannelIds": [
       "NickJr.it"
     ],
-    "category": "sky"
+    "category": [
+      "sky",
+      "kids"
+    ]
   },
   {
     "id": "skyadventure",
@@ -1665,7 +1716,10 @@
     "epgChannelIds": [
       "Nickelodeon.it"
     ],
-    "category": "sky"
+    "category": [
+      "sky",
+      "kids"
+    ]
   },
   {
     "id": "cartoonnetwork",
@@ -1680,7 +1734,10 @@
     "epgChannelIds": [
       "CartoonNetwork.it"
     ],
-    "category": "sky"
+    "category": [
+      "sky",
+      "kids"
+    ]
   },
   {
     "id": "boomerang",
@@ -1695,7 +1752,10 @@
     "epgChannelIds": [
       "Boomerang.it"
     ],
-    "category": "sky"
+    "category": [
+      "sky",
+      "kids"
+    ]
   },
   {
     "id": "primafila1",
@@ -1708,7 +1768,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1722,7 +1782,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1736,7 +1796,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1750,7 +1810,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1764,7 +1824,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1778,7 +1838,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1792,7 +1852,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1806,7 +1866,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1820,7 +1880,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1834,7 +1894,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1848,7 +1908,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1862,7 +1922,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1876,7 +1936,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1890,7 +1950,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1904,7 +1964,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1918,7 +1978,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1932,7 +1992,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
@@ -1946,7 +2006,7 @@
     ],
     "category": [
       "sky",
-      "cinema"
+      "movies"
     ]
   },
   {
