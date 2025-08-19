@@ -45,13 +45,20 @@ RUN pnpm run build
 # Rimuovi le devDependencies dopo il build se vuoi ridurre la dimensione dell'immagine
 # RUN pnpm prune --prod
 
+# Alcune piattaforme (es. Beamup) sembrano avviare forzatamente "node /start".
+# @@@@@@@@@@aggiunto questo @@@@@@@@@@@@@ Creiamo quindi un symlink /start che punta al nostro entrypoint reale dopo il build.
+USER root
+RUN ln -sf /usr/src/app/dist/addon.js /start && chown node:node /start
+USER node
+
 # Esponi la porta su cui l'applicazione ascolterà (Hugging Face la mapperà)
+# Avvia l'addon StreamViX
+CMD ["node", "dist/addon.js"]
 # Non è strettamente necessario EXPOSE qui perché HF assegna la porta tramite env var
 # EXPOSE 3000 
 
 # Definisci il comando per avviare l'applicazione
 #CMD [ "pnpm", "start" ]
-CMD ["node", "dist/addon.js"]
 
 
 
