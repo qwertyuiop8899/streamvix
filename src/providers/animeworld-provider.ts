@@ -4,23 +4,51 @@ import { KitsuProvider } from './kitsu';
 import { formatMediaFlowUrl } from '../utils/mediaflow';
 import { AnimeWorldConfig, AnimeWorldResult, AnimeWorldEpisode, StreamForStremio } from '../types/animeunity';
 
-// Helper to invoke python scraper
+// Helper to invoke python scraper with timeout & timing logs
 async function invokePython(args: string[]): Promise<any> {
   const scriptPath = path.join(__dirname, 'animeworld_scraper.py');
+  const timeoutMs = parseInt(process.env.ANIMEWORLD_PY_TIMEOUT || '20000', 10); // default 20s
+  const start = Date.now();
+  console.log('[AnimeWorld][PY] spawn', args.join(' '));
   return new Promise((resolve, reject) => {
     const py = spawn('python3', [scriptPath, ...args]);
     let stdout = '';
     let stderr = '';
+    let finished = false;
+    const killTimer = setTimeout(() => {
+      if (finished) return;
+      finished = true;
+      try { py.kill('SIGKILL'); } catch {}
+      console.error(`[AnimeWorld][PY] timeout after ${timeoutMs}ms for args:`, args.join(' '));
+      reject(new Error('AnimeWorld python timeout'));
+    }, timeoutMs);
     py.stdout.on('data', (d: Buffer) => stdout += d.toString());
     py.stderr.on('data', (d: Buffer) => stderr += d.toString());
     py.on('close', code => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(killTimer);
+      const dur = Date.now() - start;
       if (code !== 0) {
-        console.error('[AnimeWorld] Python exit', code, stderr);
+        console.error('[AnimeWorld][PY] exit code', code, 'stderr:', stderr.slice(0,500));
         return reject(new Error(stderr || 'Python error'));
       }
-      try { resolve(JSON.parse(stdout)); } catch (e) { reject(e); }
+      try {
+        const parsed = JSON.parse(stdout);
+        console.log(`[AnimeWorld][PY] success (${dur}ms)`);
+        resolve(parsed);
+      } catch (e) {
+        console.error('[AnimeWorld][PY] JSON parse error', e, 'raw len:', stdout.length);
+        reject(e);
+      }
     });
-    py.on('error', err => reject(err));
+    py.on('error', err => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(killTimer);
+      console.error('[AnimeWorld][PY] process error', err);
+      reject(err);
+    });
   });
 }
 
@@ -83,12 +111,16 @@ function normalizeTitleForSearch(title: string): string {
     'Attack on Titan': "L'attacco dei Giganti",
     'Season': '',
     'Shippuuden': 'Shippuden',
+    'Solo Leveling 2': 'Solo Leveling 2:',
+    'Solo Leveling 2 :': 'Solo Leveling 2:',
     '-': '',
   };
   let normalized = title;
-  for (const [k,v] of Object.entries(replacements)) normalized = normalized.replace(k,v);
+  for (const [k,v] of Object.entries(replacements)) {
+    if (normalized.includes(k)) normalized = normalized.replace(new RegExp(k,'gi'), v);
+  }
   if (normalized.includes('Naruto:')) normalized = normalized.replace(':','');
-  return normalized.trim();
+  return normalized.replace(/\s{2,}/g,' ').trim();
 }
 
 export class AnimeWorldProvider {
@@ -150,20 +182,35 @@ export class AnimeWorldProvider {
 
   async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie=false): Promise<{ streams: StreamForStremio[] }> {
     const normalized = normalizeTitleForSearch(title);
-    let versions = await this.searchAllVersions(normalized);
+  console.log('[AnimeWorld] Title original:', title);
+  console.log('[AnimeWorld] Title normalized:', normalized);
+  let versions = await this.searchAllVersions(normalized);
     if (!versions.length && normalized.includes("'")) versions = await this.searchAllVersions(normalized.replace(/'/g,''));
     if (!versions.length && normalized.includes('(')) versions = await this.searchAllVersions(normalized.split('(')[0].trim());
     if (!versions.length) { const words = normalized.split(' '); if (words.length>3) versions = await this.searchAllVersions(words.slice(0,3).join(' ')); }
+    // Extra fallback: try plus-joined (simulate site keyword pattern) if still empty
+    if (!versions.length) {
+      const plus = normalized.replace(/\s+/g,'+');
+      if (plus !== normalized) versions = await this.searchAllVersions(plus);
+    }
+  console.log('[AnimeWorld] Versions found:', versions.length);
     if (!versions.length) return { streams: [] };
+  // Prioritize versions (ITA first, then SUB ITA, CR ITA, ORIGINAL)
+  const order = { 'ITA': 0, 'SUB ITA': 1, 'CR ITA': 2, 'ORIGINAL': 3 } as Record<string, number>;
+  versions.sort((a,b) => (order[a.language_type || 'SUB ITA'] ?? 9) - (order[b.language_type || 'SUB ITA'] ?? 9));
+  const maxVersions = parseInt(process.env.ANIMEWORLD_MAX_VERSIONS || '3', 10);
+  const limited = versions.slice(0, maxVersions);
+  console.log('[AnimeWorld] Processing versions (limited):', limited.map(v => v.name + '|' + v.language_type).join(', '));
     const streams: StreamForStremio[] = [];
     const seen = new Set<string>();
-  for (const v of versions) {
+  for (const v of limited) {
       try {
         const episodes: AnimeWorldEpisode[] = await invokePython(['get_episodes','--anime-slug', v.slug]);
         if (!episodes || !episodes.length) continue;
         let target: AnimeWorldEpisode | undefined;
         if (isMovie) target = episodes[0]; else if (episodeNumber != null) target = episodes.find(e => e.number === episodeNumber) || episodes[0]; else target = episodes[0];
         if (!target) continue;
+    console.log(`[AnimeWorld] Fetching stream for slug=${v.slug} ep=${episodeNumber ?? target.number}`);
         const streamData = await invokePython(['get_stream','--anime-slug', v.slug, ...(episodeNumber ? ['--episode', String(episodeNumber)] : [])]);
         const mp4 = streamData?.mp4_url;
         if (!mp4) continue;
@@ -185,7 +232,8 @@ export class AnimeWorldProvider {
         console.error('[AnimeWorld] error building stream', err);
       }
     }
-    return { streams };
+  console.log('[AnimeWorld] Total AW streams produced:', streams.length);
+  return { streams };
   }
 }
 
