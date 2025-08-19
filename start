@@ -10,16 +10,16 @@ function run(cmd) {
   execSync(cmd, { stdio: 'inherit' });
 }
 
+const DIST_ENTRY = '/usr/src/app/dist/addon.js';
+
 try {
-  if (!existsSync('./dist/addon.js')) {
-    console.log('[start] dist/addon.js non trovato. Avvio install + build...');
+  if (!existsSync(DIST_ENTRY)) {
+    console.log('[start] dist/addon.js non trovato al percorso assoluto. Avvio install + build...');
     // Installa dipendenze se node_modules mancante
-    if (!existsSync('./node_modules')) {
-      // Usa pnpm se disponibile, altrimenti fallback a npm
-      try { run('pnpm -v'); run('pnpm install --prod=false'); } 
+    if (!existsSync('/usr/src/app/node_modules')) {
+      try { run('pnpm -v'); run('pnpm install --prod=false'); }
       catch { run('npm install'); }
     }
-    // Build TypeScript
     try { run('pnpm run build'); }
     catch { run('npx tsc'); }
   } else {
@@ -30,8 +30,8 @@ try {
 }
 
 try {
-  require('./dist/addon.js');
+  require(DIST_ENTRY);
 } catch (e) {
-  console.error('[start] Errore avviando dist/addon.js:', e);
+  console.error('[start] Errore avviando', DIST_ENTRY, e);
   process.exit(1);
 }
