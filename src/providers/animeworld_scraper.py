@@ -23,8 +23,11 @@ BASE_URL = f"https://{AW_HOST}"
 TITLE_REPL = {
     "Attack on Titan": "L'attacco dei Giganti",
     "Season": "",
+    "  ": " ",            # doppio spazio -> spazio singolo
     "Shippuuden": "Shippuden",
+    "Solo+Leveling+2": "Solo+Leveling+2:",
     "-": "",
+    # lo spazio singolo in Python lo gestiamo dopo (q_norm sostituisce gli spazi con +)
 }
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
