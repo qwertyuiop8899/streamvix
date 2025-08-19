@@ -1,0 +1,37 @@
+#!/usr/bin/env node
+// Wrapper di avvio per ambienti (es. Beamup) che forzano `node /start`
+// Compila TypeScript se la build non è presente e poi lancia dist/addon.js
+
+const { existsSync } = require('fs');
+const { execSync } = require('child_process');
+
+function run(cmd) {
+  console.log(`[start] Eseguo: ${cmd}`);
+  execSync(cmd, { stdio: 'inherit' });
+}
+
+try {
+  if (!existsSync('./dist/addon.js')) {
+    console.log('[start] dist/addon.js non trovato. Avvio install + build...');
+    // Installa dipendenze se node_modules mancante
+    if (!existsSync('./node_modules')) {
+      // Usa pnpm se disponibile, altrimenti fallback a npm
+      try { run('pnpm -v'); run('pnpm install --prod=false'); } 
+      catch { run('npm install'); }
+    }
+    // Build TypeScript
+    try { run('pnpm run build'); }
+    catch { run('npx tsc'); }
+  } else {
+    console.log('[start] Build già presente, avvio diretto.');
+  }
+} catch (e) {
+  console.error('[start] Errore durante build iniziale:', e);
+}
+
+try {
+  require('./dist/addon.js');
+} catch (e) {
+  console.error('[start] Errore avviando dist/addon.js:', e);
+  process.exit(1);
+}
