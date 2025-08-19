@@ -218,7 +218,8 @@ export class AnimeSaturnProvider {
   constructor(private config: AnimeSaturnConfig) {}
 
   // Ricerca tutte le versioni (AnimeSaturn non distingue SUB/ITA/CR, ma puoi inferirlo dal titolo)
-  private async searchAllVersions(title: string, malId?: string): Promise<{ version: AnimeSaturnResult; language_type: string }[]> {
+  // Made public for catalog search
+  async searchAllVersions(title: string, malId?: string): Promise<{ version: AnimeSaturnResult; language_type: string }[]> {
     let args = ['search', '--query', title];
     if (malId) {
       args.push('--mal-id', malId);
@@ -415,7 +416,8 @@ export class AnimeSaturnProvider {
         .replace(/CR/gi, '')
         .trim();
       const sNum = seasonNumber || 1;
-      let streamTitle = `${capitalize(cleanName)} ${language_type} S${sNum}`;
+  const langLabel = language_type === 'ITA' ? 'ITA' : 'SUB';
+  let streamTitle = `${capitalize(cleanName)} ${langLabel} S${sNum}`;
       if (episodeNumber) {
         streamTitle += `E${episodeNumber}`;
       }
