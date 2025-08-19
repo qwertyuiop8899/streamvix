@@ -184,7 +184,8 @@ export class AnimeUnityProvider {
 
   constructor(private config: AnimeUnityConfig) {}
 
-  private async searchAllVersions(title: string): Promise<{ version: AnimeUnitySearchResult; language_type: string }[]> {
+  // Made public for catalog search
+  async searchAllVersions(title: string): Promise<{ version: AnimeUnitySearchResult; language_type: string }[]> {
       try {
         const subPromise = invokePythonScraper(['search', '--query', title]).catch(() => []);
         const dubPromise = invokePythonScraper(['search', '--query', title, '--dubbed']).catch(() => []);
@@ -392,7 +393,8 @@ export class AnimeUnityProvider {
           .replace(/CR/gi, '')
           .trim();
         const sNum = seasonNumber || 1;
-        let streamTitle = `${capitalize(cleanName)} ${language_type} S${sNum}`;
+  const langLabel = language_type === 'ITA' ? 'ITA' : 'SUB';
+  let streamTitle = `${capitalize(cleanName)} ${langLabel} S${sNum}`;
         if (episodeNumber) {
           streamTitle += `E${episodeNumber}`;
         }
