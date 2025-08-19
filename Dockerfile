@@ -46,14 +46,17 @@ RUN pnpm run build
 # RUN pnpm prune --prod
 
 # Alcune piattaforme (es. Beamup) sembrano avviare forzatamente "node /start".
-# @@@@@@@@@@aggiunto questo @@@@@@@@@@@@@ Creiamo quindi un symlink /start che punta al nostro entrypoint reale dopo il build.
+# Creiamo quindi un symlink /start che punta al nostro entrypoint reale dopo il build.
 USER root
 RUN ln -sf /usr/src/app/dist/addon.js /start && chown node:node /start
 USER node
 
 # Esponi la porta su cui l'applicazione ascolterà (Hugging Face la mapperà)
 # Avvia l'addon StreamViX
-CMD ["node", "dist/addon.js"]
+# Wrapper: alcune piattaforme avviano forzatamente `node /start`, quindi includiamo script start nella root
+COPY start /usr/src/app/start
+RUN chmod +x /usr/src/app/start && ln -sf /usr/src/app/start /start
+ENTRYPOINT ["node", "/start"]
 # Non è strettamente necessario EXPOSE qui perché HF assegna la porta tramite env var
 # EXPOSE 3000 
 
