@@ -1,6 +1,9 @@
 # Scegli un'immagine Node.js di base
 FROM node:20-slim
 
+ARG CACHE_BUST=1
+RUN echo "Cache bust: $CACHE_BUST"
+
 # Installa git, python3, pip e dipendenze per compilazione
 USER root 
 RUN apt-get update && apt-get install -y git python3 python3-pip python3-dev build-essential ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
@@ -10,11 +13,12 @@ WORKDIR /usr/src/app
 
 # Clona il repository Git
 # Sostituisci con l'URL del tuo repository e opzionalmente un branch o tag
-ARG CACHE_BUST=2
-RUN echo "Cache bust: $CACHE_BUST"
 
 ARG GIT_REPO_URL="https://github.com/qwertyuiop8899/streamvix.git"
 ARG GIT_BRANCH="main"
+
+ARG CACHE_BUST2=1
+RUN echo "Cache bust: $CACHE_BUST"
 
 RUN git -c http.sslVerify=false clone --branch ${GIT_BRANCH} --depth 1 ${GIT_REPO_URL} .
 # Il "." alla fine clona il contenuto della repo direttamente in /usr/src/app
@@ -65,6 +69,7 @@ ENTRYPOINT ["node", "/start"]
 
 # Definisci il comando per avviare l'applicazione
 #CMD [ "pnpm", "start" ]
+
 
 
 
