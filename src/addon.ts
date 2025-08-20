@@ -8,7 +8,7 @@ import { AnimeUnityProvider } from './providers/animeunity-provider';
 import { AnimeWorldProvider } from './providers/animeworld-provider';
 import { KitsuProvider } from './providers/kitsu'; 
 import { formatMediaFlowUrl } from './utils/mediaflow';
-import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels } from './utils/dynamicChannels';
+import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels, getDynamicSignature } from './utils/dynamicChannels';
 
 // --- Lightweight declarations to avoid TS complaints if @types/node non installati ---
 // (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.)
@@ -685,13 +685,27 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     // === TV CATALOG HANDLER ONLY ===
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
         if (type === "tv") {
-            // Ricostruisci lista canali ogni richiesta (static + dynamic freschi) forzando reload file
-            try {
-                // NON forzare reload ogni volta: usa cache interna (loadDynamicChannels()) per velocità
-                loadDynamicChannels(false);
-                tvChannels = mergeDynamic([...staticBaseChannels]);
-            } catch (e) {
-                console.error('❌ Merge dynamic channels failed:', e);
+            // === FAST CACHE LAYER per catalogo TV ===
+            // Evita merge/ricostruzione se né i canali statici né i dinamici sono cambiati.
+            // Usiamo una signature (mtime:length) dei dinamici + dimensione statici.
+            const dynamicSig = getDynamicSignature();
+            const staticSig = staticBaseChannels.length;
+            const cacheKey = `${dynamicSig}|${staticSig}`;
+            // Cache in memoria condivisa (process-wide)
+            const g: any = global as any;
+            if (!g.__tvCatalogCache) g.__tvCatalogCache = { key: '', channels: [] };
+            if (g.__tvCatalogCache.key !== cacheKey) {
+                try {
+                    loadDynamicChannels(false); // aggiorna cache interna se TTL scaduto o file cambiato
+                    tvChannels = mergeDynamic([...staticBaseChannels]);
+                    g.__tvCatalogCache = { key: cacheKey, channels: tvChannels };
+                    debugLog(`⚡ Catalog rebuild (cache miss) newKey=${cacheKey} count=${tvChannels.length}`);
+                } catch (e) {
+                    console.error('❌ Merge dynamic channels failed:', e);
+                }
+            } else {
+                tvChannels = g.__tvCatalogCache.channels;
+                debugLog(`⚡ Catalog served from cache key=${cacheKey} count=${tvChannels.length}`);
             }
             let filteredChannels = tvChannels;
             let requestedSlug: string | null = null;
