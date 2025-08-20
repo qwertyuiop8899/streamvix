@@ -1,9 +1,10 @@
 {
     "addonName": "StreamViX",
     "addonId": "org.prisonmike.streamvix",
-    "addonDescription": "StreamV addon con Vixsrc, AnimeUnity, AnimeSaturn, TV e Eventi Sportivi",
-    "addonVersion": "5.2.3",
-    "addonLogo": "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/icon.png"
+    "addonDescription": "StreamViX addon con Vixsrc, AnimeUnity, AnimeSaturn, TV e Eventi Sportivi",
+    "addonVersion": "5.3.2",
+    "addonLogo": "https://raw.githubusercontent.com/qwertyuiop8899/streamvix/refs/heads/main/public/icon.png"
 }
+
 
 
