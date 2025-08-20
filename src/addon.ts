@@ -5,6 +5,7 @@ import { landingTemplate } from './landingPage';
 import * as path from 'path';
 import express, { Request, Response, NextFunction } from 'express'; // ✅ CORRETTO: Import tipizzato
 import { AnimeUnityProvider } from './providers/animeunity-provider';
+import { AnimeWorldProvider } from './providers/animeworld-provider';
 import { KitsuProvider } from './providers/kitsu'; 
 import { formatMediaFlowUrl } from './utils/mediaflow';
 import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels } from './utils/dynamicChannels';
@@ -25,6 +26,40 @@ import { execFile } from 'child_process';
 import * as crypto from 'crypto';
 import * as util from 'util';
 
+// ================= TYPES & INTERFACES =================
+interface AddonConfig {
+    tmdbApiKey?: string;
+    mediaFlowProxyUrl?: string;
+    mediaFlowProxyPassword?: string;
+    enableMpd?: boolean;
+    animeunityEnabled?: boolean;
+    animesaturnEnabled?: boolean;
+    animeworldEnabled?: boolean;
+}
+
+function debugLog(...args: any[]) {
+    try {
+        console.log('[DEBUG]', ...args);
+    } catch {
+        // ignore
+    }
+}
+
+// Global runtime configuration cache (was referenced below)
+const configCache: AddonConfig = {};
+
+// Promisify execFile for reuse
+const execFilePromise = util.promisify(execFile);
+
+// Placeholder helper for categories; implement real logic later or ensure existing util present
+function getChannelCategories(channel: any): string[] {
+    if (!channel) return [];
+    // Accept existing category fields
+    if (Array.isArray(channel.category)) return channel.category.map((c: any) => String(c).toLowerCase());
+    if (Array.isArray(channel.categories)) return channel.categories.map((c: any) => String(c).toLowerCase());
+    return [];
+}
+
 // Funzioni utility per decodifica base64
 function decodeBase64(str: string): string {
     return Buffer.from(str, 'base64').toString('utf8');
@@ -39,14 +74,9 @@ function decodeStaticUrl(url: string): string {
     try {
         // Assicura padding corretto (lunghezza multipla di 4)
         let paddedUrl = url;
-        while (paddedUrl.length % 4 !== 0) {
-            paddedUrl += '=';
-        }
-        
-        // Decodifica base64
+        while (paddedUrl.length % 4 !== 0) paddedUrl += '=';
         const decoded = decodeBase64(paddedUrl);
         console.log(`✅ [Base64] URL decodificato: ${decoded}`);
-        
         return decoded;
     } catch (error) {
         console.error(`❌ [Base64] Errore nella decodifica: ${error}`);
@@ -55,56 +85,16 @@ function decodeStaticUrl(url: string): string {
     }
 }
 
-// Promisify execFile
-const execFilePromise = util.promisify(execFile);
-
-// Interfaccia per la configurazione URL
-interface AddonConfig {
-  mediaFlowProxyUrl?: string;
-  mediaFlowProxyPassword?: string;
-  tmdbApiKey?: string;
-  enableMpd?: string;
-  animeunityEnabled?: string;
-  animesaturnEnabled?: string;
-  [key: string]: any;
-}
-
-// Cache globale per la configurazione
-const configCache: AddonConfig = {
-  mediaFlowProxyUrl: process.env.MFP_URL,
-  mediaFlowProxyPassword: process.env.MFP_PSW,
-  tmdbApiKey: process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
-};
-
-// Funzione globale per log di debug
-const debugLog = (message: string, ...params: any[]) => {
-    console.log(`🔧 ${message}`, ...params);
-    
-    // Scrivi anche su file di log
-    try {
-        const logPath = path.join(__dirname, '../logs');
-        if (!fs.existsSync(logPath)) {
-            fs.mkdirSync(logPath, { recursive: true });
-        }
-        const logFile = path.join(logPath, 'config_debug.log');
-        const timestamp = new Date().toISOString();
-        const logMessage = `${timestamp} - ${message} ${params.length ? JSON.stringify(params) : ''}\n`;
-        fs.appendFileSync(logFile, logMessage);
-    } catch (e) {
-        console.error('Error writing to log file:', e);
-    }
-};
-
-// Base manifest configuration
+// ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
     version: "5.2.3",
     name: "StreamViX",
-    description: "Addon for Vixsrc, AnimeUnity streams and Live TV.", 
+    description: "Addon for Vixsrc, Anime providers and Live TV.",
     icon: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/icon.png",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
-    types: ["movie", "series", "tv"],
-    idPrefixes: ["tt", "kitsu", "tv"],
+    types: ["movie", "series", "tv", "anime"],
+    idPrefixes: ["tt", "kitsu", "tv", "mal", "tmdb"],
     catalogs: [
         {
             type: "tv",
@@ -143,48 +133,21 @@ const baseManifest: Manifest = {
                         "NFL"
                     ]
                 },
-                {
-                    name: "search",
-                    isRequired: false
-                }
+                { name: "genre", isRequired: false },
+                { name: "search", isRequired: false }
             ]
         }
     ],
     resources: ["stream", "catalog", "meta"],
-    behaviorHints: {
-        configurable: true
-    },
+    behaviorHints: { configurable: true },
     config: [
-        {
-            key: "tmdbApiKey",
-            title: "TMDB API Key",
-            type: "text"
-        },
-        {
-            key: "mediaFlowProxyUrl", 
-            title: "MediaFlow Proxy URL",
-            type: "text"
-        },
-        {
-            key: "mediaFlowProxyPassword",
-            title: "MediaFlow Proxy Password", 
-            type: "text"
-        },
-        {
-            key: "enableMpd",
-            title: "Enable MPD Streams",
-            type: "checkbox"
-        },
-        {
-            key: "animeunityEnabled",
-            title: "Enable AnimeUnity",
-            type: "checkbox"
-        },
-        {
-            key: "animesaturnEnabled",
-            title: "Enable AnimeSaturn",
-            type: "checkbox"
-        }
+        { key: "tmdbApiKey", title: "TMDB API Key", type: "text" },
+        { key: "mediaFlowProxyUrl", title: "MediaFlow Proxy URL", type: "text" },
+        { key: "mediaFlowProxyPassword", title: "MediaFlow Proxy Password", type: "text" },
+        { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
+        { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
+        { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
+        { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" }
     ]
 };
 
@@ -654,135 +617,6 @@ try {
 }
 
 // Funzione per determinare le categorie di un canale
-function getChannelCategories(channel: any): string[] {
-    const categories: string[] = [];
-    
-    if (Array.isArray(channel.categories)) {
-        categories.push(...channel.categories);
-    } else if (Array.isArray(channel.category)) {
-        categories.push(...channel.category);
-    } else if (channel.category) {
-        categories.push(channel.category);
-    }
-    
-    if (categories.length === 0) {
-        const name = channel.name.toLowerCase();
-        const description = channel.description.toLowerCase();
-        
-        if (name.includes('rai') || description.includes('rai')) {
-            categories.push('rai');
-        }
-        if (name.includes('mediaset') || description.includes('mediaset') || 
-            name.includes('canale 5') || name.includes('italia') || name.includes('rete 4')) {
-            categories.push('mediaset');
-        }
-        if (name.includes('sky') || description.includes('sky')) {
-            categories.push('sky');
-        }
-        if (name.includes('gulp') || name.includes('yoyo') || name.includes('boing') || name.includes('cartoonito')) {
-            categories.push('kids');
-        }
-        if (name.includes('news') || name.includes('tg') || name.includes('focus')) {
-            categories.push('news');
-        }
-        if (name.includes('sport') || name.includes('tennis') || name.includes('eurosport')) {
-            categories.push('sport');
-        }
-        if (name.includes('cinema') || name.includes('movie') || name.includes('warner')) {
-            categories.push('movies');
-        }
-        if (name.includes('pluto') || description.includes('pluto')) {
-            categories.push('pluto');
-        }
-        
-        if (categories.length === 0) {
-            categories.push('general');
-        }
-    }
-    
-    return categories;
-}
-
-// Funzione per risolvere un canale Vavoo usando la cache
-function resolveVavooChannelByName(channelName: string): Promise<string | null> {
-    return new Promise((resolve) => {
-        // Check cache age
-        const cacheAge = Date.now() - vavooCache.timestamp;
-        const CACHE_MAX_AGE = 12 * 60 * 60 * 1000; // 12 ore in millisecondi
-        
-        // Se la cache è troppo vecchia o vuota, forzane l'aggiornamento (ma continua comunque a usarla)
-        if (cacheAge > CACHE_MAX_AGE || vavooCache.links.size === 0) {
-            console.log(`[Vavoo] Cache obsoleta o vuota (età: ${Math.round(cacheAge/3600000)}h), avvio aggiornamento in background...`);
-            // Non blocchiamo la risposta, aggiorniamo in background
-            updateVavooCache().catch(error => {
-                console.error(`[Vavoo] Errore nell'aggiornamento cache:`, error);
-            });
-        }
-        
-        // Cerca il canale nella cache
-        if (channelName && vavooCache.links.has(channelName)) {
-            const cachedUrlRaw = vavooCache.links.get(channelName);
-            let cachedUrl: string | null = null;
-            if (Array.isArray(cachedUrlRaw)) {
-                cachedUrl = cachedUrlRaw[0] || null;
-            } else if (typeof cachedUrlRaw === 'string') {
-                cachedUrl = cachedUrlRaw;
-            }
-            console.log(`[Vavoo] Trovato in cache: ${channelName} -> ${cachedUrl ? cachedUrl.substring(0, 50) : 'null'}...`);
-            return resolve(cachedUrl);
-        }
-        
-        // Se non è nella cache ma la cache è stata inizializzata
-        if (vavooCache.timestamp > 0) {
-            console.log(`[Vavoo] Canale ${channelName} non trovato in cache, aggiornamento necessario`);
-            // Tenta di aggiornare la cache in background se non è già in corso
-            if (!vavooCache.updating) {
-                updateVavooCache().catch(error => {
-                    console.error(`[Vavoo] Errore nell'aggiornamento cache:`, error);
-                });
-            }
-            return resolve(null);
-        }
-        
-        // Se la cache non è ancora stata inizializzata, chiama lo script Python come fallback
-        console.log(`[Vavoo] Cache non inizializzata, chiamo script Python per ${channelName}`);
-        const timeout = setTimeout(() => {
-            console.log(`[Vavoo] Timeout per canale: ${channelName}`);
-            resolve(null);
-        }, 5000);
-
-        const options = {
-            timeout: 5000,
-            env: {
-                ...process.env,
-                PYTHONPATH: '/usr/local/lib/python3.9/site-packages'
-            }
-        };
-        
-        execFile('python3', [path.join(__dirname, '../vavoo_resolver.py'), channelName, '--original-link'], options, (error: Error | null, stdout: string, stderr: string) => {
-            clearTimeout(timeout);
-            
-            if (error) {
-                console.error(`[Vavoo] Error for ${channelName}:`, error.message);
-                if (stderr) console.error(`[Vavoo] Stderr:`, stderr);
-                return resolve(null);
-            }
-            
-            if (!stdout || stdout.trim() === '') {
-                console.log(`[Vavoo] No output for ${channelName}`);
-                return resolve(null);
-            }
-            
-            const result = stdout.trim();
-            console.log(`[Vavoo] Resolved ${channelName} to: ${result.substring(0, 50)}...`);
-            
-            // Aggiorna la cache con questo risultato
-            vavooCache.links.set(channelName, result);
-            
-            resolve(result);
-        });
-    });
-}
 
 function normalizeProxyUrl(url: string): string {
     return url.endsWith('/') ? url.slice(0, -1) : url;
@@ -798,9 +632,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     
     const builder = new addonBuilder(manifest);
 
-    // === HANDLER CATALOGO TV ===
+    // === TV CATALOG HANDLER ONLY ===
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
-        console.log(`📺 CATALOG REQUEST: type=${type}, id=${id}, extra=${JSON.stringify(extra)}`);
         if (type === "tv") {
             // Ricostruisci lista canali ogni richiesta (static + dynamic freschi) forzando reload file
             try {
@@ -1189,7 +1022,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     
                     let streams: { url: string; title: string }[] = [];
                     // Stato toggle MPD (solo da config checkbox, niente override da env per evitare comportamento inatteso)
-                    const mpdEnabled = config.enableMpd === 'on';
+                    const mpdEnabled = !!config.enableMpd;
 
                     // Dynamic event channels: dynamicDUrls -> usa stessa logica avanzata di staticUrlD per estrarre link finale
                     if ((channel as any)._dynamic && Array.isArray((channel as any).dynamicDUrls) && (channel as any).dynamicDUrls.length) {
@@ -1642,15 +1475,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // === LOGICA ANIME/FILM (originale) ===
                 // Per tutto il resto, usa solo mediaFlowProxyUrl/mediaFlowProxyPassword
                 // Gestione AnimeUnity per ID Kitsu o MAL con fallback variabile ambiente
-                const animeUnityEnabled = (config.animeunityEnabled === 'on') || 
-                                        (process.env.ANIMEUNITY_ENABLED?.toLowerCase() === 'true');
+                // Provider flags: default ON unless explicitly disabled
+                const envFlag = (name: string) => {
+                    const v = process.env[name];
+                    if (!v) return undefined;
+                    return v.toLowerCase() === 'true';
+                };
+                const animeUnityEnabled = envFlag('ANIMEUNITY_ENABLED') ?? (config.animeunityEnabled === false ? false : true);
+                const animeSaturnEnabled = envFlag('ANIMESATURN_ENABLED') ?? (config.animesaturnEnabled === false ? false : true);
+                const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (config.animeworldEnabled === false ? false : true);
                 
-                // Gestione AnimeSaturn per ID Kitsu o MAL con fallback variabile ambiente
-                const animeSaturnEnabled = (config.animesaturnEnabled === 'on') || 
-                                        (process.env.ANIMESATURN_ENABLED?.toLowerCase() === 'true');
-                
-                // Gestione parallela AnimeUnity e AnimeSaturn per ID Kitsu, MAL, IMDB, TMDB
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled)) {
+                // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled)) {
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
@@ -1665,8 +1501,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         mfpProxyPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                     };
+                    const animeWorldConfig = {
+                        enabled: animeWorldEnabled,
+                        mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
+                        mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
+                        tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
+                    };
                     let animeUnityStreams: Stream[] = [];
                     let animeSaturnStreams: Stream[] = [];
+                    let animeWorldStreams: Stream[] = [];
                     // Parsing stagione/episodio per IMDB/TMDB
                     let seasonNumber: number | null = null;
                     let episodeNumber: number | null = null;
@@ -1740,6 +1583,35 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             console.error('[AnimeSaturn] Errore:', error);
                         }
                     }
+                    // AnimeWorld (always attempt if enabled, even if others produced streams)
+                    if (animeWorldEnabled) {
+                        try {
+                            const { AnimeWorldProvider } = await import('./providers/animeworld-provider');
+                            const animeWorldProvider = new AnimeWorldProvider(animeWorldConfig);
+                            let animeWorldResult;
+                            if (id.startsWith('kitsu:')) {
+                                console.log(`[AnimeWorld] Processing Kitsu ID: ${id}`);
+                                animeWorldResult = await animeWorldProvider.handleKitsuRequest(id);
+                            } else if (id.startsWith('mal:')) {
+                                console.log(`[AnimeWorld] Processing MAL ID: ${id}`);
+                                animeWorldResult = await animeWorldProvider.handleMalRequest(id);
+                            } else if (id.startsWith('tt')) {
+                                console.log(`[AnimeWorld] Processing IMDB ID: ${id}`);
+                                animeWorldResult = await animeWorldProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            } else if (id.startsWith('tmdb:')) {
+                                console.log(`[AnimeWorld] Processing TMDB ID: ${id}`);
+                                animeWorldResult = await animeWorldProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            }
+                            if (animeWorldResult && animeWorldResult.streams) {
+                                animeWorldStreams = animeWorldResult.streams;
+                                for (const s of animeWorldStreams) {
+                                    allStreams.push({ ...s, name: 'StreamViX AW' });
+                                }
+                            }
+                        } catch (error) {
+                            console.error('[AnimeWorld] Errore:', error);
+                        }
+                    }
                 }
                 
                 // Mantieni logica VixSrc per tutti gli altri ID
@@ -1801,20 +1673,27 @@ app.get('/', (_: Request, res: Response) => {
 
 // ✅ Middleware semplificato che usa sempre il router globale
 app.use((req: Request, res: Response, next: NextFunction) => {
+    // Inject the search query directly into req.query.search for AnimeWorld catalog requests
+    if (
+        req.path === '/catalog/animeworld/anime/search.json' &&
+        req.query && typeof req.query.query === 'string'
+    ) {
+        req.query.search = req.query.query;
+    }
     debugLog(`Incoming request: ${req.method} ${req.path}`);
     debugLog(`Full URL: ${req.url}`);
     debugLog(`Path segments:`, req.path.split('/'));
-    
+
     const configString = req.path.split('/')[1];
     debugLog(`Config string extracted: "${configString}" (length: ${configString ? configString.length : 0})`);
-    
+
     // AGGIORNA SOLO LA CACHE GLOBALE senza ricreare il builder
     if (configString && configString.includes('eyJtZnBQcm94eVVybCI6Imh0dHA6Ly8xOTIuMTY4LjEuMTAwOjkwMDAi')) {
         debugLog('📌 Found known MFP config pattern, updating global cache');
         // Non forzare più nessun valore hardcoded, lascia solo la configurazione fornita
         // Object.assign(configCache, { ... }); // RIMOSSO
     }
-    
+
     // Altri parsing di configurazione (PRIMA della logica TV)
     if (configString && configString.length > 10 && !configString.startsWith('stream') && !configString.startsWith('meta') && !configString.startsWith('manifest')) {
         const parsedConfig = parseConfigFromArgs(configString);
@@ -1824,7 +1703,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
             debugLog('� Updated global config cache:', configCache);
         }
     }
-    
+
     // Per le richieste di stream TV, assicurati che la configurazione proxy sia sempre presente
     if (req.url.includes('/stream/tv/') || req.url.includes('/stream/tv%3A')) {
         debugLog('📺 TV Stream request detected, ensuring MFP configuration');
@@ -1832,7 +1711,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
         // if (!configCache.mfpProxyUrl || !configCache.mfpProxyPassword) { ... } // RIMOSSO
         debugLog('📺 Current proxy config for TV streams:', configCache);
     }
-    
+
     // Altri parsing di configurazione
     if (configString && configString.length > 10 && !configString.startsWith('stream') && !configString.startsWith('meta') && !configString.startsWith('manifest')) {
         const parsedConfig = parseConfigFromArgs(configString);
@@ -1842,7 +1721,30 @@ app.use((req: Request, res: Response, next: NextFunction) => {
             debugLog('� Updated global config cache:', configCache);
         }
     }
-    
+
+    // PATCH: Inject full search query for AnimeWorld catalog search
+    if (
+        req.path === '/catalog/animeworld/anime/search.json' &&
+        req.query && typeof req.query.query === 'string'
+    ) {
+        debugLog('🔎 PATCH: Injecting full search query from req.query.query:', req.query.query);
+        // Ensure req.query.extra is always an object
+        let extraObj: any = {};
+        if (req.query.extra) {
+            if (typeof req.query.extra === 'string') {
+                try {
+                    extraObj = JSON.parse(req.query.extra);
+                } catch (e) {
+                    extraObj = {};
+                }
+            } else if (typeof req.query.extra === 'object') {
+                extraObj = req.query.extra;
+            }
+        }
+        extraObj.search = req.query.query;
+        req.query.extra = extraObj;
+    }
+
     // ✅ Inizializza il router globale se non è ancora stato fatto
     if (!globalRouter) {
         console.log('🔧 Initializing global router...');
@@ -1851,7 +1753,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
         globalRouter = getRouter(globalAddonInterface);
         console.log('✅ Global router initialized');
     }
-    
+
     // USA SEMPRE il router globale
     globalRouter(req, res, next);
 });

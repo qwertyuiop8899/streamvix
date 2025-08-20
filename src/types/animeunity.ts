@@ -65,3 +65,25 @@ export interface AnimeSaturnEpisode {
   title: string;
   url: string;
 }
+
+// === AnimeWorld ===
+export interface AnimeWorldConfig {
+  mfpUrl: string;
+  mfpPassword: string;
+  enabled: boolean;
+  tmdbApiKey?: string;
+}
+
+export interface AnimeWorldResult {
+  id: string; // could be slug or numeric id
+  slug: string;
+  name: string;
+  episodes_count: number;
+  language_type?: string; // inferred (ITA, SUB ITA, CR ITA, ORIGINAL)
+}
+
+export interface AnimeWorldEpisode {
+  id: string; // episode identifier
+  number: number;
+  name?: string;
+}

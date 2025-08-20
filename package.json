@@ -1,11 +1,11 @@
 {
   "name": "streamvix",
   "version": "5.2.3",
-  "description": "StreamV addon con Vixsrc, AnimeUnity, AnimeSaturn, TV ed Eventi Live",
+  "description": "StreamViX addon con Vixsrc, AnimeUnity, AnimeSaturn, TV ed Eventi Live",
   "main": "dist/addon.js",
   "packageManager": "pnpm@8.15.5",
   "scripts": {
-    "build": "tsc && shx cp src/providers/animeunity_scraper.py dist/providers/ && shx cp src/providers/animesaturn.py dist/providers/ && shx cp -r config dist/ && shx cp vavoo_resolver.py dist/ && shx cp tvtap_resolver.py dist/",
+  "build": "tsc && shx cp src/providers/animeunity_scraper.py dist/providers/ && shx cp src/providers/animesaturn.py dist/providers/ && shx cp src/providers/animeworld_scraper.py dist/providers/ && shx cp -r config dist/ && shx cp vavoo_resolver.py dist/ && shx cp tvtap_resolver.py dist/",
     "start": "node dist/addon.js",
     "dev": "ts-node src/addon.ts"
   },
@@ -32,4 +32,3 @@
     "typescript": "^5.0.0"
   }
 }
-
