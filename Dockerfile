@@ -20,8 +20,15 @@ ARG GIT_BRANCH="main"
 ARG CACHE_BUST2=1
 RUN echo "Cache bust: $CACHE_BUST"
 
-RUN git -c http.sslVerify=false clone --branch ${GIT_BRANCH} --depth 1 ${GIT_REPO_URL} .
+# Forza git a non usare cache aggiungendo timestamp
+RUN rm -rf ./* ./.* 2>/dev/null || true && \
+    echo "Cloning fresh at $(date +%s)" && \
+    git -c http.sslVerify=false clone --branch ${GIT_BRANCH} --depth 1 --no-single-branch ${GIT_REPO_URL} . && \
+    echo "Clone completed at $(date +%s)"
+#RUN git -c http.sslVerify=false clone --branch ${GIT_BRANCH} --depth 1 ${GIT_REPO_URL} .
 # Il "." alla fine clona il contenuto della repo direttamente in /usr/src/app
+
+
 
 # Installa le dipendenze Python necessarie per TVTap, filtrando quelle problematiche
 RUN pip3 install --no-cache-dir --break-system-packages requests beautifulsoup4 pycryptodome pyDes
@@ -69,6 +76,7 @@ ENTRYPOINT ["node", "/start"]
 
 # Definisci il comando per avviare l'applicazione
 #CMD [ "pnpm", "start" ]
+
 
 
 
