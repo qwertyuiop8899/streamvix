@@ -1010,6 +1010,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                 // === LOGICA TV ===
                 if (type === "tv") {
+                    // Assicura che i canali dinamici siano presenti anche se la prima richiesta è uno stream (senza passare dal catalog)
+                    try {
+                        loadDynamicChannels(false);
+                        tvChannels = mergeDynamic([...staticBaseChannels]);
+                    } catch (e) {
+                        console.error('❌ Stream handler: mergeDynamic failed:', e);
+                    }
                     // Improved channel ID parsing to handle different formats from Stremio
                     let cleanId = id;
                     
@@ -1062,6 +1069,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const mpdEnabled = !!config.enableMpd;
 
                     // Dynamic event channels: dynamicDUrls -> usa stessa logica avanzata di staticUrlD per estrarre link finale
+                    if ((channel as any)._dynamic) {
+                        const dArr = Array.isArray((channel as any).dynamicDUrls) ? (channel as any).dynamicDUrls : [];
+                        console.log(`[DynamicStreams] Channel ${channel.id} dynamicDUrls count=${dArr.length}`);
+                        if (dArr.length === 0) {
+                            console.log(`[DynamicStreams] ⚠️ Nessuno stream dinamico presente nel canale (dynamicDUrls vuoto)`);
+                        }
+                    }
+                    let dynamicHandled = false;
                     if ((channel as any)._dynamic && Array.isArray((channel as any).dynamicDUrls) && (channel as any).dynamicDUrls.length) {
                         const startDyn = Date.now();
                         // Parallelizza risoluzione con limite di concorrenza per non saturare proxy
@@ -1090,7 +1105,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             return a.title.localeCompare(b.title);
                         });
                         for (const r of resolved) streams.push(r);
-                        debugLog(`[DynamicStreams] Resolved ${resolved.length} streams in ${Date.now() - startDyn}ms (cache hits: ${resolved.filter(s => dynamicStreamCache.has(`${mfpUrl}|${mfpPsw}|${decodeURIComponent((s.url.split('d=')[1]||'').split('&')[0]||'')}`)).length})`);
+                        debugLog(`[DynamicStreams] Resolved ${resolved.length} dynamic streams in ${Date.now() - startDyn}ms`);
+                        dynamicHandled = true;
+                    } else if ((channel as any)._dynamic) {
+                        // Dynamic channel ma senza dynamicDUrls -> placeholder stream
+                        streams.push({ url: (channel as any).placeholderVideo || (channel as any).logo || (channel as any).poster || '', title: 'Nessuno Stream' });
+                        dynamicHandled = true;
                     } else {
                         // staticUrlF: Direct for non-dynamic
                         if ((channel as any).staticUrlF) {
@@ -1385,6 +1405,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
 
+                    // Se già gestito come evento dinamico, salta Vavoo/TVTap e ritorna subito
+                    if (dynamicHandled) {
+                        for (const s of streams) {
+                            allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
+                        }
+                        console.log(`✅ Returning ${allStreams.length} dynamic event streams`);
+                        return { streams: allStreams };
+                    }
                     // --- TVTAP: cerca usando vavooNames ---
                     const vavooNamesArr = (channel as any).vavooNames || [channel.name];
                     console.log(`[TVTap] Cerco canale con vavooNames:`, vavooNamesArr);
