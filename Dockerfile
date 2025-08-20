@@ -10,7 +10,7 @@ WORKDIR /usr/src/app
 
 # Clona il repository Git
 # Sostituisci con l'URL del tuo repository e opzionalmente un branch o tag
-ARG CACHE_BUST=1
+ARG CACHE_BUST=2
 RUN echo "Cache bust: $CACHE_BUST"
 
 ARG GIT_REPO_URL="https://github.com/qwertyuiop8899/streamvix.git"
@@ -65,6 +65,7 @@ ENTRYPOINT ["node", "/start"]
 
 # Definisci il comando per avviare l'applicazione
 #CMD [ "pnpm", "start" ]
+
 
 
 
