@@ -91,7 +91,7 @@ function decodeStaticUrl(url: string): string {
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "5.2.3",
+    version: "5.3.2",
     name: "StreamViX",
     description: "Addon for Vixsrc, Anime providers and Live TV.",
     icon: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/icon.png",
