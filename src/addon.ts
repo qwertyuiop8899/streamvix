@@ -54,9 +54,12 @@ const execFilePromise = util.promisify(execFile);
 // Placeholder helper for categories; implement real logic later or ensure existing util present
 function getChannelCategories(channel: any): string[] {
     if (!channel) return [];
-    // Accept existing category fields
+    // Gestione array
     if (Array.isArray(channel.category)) return channel.category.map((c: any) => String(c).toLowerCase());
     if (Array.isArray(channel.categories)) return channel.categories.map((c: any) => String(c).toLowerCase());
+    // Gestione stringa singola
+    if (typeof channel.category === 'string' && channel.category.trim() !== '') return [channel.category.toLowerCase()];
+    if (typeof channel.categories === 'string' && channel.categories.trim() !== '') return [channel.categories.toLowerCase()];
     return [];
 }
 
