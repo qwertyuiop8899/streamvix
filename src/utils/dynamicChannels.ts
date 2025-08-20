@@ -29,7 +29,40 @@ export interface DynamicChannel {
   expiresAt?: string;         // ISO expiration (after 02:00 next day)
 }
 
-const DYNAMIC_FILE = path.join(__dirname, '../../config/dynamic_channels.json');
+// Risoluzione robusta del file dynamic_channels.json:
+// 1. Preferisci <projectRoot>/config/dynamic_channels.json
+// 2. Fallback: percorso legacy relativo a sorgente (src/config/dynamic_channels.json) se esiste.
+// 3. Evita creazione duplicata in config/config/. 
+function resolveDynamicFile(): string {
+  const root = process.cwd();
+  const primary = path.resolve(root, 'config', 'dynamic_channels.json');
+  // legacy: in alcuni deploy il codice cercava ../../config rispetto a src/utils
+  const legacy = path.join(__dirname, '../../config/dynamic_channels.json');
+  // nested erroneo (config/config/dynamic_channels.json)
+  const nested = path.resolve(root, 'config', 'config', 'dynamic_channels.json');
+  // Se esiste primary con contenuto non vuoto usalo
+  try {
+    if (fs.existsSync(primary)) {
+      const sz = fs.statSync(primary).size;
+      if (sz > 2) return primary;
+    }
+  } catch {}
+  // Altrimenti se legacy esiste e ha contenuto, usa legacy
+  try { if (fs.existsSync(legacy) && fs.statSync(legacy).size > 2) return legacy; } catch {}
+  // Altrimenti se nested esiste e primary è vuoto ma nested pieno, copia nested -> primary per consolidare
+  try {
+    if (fs.existsSync(nested) && (!fs.existsSync(primary) || fs.statSync(primary).size <= 2)) {
+      fs.mkdirSync(path.dirname(primary), { recursive: true });
+      fs.copyFileSync(nested, primary);
+      return primary;
+    }
+  } catch {}
+  // Default: primary
+  return primary;
+}
+
+let DYNAMIC_FILE = resolveDynamicFile();
+let lastKnownMtimeMs = 0;
 
 let dynamicCache: DynamicChannel[] | null = null;
 let lastLoad = 0;
@@ -37,6 +70,21 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export function loadDynamicChannels(force = false): DynamicChannel[] {
   const now = Date.now();
+  // Se il file è cambiato (mtime) invalida cache anche senza force
+  try {
+    const currentPath = resolveDynamicFile();
+    if (currentPath !== DYNAMIC_FILE) {
+      DYNAMIC_FILE = currentPath; // aggiorna se cambiato
+    }
+    if (fs.existsSync(DYNAMIC_FILE)) {
+      const st = fs.statSync(DYNAMIC_FILE);
+      const mtimeMs = st.mtimeMs;
+      if (mtimeMs > lastKnownMtimeMs) {
+        force = true; // forza reload per nuovo contenuto
+        lastKnownMtimeMs = mtimeMs;
+      }
+    }
+  } catch {}
   if (!force && dynamicCache && (now - lastLoad) < CACHE_TTL) return dynamicCache;
   try {
     if (fs.existsSync(DYNAMIC_FILE)) {
@@ -124,10 +172,6 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
         if (removedPrevDay > 0) {
           try { console.log(`🧹 runtime filter: rimossi ${removedPrevDay} eventi del giorno precedente (dopo le 02:00 Rome)`); } catch {}
         }
-        // Persisti normalizzazione stream se abbiamo modificato almeno un titolo (best effort, non blocca)
-        try {
-          fs.writeFileSync(DYNAMIC_FILE, JSON.stringify(data, null, 2), 'utf-8');
-        } catch {}
         return filtered;
       }
     }
