@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 // Wrapper di avvio per ambienti (es. Beamup) che forzano `node /start`
-// Compila TypeScript se la build non è presente e poi lancia dist/addon.js
-
 const { existsSync } = require('fs');
 const { execSync } = require('child_process');
 
@@ -13,20 +11,24 @@ function run(cmd) {
 const DIST_ENTRY = '/usr/src/app/dist/addon.js';
 
 try {
-  if (!existsSync(DIST_ENTRY)) {
-    console.log('[start] dist/addon.js non trovato al percorso assoluto. Avvio install + build...');
-    // Installa dipendenze se node_modules mancante
-    if (!existsSync('/usr/src/app/node_modules')) {
-      try { run('pnpm -v'); run('pnpm install --prod=false'); }
-      catch { run('npm install'); }
-    }
-    try { run('pnpm run build'); }
-    catch { run('npx tsc'); }
-  } else {
-    console.log('[start] Build già presente, avvio diretto.');
+  // FORZA SEMPRE LA REBUILD PER EVITARE CACHE
+  console.log('[start] Forzando rebuild per evitare cache...');
+  
+  // Rimuovi dist esistente
+  try { run('rm -rf /usr/src/app/dist'); } catch {}
+  
+  // Installa dipendenze se node_modules mancante
+  if (!existsSync('/usr/src/app/node_modules')) {
+    try { run('pnpm -v'); run('pnpm install --prod=false'); }
+    catch { run('npm install'); }
   }
+  
+  // Forza sempre la build
+  try { run('pnpm run build'); }
+  catch { run('npx tsc'); }
+  
 } catch (e) {
-  console.error('[start] Errore durante build iniziale:', e);
+  console.error('[start] Errore durante build:', e);
 }
 
 try {
