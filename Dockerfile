@@ -7,8 +7,12 @@ RUN apt-get update && apt-get install -y git python3 python3-pip python3-dev bui
 # Imposta la directory di lavoro nell'immagine
 WORKDIR /usr/src/app
 
+
 # Clona il repository Git
 # Sostituisci con l'URL del tuo repository e opzionalmente un branch o tag
+ARG CACHE_BUST=1
+RUN echo "Cache bust: $CACHE_BUST"
+
 ARG GIT_REPO_URL="https://github.com/qwertyuiop8899/streamvix.git"
 ARG GIT_BRANCH="main"
 
@@ -61,6 +65,7 @@ ENTRYPOINT ["node", "/start"]
 
 # Definisci il comando per avviare l'applicazione
 #CMD [ "pnpm", "start" ]
+
 
 
 
