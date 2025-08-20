@@ -45,6 +45,53 @@ function debugLog(...args: any[]) {
     }
 }
 
+// === CACHE: Dynamic event stream extraction (per d.url) ===
+// Key: `${mfpUrl}|${mfpPsw}|${originalDUrl}` -> { finalUrl, ts }
+const dynamicStreamCache = new Map<string, { finalUrl: string; ts: number }>();
+const DYNAMIC_STREAM_TTL_MS = 5 * 60 * 1000; // 5 minuti
+
+async function resolveDynamicEventUrl(dUrl: string, providerTitle: string, mfpUrl?: string, mfpPsw?: string): Promise<{ url: string; title: string }> {
+    // Se manca proxy config, ritorna immediatamente l'URL originale (fast path)
+    if (!mfpUrl || !mfpPsw) return { url: dUrl, title: providerTitle };
+    const cacheKey = `${mfpUrl}|${mfpPsw}|${dUrl}`;
+    const now = Date.now();
+    const cached = dynamicStreamCache.get(cacheKey);
+    if (cached && (now - cached.ts) < DYNAMIC_STREAM_TTL_MS) {
+        return { url: cached.finalUrl, title: providerTitle };
+    }
+    const extractorUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(dUrl)}`;
+    try {
+        const res = await fetch(extractorUrl);
+        if (res.ok) {
+            const data = await res.json();
+            let finalUrl = data.mediaflow_proxy_url || `${mfpUrl}/proxy/hls/manifest.m3u8`;
+            if (data.query_params) {
+                const params = new URLSearchParams();
+                for (const [k, v] of Object.entries(data.query_params)) {
+                    if (v !== null) params.append(k, String(v));
+                }
+                finalUrl += (finalUrl.includes('?') ? '&' : '?') + params.toString();
+            }
+            if (data.destination_url) finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'd=' + encodeURIComponent(data.destination_url);
+            if (data.request_headers) {
+                for (const [hk, hv] of Object.entries(data.request_headers)) {
+                    if (hv !== null) finalUrl += '&h_' + hk + '=' + encodeURIComponent(String(hv));
+                }
+            }
+            dynamicStreamCache.set(cacheKey, { finalUrl, ts: now });
+            return { url: finalUrl, title: providerTitle };
+        } else {
+            const fallback = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(dUrl)}`;
+            dynamicStreamCache.set(cacheKey, { finalUrl: fallback, ts: now });
+            return { url: fallback, title: providerTitle };
+        }
+    } catch {
+        const fallback = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(dUrl)}`;
+        dynamicStreamCache.set(cacheKey, { finalUrl: fallback, ts: now });
+        return { url: fallback, title: providerTitle };
+    }
+}
+
 // Global runtime configuration cache (was referenced below)
 const configCache: AddonConfig = {};
 
@@ -640,7 +687,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
         if (type === "tv") {
             // Ricostruisci lista canali ogni richiesta (static + dynamic freschi) forzando reload file
             try {
-                loadDynamicChannels(true); // forza rilettura file (ignora cache)
+                // NON forzare reload ogni volta: usa cache interna (loadDynamicChannels()) per velocità
+                loadDynamicChannels(false);
                 tvChannels = mergeDynamic([...staticBaseChannels]);
             } catch (e) {
                 console.error('❌ Merge dynamic channels failed:', e);
@@ -1029,64 +1077,34 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     // Dynamic event channels: dynamicDUrls -> usa stessa logica avanzata di staticUrlD per estrarre link finale
                     if ((channel as any)._dynamic && Array.isArray((channel as any).dynamicDUrls) && (channel as any).dynamicDUrls.length) {
-                        const dynamicTemp: { url: string; title: string }[] = [];
-                        for (const d of (channel as any).dynamicDUrls) {
-                            if (!d.url) continue;
-                            const providerRaw = (d.title || '').trim();
-                            let providerTitle = providerRaw || 'Stream';
-                            // Rimuovi parentesi isolate attorno al nome, es: (Italia 1 It) -> Italia 1 It
-                            providerTitle = providerTitle.replace(/^\((.*)\)$/,'$1').trim();
-                            // Aggiungi bandiera 🇮🇹 a provider che terminano con IT / ITA / ITALY (case-insensitive)
-                            // Esempi validi: "Qualcosa IT", "Stream Ita", "Fonte italy", "Link ITALY"
-                            if (/\b(it|ita|italy|italian)$/i.test(providerTitle) && !providerTitle.startsWith('🇮🇹')) {
-                                providerTitle = `🇮🇹 ${providerTitle}`;
+                        const startDyn = Date.now();
+                        // Parallelizza risoluzione con limite di concorrenza per non saturare proxy
+                        const entries: { url: string; title?: string }[] = (channel as any).dynamicDUrls;
+                        const resolved: { url: string; title: string }[] = [];
+                        const CONCURRENCY = 4;
+                        let index = 0;
+                        const itaRegex = /\b(it|ita|italy|italian)$/i;
+                        const worker = async () => {
+                            while (index < entries.length) {
+                                const i = index++;
+                                const d = entries[i];
+                                if (!d || !d.url) continue;
+                                let providerTitle = (d.title || 'Stream').trim().replace(/^\((.*)\)$/,'$1').trim();
+                                if (itaRegex.test(providerTitle) && !providerTitle.startsWith('🇮🇹')) providerTitle = `🇮🇹 ${providerTitle}`;
+                                const r = await resolveDynamicEventUrl(d.url, providerTitle, mfpUrl, mfpPsw);
+                                resolved.push(r);
                             }
-                            if (mfpUrl && mfpPsw) {
-                                const extractorUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(d.url)}`;
-                                try {
-                                    const res = await fetch(extractorUrl);
-                                    if (res.ok) {
-                                        const data = await res.json();
-                                        let finalUrl = data.mediaflow_proxy_url || `${mfpUrl}/proxy/hls/manifest.m3u8`;
-                                        if (data.query_params) {
-                                            const params = new URLSearchParams();
-                                            for (const [k, v] of Object.entries(data.query_params)) {
-                                                if (v !== null) params.append(k, String(v));
-                                            }
-                                            finalUrl += (finalUrl.includes('?') ? '&' : '?') + params.toString();
-                                        }
-                                        if (data.destination_url) {
-                                            finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'd=' + encodeURIComponent(data.destination_url);
-                                        }
-                                        if (data.request_headers) {
-                                            for (const [hk, hv] of Object.entries(data.request_headers)) {
-                                                if (hv !== null) finalUrl += '&h_' + hk + '=' + encodeURIComponent(String(hv));
-                                            }
-                                        }
-                                        dynamicTemp.push({ url: finalUrl, title: providerTitle });
-                                    } else {
-                                        // fallback redirect=true
-                                        const fallback = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(d.url)}`;
-                                        dynamicTemp.push({ url: fallback, title: providerTitle });
-                                    }
-                                } catch {
-                                    const fallback = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(d.url)}`;
-                                    dynamicTemp.push({ url: fallback, title: providerTitle });
-                                }
-                            } else {
-                                dynamicTemp.push({ url: d.url, title: providerTitle });
-                            }
-                        }
-                        // Ordina: prima quelli con bandiera 🇮🇹 (aggiunta sopra)
-                        dynamicTemp.sort((a, b) => {
-                            const itaRegex = /\b(it|ita|italy|italian)$/i;
-                            const itaA = a.title.startsWith('🇮🇹') || itaRegex.test(a.title) ? 0 : 1;
-                            const itaB = b.title.startsWith('🇮🇹') || itaRegex.test(b.title) ? 0 : 1;
+                        };
+                        const workers = Array(Math.min(CONCURRENCY, entries.length)).fill(0).map(() => worker());
+                        await Promise.all(workers);
+                        resolved.sort((a, b) => {
+                            const itaA = a.title.startsWith('🇮🇹') ? 0 : 1;
+                            const itaB = b.title.startsWith('🇮🇹') ? 0 : 1;
                             if (itaA !== itaB) return itaA - itaB;
                             return a.title.localeCompare(b.title);
                         });
-                        // Mantieni la bandiera su tutti gli stream italiani
-                        for (const dt of dynamicTemp) streams.push(dt);
+                        for (const r of resolved) streams.push(r);
+                        debugLog(`[DynamicStreams] Resolved ${resolved.length} streams in ${Date.now() - startDyn}ms (cache hits: ${resolved.filter(s => dynamicStreamCache.has(`${mfpUrl}|${mfpPsw}|${decodeURIComponent((s.url.split('d=')[1]||'').split('&')[0]||'')}`)).length})`);
                     } else {
                         // staticUrlF: Direct for non-dynamic
                         if ((channel as any).staticUrlF) {
