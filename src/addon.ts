@@ -57,6 +57,8 @@ function getChannelCategories(channel: any): string[] {
     // Accept existing category fields
     if (Array.isArray(channel.category)) return channel.category.map((c: any) => String(c).toLowerCase());
     if (Array.isArray(channel.categories)) return channel.categories.map((c: any) => String(c).toLowerCase());
+    if (typeof channel.category === 'string' && channel.category.trim() !== '') return [channel.category.toLowerCase()];
+    if (typeof channel.categories === 'string' && channel.categories.trim() !== '') return [channel.categories.toLowerCase()];
     return [];
 }
 
@@ -613,6 +615,47 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             let filteredChannels = tvChannels;
             let requestedSlug: string | null = null;
 
+            // ===== Robust genre parsing (supports ?genre=, ?extra=genre=, extra string, extra object) =====
+            let genreInput: string | undefined;
+            // 1. If extra is string like 'genre=coppe&x=y'
+            if (typeof extra === 'string') {
+                const parts = extra.split('&');
+                const obj: any = {};
+                for (const p of parts) {
+                    const eq = p.indexOf('=');
+                    if (eq > -1) {
+                        const k = p.slice(0, eq).trim();
+                        const v = p.slice(eq + 1).trim();
+                        if (k) obj[k] = decodeURIComponent(v);
+                    }
+                }
+                if (obj.genre) genreInput = String(obj.genre);
+                // replace extra object for downstream search logic
+                extra = obj;
+            }
+            // 2. If extra object has genre
+            if (!genreInput && extra && typeof extra === 'object' && extra.genre) {
+                genreInput = String(extra.genre);
+            }
+            // 3. Fallback: last Express request (saved globally by middleware below)
+            const lastReq: any = (global as any).lastExpressRequest;
+            if (!genreInput && lastReq?.query) {
+                if (typeof lastReq.query.genre === 'string') genreInput = lastReq.query.genre;
+                else if (typeof lastReq.query.extra === 'string' && /(^|&)genre=/i.test(lastReq.query.extra)) {
+                    const m = lastReq.query.extra.match(/genre=([^&]+)/i); if (m) genreInput = decodeURIComponent(m[1]);
+                } else if (lastReq.query.extra && typeof lastReq.query.extra === 'object' && lastReq.query.extra.genre) {
+                    genreInput = String(lastReq.query.extra.genre);
+                }
+            }
+            // 4. Normalize accents & case
+            if (genreInput) {
+                genreInput = genreInput.trim().toLowerCase()
+                    .replace(/[àáâãä]/g,'a').replace(/[èéêë]/g,'e')
+                    .replace(/[ìíîï]/g,'i').replace(/[òóôõö]/g,'o')
+                    .replace(/[ùúûü]/g,'u');
+            }
+            // ===== End genre parsing =====
+
             // === SEARCH HANDLER ===
             if (extra && typeof extra.search === 'string' && extra.search.trim().length > 0) {
                 const rawQ = extra.search.trim();
@@ -668,57 +711,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }).slice(0, 200);
                 console.log(`🔎 Search results (OR+fuzzy): ${filteredChannels.length}`);
             } else {
-                // === GENRE FILTERING ===
-            
-            // Filtra per genere se specificato
-            if (extra && extra.genre) {
-                const genre = extra.genre;
-                console.log(`🔍 Filtering by genre: ${genre}`);
-                
-                // Mappa i nomi dei generi dal manifest ai nomi delle categorie
-                const genreMap: { [key: string]: string } = {
-                    "RAI": "rai",
-                    "Mediaset": "mediaset", 
-                    "Sky": "sky",
-                    "Bambini": "kids",
-                    "News": "news",
-                    "Sport": "sport",
-                    "Cinema": "movies",
-                    "Generali": "general",
-                    "Documentari": "documentari",
-                    "Discovery": "discovery",
-                    "Pluto": "pluto",
-                    "Serie A": "seriea",
-                    "Serie B": "serieb",
-                    "Serie C": "seriec",
-                    "Coppe": "coppe",
-                    "Tennis": "tennis",
-                    "F1": "f1",
-                    "MotoGp": "motogp",
-                    "Basket": "basket",
-                    "Volleyball": "volleyball",
-                    "Ice Hockey": "icehockey",
-                    "Wrestling": "wrestling",
-                    "Boxing": "boxing",
-                    "Darts": "darts",
-                    "Baseball": "baseball",
-                    "NFL": "nfl"
-                };
-                
-                const targetCategory = genreMap[genre];
-                if (targetCategory) {
-                    requestedSlug = targetCategory;
-                    filteredChannels = tvChannels.filter((channel: any) => {
-                        const categories = getChannelCategories(channel);
-                        return categories.includes(targetCategory);
-                    });
-                    console.log(`✅ Filtered to ${filteredChannels.length} channels in category: ${targetCategory}`);
+                // === GENRE FILTERING (uses genreInput) ===
+                if (genreInput) {
+                    const genreMap: { [key: string]: string } = {
+                        'rai':'rai','mediaset':'mediaset','sky':'sky','bambini':'kids','news':'news','sport':'sport','cinema':'movies','generali':'general','documentari':'documentari','discovery':'discovery','pluto':'pluto','serie a':'seriea','serie b':'serieb','serie c':'seriec','coppe':'coppe','tennis':'tennis','f1':'f1','motogp':'motogp','basket':'basket','volleyball':'volleyball','ice hockey':'icehockey','wrestling':'wrestling','boxing':'boxing','darts':'darts','baseball':'baseball','nfl':'nfl'
+                    };
+                    const target = genreMap[genreInput] || genreInput; // allow direct slug
+                    requestedSlug = target;
+                    filteredChannels = tvChannels.filter(ch => getChannelCategories(ch).includes(target));
+                    console.log(`🔍 Genre='${genreInput}' -> slug='${target}' results=${filteredChannels.length}`);
                 } else {
-                    console.log(`⚠️ Unknown genre: ${genre}`);
+                    console.log(`📺 No genre filter, showing all ${tvChannels.length} channels`);
                 }
-            } else {
-                console.log(`📺 No genre filter, showing all ${tvChannels.length} channels`);
-            }
             }
 
             // Se filtro richiesto e nessun canale trovato -> aggiungi placeholder
@@ -1630,6 +1634,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 const app = express();
 
 app.use('/public', express.static(path.join(__dirname, '..', 'public')));
+
+// Salva sempre l'ultima request Express per consentire al catalog handler di leggere i query params
+app.use((req: Request, _res: Response, next: NextFunction) => {
+    (global as any).lastExpressRequest = req;
+    next();
+});
 
 // ✅ CORRETTO: Annotazioni di tipo esplicite per Express
 app.get('/', (_: Request, res: Response) => {
