@@ -188,7 +188,9 @@ def build_logo(category_src: str, raw_event: str) -> str | None:
     if category_src in EXTRA_LOGOS:
         return f"{LOGO_BASE}/{EXTRA_LOGOS[category_src]}"
     if category_src in ('Italy - Serie A', 'Italy - Serie B'):
-        t1, t2 = extract_teams(raw_event)
+        # Estrai porzione dopo l'ultimo ':' (es: "Italy - Serie A : Napoli vs Internazionale" -> "Napoli vs Internazionale")
+        teams_segment = raw_event.rsplit(':', 1)[-1].strip() if ':' in raw_event else raw_event
+        t1, t2 = extract_teams(teams_segment)
         if t1 and t2:
             n1 = normalize_team(t1)
             n2 = normalize_team(t2)
@@ -198,8 +200,9 @@ def build_logo(category_src: str, raw_event: str) -> str | None:
             match_file = f"{n1}_vs_{n2}.png".replace(' ', '')
             return f"{LOGO_BASE}/{subfolder}/{match_file}"
     if category_src == 'Italy - Serie C':
+        teams_segment = raw_event.rsplit(':', 1)[-1].strip() if ':' in raw_event else raw_event
         # Usa Salernitana.png solo se una delle squadre è Salernitana, altrimenti logo generico SerieC.png
-        t1, t2 = extract_teams(raw_event)
+        t1, t2 = extract_teams(teams_segment)
         if any(t and re.search(r'salernitana', t, re.IGNORECASE) for t in (t1, t2)):
             return f"{LOGO_BASE}/Salernitana.png"
         return f"{LOGO_BASE}/SerieC.png"
