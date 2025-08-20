@@ -10,6 +10,7 @@ const path = require('path');
 // (Normally available in Node.js)
 declare const __dirname: string;
 
+
 export interface DynamicChannelStream {
   url: string;        // base URL for staticUrlD flow
   title?: string;     // optional label (quality/source)
@@ -42,6 +43,30 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       const raw = fs.readFileSync(DYNAMIC_FILE, 'utf-8');
       const data = JSON.parse(raw);
       if (Array.isArray(data)) {
+        // Normalizza i titoli degli stream (aggiunge bandiera se italiano) per evitare regex ripetute a runtime
+        const normStreamTitle = (t?: string): string | undefined => {
+          if (!t || typeof t !== 'string') return t;
+            let title = t.trim();
+            // Rimuovi parentesi che avvolgono tutto
+            const m = title.match(/^\((.*)\)$/);
+            if (m) title = m[1].trim();
+            // Se già ha bandiera lascia
+            if (title.startsWith('🇮🇹')) return title;
+            // Pattern finali che identificano italiano
+            if (/\b(it|ita|italy|italian)$/i.test(title)) {
+              return `🇮🇹 ${title}`;
+            }
+            return title;
+        };
+        for (const ch of data) {
+          if (Array.isArray(ch.streams)) {
+            for (const s of ch.streams) {
+              if (s && typeof s === 'object') {
+                s.title = normStreamTitle(s.title);
+              }
+            }
+          }
+        }
         // Nuova logica: niente expiresAt per singolo evento.
         // Regola: ogni giorno alle 02:00 Europe/Rome vengono rimossi TUTTI gli eventi del giorno precedente.
         // Fino alle 01:59 si possono ancora vedere quelli di ieri.
@@ -99,6 +124,10 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
         if (removedPrevDay > 0) {
           try { console.log(`🧹 runtime filter: rimossi ${removedPrevDay} eventi del giorno precedente (dopo le 02:00 Rome)`); } catch {}
         }
+        // Persisti normalizzazione stream se abbiamo modificato almeno un titolo (best effort, non blocca)
+        try {
+          fs.writeFileSync(DYNAMIC_FILE, JSON.stringify(data, null, 2), 'utf-8');
+        } catch {}
         return filtered;
       }
     }
