@@ -1,8 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as zlib from 'zlib';
-import { parseString } from 'xml2js';
+import { parseString } from 'xml2js'; // mantenuto per fallback
 import fetch from 'node-fetch';
+import * as sax from 'sax';
 
 export interface EPGProgram {
     start: string;
@@ -34,6 +35,9 @@ export interface EPGConfig {
     supportedFormats?: string[];
     timeout?: number;
     maxRetries?: number;
+    lightMode?: boolean; // parsing streaming e dati ridotti
+    keepWindowHours?: number; // finestra ore future + 2h passato
+    storeDescription?: boolean; // salva descrizione
 }
 
 export class EPGManager {
@@ -44,6 +48,10 @@ export class EPGManager {
     private updateInterval: number = 24 * 60 * 60 * 1000; // 24 ore
     private timeZoneOffset: string = '+2:00'; // Fuso orario italiano
     private offsetMinutes: number = 120; // Offset in minuti per l'Italia
+    private initialized: boolean = false; // lazy load
+    private lightMode: boolean = false;
+    private keepWindowHours: number = 26;
+    private storeDescription: boolean = true;
 
     constructor(config: EPGConfig) {
         this.config = {
@@ -55,16 +63,20 @@ export class EPGManager {
             ...config
         };
         
-        this.updateInterval = this.config.updateInterval || this.updateInterval;
+    this.updateInterval = this.config.updateInterval || this.updateInterval;
         this.cacheFile = path.join(this.config.cacheDir!, 'epg_cache.json');
+    this.lightMode = !!this.config.lightMode;
+    this.keepWindowHours = this.config.keepWindowHours || this.keepWindowHours;
+    this.storeDescription = this.config.storeDescription !== undefined ? this.config.storeDescription : this.storeDescription;
         
         // Crea la directory cache se non esiste
         if (!fs.existsSync(this.config.cacheDir!)) {
             fs.mkdirSync(this.config.cacheDir!, { recursive: true });
         }
         
-        this.validateAndSetTimezone();
-        this.loadFromCache();
+    this.validateAndSetTimezone();
+    this.loadFromCache();
+    // Lazy: non chiamiamo updateEPG qui
     }
 
     /**
@@ -135,10 +147,13 @@ export class EPGManager {
      * Scarica e processa l'EPG XML con supporto per più URL e GZIP
      */
     public async updateEPG(): Promise<boolean> {
-        if (!this.config.enabled) {
+    if (!this.config.enabled) {
             console.log('📺 EPG è disabilitato nella configurazione');
             return false;
         }
+
+    // evita concorrenza
+    if (this.initialized && !this.needsUpdate()) return true;
 
         const urlsToTry = [this.config.epgUrl, ...(this.config.alternativeUrls || [])];
         
@@ -158,28 +173,41 @@ export class EPGManager {
                     continue;
                 }
                 
-                // Determina se il file è compresso (solo se URL finisce con .gz)
                 const isGzipped = url.endsWith('.gz');
-                
-                let xmlContent: string;
-                
-                if (isGzipped) {
-                    console.log(`📦 File EPG compresso, decompressione in corso...`);
+                if (this.lightMode) {
                     const buffer = await response.buffer();
-                    xmlContent = zlib.gunzipSync(buffer).toString('utf8');
+                    const xmlStream = isGzipped ? zlib.createGunzip().end(buffer) : null;
+                    // Non possiamo usare .end(buffer) direttamente con sax, creiamo testo (fallback streaming parziale):
+                    // Per semplicità qui facciamo streaming manuale chunk → parser, ma se buffer piccolo ok.
+                    const xmlData = isGzipped ? zlib.gunzipSync(buffer).toString('utf8') : buffer.toString('utf8');
+                    const parsed = this.parseSaxLight(xmlData);
+                    if (parsed) {
+                        this.epgData = parsed;
+                        this.lastUpdate = new Date();
+                        this.saveToCache();
+                        this.initialized = true;
+                        console.log(`✅ EPG(light) ok: ${this.epgData.channels.length} canali, ${this.epgData.programs.length} programmi`);
+                        return true;
+                    }
                 } else {
-                    xmlContent = await response.text();
-                }
-                
-                console.log(`📥 EPG XML processato: ${xmlContent.length} caratteri`);
-                
-                const parsedData = await this.parseXMLEPG(xmlContent);
-                if (parsedData) {
-                    this.epgData = parsedData;
-                    this.lastUpdate = new Date();
-                    this.saveToCache();
-                    console.log(`✅ EPG aggiornato con successo da ${url}: ${this.epgData.channels.length} canali, ${this.epgData.programs.length} programmi`);
-                    return true;
+                    let xmlContent: string;
+                    if (isGzipped) {
+                        console.log(`📦 File EPG compresso, decompressione in corso...`);
+                        const buffer = await response.buffer();
+                        xmlContent = zlib.gunzipSync(buffer).toString('utf8');
+                    } else {
+                        xmlContent = await response.text();
+                    }
+                    console.log(`📥 EPG XML processato: ${xmlContent.length} caratteri`);
+                    const parsedData = await this.parseXMLEPG(xmlContent);
+                    if (parsedData) {
+                        this.epgData = parsedData;
+                        this.lastUpdate = new Date();
+                        this.saveToCache();
+                        this.initialized = true;
+                        console.log(`✅ EPG aggiornato con successo da ${url}: ${this.epgData.channels.length} canali, ${this.epgData.programs.length} programmi`);
+                        return true;
+                    }
                 }
                 
             } catch (error) {
@@ -263,14 +291,87 @@ export class EPGManager {
         });
     }
 
+    // Parsing leggero SAX (lightMode)
+    private parseSaxLight(xmlContent: string): EPGData | null {
+        try {
+            const parser = sax.parser(true, { lowercase: true, trim: true });
+            const channels: EPGChannel[] = [];
+            const programs: EPGProgram[] = [];
+            const channelIdSet = new Set<string>();
+            const windowHours = this.keepWindowHours;
+            const now = Date.now();
+            const minTs = now - 2 * 60 * 60 * 1000; // -2h
+            const maxTs = now + windowHours * 60 * 60 * 1000; // + keepWindowHours
+            let currentElement: string | null = null;
+            let currentChannel: Partial<EPGChannel> | null = null;
+            let currentProgramme: any = null;
+            let textBuffer = '';
+            parser.onopentag = (node: any) => {
+                currentElement = node.name;
+                if (node.name === 'channel') {
+                    currentChannel = { id: node.attributes.id, displayName: '' };
+                } else if (node.name === 'programme') {
+                    currentProgramme = { channel: node.attributes.channel, start: node.attributes.start, stop: node.attributes.stop, title: '', description: '', category: '' };
+                }
+                textBuffer = '';
+            };
+            parser.onclosetag = (tag: string) => {
+                if (tag === 'display-name' && currentChannel) {
+                    currentChannel.displayName = currentChannel.displayName || textBuffer;
+                } else if (tag === 'icon' && currentChannel) {
+                    // ignored in light mode
+                } else if (tag === 'channel') {
+                    if (currentChannel && currentChannel.id) {
+                        channels.push({ id: currentChannel.id, displayName: currentChannel.displayName || currentChannel.id });
+                        channelIdSet.add(currentChannel.id);
+                    }
+                    currentChannel = null;
+                } else if (currentProgramme) {
+                    if (tag === 'title') currentProgramme.title = currentProgramme.title || textBuffer;
+                    if (tag === 'desc') currentProgramme.description = currentProgramme.description || textBuffer;
+                    if (tag === 'category') currentProgramme.category = currentProgramme.category || textBuffer;
+                    if (tag === 'programme') {
+                        // filtro finestra temporale
+                        const startDate = this.parseEPGDate(currentProgramme.start);
+                        const startMs = startDate.getTime();
+                        if (startMs >= minTs && startMs <= maxTs) {
+                            programs.push({
+                                start: currentProgramme.start,
+                                stop: currentProgramme.stop,
+                                title: currentProgramme.title || 'Programma',
+                                description: this.storeDescription ? currentProgramme.description : undefined,
+                                category: currentProgramme.category || undefined,
+                                channel: currentProgramme.channel
+                            });
+                        }
+                        currentProgramme = null;
+                    }
+                }
+                textBuffer = '';
+                currentElement = null;
+            };
+            parser.ontext = (txt: string) => {
+                if (!currentElement) return;
+                textBuffer += txt;
+            };
+            parser.onerror = (e: any) => {
+                console.error('❌ SAX parse error:', e);
+            };
+            parser.write(xmlContent).close();
+            return { channels, programs };
+        } catch (e) {
+            console.error('❌ Errore parseSaxLight:', e);
+            return null;
+        }
+    }
+
     /**
      * Ottieni l'EPG per un canale specifico
      */
     public async getEPGForChannel(channelId: string, date?: Date): Promise<EPGProgram[]> {
         // Aggiorna l'EPG se necessario
-        if (this.needsUpdate()) {
-            await this.updateEPG();
-        }
+    if (!this.initialized) await this.updateEPG();
+    else if (this.needsUpdate()) await this.updateEPG();
 
         if (!this.epgData) {
             return [];
@@ -298,9 +399,8 @@ export class EPGManager {
      * Ottieni il programma corrente per un canale
      */
     public async getCurrentProgram(channelId: string): Promise<EPGProgram | null> {
-        if (this.needsUpdate()) {
-            await this.updateEPG();
-        }
+    if (!this.initialized) await this.updateEPG();
+    else if (this.needsUpdate()) await this.updateEPG();
 
         if (!this.epgData) {
             return null;
@@ -325,9 +425,8 @@ export class EPGManager {
      * Ottieni il prossimo programma per un canale
      */
     public async getNextProgram(channelId: string): Promise<EPGProgram | null> {
-        if (this.needsUpdate()) {
-            await this.updateEPG();
-        }
+    if (!this.initialized) await this.updateEPG();
+    else if (this.needsUpdate()) await this.updateEPG();
 
         if (!this.epgData) {
             return null;
