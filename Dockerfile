@@ -1,7 +1,7 @@
 # Scegli un'immagine Node.js di base
 FROM node:20-slim
 
-ARG CACHE_BUST=1
+ARG CACHE_BUST=23
 RUN echo "Cache bust: $CACHE_BUST"
 
 # Installa git, python3, pip e dipendenze per compilazione
@@ -17,7 +17,7 @@ WORKDIR /usr/src/app
 ARG GIT_REPO_URL="https://github.com/qwertyuiop8899/streamvix.git"
 ARG GIT_BRANCH="main"
 
-ARG CACHE_BUST2=1
+ARG CACHE_BUST2=23
 RUN echo "Cache bust: $CACHE_BUST"
 
 # Forza git a non usare cache aggiungendo timestamp
@@ -76,6 +76,7 @@ ENTRYPOINT ["node", "/start"]
 
 # Definisci il comando per avviare l'applicazione
 #CMD [ "pnpm", "start" ]
+
 
 
 
