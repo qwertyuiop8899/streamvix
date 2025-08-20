@@ -8,5 +8,5 @@
   "maxRetries": 3,
   "lightMode": true,
   "keepWindowHours": 26,
-  "storeDescription": false
+  "storeDescription": true
 }
