@@ -101,6 +101,38 @@ const baseManifest: Manifest = {
             id: "tv-channels",
             name: "StreamViX TV",
             extra: [
+                {
+                    name: "genre",
+                    isRequired: false,
+                    options: [
+                        "RAI",
+                        "Mediaset", 
+                        "Sky",
+                        "Sport",
+                        "Cinema",
+                        "Documentari",
+                        "Discovery",
+                        "News",
+                        "Generali",
+                        "Bambini",
+                        "Pluto",
+                        "Serie A",
+                        "Serie B",
+                        "Serie C",
+                        "Coppe",
+                        "Tennis",
+                        "F1",
+                        "MotoGp",
+                        "Basket",
+                        "Volleyball",
+                        "Ice Hockey",
+                        "Wrestling",
+                        "Boxing",
+                        "Darts",
+                        "Baseball",
+                        "NFL"
+                    ]
+                },
                 { name: "genre", isRequired: false },
                 { name: "search", isRequired: false }
             ]

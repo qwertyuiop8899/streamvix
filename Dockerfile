@@ -10,7 +10,8 @@ WORKDIR /usr/src/app
 # Clona il repository Git
 # Sostituisci con l'URL del tuo repository e opzionalmente un branch o tag
 ARG GIT_REPO_URL="https://github.com/qwertyuiop8899/streamvix.git"
-ARG GIT_BRANCH="develop"
+ARG GIT_BRANCH="main"
+
 RUN git -c http.sslVerify=false clone --branch ${GIT_BRANCH} --depth 1 ${GIT_REPO_URL} .
 # Il "." alla fine clona il contenuto della repo direttamente in /usr/src/app
 
@@ -60,6 +61,8 @@ ENTRYPOINT ["node", "/start"]
 
 # Definisci il comando per avviare l'applicazione
 #CMD [ "pnpm", "start" ]
+
+
 
 
 
