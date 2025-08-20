@@ -68,6 +68,12 @@ let dynamicCache: DynamicChannel[] | null = null;
 let lastLoad = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Espone una "firma" (signature) dello stato corrente dei canali dinamici
+// utile per invalidare cache esterne (catalogo) quando cambia il file
+export function getDynamicSignature(): string {
+  return `${lastKnownMtimeMs}:${dynamicCache ? dynamicCache.length : 0}`;
+}
+
 export function loadDynamicChannels(force = false): DynamicChannel[] {
   const now = Date.now();
   // Se il file è cambiato (mtime) invalida cache anche senza force
