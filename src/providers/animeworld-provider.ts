@@ -279,9 +279,9 @@ export class AnimeWorldProvider {
       });
       console.log(`[AnimeWorld] Strict base filter applied (${normSlugKey}) from ${beforeCount} -> ${versions.length}`);
       if (!versions.length) {
-        // Fallback: restore originals if filter removed everything
-        versions = allVersions;
-        console.log('[AnimeWorld] Strict filter produced 0 results, restored original versions list');
+  // NUOVO COMPORTAMENTO: nessuna corrispondenza ESATTA -> nessun risultato (non ripristinare lista originale)
+  console.log('[AnimeWorld] Strict filter produced 0 results, NOT restoring broad matches (no full title match).');
+  return { streams: [] };
       }
     } else {
       console.log('[AnimeWorld] Rewrite detected in normalized title, keeping rewrite variants alongside base');
