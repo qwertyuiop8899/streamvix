@@ -65,7 +65,9 @@ BASE_CATEGORIES = {
     'Tennis', 'motor sports', 'motorsports', 'Motorsport',  # aggiunto 'Motorsport' (singolare) dal sorgente HTML
     # Nuove categorie dirette
     'Basketball', 'Volleyball', 'Ice Hockey', 'Wrestling', 'Boxing', 'Darts', 'WWE', 'Baseball', 'Football'
-    , 'MMA', 'UFC'
+    , 'MMA', 'UFC',
+    # Nuove leghe calcio richieste
+    'England - Premier League', 'Spain - Liga', 'Germany - Bundesliga', 'France - Ligue 1'
     # NB: 'Soccer' non è incluso: verrà trattato come contenitore da cui estrarre solo le competizioni whitelisted
 }
 
@@ -74,6 +76,14 @@ COPPA_LOGOS = {
     'UEFA Europa League': 'UEFA_Europa_League.png',
     'Conference League': 'Conference_League.png',
     'Coppa Italia': 'Coppa_Italia.png'
+}
+
+# Loghi campionati nazionali richiesti
+LEAGUE_LOGOS = {
+    'England - Premier League': 'Premier_League.png',
+    'Spain - Liga': 'Liga.png',
+    'Germany - Bundesliga': 'Bundesliga.png',
+    'France - Ligue 1': 'Ligue_1.png',
 }
 
 # Loghi aggiuntivi (se presenti nel repo loghi)
@@ -177,6 +187,8 @@ def extract_teams(event_name: str) -> tuple[str|None, str|None]:
 def build_logo(category_src: str, raw_event: str) -> str | None:
     if category_src in COPPA_LOGOS:
         return f"{LOGO_BASE}/{COPPA_LOGOS[category_src]}"
+    if category_src in LEAGUE_LOGOS:
+        return f"{LOGO_BASE}/{LEAGUE_LOGOS[category_src]}"
     if category_src in ('motor sports', 'motorsports', 'Motorsport'):
         if re.search(r'\bmotogp\b', raw_event, re.IGNORECASE):
             return f"{LOGO_BASE}/MotoGP.png"
@@ -213,6 +225,11 @@ def map_category(category_src: str, raw_event: str) -> str | None:
     if category_src == 'Italy - Serie B': return 'serieb'
     if category_src == 'Italy - Serie C': return 'seriec'
     if category_src in COPPA_LOGOS: return 'coppe'
+    # Nuove leghe calcio richieste
+    if category_src == 'England - Premier League': return 'premierleague'
+    if category_src == 'Spain - Liga': return 'liga'
+    if category_src == 'Germany - Bundesliga': return 'bundesliga'
+    if category_src == 'France - Ligue 1': return 'ligue1'
     if category_src == 'Tennis': return 'tennis'
     # Normalizzazione categorie motori ("motor sports", "motorsports", "Motorsport")
     norm_motor = category_src.lower().replace(' ', '')
@@ -273,6 +290,11 @@ INLINE_COMPETITION_PATTERNS = [
     (re.compile(r'Italy\s*-\s*Serie A', re.IGNORECASE), 'Italy - Serie A'),
     (re.compile(r'Italy\s*-\s*Serie B', re.IGNORECASE), 'Italy - Serie B'),
     (re.compile(r'Italy\s*-\s*Serie C', re.IGNORECASE), 'Italy - Serie C'),
+    # Nuove leghe inline dentro Soccer
+    (re.compile(r'England\s*-\s*Premier League', re.IGNORECASE), 'England - Premier League'),
+    (re.compile(r'Spain\s*-\s*Liga', re.IGNORECASE), 'Spain - Liga'),
+    (re.compile(r'Germany\s*-\s*Bundesliga', re.IGNORECASE), 'Germany - Bundesliga'),
+    (re.compile(r'France\s*-\s*Ligue\s*1', re.IGNORECASE), 'France - Ligue 1'),
 ]
 
 def detect_inline_competition(event_name: str) -> str | None:
