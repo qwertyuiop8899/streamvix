@@ -52,6 +52,8 @@ export class EPGManager {
     private lightMode: boolean = false;
     private keepWindowHours: number = 26;
     private storeDescription: boolean = true;
+    // Flag per evitare aggiornamenti concorrenti / loop
+    private updating: boolean = false;
 
     constructor(config: EPGConfig) {
         this.config = {
@@ -152,8 +154,12 @@ export class EPGManager {
             return false;
         }
 
-    // evita concorrenza
-    if (this.initialized && !this.needsUpdate()) return true;
+    // evita concorrenza e loop di update ripetuti
+    if (this.updating) {
+            return false;
+        }
+        if (this.initialized && !this.needsUpdate()) return true;
+        this.updating = true;
 
         const urlsToTry = [this.config.epgUrl, ...(this.config.alternativeUrls || [])];
         
@@ -187,6 +193,7 @@ export class EPGManager {
                         this.saveToCache();
                         this.initialized = true;
                         console.log(`✅ EPG(light) ok: ${this.epgData.channels.length} canali, ${this.epgData.programs.length} programmi`);
+                        this.updating = false;
                         return true;
                     }
                 } else {
@@ -206,6 +213,7 @@ export class EPGManager {
                         this.saveToCache();
                         this.initialized = true;
                         console.log(`✅ EPG aggiornato con successo da ${url}: ${this.epgData.channels.length} canali, ${this.epgData.programs.length} programmi`);
+                        this.updating = false;
                         return true;
                     }
                 }
@@ -215,7 +223,7 @@ export class EPGManager {
                 continue;
             }
         }
-        
+        this.updating = false;
         console.error('❌ Impossibile aggiornare EPG da nessun URL');
         return false;
     }
