@@ -41,6 +41,13 @@ const NO_DYNAMIC_CACHE: boolean = (() => {
     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
   } catch { return true; }
 })();
+// Flag per disabilitare il filtro runtime su date (di default ON: usa sempre il JSON così com'è)
+const DISABLE_RUNTIME_FILTER: boolean = (() => {
+  try {
+    const v = (process?.env?.DYNAMIC_DISABLE_RUNTIME_FILTER ?? '1').toString().toLowerCase();
+    return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+  } catch { return true; }
+})();
 // Flag per mantenere anche gli eventi di IERI (utile se l'orario/UTC causa slittamenti di data)
 const KEEP_YESTERDAY: boolean = (() => {
   try {
@@ -145,60 +152,74 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
         }
       }
     }
-    const purgeHourValue = parseInt(process.env.DYNAMIC_PURGE_HOUR || '8', 10); // default 08:00
-    const nowRome = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
-    const purgeThreshold = new Date(nowRome);
-    purgeThreshold.setHours(purgeHourValue, 0, 0, 0);
-    // Calcola stringa data di oggi e di ieri in Europe/Rome
-    const datePartRome = (iso?: string): string | null => {
-      if (!iso) return null;
+    if (DISABLE_RUNTIME_FILTER) {
       try {
-        const d = new Date(iso);
-        if (isNaN(d.getTime())) return null;
-        const fmt = new Intl.DateTimeFormat('en-CA', {
-          timeZone: 'Europe/Rome',
-          year: 'numeric', month: '2-digit', day: '2-digit'
-        } as any);
-        return fmt.format(d); // YYYY-MM-DD in tz Rome
-      } catch { return null; }
-    };
-    const todayRome = (() => {
+        const catMapKept: Record<string, number> = {};
+        for (const ch of data) {
+          const c = (ch?.category || 'unknown').toString().toLowerCase();
+          catMapKept[c] = (catMapKept[c] || 0) + 1;
+        }
+        console.log(`[DynamicChannels] KEPT (no-filter) count=${data.length} per categoria:`, catMapKept);
+      } catch {}
+      dynamicCache = data;
+      lastLoad = now;
+      return data;
+    } else {
+      const purgeHourValue = parseInt(process.env.DYNAMIC_PURGE_HOUR || '8', 10); // default 08:00
+      const nowRome = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+      const purgeThreshold = new Date(nowRome);
+      purgeThreshold.setHours(purgeHourValue, 0, 0, 0);
+      // Calcola stringa data di oggi e di ieri in Europe/Rome
+      const datePartRome = (iso?: string): string | null => {
+        if (!iso) return null;
+        try {
+          const d = new Date(iso);
+          if (isNaN(d.getTime())) return null;
+          const fmt = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Europe/Rome',
+            year: 'numeric', month: '2-digit', day: '2-digit'
+          } as any);
+          return fmt.format(d); // YYYY-MM-DD in tz Rome
+        } catch { return null; }
+      };
+      const todayRome = (() => {
+        try {
+          const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' } as any);
+          return fmt.format(new Date());
+        } catch { return datePartRome(nowRome.toISOString()) || ''; }
+      })();
+      const yRomeTmp = new Date(nowRome);
+      yRomeTmp.setDate(yRomeTmp.getDate() - 1);
+      const yesterdayRome = datePartRome(yRomeTmp.toISOString()) || '';
+      let removedPrevDay = 0;
+      const filtered: DynamicChannel[] = data.filter(ch => {
+        if (!ch.eventStart) return true; // keep if undated
+        const chDate = datePartRome(ch.eventStart);
+        if (!chDate) return true;
+        if (nowRome < purgeThreshold) return true; // within grace period
+        // Mantieni eventi di OGGI; opzionalmente mantieni anche IERI (per evitare drop falsi positivi)
+        let keep = chDate >= todayRome;
+        if (!keep && KEEP_YESTERDAY && chDate === yesterdayRome) keep = true;
+        if (!keep) removedPrevDay++;
+        return keep;
+      });
+      // DIAG: stampa conteggio dopo filtro
       try {
-        const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' } as any);
-        return fmt.format(new Date());
-      } catch { return datePartRome(nowRome.toISOString()) || ''; }
-    })();
-    const yRomeTmp = new Date(nowRome);
-    yRomeTmp.setDate(yRomeTmp.getDate() - 1);
-    const yesterdayRome = datePartRome(yRomeTmp.toISOString()) || '';
-    let removedPrevDay = 0;
-    const filtered: DynamicChannel[] = data.filter(ch => {
-      if (!ch.eventStart) return true; // keep if undated
-      const chDate = datePartRome(ch.eventStart);
-      if (!chDate) return true;
-      if (nowRome < purgeThreshold) return true; // within grace period
-      // Mantieni eventi di OGGI; opzionalmente mantieni anche IERI (per evitare drop falsi positivi)
-      let keep = chDate >= todayRome;
-      if (!keep && KEEP_YESTERDAY && chDate === yesterdayRome) keep = true;
-      if (!keep) removedPrevDay++;
-      return keep;
-    });
-    // DIAG: stampa conteggio dopo filtro
-    try {
-      const catMapKept: Record<string, number> = {};
-      for (const ch of filtered) {
-        const c = (ch?.category || 'unknown').toString().toLowerCase();
-        catMapKept[c] = (catMapKept[c] || 0) + 1;
+        const catMapKept: Record<string, number> = {};
+        for (const ch of filtered) {
+          const c = (ch?.category || 'unknown').toString().toLowerCase();
+          catMapKept[c] = (catMapKept[c] || 0) + 1;
+        }
+        console.log(`[DynamicChannels] KEPT count=${filtered.length} per categoria:`, catMapKept);
+      } catch {}
+      dynamicCache = filtered;
+      lastLoad = now;
+      if (removedPrevDay) {
+        const hh = purgeHourValue.toString().padStart(2, '0');
+        try { console.log(`🧹 runtime filter: rimossi ${removedPrevDay} eventi del giorno precedente (dopo le ${hh}:00 Rome)`); } catch {}
       }
-      console.log(`[DynamicChannels] KEPT count=${filtered.length} per categoria:`, catMapKept);
-    } catch {}
-    dynamicCache = filtered;
-    lastLoad = now;
-    if (removedPrevDay) {
-      const hh = purgeHourValue.toString().padStart(2, '0');
-      try { console.log(`🧹 runtime filter: rimossi ${removedPrevDay} eventi del giorno precedente (dopo le ${hh}:00 Rome)`); } catch {}
+      return filtered;
     }
-    return filtered;
   } catch (e) {
     console.error('❌ loadDynamicChannels error:', e);
     dynamicCache = [];
