@@ -846,23 +846,30 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }];
             }
             
-            // Ordina per orario di inizio evento (asc) quando disponibile
+            // Ordina SOLO gli eventi dinamici per eventStart (asc) quando è presente un filtro di categoria
             try {
-                const before = filteredChannels.length;
-                filteredChannels.sort((a: any, b: any) => {
-                    const aS = a?.eventStart || a?.eventstart;
-                    const bS = b?.eventStart || b?.eventstart;
-                    const ap = aS ? Date.parse(aS) : NaN;
-                    const bp = bS ? Date.parse(bS) : NaN;
-                    const aHas = !isNaN(ap);
-                    const bHas = !isNaN(bp);
-                    if (aHas && bHas) return ap - bp; // più presto prima
-                    if (aHas && !bHas) return -1;    // con orario prima di senza
-                    if (!aHas && bHas) return 1;     // senza orario dopo
-                    // fallback alfabetico
-                    return (a?.name || '').localeCompare(b?.name || '');
-                });
-                console.log(`⏱️ Catalog sorted by eventStart (asc), items=${before}`);
+                if (requestedSlug && filteredChannels.length) {
+                    const dynWithIndex = filteredChannels
+                        .map((ch: any, idx: number) => ({ ch, idx }))
+                        .filter(x => !!x.ch && (x.ch as any)._dynamic);
+                    const compare = (a: any, b: any) => {
+                        const aS = a?.eventStart || a?.eventstart;
+                        const bS = b?.eventStart || b?.eventstart;
+                        const ap = aS ? Date.parse(aS) : NaN;
+                        const bp = bS ? Date.parse(bS) : NaN;
+                        const aHas = !isNaN(ap);
+                        const bHas = !isNaN(bp);
+                        if (aHas && bHas) return ap - bp;
+                        if (aHas && !bHas) return -1;
+                        if (!aHas && bHas) return 1;
+                        return (a?.name || '').localeCompare(b?.name || '');
+                    };
+                    dynWithIndex.sort((A, B) => compare(A.ch, B.ch));
+                    const sortedDyn = dynWithIndex.map(x => x.ch);
+                    let di = 0;
+                    filteredChannels = filteredChannels.map((ch: any) => ch && (ch as any)._dynamic ? sortedDyn[di++] : ch);
+                    console.log(`⏱️ Sorted only dynamic events within category '${requestedSlug}' (asc)`);
+                }
             } catch {}
             
             // Aggiungi prefisso tv: agli ID, posterShape landscape e EPG
