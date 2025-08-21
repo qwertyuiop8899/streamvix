@@ -233,7 +233,7 @@ def map_category(category_src: str, raw_event: str) -> str | None:
         return None
     if category_src == 'Volleyball':
         # Solo campionato italiano: rilievo su nomi squadre italiane comuni / "Italy" / "Serie A"
-        if re.search(r'Italy|Serie A|Modena|Trento|Perugia|Civitanova|Piacenza|Milano|Verona|Monza|Taranto', raw_event, re.IGNORECASE):
+        if re.search(r'Italy|SuperLega|Serie A3|Serie A2|Serie A|Modena|Trento|Perugia|Civitanova|Piacenza|Milano|Verona|Monza|Taranto|Cisterna|Padova|Grottazzolina|Cuneo', raw_event, re.IGNORECASE):
             return 'volleyball'
         return None
     if category_src == 'Ice Hockey':
@@ -344,7 +344,7 @@ def main():
                     if not category_whitelisted:
                         continue  # categoria non whitelisted
                 # Filtro specifico richiesto: nella categoria Tennis includi SOLO eventi con ATP o WTA nel nome
-                if effective_category_src == 'Tennis' and not re.search(r'\b(ATP|WTA)\b', raw_event, re.IGNORECASE):
+                if effective_category_src == 'Tennis' and not re.search(r'\b(ATP|WTA|Wimbledon|Australian|Nitto|Garros|Open|King)\b', raw_event, re.IGNORECASE):
                     continue
                 mapped_cat = map_category(effective_category_src, raw_event)
                 if not mapped_cat:
