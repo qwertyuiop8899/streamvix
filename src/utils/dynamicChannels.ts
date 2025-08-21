@@ -48,7 +48,12 @@ function resolveDynamicFile(): string {
     path.resolve(process.cwd(), 'config/dynamic_channels.json')
   ];
   for (const p of candidates) {
-    try { if (fs.existsSync(p)) return p; } catch {}
+    try {
+      if (fs.existsSync(p)) {
+        try { console.log('[DynamicChannels] Path selezionato:', p); } catch {}
+        return p;
+      }
+    } catch {}
   }
   try { console.warn('[DynamicChannels] dynamic_channels.json non trovato in nessuno dei path candidati, uso primo fallback:', candidates[0]); } catch {}
   return candidates[0]; // fallback
@@ -61,7 +66,10 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
   // Detect file change
   try {
     const currentPath = resolveDynamicFile();
-    if (currentPath !== DYNAMIC_FILE) DYNAMIC_FILE = currentPath;
+    if (currentPath !== DYNAMIC_FILE) {
+      try { console.log('[DynamicChannels] Cambio path file dinamico ->', currentPath); } catch {}
+      DYNAMIC_FILE = currentPath;
+    }
     if (fs.existsSync(DYNAMIC_FILE)) {
       const st = fs.statSync(DYNAMIC_FILE);
       if (st.mtimeMs > lastKnownMtimeMs) {
