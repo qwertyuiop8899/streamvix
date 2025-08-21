@@ -105,6 +105,15 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       lastLoad = now;
       return [];
     }
+    // DIAG: stampa conteggio grezzo per categoria
+    try {
+      const catMapRaw: Record<string, number> = {};
+      for (const ch of data) {
+        const c = (ch?.category || 'unknown').toString().toLowerCase();
+        catMapRaw[c] = (catMapRaw[c] || 0) + 1;
+      }
+      console.log(`[DynamicChannels] RAW count=${data.length} per categoria:`, catMapRaw);
+    } catch {}
     // Normalizza titoli stream
     const normStreamTitle = (t?: string): string | undefined => {
       if (!t || typeof t !== 'string') return t;
@@ -153,6 +162,15 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       if (!keep) removedPrevDay++;
       return keep;
     });
+    // DIAG: stampa conteggio dopo filtro
+    try {
+      const catMapKept: Record<string, number> = {};
+      for (const ch of filtered) {
+        const c = (ch?.category || 'unknown').toString().toLowerCase();
+        catMapKept[c] = (catMapKept[c] || 0) + 1;
+      }
+      console.log(`[DynamicChannels] KEPT count=${filtered.length} per categoria:`, catMapKept);
+    } catch {}
     dynamicCache = filtered;
     lastLoad = now;
     if (removedPrevDay) {
@@ -250,6 +268,14 @@ export function purgeOldDynamicEvents(): { before: number; after: number; remove
 export function mergeDynamic(staticList: any[]): any[] {
   const dyn = loadDynamicChannels();
   if (!dyn.length) return staticList;
+  try {
+    const perCat: Record<string, number> = {};
+    for (const ch of dyn) {
+      const c = (ch.category || 'unknown').toString().toLowerCase();
+      perCat[c] = (perCat[c] || 0) + 1;
+    }
+    console.log('[DynamicChannels] merge: categorie dinamiche disponibili:', perCat);
+  } catch {}
   const existingIds = new Set(staticList.map(c => c.id));
   const merged = [...staticList];
   let added = 0;
