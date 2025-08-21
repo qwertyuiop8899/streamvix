@@ -8,6 +8,8 @@ const fs = require('fs');
 const path = require('path');
 // Declare __dirname for environments where TS complains (normally available in Node.js)
 declare const __dirname: string;
+// Node's process is available (types provided by @types/node)
+declare const process: any;
 
 export interface DynamicChannelStream {
   url: string;        // base URL for staticUrlD flow
@@ -32,6 +34,13 @@ let dynamicCache: DynamicChannel[] | null = null;
 let lastLoad = 0;
 let lastKnownMtimeMs = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minuti
+// Flag per disabilitare completamente la cache (di default ON per provare senza cache)
+const NO_DYNAMIC_CACHE: boolean = (() => {
+  try {
+    const v = (process?.env?.NO_DYNAMIC_CACHE ?? '1').toString().toLowerCase();
+    return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+  } catch { return true; }
+})();
 
 function resolveDynamicFile(): string {
   // Cerca in possibili posizioni (support legacy nested config/config)
@@ -63,6 +72,10 @@ let DYNAMIC_FILE = resolveDynamicFile();
 
 export function loadDynamicChannels(force = false): DynamicChannel[] {
   const now = Date.now();
+  // Se richiesto, forza sempre il reload (no cache)
+  if (NO_DYNAMIC_CACHE) {
+    force = true;
+  }
   // Detect file change
   try {
     const currentPath = resolveDynamicFile();
