@@ -170,6 +170,10 @@ const baseManifest: Manifest = {
                         "Serie B",
                         "Serie C",
                         "Coppe",
+                        "Premier League",
+                        "Liga",
+                        "Bundesliga",
+                        "Ligue 1",
                         "Tennis",
                         "F1",
                         "MotoGp",
@@ -810,6 +814,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const genreMap: { [key: string]: string } = {
                         'rai':'rai','mediaset':'mediaset','sky':'sky','bambini':'kids','news':'news','sport':'sport','cinema':'movies','generali':'general','documentari':'documentari','discovery':'discovery','pluto':'pluto','serie a':'seriea','serie b':'serieb','serie c':'seriec','coppe':'coppe','tennis':'tennis','f1':'f1','motogp':'motogp','basket':'basket','volleyball':'volleyball','ice hockey':'icehockey','wrestling':'wrestling','boxing':'boxing','darts':'darts','baseball':'baseball','nfl':'nfl'
                     };
+                    // Aggiungi mapping per nuove leghe
+                    genreMap['premier league'] = 'premierleague';
+                    genreMap['liga'] = 'liga';
+                    genreMap['bundesliga'] = 'bundesliga';
+                    genreMap['ligue 1'] = 'ligue1';
                     const target = genreMap[norm] || norm;
                     requestedSlug = target;
                     filteredChannels = tvChannels.filter(ch => getChannelCategories(ch).includes(target));
