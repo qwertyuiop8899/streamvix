@@ -86,12 +86,32 @@ Ad ogni esecuzione:
 * Scarica / rigenera `dynamic_channels.json`.
 * La cache dinamica in memoria viene invalidata e ricaricata.
 
+### 📄 Comportamento "JSON as-is" (senza filtri)
+
+- L'addon legge sempre `config/dynamic_channels.json` così com'è ad ogni richiesta.
+- Nessun filtro runtime per data è applicato di default.
+- Questo garantisce che ciò che vedi nel catalogo corrisponde sempre al contenuto del file JSON aggiornato dallo scheduler/`/live/update`.
+
+Se in futuro vuoi riattivare la logica di filtro per data:
+
+- `DYNAMIC_DISABLE_RUNTIME_FILTER=0` abilita il filtro runtime.
+- `DYNAMIC_PURGE_HOUR` (default `8`): ora (Europe/Rome) dopo cui gli eventi del giorno precedente NON vengono più mostrati a catalogo.
+- `DYNAMIC_KEEP_YESTERDAY` (default `0`): se `1`, mantiene visibili anche gli eventi di ieri fino al purge fisico.
+
+Aspettative quando riattivi il filtro:
+
+- Prima di `DYNAMIC_PURGE_HOUR`: vedrai eventi di oggi e, se presenti, ancora quelli di ieri (se `DYNAMIC_KEEP_YESTERDAY=1`).
+- Dopo `DYNAMIC_PURGE_HOUR`: vedrai solo gli eventi con `eventStart` di oggi (quelli di ieri spariscono dal catalogo).
+- Purge fisico alle 02:05 riscrive il file rimuovendo definitivamente gli eventi di ieri a prescindere dal filtro runtime.
+
 ### 🧹 Pulizia Eventi & Finestra di Grazia
 
 La rimozione degli eventi del giorno precedente avviene in due modi:
 
 1. Filtro runtime: se `process.env.DYNAMIC_PURGE_HOUR` (default **08**) è passato, gli eventi con `eventStart` del giorno precedente non vengono più mostrati a catalogo.
 2. Purge fisico programmato: alle **02:05** viene eseguito un purge che riscrive il file eliminando gli eventi obsoleti (endpoint manuale: `/live/purge`). Reload di sicurezza alle **02:30**.
+
+Nota: con il comportamento "JSON as-is" attivo (default), la visibilità degli eventi dipende solo dal contenuto del JSON e dal purge fisico; il filtro runtime è disabilitato.
 
 Se vuoi modificare solo la finestra di visibilità estesa fino a una certa ora, imposta `DYNAMIC_PURGE_HOUR` (es. `DYNAMIC_PURGE_HOUR=9`).
 
@@ -119,6 +139,8 @@ Se vuoi modificare solo la finestra di visibilità estesa fino a una certa ora, 
 | `FAST_DYNAMIC` | 0 | 1 = usa URL dirette dinamiche |
 | `DYNAMIC_EXTRACTOR_CONC` | 10 | Limite richieste extractor (CAP). Con CAP=1 ottieni 1 estratto + 1 leftover |
 | `DYNAMIC_PURGE_HOUR` | 8 | Ora (Rome) dopo cui gli eventi del giorno precedente spariscono dal catalogo |
+| `DYNAMIC_DISABLE_RUNTIME_FILTER` | 1 | 1 = non filtrare per data (usa JSON as-is); 0 = abilita filtro giorno |
+| `DYNAMIC_KEEP_YESTERDAY` | 0 | 1 = con filtro attivo, mantiene anche gli eventi di ieri |
 
 ---
   
@@ -268,7 +290,6 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
-
 
 
 
