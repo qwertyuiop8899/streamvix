@@ -32,7 +32,6 @@ interface AddonConfig {
     mediaFlowProxyUrl?: string;
     mediaFlowProxyPassword?: string;
     enableMpd?: boolean;
-    enableLiveTv?: boolean; // nuovo toggle per nascondere completamente il catalogo TV
     animeunityEnabled?: boolean;
     animesaturnEnabled?: boolean;
     animeworldEnabled?: boolean;
@@ -196,7 +195,6 @@ const baseManifest: Manifest = {
         { key: "mediaFlowProxyUrl", title: "MediaFlow Proxy URL", type: "text" },
         { key: "mediaFlowProxyPassword", title: "MediaFlow Proxy Password", type: "text" },
         { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
-    { key: "enableLiveTv", title: "Enable Live TV", type: "checkbox" },
         { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
         { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
         { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" }
@@ -687,11 +685,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     // === TV CATALOG HANDLER ONLY ===
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
         if (type === "tv") {
-            // Se Live TV disabilitata da config, ritorna catalogo vuoto (nasconde tutto)
-            if (configCache.enableLiveTv === false) {
-                console.log('📺 Live TV disabilitata (enableLiveTv=false) -> catalogo vuoto');
-                return { metas: [] };
-            }
             // === FAST CACHE LAYER per catalogo TV ===
             // Evita merge/ricostruzione se né i canali statici né i dinamici sono cambiati.
             // Usiamo una signature (mtime:length) dei dinamici + dimensione statici.
@@ -889,10 +882,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     builder.defineMetaHandler(async ({ type, id }: { type: string; id: string }) => {
         console.log(`📺 META REQUEST: type=${type}, id=${id}`);
         if (type === "tv") {
-            if (configCache.enableLiveTv === false) {
-                console.log('📺 Live TV disabilitata -> meta null');
-                return { meta: null };
-            }
             // Gestisci tutti i possibili formati di ID che Stremio può inviare
             let cleanId = id;
             if (id.startsWith('tv:')) {
@@ -1035,10 +1024,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                 // === LOGICA TV ===
                 if (type === "tv") {
-                    if (config.enableLiveTv === false) {
-                        console.log('📺 Live TV disabilitata -> nessuno stream TV');
-                        return { streams: [] };
-                    }
                     // Assicura che i canali dinamici siano presenti anche se la prima richiesta è uno stream (senza passare dal catalog)
                     try {
                         loadDynamicChannels(false);
