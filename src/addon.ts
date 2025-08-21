@@ -33,6 +33,7 @@ interface AddonConfig {
     mediaFlowProxyPassword?: string;
     enableMpd?: boolean;
     enableLiveTv?: boolean; // nuovo toggle per nascondere completamente il catalogo TV
+    disableLiveTv?: boolean; // nuova chiave: se true, nasconde la Live TV (default visibile)
     animeunityEnabled?: boolean;
     animesaturnEnabled?: boolean;
     animeworldEnabled?: boolean;
@@ -196,7 +197,7 @@ const baseManifest: Manifest = {
         { key: "mediaFlowProxyUrl", title: "MediaFlow Proxy URL", type: "text" },
         { key: "mediaFlowProxyPassword", title: "MediaFlow Proxy Password", type: "text" },
         { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
-    { key: "enableLiveTv", title: "Enable Live TV", type: "checkbox" },
+    { key: "disableLiveTv", title: "Disable Live TV", type: "checkbox" },
         { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
         { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
         { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" }
@@ -687,9 +688,24 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     // === TV CATALOG HANDLER ONLY ===
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
         if (type === "tv") {
-            // Se Live TV disabilitata da config, ritorna catalogo vuoto (nasconde tutto)
-            if (configCache.enableLiveTv === false) {
-                console.log('📺 Live TV disabilitata (enableLiveTv=false) -> catalogo vuoto');
+            // Recupera configurazione runtime da parametri Stremio o query (retrocompatibilità)
+            try {
+                // 1. Da ultimo request express (query.config)
+                const lastReq: any = (global as any).lastExpressRequest;
+                let cfgCandidate: any = undefined;
+                if (lastReq?.query?.config) cfgCandidate = lastReq.query.config;
+                // 2. Se già presente in builder (potrebbe essere stato popolato esternamente in un wrapper) ignoriamo
+                if (cfgCandidate && typeof cfgCandidate === 'string') {
+                    const parsed = parseConfigFromArgs(cfgCandidate);
+                    if (parsed && typeof parsed === 'object') Object.assign(configCache, parsed);
+                } else if (cfgCandidate && typeof cfgCandidate === 'object') {
+                    Object.assign(configCache, cfgCandidate);
+                }
+            } catch { /* ignore */ }
+            // Nascondi solo se esplicitamente disabilitata: disableLiveTv==true OR legacy enableLiveTv===false
+            const liveTvDisabled = ['true', true].includes((configCache as any).disableLiveTv as any);
+            if (liveTvDisabled) {
+                console.log('📺 Live TV disabilitata -> catalogo vuoto');
                 return { metas: [] };
             }
             // === FAST CACHE LAYER per catalogo TV ===
@@ -889,7 +905,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     builder.defineMetaHandler(async ({ type, id }: { type: string; id: string }) => {
         console.log(`📺 META REQUEST: type=${type}, id=${id}`);
         if (type === "tv") {
-            if (configCache.enableLiveTv === false) {
+            try {
+                const lastReq: any = (global as any).lastExpressRequest;
+                const cfgCandidate = lastReq?.query?.config;
+                if (cfgCandidate) {
+                    if (typeof cfgCandidate === 'string') {
+                        const parsed = parseConfigFromArgs(cfgCandidate);
+                        if (parsed && typeof parsed === 'object') Object.assign(configCache, parsed);
+                    } else if (typeof cfgCandidate === 'object') {
+                        Object.assign(configCache, cfgCandidate);
+                    }
+                }
+            } catch { /* ignore */ }
+            const liveTvDisabled = ['true', true].includes((configCache as any).disableLiveTv as any);
+            if (liveTvDisabled) {
                 console.log('📺 Live TV disabilitata -> meta null');
                 return { meta: null };
             }
@@ -1035,7 +1064,23 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                 // === LOGICA TV ===
                 if (type === "tv") {
-                    if (config.enableLiveTv === false) {
+                    // Aggiorna config runtime da query (se presente) prima del gating stream
+                    try {
+                        const lastReq: any = (global as any).lastExpressRequest;
+                        const cfgCandidate = lastReq?.query?.config;
+                        if (cfgCandidate) {
+                            if (typeof cfgCandidate === 'string') {
+                                const parsed = parseConfigFromArgs(cfgCandidate);
+                                if (parsed && typeof parsed === 'object') Object.assign(configCache, parsed);
+                            } else if (typeof cfgCandidate === 'object') {
+                                Object.assign(configCache, cfgCandidate);
+                            }
+                        }
+                    } catch { /* ignore */ }
+                    // Ri-sincronizza config locale
+                    Object.assign(config, configCache);
+                    const liveTvDisabled = ['true', true].includes((config as any).disableLiveTv as any);
+                    if (liveTvDisabled) {
                         console.log('📺 Live TV disabilitata -> nessuno stream TV');
                         return { streams: [] };
                     }
