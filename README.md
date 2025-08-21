@@ -43,84 +43,16 @@ StreamViX utilizza un **sistema di proxy unificato** che semplifica la configura
 ### 🌐 Proxy MFP Unificato
 - **Un solo URL e password** per tutti i contenuti (film, serie, anime, TV)
 
-### 📋 Configurazione Richiesta
+### 📋 Configurazione Tramite file env (facoltativa)
 - `MFP_URL`: URL del tuo proxy MFP
 - `MFP_PSW`: Password del proxy MFP
 - `TMDB_API_KEY`: Chiave API TMDB per metadati (OPZIONALE)
 - `ANIMEUNITY_ENABLED`: Abilita AnimeUnity (true/false)
 - `ANIMESATURN_ENABLED`: Abilita AnimeSaturn (true/false)
+- `ANIMEWORLD_ENABLED`: Abilita AnimeSaturn (true/false)
 - `Enable MPD Streams`: (true/false) Non funzionanti lasciare false
 - `Enable Live TV`: Abilita per vedere live tv (true/false)
   
-### ⚡ Eventi Dinamici: FAST vs Extractor
-
-Gli eventi sportivi dinamici vengono caricati dal file `config/dynamic_channels.json` generato periodicamente da `Live.py`.
-
-Modalità disponibili:
-
-1. FAST (diretta):
-    - Attiva con variabile `FAST_DYNAMIC=1` oppure runtime `/admin/mode?fast=1`.
-    - Salta completamente l'extractor e usa immediatamente le URL presenti nel JSON.
-    - Nessun limite di concorrenza, tutte le sorgenti vengono esposte come stream diretti.
-    - Ogni stream FAST è etichettato con prefisso `[Player Esterno]` (l'emoji 🇮🇹 resta se il titolo normalizzato lo richiede).
-2. Extractor (predefinita se `FAST_DYNAMIC=0`):
-    - Ogni URL dinamica passa per la risoluzione (se configurato proxy MFP) prima di essere mostrata.
-    - Applica un CAP di concorrenza pari a `DYNAMIC_EXTRACTOR_CONC` (default 10) per limitare numero di richieste simultanee all'extractor.
-    - Le sorgenti oltre il CAP vengono comunque esposte come leftover diretti con etichetta `[Player Esterno]` (non estratti) così da non perderle.
-    - Priorità: prima i titoli che matchano `(it|ita|italy)`, poi `(italian|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)`, infine gli altri.
-
-Suggerimento: imposta `DYNAMIC_EXTRACTOR_CONC=1` per test: vedrai esattamente 2 stream (1 estratto + 1 leftover `[Player Esterno]`).
-
-### 🧪 Esempio rapido test locale (curl)
-
-1. Avvia server con: `FAST_DYNAMIC=0 DYNAMIC_EXTRACTOR_CONC=1 pnpm start`
-2. Richiedi stream evento: `curl http://127.0.0.1:7860/stream/tv/<id_evento>.json`
-3. Abilita FAST: `curl http://127.0.0.1:7860/admin/mode?fast=1`
-4. Ririchiedi stesso endpoint: noterai più stream (tutti diretti) e nessun leftover.
-
-### ⏱️ Scheduler Live.py
-
-`Live.py` viene eseguito automaticamente OGNI 2 ORE a partire dalle **08:10 Europe/Rome** nelle seguenti fasce: 08:10, 10:10, 12:10, 14:10, 16:10, 18:10, 20:10, 22:10, 00:10, 02:10, 04:10, 06:10.
-
-Ad ogni esecuzione:
-* Scarica / rigenera `dynamic_channels.json`.
-* La cache dinamica in memoria viene invalidata e ricaricata.
-
-### 🧹 Pulizia Eventi & Finestra di Grazia
-
-La rimozione degli eventi del giorno precedente avviene in due modi:
-
-1. Filtro runtime: se `process.env.DYNAMIC_PURGE_HOUR` (default **08**) è passato, gli eventi con `eventStart` del giorno precedente non vengono più mostrati a catalogo.
-2. Purge fisico programmato: alle **02:05** viene eseguito un purge che riscrive il file eliminando gli eventi obsoleti (endpoint manuale: `/live/purge`). Reload di sicurezza alle **02:30**.
-
-Se vuoi modificare solo la finestra di visibilità estesa fino a una certa ora, imposta `DYNAMIC_PURGE_HOUR` (es. `DYNAMIC_PURGE_HOUR=9`).
-
-### 🏷️ Etichette Stream Dinamici
-
-* `[Player Esterno]` =
-    - In modalità FAST: prefisso sempre presente su tutti i flussi (tutti diretti).
-    - In modalità extractor: prefisso solo sui leftover (flussi oltre il CAP non estratti). Il primo blocco di flussi (fino al CAP) non ha il prefisso a meno che non provenga già così dal sorgente.
-* Emoji 🇮🇹 = titolo o sorgente italiana riconosciuta automaticamente.
-
-### 🔁 Endpoints Utili Riepilogo
-
-| Endpoint | Descrizione |
-|----------|-------------|
-| `/live/update` | Esegue subito `Live.py` e ricarica dinamici |
-| `/live/reload` | Invalida cache e ricarica senza rieseguire script |
-| `/live/purge` | Purge fisico file eventi vecchi |
-| `/admin/mode?fast=1` | Abilita FAST dinamico |
-| `/admin/mode?fast=0` | Torna extractor |
-
-### 🌍 Variabili Ambiente Rilevanti (Estese)
-
-| Variabile | Default | Descrizione |
-|-----------|---------|-------------|
-| `FAST_DYNAMIC` | 0 | 1 = usa URL dirette dinamiche |
-| `DYNAMIC_EXTRACTOR_CONC` | 10 | Limite richieste extractor (CAP). Con CAP=1 ottieni 1 estratto + 1 leftover |
-| `DYNAMIC_PURGE_HOUR` | 8 | Ora (Rome) dopo cui gli eventi del giorno precedente spariscono dal catalogo |
-
----
   
 ---
 
@@ -130,6 +62,14 @@ Puoi installare StreamViX solamente in locale, su un server casalingo o su una V
 per il resto, animesaturn e vixsrc va bene anche Huggingface, ma hanno iniziato a bannare StreamViX, quindi a tuo rischio e pericolo.
 per Le installazioni locali serve sempre un dominio https per installare l'addon. Oppure utilizzare un fork di mediaflow proxy EXE su windows.
 (funziona solo se il pc rimane acceso https://github.com/qwertyuiop8899/mediaflow-proxy_exe/ )
+
+oppure utilizzare la versione pubblica.
+https://9aa032f52161-streamvix.baby-beamup.club
+
+dopo la prima installazione lanciare su un browser il seguente url per scaricare i canali eventi live
+https://9aa032f52161-streamvix.baby-beamup.club/live/update
+
+mediaflow proxy è necessario, (su render i daddy non vanno)
 
 ---
 
@@ -244,6 +184,76 @@ L'addon sarà disponibile localmente all'indirizzo `http://localhost:7860`.
 
 ---
 
+### ⚡ Eventi Dinamici: FAST vs Extractor
+
+Gli eventi sportivi dinamici vengono caricati dal file `config/dynamic_channels.json` generato periodicamente da `Live.py`.
+
+Modalità disponibili:
+
+1. FAST (diretta):
+    - Attiva con variabile `FAST_DYNAMIC=1` oppure runtime `/admin/mode?fast=1`.
+    - Salta completamente l'extractor e usa immediatamente le URL presenti nel JSON.
+    - Nessun limite di concorrenza, tutte le sorgenti vengono esposte come stream diretti.
+    - Ogni stream FAST è etichettato con prefisso `[Player Esterno]` (l'emoji 🇮🇹 resta se il titolo normalizzato lo richiede).
+2. Extractor (predefinita se `FAST_DYNAMIC=0`):
+    - Ogni URL dinamica passa per la risoluzione (se configurato proxy MFP) prima di essere mostrata.
+    - Applica un CAP di concorrenza pari a `DYNAMIC_EXTRACTOR_CONC` (default 10) per limitare numero di richieste simultanee all'extractor.
+    - Le sorgenti oltre il CAP vengono comunque esposte come leftover diretti con etichetta `[Player Esterno]` (non estratti) così da non perderle.
+    - Priorità: prima i titoli che matchano `(it|ita|italy)`, poi `(italian|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)`, infine gli altri.
+
+Suggerimento: imposta `DYNAMIC_EXTRACTOR_CONC=1` per test: vedrai esattamente 2 stream (1 estratto + 1 leftover `[Player Esterno]`).
+
+### 🧪 Esempio rapido test locale (curl)
+
+1. Avvia server con: `FAST_DYNAMIC=0 DYNAMIC_EXTRACTOR_CONC=1 pnpm start`
+2. Richiedi stream evento: `curl http://127.0.0.1:7860/stream/tv/<id_evento>.json`
+3. Abilita FAST: `curl http://127.0.0.1:7860/admin/mode?fast=1`
+4. Ririchiedi stesso endpoint: noterai più stream (tutti diretti) e nessun leftover.
+
+### ⏱️ Scheduler Live.py
+
+`Live.py` viene eseguito automaticamente OGNI 2 ORE a partire dalle **08:10 Europe/Rome** nelle seguenti fasce: 08:10, 10:10, 12:10, 14:10, 16:10, 18:10, 20:10, 22:10, 00:10, 02:10, 04:10, 06:10.
+
+Ad ogni esecuzione:
+* Scarica / rigenera `dynamic_channels.json`.
+* La cache dinamica in memoria viene invalidata e ricaricata.
+
+### 🧹 Pulizia Eventi & Finestra di Grazia
+
+La rimozione degli eventi del giorno precedente avviene in due modi:
+
+1. Filtro runtime: se `process.env.DYNAMIC_PURGE_HOUR` (default **08**) è passato, gli eventi con `eventStart` del giorno precedente non vengono più mostrati a catalogo.
+2. Purge fisico programmato: alle **02:05** viene eseguito un purge che riscrive il file eliminando gli eventi obsoleti (endpoint manuale: `/live/purge`). Reload di sicurezza alle **02:30**.
+
+Se vuoi modificare solo la finestra di visibilità estesa fino a una certa ora, imposta `DYNAMIC_PURGE_HOUR` (es. `DYNAMIC_PURGE_HOUR=9`).
+
+### 🏷️ Etichette Stream Dinamici
+
+* `[Player Esterno]` =
+    - In modalità FAST: prefisso sempre presente su tutti i flussi (tutti diretti).
+    - In modalità extractor: prefisso solo sui leftover (flussi oltre il CAP non estratti). Il primo blocco di flussi (fino al CAP) non ha il prefisso a meno che non provenga già così dal sorgente.
+* Emoji 🇮🇹 = titolo o sorgente italiana riconosciuta automaticamente.
+
+### 🔁 Endpoints Utili Riepilogo
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `/live/update` | Esegue subito `Live.py` e ricarica dinamici |
+| `/live/reload` | Invalida cache e ricarica senza rieseguire script |
+| `/live/purge` | Purge fisico file eventi vecchi |
+| `/admin/mode?fast=1` | Abilita FAST dinamico |
+| `/admin/mode?fast=0` | Torna extractor |
+
+### 🌍 Variabili Ambiente Rilevanti (Estese)
+
+| Variabile | Default | Descrizione |
+|-----------|---------|-------------|
+| `FAST_DYNAMIC` | 0 | 1 = usa URL dirette dinamiche |
+| `DYNAMIC_EXTRACTOR_CONC` | 10 | Limite richieste extractor (CAP). Con CAP=1 ottieni 1 estratto + 1 leftover |
+| `DYNAMIC_PURGE_HOUR` | 8 | Ora (Rome) dopo cui gli eventi del giorno precedente spariscono dal catalogo |
+
+---
+
 ## 🔍 Troubleshooting Rapido
 
 | Problema | Possibili Cause | Soluzione |
@@ -267,7 +277,8 @@ Original extraction logic written by https://github.com/mhdzumair for the extrac
 Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for the main code and stremio addon
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
-Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
+
 
 
 
