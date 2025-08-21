@@ -36,12 +36,21 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minuti
 function resolveDynamicFile(): string {
   // Cerca in possibili posizioni (support legacy nested config/config)
   const candidates = [
+    // Dev (ts-node src/...): __dirname ~ src/utils -> ../../config => root/config (OK)
     path.resolve(__dirname, '../../config/dynamic_channels.json'),
-    path.resolve(__dirname, '../../config/config/dynamic_channels.json')
+    // Dist (addon.js compilato in dist/, utils in dist/utils): usare ../config -> dist/../config => root/config
+    path.resolve(__dirname, '../config/dynamic_channels.json'),
+    // Some builds may flatten further; try single up level from dist root
+    path.resolve(__dirname, '../../../config/dynamic_channels.json'),
+    // Nested legacy path
+    path.resolve(__dirname, '../../config/config/dynamic_channels.json'),
+    // CWD fallback (eseguito da root progetto)
+    path.resolve(process.cwd(), 'config/dynamic_channels.json')
   ];
   for (const p of candidates) {
     try { if (fs.existsSync(p)) return p; } catch {}
   }
+  try { console.warn('[DynamicChannels] dynamic_channels.json non trovato in nessuno dei path candidati, uso primo fallback:', candidates[0]); } catch {}
   return candidates[0]; // fallback
 }
 
