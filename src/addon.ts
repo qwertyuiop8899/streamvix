@@ -1122,7 +1122,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             let t = (e.title || 'Stream').trim();
                             if (!t) t = 'Stream';
                             if (!t.startsWith('[Player Esterno]')) t = `[Player Esterno] ${t}`;
-                            streams.push({ url: e.url, title: t });
+                            // Richiesta: usare stessa logica proxy extractor ma con redirect_stream=true per Player Esterno
+                            let finalUrl = e.url;
+                            if (mfpUrl && mfpPsw && !finalUrl.startsWith(mfpUrl)) {
+                                finalUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(finalUrl)}`;
+                            }
+                            // Evita doppio d= annidato
+                            streams.push({ url: finalUrl, title: t });
                         }
                         debugLog(`[DynamicStreams][FAST] restituiti ${streams.length} stream diretti (senza extractor) con etichetta`);
                         dynamicHandled = true;
@@ -1191,7 +1197,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 let t = (e.title || 'Stream').trim();
                                 if (!t) t = 'Stream';
                                 t = t.replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim();
-                                streams.push({ url: e.url, title: `[Player Esterno] ${t}` });
+                                let finalUrl = e.url;
+                                if (mfpUrl && mfpPsw && !finalUrl.startsWith(mfpUrl)) {
+                                    finalUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(finalUrl)}`;
+                                }
+                                streams.push({ url: finalUrl, title: `[Player Esterno] ${t}` });
                                 appended++;
                             }
                             debugLog(`[DynamicStreams][EXTRACTOR] appended ${appended}/${extraFast.length} leftover direct streams (CAP=${CAP})`);
