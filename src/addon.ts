@@ -8,7 +8,7 @@ import { AnimeUnityProvider } from './providers/animeunity-provider';
 import { AnimeWorldProvider } from './providers/animeworld-provider';
 import { KitsuProvider } from './providers/kitsu'; 
 import { formatMediaFlowUrl } from './utils/mediaflow';
-import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels, getDynamicSignature } from './utils/dynamicChannels';
+import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels } from './utils/dynamicChannels';
 
 // --- Lightweight declarations to avoid TS complaints if @types/node non installati ---
 // (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.)
@@ -688,9 +688,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             // === FAST CACHE LAYER per catalogo TV ===
             // Evita merge/ricostruzione se né i canali statici né i dinamici sono cambiati.
             // Usiamo una signature (mtime:length) dei dinamici + dimensione statici.
-            const dynamicSig = getDynamicSignature();
+            // getDynamicSignature rimosso: signature non più utilizzata
             const staticSig = staticBaseChannels.length;
-            const cacheKey = `${dynamicSig}|${staticSig}`;
+            const cacheKey = `${staticSig}`; // dynamicSig rimosso
             // Cache in memoria condivisa (process-wide)
             const g: any = global as any;
             if (!g.__tvCatalogCache) g.__tvCatalogCache = { key: '', channels: [] };
@@ -1091,27 +1091,90 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
                     let dynamicHandled = false;
-                    if ((channel as any)._dynamic && Array.isArray((channel as any).dynamicDUrls) && (channel as any).dynamicDUrls.length) {
+                    // FAST DIRECT MODE opzionale (solo se esplicitamente richiesto via env FAST_DYNAMIC=1)
+                    // FAST_DYNAMIC: se impostato a 1/true salta extractor e usa URL dirette dal JSON
+                    const fastDynamic = (process.env.FAST_DYNAMIC === '1' || process.env.FAST_DYNAMIC === 'true');
+                    if ((channel as any)._dynamic && Array.isArray((channel as any).dynamicDUrls) && (channel as any).dynamicDUrls.length && fastDynamic) {
+                        debugLog(`[DynamicStreams] FAST branch attiva (FAST_DYNAMIC=1) canale=${channel.id}`);
+                        let entries: { url: string; title?: string }[] = (channel as any).dynamicDUrls.map((e: any) => ({
+                            url: e.url,
+                            title: (e.title || 'Stream').replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim()
+                        }));
+                        const capRaw = parseInt(process.env.DYNAMIC_EXTRACTOR_CONC || '10', 10);
+                        const CAP = Math.min(Math.max(1, isNaN(capRaw) ? 10 : capRaw), 50);
+                        if (entries.length > CAP) {
+                            const tier1Regex = /\b(it|ita|italy)\b/i;
+                            const tier2Regex = /\b(italian|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)\b/i;
+                            const tier1: typeof entries = [];
+                            const tier2: typeof entries = [];
+                            const others: typeof entries = [];
+                            for (const e of entries) {
+                                const t = (e.title || '').toLowerCase();
+                                if (tier1Regex.test(t)) tier1.push(e);
+                                else if (tier2Regex.test(t)) tier2.push(e);
+                                else others.push(e);
+                            }
+                            entries = [...tier1, ...tier2, ...others].slice(0, CAP);
+                            debugLog(`[DynamicStreams][FAST] limit ${CAP} applied tier1=${tier1.length} tier2=${tier2.length} total=${(channel as any).dynamicDUrls.length}`);
+                        }
+                        for (const e of entries) {
+                            if (!e || !e.url) continue;
+                            let t = (e.title || 'Stream').trim();
+                            if (!t) t = 'Stream';
+                            if (!t.startsWith('[Player Esterno]')) t = `[Player Esterno] ${t}`;
+                            streams.push({ url: e.url, title: t });
+                        }
+                        debugLog(`[DynamicStreams][FAST] restituiti ${streams.length} stream diretti (senza extractor) con etichetta`);
+                        dynamicHandled = true;
+                    } else if ((channel as any)._dynamic && Array.isArray((channel as any).dynamicDUrls) && (channel as any).dynamicDUrls.length) {
+                        debugLog(`[DynamicStreams] EXTRACTOR branch attiva (FAST_DYNAMIC disattivato) canale=${channel.id}`);
                         const startDyn = Date.now();
-                        // Parallelizza risoluzione con limite di concorrenza per non saturare proxy
-                        const entries: { url: string; title?: string }[] = (channel as any).dynamicDUrls;
+                        let entries: { url: string; title?: string }[] = (channel as any).dynamicDUrls.map((e: any) => ({
+                            url: e.url,
+                            title: (e.title || 'Stream').replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim()
+                        }));
+                        const maxConcRaw = parseInt(process.env.DYNAMIC_EXTRACTOR_CONC || '10', 10);
+                        const CAP = Math.min(Math.max(1, isNaN(maxConcRaw) ? 10 : maxConcRaw), 50);
+                        let extraFast: { url: string; title?: string }[] = [];
+                        if (entries.length > CAP) {
+                            // Tiered priority: tier1 strictly (it|ita|italy) first, then tier2 broader providers, then rest
+                            const tier1Regex = /\b(it|ita|italy)\b/i;
+                            const tier2Regex = /\b(italian|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)\b/i;
+                            const tier1: typeof entries = [];
+                            const tier2: typeof entries = [];
+                            const others: typeof entries = [];
+                            for (const e of entries) {
+                                const t = (e.title || '').toLowerCase();
+                                if (tier1Regex.test(t)) tier1.push(e);
+                                else if (tier2Regex.test(t)) tier2.push(e);
+                                else others.push(e);
+                            }
+                            const ordered = [...tier1, ...tier2, ...others];
+                            entries = ordered.slice(0, CAP);
+                            extraFast = ordered.slice(CAP); // fallback direct for remaining
+                            debugLog(`[DynamicStreams][EXTRACTOR] cap ${CAP} applied tier1=${tier1.length} tier2=${tier2.length} extraFast=${extraFast.length} total=${(channel as any).dynamicDUrls.length}`);
+                        }
                         const resolved: { url: string; title: string }[] = [];
-                        const CONCURRENCY = 4;
-                        let index = 0;
                         const itaRegex = /\b(it|ita|italy|italian)$/i;
+                        const CONCURRENCY = Math.min(entries.length, CAP); // Extract up to CAP in parallel (bounded by entries)
+                        let index = 0;
                         const worker = async () => {
-                            while (index < entries.length) {
+                            while (true) {
                                 const i = index++;
+                                if (i >= entries.length) break;
                                 const d = entries[i];
                                 if (!d || !d.url) continue;
                                 let providerTitle = (d.title || 'Stream').trim().replace(/^\((.*)\)$/,'$1').trim();
                                 if (itaRegex.test(providerTitle) && !providerTitle.startsWith('🇮🇹')) providerTitle = `🇮🇹 ${providerTitle}`;
-                                const r = await resolveDynamicEventUrl(d.url, providerTitle, mfpUrl, mfpPsw);
-                                resolved.push(r);
+                                try {
+                                    const r = await resolveDynamicEventUrl(d.url, providerTitle, mfpUrl, mfpPsw);
+                                    resolved.push(r);
+                                } catch (e) {
+                                    debugLog('[DynamicStreams] extractor errore singolo stream:', (e as any)?.message || e);
+                                }
                             }
                         };
-                        const workers = Array(Math.min(CONCURRENCY, entries.length)).fill(0).map(() => worker());
-                        await Promise.all(workers);
+                        await Promise.all(Array(Math.min(CONCURRENCY, entries.length)).fill(0).map(() => worker()));
                         resolved.sort((a, b) => {
                             const itaA = a.title.startsWith('🇮🇹') ? 0 : 1;
                             const itaB = b.title.startsWith('🇮🇹') ? 0 : 1;
@@ -1119,7 +1182,21 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             return a.title.localeCompare(b.title);
                         });
                         for (const r of resolved) streams.push(r);
-                        debugLog(`[DynamicStreams] Resolved ${resolved.length} dynamic streams in ${Date.now() - startDyn}ms`);
+                        // Append leftover entries (beyond CAP) as direct FAST (no extractor) to still expose them
+                        if (extraFast.length) {
+                            const leftoversToShow = CAP === 1 ? extraFast.slice(0, 1) : extraFast;
+                            let appended = 0;
+                            for (const e of leftoversToShow) {
+                                if (!e || !e.url) continue;
+                                let t = (e.title || 'Stream').trim();
+                                if (!t) t = 'Stream';
+                                t = t.replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim();
+                                streams.push({ url: e.url, title: `[Player Esterno] ${t}` });
+                                appended++;
+                            }
+                            debugLog(`[DynamicStreams][EXTRACTOR] appended ${appended}/${extraFast.length} leftover direct streams (CAP=${CAP})`);
+                        }
+                        debugLog(`[DynamicStreams][EXTRACTOR] Resolved ${resolved.length}/${entries.length} streams in ${Date.now() - startDyn}ms (conc=${CONCURRENCY})`);
                         dynamicHandled = true;
                     } else if ((channel as any)._dynamic) {
                         // Dynamic channel ma senza dynamicDUrls -> placeholder stream
@@ -1325,7 +1402,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
                     // Vavoo
-                    if ((channel as any).name) {
+                    if (!dynamicHandled && (channel as any).name) {
                         // DEBUG LOGS
                         console.log('🔧 [VAVOO] DEBUG - channel.name:', (channel as any).name);
                         const baseName = (channel as any).name.replace(/\s*(\(\d+\)|\d+)$/, '').trim();
@@ -1712,6 +1789,16 @@ const app = express();
 
 app.use('/public', express.static(path.join(__dirname, '..', 'public')));
 
+// Redirect convenience: allow /stream/tv/<id> (no .json) -> proper .json endpoint
+app.get('/stream/tv/:id', (req: Request, res: Response, next: NextFunction) => {
+    // Se già termina con .json non fare nulla
+    if (req.originalUrl.endsWith('.json')) return next();
+    const id = req.params.id;
+    const q = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
+    const target = `/stream/tv/${id}.json${q}`;
+    res.redirect(302, target);
+});
+
 // Salva l'ultima request Express per fallback nel catalog handler (quando il router interno non passa req)
 app.use((req: Request, _res: Response, next: NextFunction) => {
     (global as any).lastExpressRequest = req;
@@ -1913,10 +2000,40 @@ app.get('/live/purge', (req: Request, res: Response) => {
 // =============================================================
 // ================================================================
 
-const PORT = process.env.PORT || 7860;
-app.listen(PORT, () => {
-    console.log(`Addon server running on http://127.0.0.1:${PORT}`);
+// ================= RUNTIME TOGGLE FAST/EXTRACTOR ================
+// /admin/mode?fast=1 abilita fast mode (diretto); ?fast=0 torna extractor
+// Restituisce lo stato corrente. Non persiste su restart (solo runtime)
+app.get('/admin/mode', (req: Request, res: Response) => {
+    const q = (req.query.fast || '').toString().trim();
+    if (q === '1' || q.toLowerCase() === 'true') {
+        (process as any).env.FAST_DYNAMIC = '1';
+    } else if (q === '0' || q.toLowerCase() === 'false') {
+        (process as any).env.FAST_DYNAMIC = '0';
+    }
+    const fastDynamic = (process.env.FAST_DYNAMIC === '1' || process.env.FAST_DYNAMIC === 'true');
+    res.json({ ok: true, fastDynamic });
 });
+// ================================================================
+
+// Porta con auto-retry se occupata (fino a +10 tentativi)
+function startServer(basePort: number, attempts = 0) {
+    const PORT = basePort + attempts;
+    const server = app.listen(PORT, () => {
+        console.log(`Addon server running on http://127.0.0.1:${PORT}`);
+    });
+    server.on('error', (err: any) => {
+        if (err.code === 'EADDRINUSE' && attempts < 10) {
+            console.log(`⚠️ Porta ${PORT} occupata, provo con ${PORT + 1}...`);
+            setTimeout(() => startServer(basePort, attempts + 1), 300);
+        } else if (err.code === 'EADDRINUSE') {
+            console.error(`❌ Nessuna porta libera trovata dopo ${attempts + 1} tentativi partendo da ${basePort}`);
+        } else {
+            console.error('❌ Errore server:', err);
+        }
+    });
+}
+const basePort = parseInt(process.env.PORT || '7860', 10);
+startServer(basePort);
 
 // Funzione per assicurarsi che le directory di cache esistano
 function ensureCacheDirectories(): void {
@@ -1936,8 +2053,8 @@ function ensureCacheDirectories(): void {
 ensureCacheDirectories();
 
 // ================== LIVE EVENTS SCHEDULER (Live.py) ==================
-// Esegue lo script Live.py alle 10:00 e 15:00 Europe/Rome, ricarica i canali dinamici
-// Lo script Python dovrà scrivere config/dynamic_channels.json con il formato previsto.
+// Esegue Live.py OGNI 2 ORE a partire dalle 08:10 Europe/Rome (08:10, 10:10, 12:10, ... fino a 06:10).
+// Lo script aggiorna config/dynamic_channels.json; dopo ogni run forziamo reload cache dinamica.
 
 interface ScheduledRun {
     hour: number;
@@ -1952,8 +2069,18 @@ if (!fs.existsSync(LIVE_LOG_DIR)) {
 }
 
 const liveRuns: ScheduledRun[] = [
-    { hour: 10, minute: 0 }, // 10:00 CET/CEST
-    { hour: 15, minute: 0 }  // 15:00 CET/CEST
+    { hour: 8,  minute: 10 }, // 08:10
+    { hour: 10, minute: 10 }, // 10:10
+    { hour: 12, minute: 10 }, // 12:10
+    { hour: 14, minute: 10 }, // 14:10
+    { hour: 16, minute: 10 }, // 16:10
+    { hour: 18, minute: 10 }, // 18:10
+    { hour: 20, minute: 10 }, // 20:10
+    { hour: 22, minute: 10 }, // 22:10
+    { hour: 0,  minute: 10 }, // 00:10
+    { hour: 2,  minute: 10 }, // 02:10
+    { hour: 4,  minute: 10 }, // 04:10
+    { hour: 6,  minute: 10 }  // 06:10
 ];
 
 function logLive(msg: string, ...extra: any[]) {
