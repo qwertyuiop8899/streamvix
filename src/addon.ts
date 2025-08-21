@@ -685,27 +685,42 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     // === TV CATALOG HANDLER ONLY ===
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
         if (type === "tv") {
-            // === FAST CACHE LAYER per catalogo TV ===
-            // Evita merge/ricostruzione se né i canali statici né i dinamici sono cambiati.
-            // Usiamo una signature (mtime:length) dei dinamici + dimensione statici.
-            // getDynamicSignature rimosso: signature non più utilizzata
-            const staticSig = staticBaseChannels.length;
-            const cacheKey = `${staticSig}`; // dynamicSig rimosso
-            // Cache in memoria condivisa (process-wide)
-            const g: any = global as any;
-            if (!g.__tvCatalogCache) g.__tvCatalogCache = { key: '', channels: [] };
-            if (g.__tvCatalogCache.key !== cacheKey) {
+            // === Catalogo TV: modalità NO CACHE per test (di default attiva) ===
+            const disableCatalogCache = (() => {
                 try {
-                    loadDynamicChannels(false); // aggiorna cache interna se TTL scaduto o file cambiato
+                    const v = (process?.env?.NO_TV_CATALOG_CACHE ?? '1').toString().toLowerCase();
+                    return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+                } catch { return true; }
+            })();
+
+            if (disableCatalogCache) {
+                try {
+                    // Ricarica sempre dal JSON dinamico e rifai il merge ad ogni richiesta
+                    loadDynamicChannels(true);
                     tvChannels = mergeDynamic([...staticBaseChannels]);
-                    g.__tvCatalogCache = { key: cacheKey, channels: tvChannels };
-                    debugLog(`⚡ Catalog rebuild (cache miss) newKey=${cacheKey} count=${tvChannels.length}`);
+                    debugLog(`⚡ Catalog rebuilt (NO_CACHE) count=${tvChannels.length}`);
                 } catch (e) {
-                    console.error('❌ Merge dynamic channels failed:', e);
+                    console.error('❌ Merge dynamic channels failed (NO_CACHE):', e);
                 }
             } else {
-                tvChannels = g.__tvCatalogCache.channels;
-                debugLog(`⚡ Catalog served from cache key=${cacheKey} count=${tvChannels.length}`);
+                // Fallback: usa cache leggera in memoria
+                const staticSig = staticBaseChannels.length;
+                const cacheKey = `${staticSig}`;
+                const g: any = global as any;
+                if (!g.__tvCatalogCache) g.__tvCatalogCache = { key: '', channels: [] };
+                if (g.__tvCatalogCache.key !== cacheKey) {
+                    try {
+                        loadDynamicChannels(false);
+                        tvChannels = mergeDynamic([...staticBaseChannels]);
+                        g.__tvCatalogCache = { key: cacheKey, channels: tvChannels };
+                        debugLog(`⚡ Catalog rebuild (cache miss) newKey=${cacheKey} count=${tvChannels.length}`);
+                    } catch (e) {
+                        console.error('❌ Merge dynamic channels failed:', e);
+                    }
+                } else {
+                    tvChannels = g.__tvCatalogCache.channels;
+                    debugLog(`⚡ Catalog served from cache key=${cacheKey} count=${tvChannels.length}`);
+                }
             }
             let filteredChannels = tvChannels;
             let requestedSlug: string | null = null;
