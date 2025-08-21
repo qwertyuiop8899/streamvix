@@ -846,6 +846,25 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }];
             }
             
+            // Ordina per orario di inizio evento (asc) quando disponibile
+            try {
+                const before = filteredChannels.length;
+                filteredChannels.sort((a: any, b: any) => {
+                    const aS = a?.eventStart || a?.eventstart;
+                    const bS = b?.eventStart || b?.eventstart;
+                    const ap = aS ? Date.parse(aS) : NaN;
+                    const bp = bS ? Date.parse(bS) : NaN;
+                    const aHas = !isNaN(ap);
+                    const bHas = !isNaN(bp);
+                    if (aHas && bHas) return ap - bp; // più presto prima
+                    if (aHas && !bHas) return -1;    // con orario prima di senza
+                    if (!aHas && bHas) return 1;     // senza orario dopo
+                    // fallback alfabetico
+                    return (a?.name || '').localeCompare(b?.name || '');
+                });
+                console.log(`⏱️ Catalog sorted by eventStart (asc), items=${before}`);
+            } catch {}
+            
             // Aggiungi prefisso tv: agli ID, posterShape landscape e EPG
             const tvChannelsWithPrefix = await Promise.all(filteredChannels.map(async (channel: any) => {
                 const channelWithPrefix = {
