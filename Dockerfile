@@ -17,7 +17,7 @@ WORKDIR /usr/src/app
 ARG GIT_REPO_URL="https://github.com/qwertyuiop8899/streamvix.git"
 ARG GIT_BRANCH="main"
 
-ARG CACHE_BUST2=23
+ARG CACHE_BUST2=2323
 RUN echo "Cache bust: $CACHE_BUST"
 
 # Forza git a non usare cache aggiungendo timestamp
@@ -49,7 +49,7 @@ RUN chown -R node:node /usr/src/app
 # Torna all'utente node per le operazioni di pnpm e l'esecuzione dell'app
 USER node
 # Modifica temporanea: rimuovi --frozen-lockfile per permettere l'aggiornamento del lockfile
-ARG BUILD_CACHE_BUST=23
+ARG BUILD_CACHE_BUST=232323
 RUN echo "Build cache bust: $BUILD_CACHE_BUST"
 
 RUN rm -rf node_modules .pnpm-store dist 2>/dev/null || true
@@ -80,6 +80,7 @@ ENTRYPOINT ["node", "/start"]
 
 # Definisci il comando per avviare l'applicazione
 #CMD [ "pnpm", "start" ]
+
 
 
 
