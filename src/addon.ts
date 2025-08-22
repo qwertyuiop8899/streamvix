@@ -689,6 +689,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     // === TV CATALOG HANDLER ONLY ===
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
         if (type === "tv") {
+            try {
+                const lastReq0: any = (global as any).lastExpressRequest;
+                console.log('📥 Catalog TV request:', {
+                    id,
+                    extra,
+                    path: lastReq0?.path,
+                    url: lastReq0?.url
+                });
+            } catch {}
             // === Catalogo TV: modalità NO CACHE per test (di default attiva) ===
             const disableCatalogCache = (() => {
                 try {
@@ -728,6 +737,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             }
             let filteredChannels = tvChannels;
             let requestedSlug: string | null = null;
+            let isPlaceholder = false;
 
             // === SEARCH HANDLER ===
             if (extra && typeof extra.search === 'string' && extra.search.trim().length > 0) {
@@ -806,7 +816,37 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         genreInput = String(lastReq.query.extra.genre);
                     }
                 }
+                // Fallback: prova ad estrarre genre anche dal path/URL se non presente
+                if (!genreInput) {
+                    try {
+                        const lastReq2: any = (global as any).lastExpressRequest;
+                        const fromUrl = (lastReq2?.url || '') as string;
+                        const fromPath = (lastReq2?.path || '') as string;
+                        let extracted: string | undefined;
+                        // 1) Query string
+                        const qMatch = fromUrl.match(/genre=([^&]+)/i);
+                        if (qMatch) extracted = decodeURIComponent(qMatch[1]);
+                        // 2) Extra nel path: /catalog/tv/tv-channels/genre=Coppe.json oppure .../genre=Coppe&...
+            if (!extracted) {
+                            const pMatch = fromPath.match(/\/catalog\/[^/]+\/[^/]+\/([^?]+)\.json/i);
+                            if (pMatch && pMatch[1]) {
+                                const extraSeg = decodeURIComponent(pMatch[1]);
+                                const g2 = extraSeg.match(/(?:^|&)genre=([^&]+)/i);
+                                if (g2) extracted = g2[1];
+                else if (extraSeg.startsWith('genre=')) extracted = extraSeg.split('=')[1];
+                else if (extraSeg && !extraSeg.includes('=')) extracted = extraSeg; // support /.../Coppe.json
+                            }
+                        }
+                        if (extracted) {
+                            genreInput = extracted;
+                            console.log(`🔎 Fallback genre extracted from URL/path: '${genreInput}'`);
+                        }
+                    } catch {}
+                }
+
                 if (genreInput) {
+                    // Normalizza spazi invisibili e accenti
+                    genreInput = genreInput.replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, ' ').replace(/\s+/g, ' ').trim();
                     const norm = genreInput.trim().toLowerCase()
                         .replace(/[àáâãä]/g,'a').replace(/[èéêë]/g,'e')
                         .replace(/[ìíîï]/g,'i').replace(/[òóôõö]/g,'o')
@@ -840,10 +880,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     poster: placeholderLogo,
                     type: 'tv',
                     category: [requestedSlug],
+                    genres: [requestedSlug],
                     description: 'Nessuno Stream disponibile oggi. Live 🔴',
                     _placeholder: true,
                     placeholderVideo: `${PLACEHOLDER_LOGO_BASE}/nostream.mp4`
                 }];
+                isPlaceholder = true;
             }
             
             // Ordina SOLO gli eventi dinamici per eventStart (asc) quando è presente un filtro di categoria
@@ -921,8 +963,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 return channelWithPrefix;
             }));
             
-            console.log(`✅ Returning ${tvChannelsWithPrefix.length} TV channels for catalog ${id}`);
-            return { metas: tvChannelsWithPrefix };
+            console.log(`✅ Returning ${tvChannelsWithPrefix.length} TV channels for catalog ${id}${isPlaceholder ? ' (placeholder, cacheMaxAge=5s)' : ''}`);
+            return isPlaceholder
+                ? { metas: tvChannelsWithPrefix, cacheMaxAge: 10 }
+                : { metas: tvChannelsWithPrefix };
         }
         console.log(`❌ No catalog found for type=${type}, id=${id}`);
         return { metas: [] };
