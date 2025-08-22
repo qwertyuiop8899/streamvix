@@ -963,10 +963,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 return channelWithPrefix;
             }));
             
-            console.log(`✅ Returning ${tvChannelsWithPrefix.length} TV channels for catalog ${id}${isPlaceholder ? ' (placeholder, cacheMaxAge=5s)' : ''}`);
-            return isPlaceholder
-                ? { metas: tvChannelsWithPrefix, cacheMaxAge: 10 }
-                : { metas: tvChannelsWithPrefix };
+                console.log(`✅ Returning ${tvChannelsWithPrefix.length} TV channels for catalog ${id}${isPlaceholder ? ' (placeholder, cacheMaxAge=0)' : ''}`);
+                return isPlaceholder
+                    ? { metas: tvChannelsWithPrefix, cacheMaxAge: 0 }
+                    : { metas: tvChannelsWithPrefix };
         }
         console.log(`❌ No catalog found for type=${type}, id=${id}`);
         return { metas: [] };
@@ -1197,8 +1197,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         const capRaw = parseInt(process.env.DYNAMIC_EXTRACTOR_CONC || '10', 10);
                         const CAP = Math.min(Math.max(1, isNaN(capRaw) ? 10 : capRaw), 50);
                         if (entries.length > CAP) {
-                            const tier1Regex = /\b(it|ita|italy)\b/i;
-                            const tier2Regex = /\b(italian|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)\b/i;
+                            const tier1Regex = /\b(it|ita|italy|italia)\b/i;
+                            const tier2Regex = /\b(italian|italiano|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)\b/i;
                             const tier1: typeof entries = [];
                             const tier2: typeof entries = [];
                             const others: typeof entries = [];
@@ -1238,8 +1238,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         let extraFast: { url: string; title?: string }[] = [];
                         if (entries.length > CAP) {
                             // Tiered priority: tier1 strictly (it|ita|italy) first, then tier2 broader providers, then rest
-                            const tier1Regex = /\b(it|ita|italy)\b/i;
-                            const tier2Regex = /\b(italian|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)\b/i;
+                            const tier1Regex = /\b(it|ita|italy|italia)\b/i;
+                            const tier2Regex = /\b(italian|italiano|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)\b/i;
                             const tier1: typeof entries = [];
                             const tier2: typeof entries = [];
                             const others: typeof entries = [];
@@ -1255,7 +1255,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             debugLog(`[DynamicStreams][EXTRACTOR] cap ${CAP} applied tier1=${tier1.length} tier2=${tier2.length} extraFast=${extraFast.length} total=${(channel as any).dynamicDUrls.length}`);
                         }
                         const resolved: { url: string; title: string }[] = [];
-                        const itaRegex = /\b(it|ita|italy|italian)$/i;
+                        const itaRegex = /\b(it|ita|italy|italia|italian|italiano)$/i;
                         const CONCURRENCY = Math.min(entries.length, CAP); // Extract up to CAP in parallel (bounded by entries)
                         let index = 0;
                         const worker = async () => {
