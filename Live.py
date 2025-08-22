@@ -123,6 +123,7 @@ TEAM_SPECIAL = {
 
 MATCH_SPLIT_REGEX = re.compile(r'\bvs\b| - ', re.IGNORECASE)
 WOMEN_EVENT_REGEX = re.compile(r"\b(women(?:[’']s)?|femminile|ladies)\b", re.IGNORECASE)
+BUNDESLIGA_LOWER_REGEX = re.compile(r"\b(bundesliga\s*[23]|[23]\.?\s*(bundesliga|liga))\b", re.IGNORECASE)
 
 def load_schedule() -> Dict[str, Any]:
     """Scarica SEMPRE il file schedule remoto; nessuna copia locale."""
@@ -387,6 +388,10 @@ def main():
                 # Escludi eventi femminili per calcio (Serie A/B/C, Coppe, top leghe)
                 if mapped_cat in {'seriea','serieb','seriec','coppe','premierleague','liga','bundesliga','ligue1'}:
                     if WOMEN_EVENT_REGEX.search(raw_event):
+                        continue
+                # Escludi categorie inferiori della Bundesliga (2, 3)
+                if mapped_cat == 'bundesliga':
+                    if BUNDESLIGA_LOWER_REGEX.search(raw_event) or BUNDESLIGA_LOWER_REGEX.search(effective_category_src):
                         continue
                 time_str = game.get('time', '00:00')
                 start_dt_utc = parse_event_datetime(day, time_str)
