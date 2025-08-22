@@ -2066,10 +2066,30 @@ app.get('/live/update', async (req: Request, res: Response) => {
             return res.status(403).json({ ok: false, error: 'Forbidden' });
         }
         // Esegue Live.py immediatamente (se esiste) e ricarica i canali
-        // riutilizza executeLiveScript già definita nello scheduler.
-        // Per evitare race con scheduler, non serve lock: executeLiveScript usa una singola run.
-        await (async () => { try { await (executeLiveScript as any)(); } catch {} })();
-        return res.json({ ok: true, message: 'Live.py eseguito (se presente) e canali ricaricati' });
+        // Riutilizza executeLiveScript già definita nello scheduler e recupera stdout/stderr
+        const execRes = await (async () => { try { return await (executeLiveScript as any)(); } catch { return undefined; } })();
+        // Assicurati di avere il conteggio aggiornato degli eventi dinamici
+        const dyn = loadDynamicChannels(true);
+        // Risposta arricchita con conteggio e uno snippet di stdout/stderr
+        const liveStdout: string | undefined = execRes?.stdout ? String(execRes.stdout) : undefined;
+        const liveStderr: string | undefined = execRes?.stderr ? String(execRes.stderr) : undefined;
+        // Prova a estrarre "Creati X eventi dinamici" dall'output di Live.py
+        let createdCount: number | undefined;
+        if (liveStdout) {
+            try {
+                const m = liveStdout.match(/Creati\s+(\d+)\s+eventi\s+dinamici/i);
+                if (m) createdCount = parseInt(m[1], 10);
+            } catch {}
+        }
+        const clip = (s?: string) => s ? (s.length > 800 ? s.slice(-800) : s) : undefined; // prendi ultime 800 chars
+        return res.json({
+            ok: true,
+            message: `Live.py eseguito (se presente) e canali ricaricati: eventi dinamici=${dyn.length}${createdCount!=null?` (creati=${createdCount})`:''}`,
+            dynamicCount: dyn.length,
+            createdCount,
+            liveStdout: clip(liveStdout),
+            liveStderr: clip(liveStderr)
+        });
     } catch (e: any) {
         return res.status(500).json({ ok: false, error: e?.message || String(e) });
     }
@@ -2211,20 +2231,20 @@ function computeDelayToNextRun(): number {
     return nextDiff === Number.MAX_SAFE_INTEGER ? 60 * 60 * 1000 : nextDiff;
 }
 
-async function executeLiveScript() {
+async function executeLiveScript(): Promise<{ stdout?: string; stderr?: string; error?: string }> {
     if (!fs.existsSync(LIVE_SCRIPT_PATH)) {
         logLive('Live.py non trovato, skip esecuzione');
-        return;
+        return { error: 'Live.py not found' };
     }
     logLive('Esecuzione Live.py avviata');
     try {
         const { execFile } = require('child_process');
-        await new Promise<void>((resolve) => {
+        const result = await new Promise<{ stdout?: string; stderr?: string; error?: string }>((resolve) => {
             const child = execFile('python3', [LIVE_SCRIPT_PATH], { timeout: 1000 * 60 * 4 }, (err: any, stdout: string, stderr: string) => {
                 if (stdout) logLive('Output Live.py', stdout.slice(0, 800));
                 if (stderr) logLive('Stderr Live.py', stderr.slice(0, 800));
                 if (err) logLive('Errore Live.py', err.message || err);
-                resolve();
+                resolve({ stdout, stderr, error: err ? (err.message || String(err)) : undefined });
             });
             // Safety: se child resta appeso oltre timeout integrato execFile lancerà errore
             child.on('error', (e: any) => logLive('Errore processo Live.py', e.message || e));
@@ -2232,8 +2252,10 @@ async function executeLiveScript() {
         // Ricarica canali dinamici (force) e svuota cache tvChannels merge (ricarico solo dynamic parte)
         loadDynamicChannels(true);
         logLive('Reload canali dinamici completato dopo Live.py');
+        return result;
     } catch (e: any) {
         logLive('Eccezione esecuzione Live.py', e?.message || String(e));
+        return { error: e?.message || String(e) };
     }
 }
 
