@@ -80,10 +80,10 @@ COPPA_LOGOS = {
 
 # Loghi campionati nazionali richiesti
 LEAGUE_LOGOS = {
-    'England - Premier League': 'Premier_League.png',
-    'Spain - Liga': 'Liga.png',
-    'Germany - Bundesliga': 'Bundesliga.png',
-    'France - Ligue 1': 'Ligue_1.png',
+    'England - Premier League :': 'Premier_League.png',
+    'Spain - La Liga :': 'Liga.png',
+    'Bundesliga :': 'Bundesliga.png',
+    'France - Ligue 1 :': 'Ligue_1.png',
 }
 
 # Loghi aggiuntivi (se presenti nel repo loghi)
@@ -226,10 +226,10 @@ def map_category(category_src: str, raw_event: str) -> str | None:
     if category_src == 'Italy - Serie C': return 'seriec'
     if category_src in COPPA_LOGOS: return 'coppe'
     # Nuove leghe calcio richieste
-    if category_src == 'England - Premier League': return 'premierleague'
-    if category_src == 'Spain - Liga': return 'liga'
-    if category_src == 'Germany - Bundesliga': return 'bundesliga'
-    if category_src == 'France - Ligue 1': return 'ligue1'
+    if category_src == 'England - Premier League :': return 'premierleague'
+    if category_src == 'Spain - La Liga :': return 'liga'
+    if category_src == 'Bundesliga :': return 'bundesliga'
+    if category_src == 'France - Ligue 1 :': return 'ligue1'
     if category_src == 'Tennis': return 'tennis'
     # Normalizzazione categorie motori ("motor sports", "motorsports", "Motorsport")
     norm_motor = category_src.lower().replace(' ', '')
