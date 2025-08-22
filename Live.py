@@ -78,12 +78,12 @@ COPPA_LOGOS = {
     'Coppa Italia': 'Coppa_Italia.png'
 }
 
-# Loghi campionati nazionali richiesti
+# Loghi campionati nazionali richiesti (chiavi uguali ai nomi normalizzati)
 LEAGUE_LOGOS = {
-    'England - Premier League :': 'Premier_League.png',
-    'Spain - La Liga :': 'Liga.png',
-    'Bundesliga :': 'Bundesliga.png',
-    'France - Ligue 1 :': 'Ligue_1.png',
+    'England - Premier League': 'Premier_League.png',
+    'Spain - Liga': 'Liga.png',
+    'Germany - Bundesliga': 'Bundesliga.png',
+    'France - Ligue 1': 'Ligue_1.png',
 }
 
 # Loghi aggiuntivi (se presenti nel repo loghi)
@@ -122,6 +122,7 @@ TEAM_SPECIAL = {
 }
 
 MATCH_SPLIT_REGEX = re.compile(r'\bvs\b| - ', re.IGNORECASE)
+WOMEN_EVENT_REGEX = re.compile(r"\b(women(?:[’']s)?|femminile|ladies)\b", re.IGNORECASE)
 
 def load_schedule() -> Dict[str, Any]:
     """Scarica SEMPRE il file schedule remoto; nessuna copia locale."""
@@ -225,11 +226,11 @@ def map_category(category_src: str, raw_event: str) -> str | None:
     if category_src == 'Italy - Serie B': return 'serieb'
     if category_src == 'Italy - Serie C': return 'seriec'
     if category_src in COPPA_LOGOS: return 'coppe'
-    # Nuove leghe calcio richieste
-    if category_src == 'England - Premier League :': return 'premierleague'
-    if category_src == 'Spain - La Liga :': return 'liga'
-    if category_src == 'Bundesliga :': return 'bundesliga'
-    if category_src == 'France - Ligue 1 :': return 'ligue1'
+    # Nuove leghe calcio richieste (nomi normalizzati)
+    if category_src == 'England - Premier League': return 'premierleague'
+    if category_src == 'Spain - Liga': return 'liga'
+    if category_src == 'Germany - Bundesliga': return 'bundesliga'
+    if category_src == 'France - Ligue 1': return 'ligue1'
     if category_src == 'Tennis': return 'tennis'
     # Normalizzazione categorie motori ("motor sports", "motorsports", "Motorsport")
     norm_motor = category_src.lower().replace(' ', '')
@@ -293,6 +294,7 @@ INLINE_COMPETITION_PATTERNS = [
     # Nuove leghe inline dentro Soccer
     (re.compile(r'England\s*-\s*Premier League', re.IGNORECASE), 'England - Premier League'),
     (re.compile(r'Spain\s*-\s*Liga', re.IGNORECASE), 'Spain - Liga'),
+    (re.compile(r'Spain\s*-\s*La\s*Liga', re.IGNORECASE), 'Spain - Liga'),
     (re.compile(r'Germany\s*-\s*Bundesliga', re.IGNORECASE), 'Germany - Bundesliga'),
     (re.compile(r'France\s*-\s*Ligue\s*1', re.IGNORECASE), 'France - Ligue 1'),
 ]
@@ -301,6 +303,9 @@ def detect_inline_competition(event_name: str) -> str | None:
     for rx, label in INLINE_COMPETITION_PATTERNS:
         if rx.search(event_name):
             return label
+    # Fallback: se compare solo "Bundesliga" senza paese e non è Austria, mappa a Germania
+    if re.search(r'\bBundesliga\b', event_name, re.IGNORECASE) and not re.search(r'Austria\s*-\s*Bundesliga', event_name, re.IGNORECASE):
+        return 'Germany - Bundesliga'
     return None
 
 def should_include_channel_text(text: str) -> bool:
@@ -337,7 +342,15 @@ def main():
         # Rimuove frammenti HTML come </span> e eventuali tag residui
         c = raw.replace('</span>', '')
         c = re.sub(r'<[^>]+>', '', c)
-        return c.strip()
+        c = c.strip()
+        # Rimuove eventuale suffisso " :" finale
+        c = re.sub(r"\s*:\s*$", '', c)
+        # Normalizzazioni note tra sorgente e target
+        if c == 'Spain - La Liga':
+            c = 'Spain - Liga'
+        if c == 'Bundesliga':
+            c = 'Germany - Bundesliga'
+        return c
 
     debug_categories = {}
 
@@ -371,6 +384,10 @@ def main():
                 mapped_cat = map_category(effective_category_src, raw_event)
                 if not mapped_cat:
                     continue
+                # Escludi eventi femminili per calcio (Serie A/B/C, Coppe, top leghe)
+                if mapped_cat in {'seriea','serieb','seriec','coppe','premierleague','liga','bundesliga','ligue1'}:
+                    if WOMEN_EVENT_REGEX.search(raw_event):
+                        continue
                 time_str = game.get('time', '00:00')
                 start_dt_utc = parse_event_datetime(day, time_str)
                 if pytz and TZ_ROME:
