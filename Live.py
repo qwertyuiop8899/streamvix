@@ -292,6 +292,10 @@ INLINE_COMPETITION_PATTERNS = [
     (re.compile(r'Italy\s*-\s*Serie A', re.IGNORECASE), 'Italy - Serie A'),
     (re.compile(r'Italy\s*-\s*Serie B', re.IGNORECASE), 'Italy - Serie B'),
     (re.compile(r'Italy\s*-\s*Serie C', re.IGNORECASE), 'Italy - Serie C'),
+    # Varianti senza trattino (es. "Italy Serie A/B/C : ...")
+    (re.compile(r'Italy\s+Serie\s*A', re.IGNORECASE), 'Italy - Serie A'),
+    (re.compile(r'Italy\s+Serie\s*B', re.IGNORECASE), 'Italy - Serie B'),
+    (re.compile(r'Italy\s+Serie\s*C', re.IGNORECASE), 'Italy - Serie C'),
     # Nuove leghe inline dentro Soccer
     (re.compile(r'England\s*-\s*Premier League', re.IGNORECASE), 'England - Premier League'),
     (re.compile(r'Spain\s*-\s*Liga', re.IGNORECASE), 'Spain - Liga'),
@@ -349,6 +353,13 @@ def main():
         # Normalizzazioni note tra sorgente e target
         if c == 'Spain - La Liga':
             c = 'Spain - Liga'
+        # Varianti senza trattino: "Italy Serie A/B/C"
+        if re.fullmatch(r'(?i)Italy\s+Serie\s*A', c):
+            c = 'Italy - Serie A'
+        if re.fullmatch(r'(?i)Italy\s+Serie\s*B', c):
+            c = 'Italy - Serie B'
+        if re.fullmatch(r'(?i)Italy\s+Serie\s*C', c):
+            c = 'Italy - Serie C'
         if c == 'Bundesliga':
             c = 'Germany - Bundesliga'
         return c
