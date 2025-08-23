@@ -1559,6 +1559,18 @@
     "category": "sport"
   },
   {
+    "id": "dazn2",
+    "type": "tv",
+    "name": "Dazn 2",
+    "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/DAZN_2.svg/882px-DAZN_2.svg.png",
+    "description": "Dazn 2",
+    "staticUrlMpd": "aHR0cHM6Ly9kY2ItcnctbGl2ZWRhem4uY2RuLm5ldHJ3Lml0LzF4NXZodHl6ZHZjdGUxazhleXMzYjRhdmJ4L3dlYi9zdHJlYW0ubXBkP2NoYW5uZWw9MjM1MyZvdXRsZXQ9ZGF6bi1pdGFseSZwbGFuZz1pdAoma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
+    "epgChannelIds": [
+      "dazn2.it"
+    ],
+    "category": "sport"
+  },
+  {
     "id": "dazn",
     "type": "tv",
     "name": "Dazn",
