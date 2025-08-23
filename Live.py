@@ -106,7 +106,11 @@ MONTHS = {m: i for i, m in enumerate([
     'January','February','March','April','May','June','July','August',
     'September','October','November','December'], start=1)}
 
-TEAM_PREFIXES_REGEX = re.compile(r'^(?:A\.S\.|AS|A\.C\.|AC|SSC|S\.S\.C\.|SS|U\.S\.|US|U\.C\.|UC|F\.C\.|FC)\s+', re.IGNORECASE)
+TEAM_PREFIXES_REGEX = re.compile(
+    r'^(?:A\.S\.|AS|A\.C\.|AC|SSC|S\.S\.C\.|SS|U\.S\.|US|U\.C\.|UC|F\.C\.|FC|'
+    r'S\.S\.D\.|SSD|A\.S\.D\.|ASD|U\.S\.D\.|USD|Virtus)\s+',
+    re.IGNORECASE
+)
 TEAM_CLEAN_WORDS = {"calcio"}
 TEAM_SPECIAL = {
     'internazionale': 'inter',
@@ -118,7 +122,10 @@ TEAM_SPECIAL = {
     'ssc napoli': 'napoli',
     's.s.c. napoli': 'napoli',
     'napoli': 'napoli',
-    'ss lazio': 'lazio'
+    'ss lazio': 'lazio',
+     # aggiunte per loghi Serie B
+    'virtus entella': 'entella',
+    'juve stabia': 'juvestabia'
 }
 
 MATCH_SPLIT_REGEX = re.compile(r'\bvs\b| - ', re.IGNORECASE)
