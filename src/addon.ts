@@ -1140,24 +1140,40 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // Per canali dinamici: niente EPG, mostra solo ora inizio evento
                 if ((channel as any)._dynamic) {
                     const eventStart = (channel as any).eventStart || (channel as any).eventstart; // fallback
-                    const baseDesc = channel.description || '';
-                        const stripTimePrefix = (t: string): string => t.replace(/^\s*([⏰🕒]?\s*)?\d{1,2}[\.:]\d{2}\s*[:\-]\s*/i, '').trim();
-                        if (eventStart) {
-                            try {
-                                const dt = new Date(eventStart);
-                                const hhmm = dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Rome' }).replace(/\./g, ':');
-                                const titleBase = stripTimePrefix(channel.name || '');
-                                // Nome canale nel catalogo: ⏰ HH:MM : Titolo
-                                (channelWithPrefix as any).name = `⏰ ${hhmm} : ${titleBase}`;
-                                // Summary/EPG su una sola riga: 🔴 Inizio: HH:MM - Titolo Italy
-                                channelWithPrefix.description = `🔴 Inizio: ${hhmm} - ${titleBase}${baseDesc ? ` ${baseDesc}` : ''}`.trim();
-                            } catch {
-                                channelWithPrefix.description = baseDesc || channel.name;
-                            }
-                        } else {
-                            // Se manca l'orario, mantieni nome e descrizione originali
-                            channelWithPrefix.description = baseDesc || channel.name;
+                    const stripTimePrefix = (t: string): string => t.replace(/^\s*([⏰🕒]?\s*)?\d{1,2}[\.:]\d{2}\s*[:\-]\s*/i, '').trim();
+                    if (eventStart) {
+                        try {
+                            const dt = new Date(eventStart);
+                            const hhmm = dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Rome' }).replace(/\./g, ':');
+                            const ddmm = (() => {
+                                try { return dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Rome' }); } catch { return ''; }
+                            })();
+                            const rawTitle = stripTimePrefix(channel.name || '');
+                            const parts = rawTitle.split(' - ').map(s => s.trim()).filter(Boolean);
+                            const eventTitle = parts[0] || rawTitle;
+                            // Deriva league + date + country dal resto
+                            let tail = parts.slice(1).join(' - ');
+                            const dateMatch = rawTitle.match(/\b(\d{1,2}\/\d{1,2})\b/);
+                            const dateStr = dateMatch?.[1] || ddmm;
+                            const hasItaly = /\bitaly\b/i.test(rawTitle);
+                            // Rimuovi date/country dal tail per ottenere la lega pulita
+                            let league = tail
+                                .replace(/\b(\d{1,2}\/\d{1,2})\b/gi, '')
+                                .replace(/\bitaly\b/gi, '')
+                                .replace(/\s{2,}/g, ' ')
+                                .replace(/^[-–—\s]+|[-–—\s]+$/g, '')
+                                .trim();
+                            // Titolo canale: Evento ⏰ HH:MM - DD/MM (senza Italy, senza lega)
+                            (channelWithPrefix as any).name = `${eventTitle} ⏰ ${hhmm}${dateStr ? ` - ${dateStr}` : ''}`;
+                            // Summary: 🔴 Inizio: HH:MM - Evento - Lega - DD/MM Italy
+                            channelWithPrefix.description = `🔴 Inizio: ${hhmm} - ${eventTitle}${league ? ` - ${league}` : ''}${dateStr ? ` - ${dateStr}` : ''}${hasItaly ? ' Italy' : ''}`.trim();
+                        } catch {
+                            channelWithPrefix.description = channel.name || '';
                         }
+                    } else {
+                        // Se manca l'orario, mantieni nome e descrizione originali
+                        channelWithPrefix.description = channel.name || '';
+                    }
                 } else if (epgManager) {
                     // Canali tradizionali: EPG
                     try {
@@ -1230,17 +1246,31 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // Meta: canali dinamici senza EPG con ora inizio
                 if ((channel as any)._dynamic) {
                     const eventStart = (channel as any).eventStart || (channel as any).eventstart;
-                    const baseDesc = channel.description || '';
-                    let finalDesc = baseDesc || channel.name;
+                    let finalDesc = channel.name || '';
                     const stripTimePrefix = (t: string): string => t.replace(/^\s*([⏰🕒]?\s*)?\d{1,2}[\.:]\d{2}\s*[:\-]\s*/i, '').trim();
                     if (eventStart) {
                         try {
                             const dt = new Date(eventStart);
                             const hhmm = dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Rome' }).replace(/\./g, ':');
-                            const titleBase = stripTimePrefix(channel.name || '');
-                            // Aggiorna il nome anche in meta per coerenza
-                            (metaWithPrefix as any).name = `⏰ ${hhmm} : ${titleBase}`;
-                            finalDesc = `🔴 Inizio: ${hhmm} - ${titleBase}${baseDesc ? ` ${baseDesc}` : ''}`.trim();
+                            const ddmm = (() => {
+                                try { return dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Rome' }); } catch { return ''; }
+                            })();
+                            const rawTitle = stripTimePrefix(channel.name || '');
+                            const parts = rawTitle.split(' - ').map(s => s.trim()).filter(Boolean);
+                            const eventTitle = parts[0] || rawTitle;
+                            let tail = parts.slice(1).join(' - ');
+                            const dateMatch = rawTitle.match(/\b(\d{1,2}\/\d{1,2})\b/);
+                            const dateStr = dateMatch?.[1] || ddmm;
+                            const hasItaly = /\bitaly\b/i.test(rawTitle);
+                            let league = tail
+                                .replace(/\b(\d{1,2}\/\d{1,2})\b/gi, '')
+                                .replace(/\bitaly\b/gi, '')
+                                .replace(/\s{2,}/g, ' ')
+                                .replace(/^[-–—\s]+|[-–—\s]+$/g, '')
+                                .trim();
+                            // Nome coerente anche nel meta: Evento ⏰ HH:MM - DD/MM
+                            (metaWithPrefix as any).name = `${eventTitle} ⏰ ${hhmm}${dateStr ? ` - ${dateStr}` : ''}`;
+                            finalDesc = `🔴 Inizio: ${hhmm} - ${eventTitle}${league ? ` - ${league}` : ''}${dateStr ? ` - ${dateStr}` : ''}${hasItaly ? ' Italy' : ''}`.trim();
                         } catch {/* ignore */}
                     }
                     (metaWithPrefix as any).description = finalDesc;
@@ -1891,7 +1921,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     // Se già gestito come evento dinamico, salta Vavoo/TVTap e ritorna subito
                     if (dynamicHandled) {
-            for (const s of streams) {
+                        for (const s of streams) {
                             // Support special marker '#headers#<b64json>' to attach headers properly
                             const marker = '#headers#';
                             if (s.url.includes(marker)) {
@@ -1900,7 +1930,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 try { hdrs = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch {}
                 allStreams.push({ name: 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                             } else {
-                                allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
+                                // Fallback: if this looks like a clean Vavoo sunshine URL and title starts with '➡️ V', attach default headers
+                                const looksVavoo = /\b(sunshine|hls\/index\.m3u8)\b/.test(s.url) && !/\bproxy\/hls\//.test(s.url);
+                                if (/^➡️\s*V/.test(s.title) && looksVavoo) {
+                                    const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
+                                    allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
+                                } else {
+                                    allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
+                                }
                             }
                         }
                         console.log(`✅ Returning ${allStreams.length} dynamic event streams`);
@@ -1996,15 +2033,21 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
                     // Dopo aver popolato streams (nella logica TV):
-            for (const s of streams) {
+                    for (const s of streams) {
                         const marker = '#headers#';
                         if (s.url.includes(marker)) {
                             const [pureUrl, b64] = s.url.split(marker);
                             let hdrs: Record<string, string> | undefined;
                             try { hdrs = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch {}
-                allStreams.push({ name: 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
+                            allStreams.push({ name: 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                         } else {
-                            allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
+                            const looksVavoo = /\b(sunshine|hls\/index\.m3u8)\b/.test(s.url) && !/\bproxy\/hls\//.test(s.url);
+                            if (/^➡️\s*V/.test(s.title) && looksVavoo) {
+                                const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
+                                allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
+                            } else {
+                                allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
+                            }
                         }
                     }
 
