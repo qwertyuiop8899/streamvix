@@ -1663,7 +1663,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         const clean = await resolveVavooCleanUrl(vUrl, clientIp);
                                         if (clean && clean.url) {
                                             vdbg('Alias clean resolved', { alias, url: clean.url.substring(0, 140) });
-                                            const title2 = `🏠 ${alias} (Vavoo)`;
+                                            const title2 = `${alias} [ITA]`;
                                             // stash headers via behaviorHints when pushing later
                                             streams.unshift({ url: clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64'), title: title2 });
                                         }
@@ -2059,7 +2059,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     try {
                                         const clean = await resolveVavooCleanUrl(url, clientIp);
                                         if (clean && clean.url) {
-                                            const title = `🏠 ${channel.name} (Vavoo)`;
+                                            const title = `[🏠 V-${idx + 1}] ${channel.name} [ITA]`;
                                             const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
                                             vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
                                         }
@@ -2097,7 +2097,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         try {
                                             const clean = await resolveVavooCleanUrl(url, clientIp);
                                             if (clean && clean.url) {
-                                                const title = `🏠 ${channel.name} (Vavoo)`;
+                                                const title = `[🏠 V-${idx + 1}] ${channel.name} [ITA]`;
                                                 const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
                                                 vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
                                             }
@@ -2115,35 +2115,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     // Se già gestito come evento dinamico, salta Vavoo/TVTap e ritorna subito
                     if (dynamicHandled) {
-                        // Reorder: direct non-MFP first, then Vavoo house, then Italian, then others
-                        const pure = (u: string) => {
-                            const marker = '#headers#';
-                            if (!u) return u;
-                            return u.includes(marker) ? u.split(marker)[0] : u;
-                        };
-                        const isDirectNonMfp = (u?: string) => {
-                            if (!u) return false;
-                            const p = pure(u);
-                            if (!/^https?:/i.test(p)) return false;
-                            if (mfpUrl && p.startsWith(mfpUrl)) return false;
-                            if (/\bproxy\//i.test(p)) return false;
-                            if (/\/extractor\/video\?/i.test(p)) return false;
-                            return true;
-                        };
-                        const rank = (s: { url: string; title?: string }, idx: number): [number, number] => {
-                            if (isDirectNonMfp(s.url)) return [0, idx];
-                            const t = s.title || '';
-                            const isVavoo = /^\s*🏠\s/i.test(t) || /\(Vavoo\)/i.test(t);
-                            if (isVavoo) return [1, idx];
-                            const isIta = /^\s*🇮🇹/.test(t) || /\b(it|ita|italy|italia|italian|italiano|sky|rai|dazn|eurosport|now)\b/i.test(t);
-                            return [isIta ? 2 : 3, idx];
-                        };
-                        const sorted = streams
-                            .filter(s => !/\/extractor\/video\?/i.test(s.url))
-                            .map((s, i) => ({ s, key: rank(s, i) }))
-                            .sort((a, b) => (a.key[0] - b.key[0]) || (a.key[1] - b.key[1]))
-                            .map(x => x.s);
-                        for (const s of sorted) {
+                        for (const s of streams) {
+                            // Skip any remaining MFP extractor links entirely
+                            if (/\/extractor\/video\?/i.test(s.url)) {
+                                debugLog('[DynamicStreams] Skipping extractor/video URL in dynamicHandled emit:', s.url);
+                                continue;
+                            }
                             // Support special marker '#headers#<b64json>' to attach headers properly
                             const marker = '#headers#';
                             if (s.url.includes(marker)) {
@@ -2263,40 +2240,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const u = vavooFoundUrls[i];
                                 const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
                                 const urlWithHeaders = u + `#headers#` + Buffer.from(JSON.stringify(hdrs)).toString('base64');
-                streams.unshift({ title: `🏠 ${channel.name} (Vavoo)`, url: urlWithHeaders });
+                streams.unshift({ title: `[🏠 V-${i + 1}] ${channel.name} [ITA]`, url: urlWithHeaders });
                             }
                         }
                     }
                     // Dopo aver popolato streams (nella logica TV):
-                    // Reorder: direct non-MFP first, then Vavoo house, then Italian, then others
-                    const pureFinal = (u: string) => {
-                        const marker = '#headers#';
-                        if (!u) return u;
-                        return u.includes(marker) ? u.split(marker)[0] : u;
-                    };
-                    const isDirectNonMfpFinal = (u?: string) => {
-                        if (!u) return false;
-                        const p = pureFinal(u);
-                        if (!/^https?:/i.test(p)) return false;
-                        if (mfpUrl && p.startsWith(mfpUrl)) return false;
-                        if (/\bproxy\//i.test(p)) return false;
-                        if (/\/extractor\/video\?/i.test(p)) return false;
-                        return true;
-                    };
-                    const rankFinal = (s: { url: string; title?: string }, idx: number): [number, number] => {
-                        if (isDirectNonMfpFinal(s.url)) return [0, idx];
-                        const t = s.title || '';
-                        const isVavoo = /^\s*🏠\s/i.test(t) || /\(Vavoo\)/i.test(t);
-                        if (isVavoo) return [1, idx];
-                        const isIta = /^\s*🇮🇹/.test(t) || /\b(it|ita|italy|italia|italian|italiano|sky|rai|dazn|eurosport|now)\b/i.test(t);
-                        return [isIta ? 2 : 3, idx];
-                    };
-                    const sortedFinal = streams
-                        .filter(s => !/\/extractor\/video\?/i.test(s.url))
-                        .map((s, i) => ({ s, key: rankFinal(s, i) }))
-                        .sort((a, b) => (a.key[0] - b.key[0]) || (a.key[1] - b.key[1]))
-                        .map(x => x.s);
-                    for (const s of sortedFinal) {
+                    for (const s of streams) {
                         // Drop any extractor/video links
                         if (/\/extractor\/video\?/i.test(s.url)) {
                             debugLog('[Streams] Skipping extractor/video URL in final emit:', s.url);
