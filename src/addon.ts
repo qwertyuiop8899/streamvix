@@ -78,6 +78,16 @@ const VAVOO_FORCE_SERVER_IP: boolean = (() => {
     } catch { return true; }
 })();
 
+// New: set only ipLocation in ping body to the observed client IP, but DO NOT forward headers
+// This keeps transport on server IP while letting Vavoo embed the client IP in addonSig
+const VAVOO_SET_IPLOCATION_ONLY: boolean = (() => {
+    try {
+        const v = (process && process.env && process.env.VAVOO_SET_IPLOCATION_ONLY) ? String(process.env.VAVOO_SET_IPLOCATION_ONLY).toLowerCase() : '';
+    if (!v) return true; // default ON
+        return !(v === '0' || v === 'false' || v === 'off');
+    } catch { return false; }
+})();
+
 // Optional: allow full signature logging. Default NOW is FULL (no masking) as requested.
 // You can disable with VAVOO_LOG_SIG_FULL=0 (or 'false'/'off').
 const VAVOO_LOG_SIG_FULL: boolean = (() => {
@@ -282,13 +292,13 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             process: 'app',
             firstAppStart: Date.now(),
             lastAppStart: Date.now(),
-            ipLocation: VAVOO_FORCE_SERVER_IP ? '' : (clientIp || ''),
+            ipLocation: (clientIp && (!VAVOO_FORCE_SERVER_IP || VAVOO_SET_IPLOCATION_ONLY)) ? clientIp : '',
             adblockEnabled: true,
             proxy: { supported: ['ss','openvpn'], engine: 'ss', ssVersion: 1, enabled: true, autoServer: true, id: 'de-fra' },
             iap: { supported: false }
         } as any;
         const pingHeaders: Record<string, string> = { 'user-agent': 'okhttp/4.11.0', 'accept': 'application/json', 'content-type': 'application/json; charset=utf-8', 'accept-encoding': 'gzip' };
-        if (clientIp && !VAVOO_FORCE_SERVER_IP) {
+    if (clientIp && !VAVOO_FORCE_SERVER_IP) {
             pingHeaders['x-forwarded-for'] = clientIp;
             pingHeaders['x-real-ip'] = clientIp;
             pingHeaders['cf-connecting-ip'] = clientIp;
@@ -298,8 +308,10 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             pingHeaders['x-client-ip'] = clientIp;        // Legacy
             vdbg('Ping will forward client IP', { xff: clientIp, ipLocation: pingBody.ipLocation });
         } else {
-            if (clientIp) {
-                vdbg('Ping forced to use SERVER IP (no forwarding headers added). Observed client IP present but NOT used.', { observedClientIp: clientIp });
+            if (clientIp && VAVOO_SET_IPLOCATION_ONLY) {
+                vdbg('Ping ipLocation-only mode: set ipLocation to observed client IP, but using SERVER IP for transport (no forwarding headers).', { observedClientIp: clientIp });
+            } else if (clientIp) {
+                vdbg('Ping forced to use SERVER IP (no forwarding headers). Observed client IP present but NOT used.', { observedClientIp: clientIp });
             } else {
                 vdbg('Ping will use SERVER IP (no client IP observed)');
             }
@@ -320,15 +332,45 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             return null;
         }
     const pingJson = await pingRes.json();
-    const addonSig = pingJson?.addonSig;
+    let addonSig = pingJson?.addonSig as string;
         if (!addonSig) {
             vdbg('Ping OK but addonSig missing. Payload keys:', Object.keys(pingJson || {}));
             return null;
         }
     vdbg('Ping OK, addonSig len:', String(addonSig).length);
-    // Show signature preview in logs (masked by default, full only if explicitly enabled)
+    // Show signature in logs (full by default unless disabled)
     const sigPreview = VAVOO_LOG_SIG_FULL ? String(addonSig) : maskSig(String(addonSig));
     vdbg('Ping OK, addonSig preview:', sigPreview);
+    // Decode and REWRITE addonSig: replace ips with client IP, then re-encode (per user request)
+    try {
+        const decoded = Buffer.from(String(addonSig), 'base64').toString('utf8');
+        vdbg('addonSig base64 decoded (truncated):', decoded.substring(0, 500));
+        let sigObj: any = null;
+        try { sigObj = JSON.parse(decoded); } catch {}
+        if (sigObj) {
+            let dataObj: any = {};
+            try { dataObj = JSON.parse(sigObj?.data || '{}'); } catch {}
+            const currentIps = Array.isArray(dataObj.ips) ? dataObj.ips : [];
+            vdbg('addonSig.data ips (before):', currentIps);
+            if (clientIp) {
+                // Rewrite IPs to prioritize the observed client IP
+                const newIps = [clientIp, ...currentIps.filter((x: any) => x && x !== clientIp)];
+                dataObj.ips = newIps;
+                if (typeof dataObj.ip === 'string') dataObj.ip = clientIp;
+                try {
+                    sigObj.data = JSON.stringify(dataObj);
+                    const reencoded = Buffer.from(JSON.stringify(sigObj), 'utf8').toString('base64');
+                    vdbg('addonSig REWRITTEN with client IP', { oldLen: String(addonSig).length, newLen: String(reencoded).length });
+                    vdbg('addonSig.data ips (after):', newIps);
+                    addonSig = reencoded;
+                } catch (e) {
+                    vdbg('addonSig rewrite failed, will use original signature', String(e));
+                }
+            } else {
+                vdbg('No client IP observed, addonSig not rewritten');
+            }
+        }
+    } catch {}
 
         const controller2 = new AbortController();
         const to2 = setTimeout(() => {
