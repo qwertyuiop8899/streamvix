@@ -139,12 +139,7 @@ function getClientIpFromReq(req: any): string | null {
 async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | null): Promise<{ url: string; headers: Record<string, string> } | null> {
     try {
         if (!vavooPlayUrl || !vavooPlayUrl.includes('vavoo.to')) return null;
-        const key = `${clientIp || 'noip'}|${vavooPlayUrl}`;
-        const now = Date.now();
-        const cached = vavooCleanCache.get(key);
-        if (cached && (now - cached.ts) < VAVOO_CLEAN_TTL_MS) {
-            return { url: cached.url, headers: { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } };
-        }
+    // No cache: always resolve per request using the requester IP
 
         const controller = new AbortController();
         const to = setTimeout(() => controller.abort(), 12000);
@@ -175,9 +170,15 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             proxy: { supported: ['ss','openvpn'], engine: 'ss', ssVersion: 1, enabled: true, autoServer: true, id: 'de-fra' },
             iap: { supported: false }
         } as any;
+        const pingHeaders: Record<string, string> = { 'user-agent': 'okhttp/4.11.0', 'accept': 'application/json', 'content-type': 'application/json; charset=utf-8', 'accept-encoding': 'gzip' };
+        if (clientIp) {
+            pingHeaders['x-forwarded-for'] = clientIp;
+            pingHeaders['x-real-ip'] = clientIp;
+            pingHeaders['cf-connecting-ip'] = clientIp;
+        }
         const pingRes = await fetch('https://www.vavoo.tv/api/app/ping', {
             method: 'POST',
-            headers: { 'user-agent': 'okhttp/4.11.0', 'accept': 'application/json', 'content-type': 'application/json; charset=utf-8', 'accept-encoding': 'gzip' },
+            headers: pingHeaders,
             body: JSON.stringify(pingBody),
             signal: controller.signal
         } as any);
@@ -189,9 +190,15 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
 
         const controller2 = new AbortController();
         const to2 = setTimeout(() => controller2.abort(), 12000);
+        const resolveHeaders: Record<string, string> = { 'user-agent': 'MediaHubMX/2', 'accept': 'application/json', 'content-type': 'application/json; charset=utf-8', 'accept-encoding': 'gzip', 'mediahubmx-signature': addonSig };
+        if (clientIp) {
+            resolveHeaders['x-forwarded-for'] = clientIp;
+            resolveHeaders['x-real-ip'] = clientIp;
+            resolveHeaders['cf-connecting-ip'] = clientIp;
+        }
         const resolveRes = await fetch('https://vavoo.to/mediahubmx-resolve.json', {
             method: 'POST',
-            headers: { 'user-agent': 'MediaHubMX/2', 'accept': 'application/json', 'content-type': 'application/json; charset=utf-8', 'accept-encoding': 'gzip', 'mediahubmx-signature': addonSig },
+            headers: resolveHeaders,
             body: JSON.stringify({ language: 'de', region: 'AT', url: vavooPlayUrl, clientVersion: '3.1.21' }),
             signal: controller2.signal
         } as any);
@@ -202,7 +209,6 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
         if (Array.isArray(resolveJson) && resolveJson.length && resolveJson[0]?.url) resolved = String(resolveJson[0].url);
         else if (resolveJson && typeof resolveJson === 'object' && resolveJson.url) resolved = String(resolveJson.url);
         if (!resolved) return null;
-        vavooCleanCache.set(key, { url: resolved, ts: now });
         return { url: resolved, headers: { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } };
     } catch (e) {
         console.error('[VAVOO] Clean resolve failed:', (e as any)?.message || e);
