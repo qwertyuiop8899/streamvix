@@ -483,15 +483,32 @@ def find_vavoo_alias_for_channel_name(ch_name: str) -> str | None:
     return None
 
 def add_vavoo_streams_if_any(streams: List[Dict[str, Any]], candidate_names: List[str]) -> List[Dict[str, Any]]:
-    added: set[str] = set()
+    """Ensure a Vavoo entry is present and placed first if we can detect an alias.
+    - Prepends a single Vavoo candidate as: {'url': 'vavoo://<alias>', 'title': '🏠 <alias> (Vavoo)'}
+    - Keeps existing order for other streams.
+    """
     out = list(streams)
+    # Avoid duplicating if already present
+    already_has_vavoo = any(isinstance(s, dict) and str(s.get('url','')).startswith('vavoo://') for s in out)
+    if already_has_vavoo:
+        # If present, move the first Vavoo entry to the front and adjust title
+        for i, s in enumerate(out):
+            if isinstance(s, dict) and str(s.get('url','')).startswith('vavoo://'):
+                alias = s.get('title') or s.get('url','vavoo://').split('vavoo://')[-1]
+                s['title'] = f"🏠 {alias.replace(' (Vavoo)','').strip()} (Vavoo)"
+                if i != 0:
+                    out.insert(0, out.pop(i))
+                return out
+        return out
+    # Try to detect alias from candidate names
     for name in candidate_names:
         if not name or not _is_italian_channel_name(name):
             continue
         alias = find_vavoo_alias_for_channel_name(name)
-        if alias and alias not in added:
-            out.append({'url': f'vavoo://{alias}', 'title': f'{alias} (Vavoo)'})
-            added.add(alias)
+        if alias:
+            # Prepend Vavoo entry
+            out.insert(0, {'url': f'vavoo://{alias}', 'title': f'🏠 {alias} (Vavoo)'})
+            break
     return out
 
 def build_event_id(name: str, start_dt: datetime.datetime) -> str:
