@@ -1826,7 +1826,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     try {
                                         const clean = await resolveVavooCleanUrl(url, clientIp);
                                         if (clean && clean.url) {
-                                            const title = `➡️ V-${idx + 1} ${channel.name} [ITA]`;
+                                            const title = `[➡️ V-${idx + 1}] ${channel.name} [ITA]`;
                                             const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
                                             vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
                                         }
@@ -1876,14 +1876,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     // Se già gestito come evento dinamico, salta Vavoo/TVTap e ritorna subito
                     if (dynamicHandled) {
-                        for (const s of streams) {
+            for (const s of streams) {
                             // Support special marker '#headers#<b64json>' to attach headers properly
                             const marker = '#headers#';
                             if (s.url.includes(marker)) {
                                 const [pureUrl, b64] = s.url.split(marker);
                                 let hdrs: Record<string, string> | undefined;
                                 try { hdrs = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch {}
-                                allStreams.push({ name: 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {} } as any });
+                allStreams.push({ name: 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                             } else {
                                 allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
                             }
@@ -1981,13 +1981,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
                     // Dopo aver popolato streams (nella logica TV):
-                    for (const s of streams) {
+            for (const s of streams) {
                         const marker = '#headers#';
                         if (s.url.includes(marker)) {
                             const [pureUrl, b64] = s.url.split(marker);
                             let hdrs: Record<string, string> | undefined;
                             try { hdrs = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch {}
-                            allStreams.push({ name: 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {} } as any });
+                allStreams.push({ name: 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                         } else {
                             allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
                         }
