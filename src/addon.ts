@@ -2115,12 +2115,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     // Se già gestito come evento dinamico, salta Vavoo/TVTap e ritorna subito
                     if (dynamicHandled) {
-                        for (const s of streams) {
-                            // Skip any remaining MFP extractor links entirely
-                            if (/\/extractor\/video\?/i.test(s.url)) {
-                                debugLog('[DynamicStreams] Skipping extractor/video URL in dynamicHandled emit:', s.url);
-                                continue;
-                            }
+                        // Reorder: Vavoo clean first, then Italian, then others
+                        const rank = (t: string): number => {
+                            const isVavoo = /^\s*🏠\s/i.test(t) || /\(Vavoo\)/i.test(t);
+                            if (isVavoo) return 0;
+                            const isIta = /^\s*🇮🇹/.test(t) || /\b(it|ita|italy|italia|italian|italiano|sky|rai|dazn|eurosport|now)\b/i.test(t);
+                            return isIta ? 1 : 2;
+                        };
+                        const sorted = streams
+                            .filter(s => !/\/extractor\/video\?/i.test(s.url))
+                            .map((s, i) => ({ s, i, r: rank(s.title || '') }))
+                            .sort((a, b) => (a.r - b.r) || (a.i - b.i))
+                            .map(x => x.s);
+                        for (const s of sorted) {
                             // Support special marker '#headers#<b64json>' to attach headers properly
                             const marker = '#headers#';
                             if (s.url.includes(marker)) {
@@ -2245,7 +2252,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
                     // Dopo aver popolato streams (nella logica TV):
-                    for (const s of streams) {
+                    // Reorder: Vavoo clean first, then Italian, then others
+                    const rankFinal = (t: string): number => {
+                        const isVavoo = /^\s*🏠\s/i.test(t) || /\(Vavoo\)/i.test(t);
+                        if (isVavoo) return 0;
+                        const isIta = /^\s*🇮🇹/.test(t) || /\b(it|ita|italy|italia|italian|italiano|sky|rai|dazn|eurosport|now)\b/i.test(t);
+                        return isIta ? 1 : 2;
+                    };
+                    const sortedFinal = streams
+                        .filter(s => !/\/extractor\/video\?/i.test(s.url))
+                        .map((s, i) => ({ s, i, r: rankFinal(s.title || '') }))
+                        .sort((a, b) => (a.r - b.r) || (a.i - b.i))
+                        .map(x => x.s);
+                    for (const s of sortedFinal) {
                         // Drop any extractor/video links
                         if (/\/extractor\/video\?/i.test(s.url)) {
                             debugLog('[Streams] Skipping extractor/video URL in final emit:', s.url);
