@@ -78,9 +78,17 @@ const VAVOO_FORCE_SERVER_IP: boolean = (() => {
     } catch { return true; }
 })();
 
-// Optional: allow full signature logging (DANGEROUS). Default logs are masked.
-// Enable full logging with env: VAVOO_LOG_SIG_FULL=1
-const VAVOO_LOG_SIG_FULL: boolean = !!(process && process.env && (process.env.VAVOO_LOG_SIG_FULL === '1'));
+// Optional: allow full signature logging. Default NOW is FULL (no masking) as requested.
+// You can disable with VAVOO_LOG_SIG_FULL=0 (or 'false'/'off').
+const VAVOO_LOG_SIG_FULL: boolean = (() => {
+    try {
+        const env = (process && process.env) ? process.env : {} as any;
+        const v = (env.VAVOO_LOG_SIG_FULL || '').toString().trim().toLowerCase();
+        if (v === '0' || v === 'false' || v === 'off') return false;
+        if (v === '1' || v === 'true' || v === 'on') return true;
+        return true; // default ON -> full signature in logs (no masking)
+    } catch { return true; }
+})();
 
 function maskSig(sig: string, keepStart = 12, keepEnd = 6): string {
     try {
@@ -290,8 +298,11 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             pingHeaders['x-client-ip'] = clientIp;        // Legacy
             vdbg('Ping will forward client IP', { xff: clientIp, ipLocation: pingBody.ipLocation });
         } else {
-            vdbg('Ping forced to use SERVER IP (no forwarding headers added)');
-            vdbg('Ping has no client IP available; using server defaults');
+            if (clientIp) {
+                vdbg('Ping forced to use SERVER IP (no forwarding headers added). Observed client IP present but NOT used.', { observedClientIp: clientIp });
+            } else {
+                vdbg('Ping will use SERVER IP (no client IP observed)');
+            }
         }
         vdbg('Ping POST https://www.vavoo.tv/api/app/ping', { ipLocation: pingBody.ipLocation });
         const pingRes = await fetch('https://www.vavoo.tv/api/app/ping', {
@@ -335,8 +346,11 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             resolveHeaders['x-client-ip'] = clientIp;        // Legacy
             vdbg('Resolve will forward client IP', { xff: clientIp, addonSigLen: String(addonSig).length });
         } else {
-            vdbg('Resolve forced to use SERVER IP (no forwarding headers added)', { addonSigLen: String(addonSig).length });
-            vdbg('Resolve has no client IP available; using server defaults', { addonSigLen: String(addonSig).length });
+            if (clientIp) {
+                vdbg('Resolve forced to use SERVER IP (no forwarding headers added). Observed client IP present but NOT used.', { addonSigLen: String(addonSig).length, observedClientIp: clientIp });
+            } else {
+                vdbg('Resolve will use SERVER IP (no client IP observed)', { addonSigLen: String(addonSig).length });
+            }
         }
     // Log the signature being sent to resolve (masked by default)
     vdbg('Resolve using signature:', VAVOO_LOG_SIG_FULL ? String(addonSig) : maskSig(String(addonSig)));
