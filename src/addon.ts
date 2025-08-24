@@ -45,8 +45,20 @@ function debugLog(...args: any[]) {
     }
 }
 
-// VAVOO debug switch (enable with env: VAVOO_DEBUG=1 or DEBUG_VAVOO=1)
-const VAVOO_DEBUG: boolean = !!(process && process.env && (process.env.VAVOO_DEBUG === '1' || process.env.DEBUG_VAVOO === '1'));
+// VAVOO debug switch
+// Now ENABLED by default. You can disable with VAVOO_DEBUG=0 or DEBUG_VAVOO=0.
+// Set to '1'/'true' to force enable, '0'/'false' to force disable.
+const VAVOO_DEBUG: boolean = (() => {
+    try {
+        const env = (process && process.env) ? process.env : {} as any;
+        const norm = (v?: string) => (v || '').toString().trim().toLowerCase();
+        const v1 = norm(env.VAVOO_DEBUG);
+        const v2 = norm(env.DEBUG_VAVOO);
+        if (v1) return !(v1 === '0' || v1 === 'false' || v1 === 'off');
+        if (v2) return !(v2 === '0' || v2 === 'false' || v2 === 'off');
+        return true; // default ON
+    } catch { return true; }
+})();
 function vdbg(...args: any[]) {
     if (!VAVOO_DEBUG) return;
     try { console.log('[VAVOO-DEBUG]', ...args); } catch { /* ignore */ }
@@ -346,7 +358,7 @@ function decodeStaticUrl(url: string): string {
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "5.3.23",
+    version: "5.3.2",
     name: "StreamViX",
     description: "Addon for Vixsrc, Anime providers and Live TV.",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
