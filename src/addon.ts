@@ -2115,17 +2115,33 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     // Se già gestito come evento dinamico, salta Vavoo/TVTap e ritorna subito
                     if (dynamicHandled) {
-                        // Reorder: Vavoo clean first, then Italian, then others
-                        const rank = (t: string): number => {
+                        // Reorder: direct non-MFP first, then Vavoo house, then Italian, then others
+                        const pure = (u: string) => {
+                            const marker = '#headers#';
+                            if (!u) return u;
+                            return u.includes(marker) ? u.split(marker)[0] : u;
+                        };
+                        const isDirectNonMfp = (u?: string) => {
+                            if (!u) return false;
+                            const p = pure(u);
+                            if (!/^https?:/i.test(p)) return false;
+                            if (mfpUrl && p.startsWith(mfpUrl)) return false;
+                            if (/\bproxy\//i.test(p)) return false;
+                            if (/\/extractor\/video\?/i.test(p)) return false;
+                            return true;
+                        };
+                        const rank = (s: { url: string; title?: string }, idx: number): [number, number] => {
+                            if (isDirectNonMfp(s.url)) return [0, idx];
+                            const t = s.title || '';
                             const isVavoo = /^\s*🏠\s/i.test(t) || /\(Vavoo\)/i.test(t);
-                            if (isVavoo) return 0;
+                            if (isVavoo) return [1, idx];
                             const isIta = /^\s*🇮🇹/.test(t) || /\b(it|ita|italy|italia|italian|italiano|sky|rai|dazn|eurosport|now)\b/i.test(t);
-                            return isIta ? 1 : 2;
+                            return [isIta ? 2 : 3, idx];
                         };
                         const sorted = streams
                             .filter(s => !/\/extractor\/video\?/i.test(s.url))
-                            .map((s, i) => ({ s, i, r: rank(s.title || '') }))
-                            .sort((a, b) => (a.r - b.r) || (a.i - b.i))
+                            .map((s, i) => ({ s, key: rank(s, i) }))
+                            .sort((a, b) => (a.key[0] - b.key[0]) || (a.key[1] - b.key[1]))
                             .map(x => x.s);
                         for (const s of sorted) {
                             // Support special marker '#headers#<b64json>' to attach headers properly
@@ -2252,17 +2268,33 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
                     // Dopo aver popolato streams (nella logica TV):
-                    // Reorder: Vavoo clean first, then Italian, then others
-                    const rankFinal = (t: string): number => {
+                    // Reorder: direct non-MFP first, then Vavoo house, then Italian, then others
+                    const pureFinal = (u: string) => {
+                        const marker = '#headers#';
+                        if (!u) return u;
+                        return u.includes(marker) ? u.split(marker)[0] : u;
+                    };
+                    const isDirectNonMfpFinal = (u?: string) => {
+                        if (!u) return false;
+                        const p = pureFinal(u);
+                        if (!/^https?:/i.test(p)) return false;
+                        if (mfpUrl && p.startsWith(mfpUrl)) return false;
+                        if (/\bproxy\//i.test(p)) return false;
+                        if (/\/extractor\/video\?/i.test(p)) return false;
+                        return true;
+                    };
+                    const rankFinal = (s: { url: string; title?: string }, idx: number): [number, number] => {
+                        if (isDirectNonMfpFinal(s.url)) return [0, idx];
+                        const t = s.title || '';
                         const isVavoo = /^\s*🏠\s/i.test(t) || /\(Vavoo\)/i.test(t);
-                        if (isVavoo) return 0;
+                        if (isVavoo) return [1, idx];
                         const isIta = /^\s*🇮🇹/.test(t) || /\b(it|ita|italy|italia|italian|italiano|sky|rai|dazn|eurosport|now)\b/i.test(t);
-                        return isIta ? 1 : 2;
+                        return [isIta ? 2 : 3, idx];
                     };
                     const sortedFinal = streams
                         .filter(s => !/\/extractor\/video\?/i.test(s.url))
-                        .map((s, i) => ({ s, i, r: rankFinal(s.title || '') }))
-                        .sort((a, b) => (a.r - b.r) || (a.i - b.i))
+                        .map((s, i) => ({ s, key: rankFinal(s, i) }))
+                        .sort((a, b) => (a.key[0] - b.key[0]) || (a.key[1] - b.key[1]))
                         .map(x => x.s);
                     for (const s of sortedFinal) {
                         // Drop any extractor/video links
