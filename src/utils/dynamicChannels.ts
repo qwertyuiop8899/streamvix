@@ -57,26 +57,53 @@ const KEEP_YESTERDAY: boolean = (() => {
 })();
 
 function resolveDynamicFile(): string {
-  // Cerca in possibili posizioni (support legacy nested config/config)
+  // 1) Env override
+  try {
+    const envPath = (process?.env?.DYNAMIC_FILE || '').toString().trim();
+    if (envPath) {
+      if (fs.existsSync(envPath)) {
+        try { console.log('[DynamicChannels] Path da DYNAMIC_FILE:', envPath); } catch {}
+        return envPath;
+      } else {
+        try { console.warn('[DynamicChannels] DYNAMIC_FILE settato ma non esiste:', envPath); } catch {}
+      }
+    }
+  } catch {}
+
+  // 2) Cerca in possibili posizioni (support legacy nested config/config)
   const candidates = [
     // Dev (ts-node src/...): __dirname ~ src/utils -> ../../config => root/config (OK)
     path.resolve(__dirname, '../../config/dynamic_channels.json'),
-    // Dist (addon.js compilato in dist/, utils in dist/utils): usare ../config -> dist/../config => root/config
-    path.resolve(__dirname, '../config/dynamic_channels.json'),
-    // Some builds may flatten further; try single up level from dist root
+    // Dist (addon.js compilato in dist/, utils in dist/utils): usare ../../../config -> root/config
     path.resolve(__dirname, '../../../config/dynamic_channels.json'),
-    // Nested legacy path
+    // Dist variant: ../config from dist root
+    path.resolve(__dirname, '../config/dynamic_channels.json'),
+    // Nested legacy path (avoid but fallback)
     path.resolve(__dirname, '../../config/config/dynamic_channels.json'),
     // CWD fallback (eseguito da root progetto)
     path.resolve(process.cwd(), 'config/dynamic_channels.json')
   ];
+
+  // Filtra esistenti e raccogli dimensioni; preferisci quello più grande e non in /config/config/
+  const existing: { p: string; size: number; nested: boolean }[] = [];
   for (const p of candidates) {
     try {
       if (fs.existsSync(p)) {
-        try { console.log('[DynamicChannels] Path selezionato:', p); } catch {}
-        return p;
+        let size = 0;
+        try { size = fs.statSync(p).size || 0; } catch {}
+        existing.push({ p, size, nested: /\/(^|.*\/)config\/config\//.test(p) || p.includes(path.sep + 'config' + path.sep + 'config' + path.sep) });
       }
     } catch {}
+  }
+  if (existing.length) {
+    // Ordina: non-nested prima, poi size desc
+    existing.sort((a, b) => {
+      if (a.nested !== b.nested) return a.nested ? 1 : -1;
+      return b.size - a.size;
+    });
+    const chosen = existing[0];
+    try { console.log('[DynamicChannels] Path selezionato:', chosen.p, 'size=', chosen.size, 'nested=', chosen.nested); } catch {}
+    return chosen.p;
   }
   try { console.warn('[DynamicChannels] dynamic_channels.json non trovato in nessuno dei path candidati, uso primo fallback:', candidates[0]); } catch {}
   return candidates[0]; // fallback
