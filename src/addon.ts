@@ -1663,7 +1663,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         const clean = await resolveVavooCleanUrl(vUrl, clientIp);
                                         if (clean && clean.url) {
                                             vdbg('Alias clean resolved', { alias, url: clean.url.substring(0, 140) });
-                                            const title2 = `${alias} [ITA]`;
+                                            const title2 = `🏠 ${alias} (Vavoo)`;
                                             // stash headers via behaviorHints when pushing later
                                             streams.unshift({ url: clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64'), title: title2 });
                                         }
@@ -2059,7 +2059,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     try {
                                         const clean = await resolveVavooCleanUrl(url, clientIp);
                                         if (clean && clean.url) {
-                                            const title = `[🏠 V-${idx + 1}] ${channel.name} [ITA]`;
+                                            const title = `🏠 ${channel.name} (Vavoo)`;
                                             const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
                                             vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
                                         }
@@ -2097,7 +2097,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         try {
                                             const clean = await resolveVavooCleanUrl(url, clientIp);
                                             if (clean && clean.url) {
-                                                const title = `[🏠 V-${idx + 1}] ${channel.name} [ITA]`;
+                                                const title = `🏠 ${channel.name} (Vavoo)`;
                                                 const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
                                                 vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
                                             }
@@ -2240,7 +2240,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const u = vavooFoundUrls[i];
                                 const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
                                 const urlWithHeaders = u + `#headers#` + Buffer.from(JSON.stringify(hdrs)).toString('base64');
-                streams.unshift({ title: `[🏠 V-${i + 1}] ${channel.name} [ITA]`, url: urlWithHeaders });
+                streams.unshift({ title: `🏠 ${channel.name} (Vavoo)`, url: urlWithHeaders });
                             }
                         }
                     }
