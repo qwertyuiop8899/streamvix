@@ -678,3 +678,11 @@ def add_vavoo_channels_if_any(channels: list[dict]) -> list[dict]:
 
 # Esempio d'uso:
 # event['channels'] = add_vavoo_channels_if_any(event['channels'])
+
+if __name__ == '__main__':
+    # Esegui lo script se invocato direttamente
+    try:
+        main()
+    except Exception as e:
+        # Garantisce che eventuali errori non passino silenziosi
+        print(f"Errore esecuzione Live.py: {e}")
