@@ -45,6 +45,35 @@ function debugLog(...args: any[]) {
     }
 }
 
+// VAVOO debug switch (enable with env: VAVOO_DEBUG=1 or DEBUG_VAVOO=1)
+const VAVOO_DEBUG: boolean = !!(process && process.env && (process.env.VAVOO_DEBUG === '1' || process.env.DEBUG_VAVOO === '1'));
+function vdbg(...args: any[]) {
+    if (!VAVOO_DEBUG) return;
+    try { console.log('[VAVOO-DEBUG]', ...args); } catch { /* ignore */ }
+}
+
+// Optional: force using server IP (ignore client IP forwarding) for Vavoo calls
+// Enable with env: VAVOO_FORCE_SERVER_IP=1 or VAVOO_USE_SERVER_IP=1
+const VAVOO_FORCE_SERVER_IP: boolean = !!(process && process.env && (
+    process.env.VAVOO_FORCE_SERVER_IP === '1' || process.env.VAVOO_USE_SERVER_IP === '1'
+));
+
+// Optional: allow full signature logging (DANGEROUS). Default logs are masked.
+// Enable full logging with env: VAVOO_LOG_SIG_FULL=1
+const VAVOO_LOG_SIG_FULL: boolean = !!(process && process.env && (process.env.VAVOO_LOG_SIG_FULL === '1'));
+
+function maskSig(sig: string, keepStart = 12, keepEnd = 6): string {
+    try {
+        if (!sig) return '';
+        const len = sig.length;
+        const head = sig.slice(0, Math.min(keepStart, len));
+        const tail = len > keepStart ? sig.slice(Math.max(len - keepEnd, keepStart)) : '';
+        const hidden = Math.max(0, len - head.length - tail.length);
+        const mask = hidden > 0 ? '*'.repeat(Math.min(hidden, 32)) + (hidden > 32 ? `(+${hidden - 32})` : '') : '';
+        return `${head}${mask}${tail}`;
+    } catch { return ''; }
+}
+
 // === CACHE: Dynamic event stream extraction (per d.url) ===
 // Key: `${mfpUrl}|${mfpPsw}|${originalDUrl}` -> { finalUrl, ts }
 const dynamicStreamCache = new Map<string, { finalUrl: string; ts: number }>();
@@ -139,10 +168,15 @@ function getClientIpFromReq(req: any): string | null {
 async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | null): Promise<{ url: string; headers: Record<string, string> } | null> {
     try {
         if (!vavooPlayUrl || !vavooPlayUrl.includes('vavoo.to')) return null;
-    // No cache: always resolve per request using the requester IP
+        // No cache: always resolve per request using the requester IP
+        const startedAt = Date.now();
+        vdbg('Clean resolve START', { url: vavooPlayUrl.substring(0, 120), ip: clientIp || '(none)' });
 
         const controller = new AbortController();
-        const to = setTimeout(() => controller.abort(), 12000);
+        const to = setTimeout(() => {
+            vdbg('Ping timeout -> aborting request');
+            controller.abort();
+        }, 12000);
         const pingBody = {
             token: 'tosFwQCJMS8qrW_AjLoHPQ41646J5dRNha6ZWHnijoYQQQoADQoXYSo7ki7O5-CsgN4CH0uRk6EEoJ0728ar9scCRQW3ZkbfrPfeCXW2VgopSW2FWDqPOoVYIuVPAOnXCZ5g',
             reason: 'app-blur',
@@ -171,11 +205,24 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             iap: { supported: false }
         } as any;
         const pingHeaders: Record<string, string> = { 'user-agent': 'okhttp/4.11.0', 'accept': 'application/json', 'content-type': 'application/json; charset=utf-8', 'accept-encoding': 'gzip' };
-        if (clientIp) {
+        if (clientIp && !VAVOO_FORCE_SERVER_IP) {
             pingHeaders['x-forwarded-for'] = clientIp;
             pingHeaders['x-real-ip'] = clientIp;
             pingHeaders['cf-connecting-ip'] = clientIp;
+            // Extra standard/proxy headers to propagate client IP without tampering tokens
+            pingHeaders['forwarded'] = `for=${clientIp}`; // RFC 7239
+            pingHeaders['true-client-ip'] = clientIp;     // Some CDNs
+            pingHeaders['x-client-ip'] = clientIp;        // Legacy
+            vdbg('Ping will forward client IP', { xff: clientIp, ipLocation: pingBody.ipLocation });
+        } else {
+            if (VAVOO_FORCE_SERVER_IP && clientIp) {
+                // Ensure ipLocation is not forcing client when server IP mode is on
+                try { (pingBody as any).ipLocation = ''; } catch {}
+                vdbg('Ping forced to use SERVER IP (no forwarding headers added)');
+            }
+            vdbg('Ping has no client IP available; using server defaults');
         }
+        vdbg('Ping POST https://www.vavoo.tv/api/app/ping', { ipLocation: pingBody.ipLocation });
         const pingRes = await fetch('https://www.vavoo.tv/api/app/ping', {
             method: 'POST',
             headers: pingHeaders,
@@ -183,19 +230,48 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             signal: controller.signal
         } as any);
         clearTimeout(to);
-        if (!pingRes.ok) return null;
-        const pingJson = await pingRes.json();
-        const addonSig = pingJson?.addonSig;
-        if (!addonSig) return null;
+        vdbg('Ping response', { status: pingRes.status, ok: pingRes.ok, tookMs: Date.now() - startedAt });
+        if (!pingRes.ok) {
+            let text = '';
+            try { text = await pingRes.text(); } catch {}
+            vdbg('Ping NOT OK, body snippet:', text.substring(0, 300));
+            return null;
+        }
+    const pingJson = await pingRes.json();
+    const addonSig = pingJson?.addonSig;
+        if (!addonSig) {
+            vdbg('Ping OK but addonSig missing. Payload keys:', Object.keys(pingJson || {}));
+            return null;
+        }
+    vdbg('Ping OK, addonSig len:', String(addonSig).length);
+    // Show signature preview in logs (masked by default, full only if explicitly enabled)
+    const sigPreview = VAVOO_LOG_SIG_FULL ? String(addonSig) : maskSig(String(addonSig));
+    vdbg('Ping OK, addonSig preview:', sigPreview);
 
         const controller2 = new AbortController();
-        const to2 = setTimeout(() => controller2.abort(), 12000);
-        const resolveHeaders: Record<string, string> = { 'user-agent': 'MediaHubMX/2', 'accept': 'application/json', 'content-type': 'application/json; charset=utf-8', 'accept-encoding': 'gzip', 'mediahubmx-signature': addonSig };
-        if (clientIp) {
+        const to2 = setTimeout(() => {
+            vdbg('Resolve timeout -> aborting request');
+            controller2.abort();
+        }, 12000);
+    const resolveHeaders: Record<string, string> = { 'user-agent': 'MediaHubMX/2', 'accept': 'application/json', 'content-type': 'application/json; charset=utf-8', 'accept-encoding': 'gzip', 'mediahubmx-signature': addonSig };
+        if (clientIp && !VAVOO_FORCE_SERVER_IP) {
             resolveHeaders['x-forwarded-for'] = clientIp;
             resolveHeaders['x-real-ip'] = clientIp;
             resolveHeaders['cf-connecting-ip'] = clientIp;
+            // Extra standard/proxy headers to propagate client IP without tampering tokens
+            resolveHeaders['forwarded'] = `for=${clientIp}`; // RFC 7239
+            resolveHeaders['true-client-ip'] = clientIp;     // Some CDNs
+            resolveHeaders['x-client-ip'] = clientIp;        // Legacy
+            vdbg('Resolve will forward client IP', { xff: clientIp, addonSigLen: String(addonSig).length });
+        } else {
+            if (VAVOO_FORCE_SERVER_IP && clientIp) {
+                vdbg('Resolve forced to use SERVER IP (no forwarding headers added)', { addonSigLen: String(addonSig).length });
+            }
+            vdbg('Resolve has no client IP available; using server defaults', { addonSigLen: String(addonSig).length });
         }
+    // Log the signature being sent to resolve (masked by default)
+    vdbg('Resolve using signature:', VAVOO_LOG_SIG_FULL ? String(addonSig) : maskSig(String(addonSig)));
+        vdbg('Resolve POST https://vavoo.to/mediahubmx-resolve.json', { url: vavooPlayUrl.substring(0, 120), headers: Object.keys(resolveHeaders) });
         const resolveRes = await fetch('https://vavoo.to/mediahubmx-resolve.json', {
             method: 'POST',
             headers: resolveHeaders,
@@ -203,15 +279,27 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             signal: controller2.signal
         } as any);
         clearTimeout(to2);
-        if (!resolveRes.ok) return null;
+        vdbg('Resolve response', { status: resolveRes.status, ok: resolveRes.ok, tookMs: Date.now() - startedAt });
+        if (!resolveRes.ok) {
+            let text = '';
+            try { text = await resolveRes.text(); } catch {}
+            vdbg('Resolve NOT OK, body snippet:', text.substring(0, 300));
+            return null;
+        }
         const resolveJson = await resolveRes.json();
         let resolved: string | null = null;
         if (Array.isArray(resolveJson) && resolveJson.length && resolveJson[0]?.url) resolved = String(resolveJson[0].url);
         else if (resolveJson && typeof resolveJson === 'object' && resolveJson.url) resolved = String(resolveJson.url);
-        if (!resolved) return null;
+        if (!resolved) {
+            vdbg('Resolve OK but no url field in JSON. Shape:', Array.isArray(resolveJson) ? 'array' : typeof resolveJson);
+            return null;
+        }
+        vdbg('Clean resolve SUCCESS', { url: resolved.substring(0, 200) });
         return { url: resolved, headers: { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } };
     } catch (e) {
-        console.error('[VAVOO] Clean resolve failed:', (e as any)?.message || e);
+        const msg = (e as any)?.message || String(e);
+        vdbg('Clean resolve ERROR:', msg);
+        console.error('[VAVOO] Clean resolve failed:', msg);
         return null;
     }
 }
@@ -241,9 +329,7 @@ function decodeBase64(str: string): string {
 // Funzione per decodificare URL statici (sempre in base64)
 function decodeStaticUrl(url: string): string {
     if (!url) return url;
-    
     console.log(`🔧 [Base64] Decodifica URL (sempre base64): ${url.substring(0, 50)}...`);
-    
     try {
         // Assicura padding corretto (lunghezza multipla di 4)
         let paddedUrl = url;
@@ -257,29 +343,24 @@ function decodeStaticUrl(url: string): string {
         return url;
     }
 }
-
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
     version: "5.3.2",
     name: "StreamViX",
     description: "Addon for Vixsrc, Anime providers and Live TV.",
-    icon: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/icon.png",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
     types: ["movie", "series", "tv", "anime"],
     idPrefixes: ["tt", "kitsu", "tv", "mal", "tmdb"],
     catalogs: [
         {
             type: "tv",
-            id: "tv-channels",
             name: "StreamViX TV",
             extra: [
                 {
                     name: "genre",
-                    isRequired: false,
                     options: [
                         "RAI",
-                        "Mediaset", 
                         "Sky",
                         "Sport",
                         "Cinema",
@@ -1461,12 +1542,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     try {
                                         const clean = await resolveVavooCleanUrl(vUrl, clientIp);
                                         if (clean && clean.url) {
+                                            vdbg('Alias clean resolved', { alias, url: clean.url.substring(0, 140) });
                                             const title2 = `➡️ V-1 ${alias} [ITA]`;
                                             // stash headers via behaviorHints when pushing later
                                             streams.unshift({ url: clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64'), title: title2 });
                                         }
                                     } catch (ee) {
-                                        console.log('[VAVOO] Clean resolve skipped/failed:', (ee as any)?.message || ee);
+                                        const msg = (ee as any)?.message || ee;
+                                        vdbg('Alias clean resolve failed', { alias, error: msg });
+                                        console.log('[VAVOO] Clean resolve skipped/failed:', msg);
                                     }
                                     console.log(`✅ [VAVOO] Injected first stream from alias='${alias}' -> ${vUrl.substring(0, 60)}...`);
                                 } else {
@@ -1871,14 +1955,17 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const reqObj: any = (global as any).lastExpressRequest;
                                 const clientIp = getClientIpFromReq(reqObj);
                                 vavooCleanPromises.push((async () => {
+                                    vdbg('Variant clean resolve attempt', { index: idx + 1, url: url.substring(0, 140) });
                                     try {
                                         const clean = await resolveVavooCleanUrl(url, clientIp);
                                         if (clean && clean.url) {
-                                            const title = `[➡️ V-${idx + 1}] ${channel.name} [ITA]`;
+                                            const title = `➡️ V-${idx + 1} ${channel.name} [ITA]`;
                                             const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
                                             vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
                                         }
-                                    } catch {}
+                                    } catch (err) {
+                                        vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
+                                    }
                                 })());
                             });
                             console.log(`[VAVOO] RISULTATO: trovati ${foundVavooLinks.length} link, stream generati:`, streams.map(s => s.title));
@@ -1906,6 +1993,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     const reqObj: any = (global as any).lastExpressRequest;
                                     const clientIp = getClientIpFromReq(reqObj);
                                     vavooCleanPromises.push((async () => {
+                                        vdbg('Variant clean resolve attempt', { index: idx + 1, url: url.substring(0, 140) });
                                         try {
                                             const clean = await resolveVavooCleanUrl(url, clientIp);
                                             if (clean && clean.url) {
@@ -1913,7 +2001,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                 const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
                                                 vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
                                             }
-                                        } catch {}
+                                        } catch (err) {
+                                            vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
+                                        }
                                     })());
                                 });
                                 console.log(`[VAVOO] RISULTATO: fallback chiave esatta, trovati ${links.length} link, stream generati:`, streams.map(s => s.title));
@@ -2032,6 +2122,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         try { await Promise.allSettled(vavooCleanPromises); } catch {}
                         // Prepend clean Vavoo variants in order (V-1 first)
                         let inserted = 0;
+                        vdbg('Clean prepend result', { inserted, totalVariants: vavooCleanPrepend.length });
                         for (let i = vavooCleanPrepend.length - 1; i >= 0; i--) {
                             const entry = vavooCleanPrepend[i];
                             if (entry) { streams.unshift(entry); inserted++; }
