@@ -1656,20 +1656,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (alias) {
                                 const vUrl = resolveFirstVavooUrlForAlias(alias);
                                 if (vUrl) {
-                                    const streamTitle = `[🇮🇹 Vavoo] ${alias}`;
-                                    const vFinal = (mfpUrl && mfpPsw)
-                                        ? `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(vUrl)}&api_password=${encodeURIComponent(mfpPsw)}`
-                                        : vUrl;
-                                    // prepone: proxied encapsulated URL
-                                    streams.unshift({ url: vFinal, title: streamTitle });
-                                    // also prepend the clean non-MFP link (per-request, with headers)
+                                    // Only prepend the CLEAN non-MFP link (per-request, with headers)
                                     const reqObj: any = (global as any).lastExpressRequest;
                                     const clientIp = getClientIpFromReq(reqObj);
                                     try {
                                         const clean = await resolveVavooCleanUrl(vUrl, clientIp);
                                         if (clean && clean.url) {
                                             vdbg('Alias clean resolved', { alias, url: clean.url.substring(0, 140) });
-                                            const title2 = `➡️ V-1 ${alias} [ITA]`;
+                                            const title2 = `${alias} [ITA]`;
                                             // stash headers via behaviorHints when pushing later
                                             streams.unshift({ url: clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64'), title: title2 });
                                         }
@@ -2063,7 +2057,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         // Se trovi almeno un link, aggiungi tutti come stream separati numerati
             if (foundVavooLinks.length > 0) {
                             foundVavooLinks.forEach(({ url, key }, idx) => {
-                                const streamTitle = `➡️ V-${idx + 1} ${channel.name} [ITA]`;
+                                const streamTitle = `[✌️ V-${idx + 1}] ${channel.name} [ITA]`;
                                 if (mfpUrl && mfpPsw) {
                                     const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                     streams.push({
@@ -2085,7 +2079,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     try {
                                         const clean = await resolveVavooCleanUrl(url, clientIp);
                                         if (clean && clean.url) {
-                                            const title = `➡️ V-${idx + 1} ${channel.name} [ITA]`;
+                                            const title = `[🏠 V-${idx + 1}] ${channel.name} [ITA]`;
                                             const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
                                             vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
                                         }
@@ -2101,7 +2095,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (exact) {
                                 const links = Array.isArray(exact) ? exact : [exact];
                                 links.forEach((url, idx) => {
-                                    const streamTitle = `➡️ V-${idx + 1} ${channel.name} [ITA]`;
+                                    const streamTitle = `[✌️ V-${idx + 1}] ${channel.name} [ITA]`;
                                     if (mfpUrl && mfpPsw) {
                                         const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                         streams.push({
@@ -2123,7 +2117,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         try {
                                             const clean = await resolveVavooCleanUrl(url, clientIp);
                                             if (clean && clean.url) {
-                                                const title = `➡️ V-${idx + 1} ${channel.name} [ITA]`;
+                                                const title = `[🏠 V-${idx + 1}] ${channel.name} [ITA]`;
                                                 const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
                                                 vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
                                             }
@@ -2148,11 +2142,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const [pureUrl, b64] = s.url.split(marker);
                                 let hdrs: Record<string, string> | undefined;
                                 try { hdrs = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch {}
-                allStreams.push({ name: 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
+                            const isVavooClean = !!hdrs && hdrs['Referer'] === 'https://vavoo.to/' && hdrs['User-Agent'] === DEFAULT_VAVOO_UA;
+                            allStreams.push({ name: isVavooClean ? 'Vavoo' : 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                             } else {
-                                // Fallback: if this looks like a clean Vavoo sunshine URL and title starts with '➡️ V', attach default headers
+                            // Fallback: if this looks like a clean Vavoo sunshine URL and title starts with a variant tag, attach default headers
                                 const looksVavoo = /\b(sunshine|hls\/index\.m3u8)\b/.test(s.url) && !/\bproxy\/hls\//.test(s.url);
-                                if (/^➡️\s*V/.test(s.title) && looksVavoo) {
+                            const variantTitle = /^\s*\[?\s*(➡️|🏠|✌️)\s*V/i.test(s.title);
+                            if (variantTitle && looksVavoo) {
                                     const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
                                     allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
                                 } else {
@@ -2254,12 +2250,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (entry) { streams.unshift(entry); inserted++; }
                         }
                         // If none resolved clean, add numbered fallbacks with default headers for visibility
-                        if (inserted === 0 && vavooFoundUrls.length > 0) {
+            if (inserted === 0 && vavooFoundUrls.length > 0) {
                             for (let i = vavooFoundUrls.length - 1; i >= 0; i--) {
                                 const u = vavooFoundUrls[i];
                                 const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
                                 const urlWithHeaders = u + `#headers#` + Buffer.from(JSON.stringify(hdrs)).toString('base64');
-                                streams.unshift({ title: `➡️ V-${i + 1} ${channel.name} [ITA]`, url: urlWithHeaders });
+                streams.unshift({ title: `[🏠 V-${i + 1}] ${channel.name} [ITA]`, url: urlWithHeaders });
                             }
                         }
                     }
@@ -2273,7 +2269,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             allStreams.push({ name: 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                         } else {
                             const looksVavoo = /\b(sunshine|hls\/index\.m3u8)\b/.test(s.url) && !/\bproxy\/hls\//.test(s.url);
-                            if (/^➡️\s*V/.test(s.title) && looksVavoo) {
+                            const variantTitle = /^\s*\[?\s*(➡️|🏠|✌️)\s*V/i.test(s.title);
+                            if (variantTitle && looksVavoo) {
                                 const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
                                 allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
                             } else {
