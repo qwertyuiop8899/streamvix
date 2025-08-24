@@ -1663,7 +1663,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         const clean = await resolveVavooCleanUrl(vUrl, clientIp);
                                         if (clean && clean.url) {
                                             vdbg('Alias clean resolved', { alias, url: clean.url.substring(0, 140) });
-                                            const title2 = `${alias} [ITA]`;
+                                            const title2 = `🏠 ${alias} (Vavoo) [ITA]`;
                                             // stash headers via behaviorHints when pushing later
                                             streams.unshift({ url: clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64'), title: title2 });
                                         }
