@@ -65,10 +65,18 @@ function vdbg(...args: any[]) {
 }
 
 // Optional: force using server IP (ignore client IP forwarding) for Vavoo calls
-// Enable with env: VAVOO_FORCE_SERVER_IP=1 or VAVOO_USE_SERVER_IP=1
-const VAVOO_FORCE_SERVER_IP: boolean = !!(process && process.env && (
-    process.env.VAVOO_FORCE_SERVER_IP === '1' || process.env.VAVOO_USE_SERVER_IP === '1'
-));
+// DEFAULT: ON (use server IP). Disable with VAVOO_FORCE_SERVER_IP=0 or VAVOO_USE_SERVER_IP=0
+const VAVOO_FORCE_SERVER_IP: boolean = (() => {
+    try {
+        const env = (process && process.env) ? process.env : {} as any;
+        const norm = (v?: string) => (v || '').toString().trim().toLowerCase();
+        const v1 = norm(env.VAVOO_FORCE_SERVER_IP);
+        const v2 = norm(env.VAVOO_USE_SERVER_IP);
+        if (v1) return !(v1 === '0' || v1 === 'false' || v1 === 'off');
+        if (v2) return !(v2 === '0' || v2 === 'false' || v2 === 'off');
+        return true; // default ON
+    } catch { return true; }
+})();
 
 // Optional: allow full signature logging (DANGEROUS). Default logs are masked.
 // Enable full logging with env: VAVOO_LOG_SIG_FULL=1
@@ -144,36 +152,91 @@ function getClientIpFromReq(req: any): string | null {
     try {
         if (!req) return null;
         const hdr = (req.headers || {}) as Record<string, string | string[]>;
-        const normalize = (v?: string) => (v || '').trim().replace(/^\[|\]$/g, '');
-        const takeFirstIp = (v: string) => {
-            const p = v.split(',')[0].trim();
-            // strip :port for IPv4, and brackets for IPv6
-            if (p.includes(':') && p.includes('.')) return p.split(':')[0];
-            return p.replace(/^\[|\]$/g, '');
+        const asStr = (v?: string | string[]) => Array.isArray(v) ? v[0] : (v || '');
+        const parseIp = (v?: string) => {
+            if (!v) return '';
+            let s = v.trim();
+            // Forwarded: for="ip:port" or for=ip
+            s = s.replace(/^"|"$/g, '');
+            // Remove brackets for IPv6
+            s = s.replace(/^\[|\]$/g, '');
+            // Split possible comma list, take raw first element for further processing outside
+            return s;
         };
-        const xff = hdr['x-forwarded-for'];
-        if (xff) {
-            const s = Array.isArray(xff) ? xff[0] : xff;
-            if (s) return takeFirstIp(String(s));
+        const stripPort = (ip: string) => {
+            // If IPv4 with :port
+            if (ip.includes('.') && ip.includes(':')) return ip.split(':')[0];
+            // If IPv6 with :port
+            if (ip.includes(':') && ip.lastIndexOf(':') > 1 && ip.indexOf(']') === -1) {
+                // best-effort: keep as-is for IPv6 (ports uncommon in headers)
+                return ip;
+            }
+            return ip;
+        };
+        const isPrivate = (ip: string) => {
+            const x = ip.toLowerCase();
+            if (!x) return true;
+            // IPv6 loopback / unique-local / link-local
+            if (x === '::1' || x.startsWith('fc') || x.startsWith('fd') || x.startsWith('fe80')) return true;
+            // Remove brackets/port
+            const y = stripPort(x.replace(/^\[|\]$/g, ''));
+            // IPv4 private/reserved ranges
+            const m = y.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+            if (!m) return false;
+            const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+            if (a === 10) return true; // 10.0.0.0/8
+            if (a === 127) return true; // loopback
+            if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+            if (a === 192 && b === 168) return true; // 192.168.0.0/16
+            if (a === 169 && b === 254) return true; // link-local
+            return false;
+        };
+        const pickFirstPublic = (list: string[]): string | null => {
+            for (const raw of list) {
+                const ip = stripPort(raw.replace(/^\[|\]$/g, ''));
+                if (ip && !isPrivate(ip)) return ip;
+            }
+            return list.length ? stripPort(list[0].replace(/^\[|\]$/g, '')) : null;
+        };
+
+        // 1) X-Forwarded-For: prefer first public entry
+        const xffRaw = asStr(hdr['x-forwarded-for']);
+        if (xffRaw) {
+            const parts = xffRaw.split(',').map(s => parseIp(s)).map(s => s.trim()).filter(Boolean);
+            const chosen = pickFirstPublic(parts);
+            if (chosen) { vdbg('IP pick via XFF', { chain: parts, chosen }); return chosen; }
         }
-        const xrip = hdr['x-real-ip'];
-        if (xrip) {
-            const s = Array.isArray(xrip) ? xrip[0] : xrip;
-            if (s) return normalize(String(s));
-        }
-        const fwd = hdr['forwarded'];
+        // 2) True-Client-IP / CF-Connecting-IP / X-Real-IP / X-Client-IP
+        const tci = stripPort(parseIp(asStr(hdr['true-client-ip'])));
+        if (tci && !isPrivate(tci)) { vdbg('IP pick via True-Client-IP', { tci }); return tci; }
+        const cfc = stripPort(parseIp(asStr(hdr['cf-connecting-ip'])));
+        if (cfc && !isPrivate(cfc)) { vdbg('IP pick via CF-Connecting-IP', { cfc }); return cfc; }
+        const xr = stripPort(parseIp(asStr(hdr['x-real-ip'])));
+        if (xr && !isPrivate(xr)) { vdbg('IP pick via X-Real-IP', { xr }); return xr; }
+        const xci = stripPort(parseIp(asStr(hdr['x-client-ip'])));
+        if (xci && !isPrivate(xci)) { vdbg('IP pick via X-Client-IP', { xci }); return xci; }
+        // 3) Forwarded: for=
+        const fwd = asStr(hdr['forwarded']);
         if (fwd) {
-            const s = Array.isArray(fwd) ? fwd[0] : fwd;
-            const m = String(s).match(/for=([^;]+)/i);
-            if (m && m[1]) return normalize(m[1].replace(/"/g, ''));
+            const m = fwd.match(/for=([^;]+)/i);
+            if (m && m[1]) {
+                const candidate = stripPort(parseIp(m[1]));
+                if (candidate && !isPrivate(candidate)) { vdbg('IP pick via Forwarded', { candidate }); return candidate; }
+            }
         }
-        const ra = req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress;
+        // 4) Express provided (requires trust proxy to be set elsewhere)
+        const ips = Array.isArray((req as any).ips) ? (req as any).ips : [];
+        if (ips.length) {
+            const chosen = pickFirstPublic(ips);
+            if (chosen) { vdbg('IP pick via req.ips', { ips, chosen }); return chosen; }
+        }
+        const ra = (req as any).ip || req.socket?.remoteAddress || req.connection?.remoteAddress;
         if (ra) {
-            const v = String(ra);
-            if (v.includes(':') && v.includes('.')) return v.split(':')[0];
-            return normalize(v);
+            const v = stripPort(String(ra));
+            vdbg('IP pick via remoteAddress/ip (fallback)', { v });
+            return v.replace(/^\[|\]$/g, '');
         }
-    } catch {}
+    } catch (e) { try { vdbg('IP detect error', String(e)); } catch {} }
     return null;
 }
 
@@ -189,7 +252,7 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             vdbg('Ping timeout -> aborting request');
             controller.abort();
         }, 12000);
-        const pingBody = {
+    const pingBody = {
             token: 'tosFwQCJMS8qrW_AjLoHPQ41646J5dRNha6ZWHnijoYQQQoADQoXYSo7ki7O5-CsgN4CH0uRk6EEoJ0728ar9scCRQW3ZkbfrPfeCXW2VgopSW2FWDqPOoVYIuVPAOnXCZ5g',
             reason: 'app-blur',
             locale: 'de',
@@ -211,7 +274,7 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             process: 'app',
             firstAppStart: Date.now(),
             lastAppStart: Date.now(),
-            ipLocation: clientIp || '',
+            ipLocation: VAVOO_FORCE_SERVER_IP ? '' : (clientIp || ''),
             adblockEnabled: true,
             proxy: { supported: ['ss','openvpn'], engine: 'ss', ssVersion: 1, enabled: true, autoServer: true, id: 'de-fra' },
             iap: { supported: false }
@@ -227,11 +290,7 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             pingHeaders['x-client-ip'] = clientIp;        // Legacy
             vdbg('Ping will forward client IP', { xff: clientIp, ipLocation: pingBody.ipLocation });
         } else {
-            if (VAVOO_FORCE_SERVER_IP && clientIp) {
-                // Ensure ipLocation is not forcing client when server IP mode is on
-                try { (pingBody as any).ipLocation = ''; } catch {}
-                vdbg('Ping forced to use SERVER IP (no forwarding headers added)');
-            }
+            vdbg('Ping forced to use SERVER IP (no forwarding headers added)');
             vdbg('Ping has no client IP available; using server defaults');
         }
         vdbg('Ping POST https://www.vavoo.tv/api/app/ping', { ipLocation: pingBody.ipLocation });
@@ -276,9 +335,7 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             resolveHeaders['x-client-ip'] = clientIp;        // Legacy
             vdbg('Resolve will forward client IP', { xff: clientIp, addonSigLen: String(addonSig).length });
         } else {
-            if (VAVOO_FORCE_SERVER_IP && clientIp) {
-                vdbg('Resolve forced to use SERVER IP (no forwarding headers added)', { addonSigLen: String(addonSig).length });
-            }
+            vdbg('Resolve forced to use SERVER IP (no forwarding headers added)', { addonSigLen: String(addonSig).length });
             vdbg('Resolve has no client IP available; using server defaults', { addonSigLen: String(addonSig).length });
         }
     // Log the signature being sent to resolve (masked by default)
@@ -1950,7 +2007,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         // Se trovi almeno un link, aggiungi tutti come stream separati numerati
             if (foundVavooLinks.length > 0) {
                             foundVavooLinks.forEach(({ url, key }, idx) => {
-                                const streamTitle = `[✌️V-${idx + 1}] ${channel.name} [ITA]`;
+                                const streamTitle = `➡️ V-${idx + 1} ${channel.name} [ITA]`;
                                 if (mfpUrl && mfpPsw) {
                                     const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                     streams.push({
@@ -1988,7 +2045,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (exact) {
                                 const links = Array.isArray(exact) ? exact : [exact];
                                 links.forEach((url, idx) => {
-                                    const streamTitle = `[✌️V-${idx + 1}] ${channel.name} [ITA]`;
+                                    const streamTitle = `➡️ V-${idx + 1} ${channel.name} [ITA]`;
                                     if (mfpUrl && mfpPsw) {
                                         const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                         streams.push({
@@ -2362,6 +2419,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
 // Server Express
 const app = express();
+// Trust proxy chain so req.ip / req.ips use X-Forwarded-For correctly when behind a proxy/CDN
+try { (app as any).set('trust proxy', true); } catch {}
 
 app.use('/public', express.static(path.join(__dirname, '..', 'public')));
 
@@ -2401,6 +2460,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     debugLog(`Incoming request: ${req.method} ${req.path}`);
     debugLog(`Full URL: ${req.url}`);
     debugLog(`Path segments:`, req.path.split('/'));
+    try {
+        const observedIp = getClientIpFromReq(req);
+        if (observedIp) vdbg('Observed client IP', { observedIp, reqIp: (req as any).ip, reqIps: (req as any).ips });
+    } catch {}
 
     const configString = req.path.split('/')[1];
     debugLog(`Config string extracted: "${configString}" (length: ${configString ? configString.length : 0})`);
