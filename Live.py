@@ -52,9 +52,18 @@ except Exception:  # fallback senza pytz
     pytz = None
     TZ_LONDON = TZ_ROME = UTC = None
 
+# Preferisci zoneinfo (stdlib) per gestire sempre il fuso Europe/Rome
+try:
+    from zoneinfo import ZoneInfo  # Python 3.9+
+    ZI_ROME = ZoneInfo('Europe/Rome')
+except Exception:
+    ZI_ROME = None
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REMOTE_SCHEDULE_URL = 'https://raw.githubusercontent.com/ciccioxm3/STRTV/main/daddyliveSchedule.json'
-OUTPUT_FILE = os.path.join(BASE_DIR, 'config', 'dynamic_channels.json')
+# Permetti override del percorso di output tramite variabile d'ambiente DYNAMIC_FILE
+# Default: scrivi sotto <repo>/config/dynamic_channels.json
+OUTPUT_FILE = os.environ.get('DYNAMIC_FILE') or os.path.join(BASE_DIR, 'config', 'dynamic_channels.json')
 TV_CHANNELS_DB = os.path.join(BASE_DIR, 'config', 'tv_channels.json')
 
 LOGO_BASE = 'https://raw.githubusercontent.com/qwertyuiop8899/logo/main'
@@ -176,6 +185,21 @@ def parse_event_datetime(day_str: str, time_uk: str) -> datetime.datetime:
         aware = TZ_LONDON.localize(naive)
         return aware.astimezone(pytz.UTC)
     return naive.replace(tzinfo=datetime.timezone.utc)
+
+def to_rome(dt_utc: datetime.datetime) -> datetime.datetime:
+    """Converte un datetime UTC in Europe/Rome usando zoneinfo se disponibile, altrimenti pytz."""
+    try:
+        if ZI_ROME is not None:
+            return dt_utc.astimezone(ZI_ROME)
+    except Exception:
+        pass
+    if pytz and TZ_ROME:
+        try:
+            return dt_utc.astimezone(TZ_ROME)
+        except Exception:
+            pass
+    # Fallback: restituisci comunque il dt (potrebbe essere UTC)
+    return dt_utc
 
 def strip_prefixes(team: str) -> str:
     team = TEAM_PREFIXES_REGEX.sub('', team.strip())
@@ -326,11 +350,18 @@ def should_include_channel_text(text: str) -> bool:
     tl = text.lower()
     return not any(k in tl for k in EXCLUDE_KEYWORDS_CHANNEL)
 
+def _strip_leading_time_markers(text: str) -> str:
+    """Rimuove prefissi di orario e marker tipo "🔴 Inizio: 16:30" o "16:30:"."""
+    s = text.strip()
+    # Rimuovi qualsiasi occorrenza iniziale del marker "🔴 Inizio: HH:MM" (case-insensitive su Inizio)
+    s = re.sub(r'^\s*🔴\s*Inizio\s*:\s*\d{1,2}:\d{2}\s*', '', s, flags=re.IGNORECASE)
+    # Rimuovi orario iniziale stile "HH:MM:" o "HH:MM -" o solo "HH:MM "
+    s = re.sub(r'^\s*\d{1,2}:\d{2}\s*(?:[:\-–]\s*)?', '', s)
+    return s.strip()
+
 def extract_event_title(raw_event: str) -> str:
-    # se formato "20:00: Juventus vs Inter" -> rimuovi prefisso orario
-    if re.match(r'^\d{1,2}:\d{2}:', raw_event):
-        return raw_event.split(':', 1)[1].strip()
-    return raw_event.strip()
+    # Normalizza rimuovendo eventuali prefissi orari/etichette già presenti
+    return _strip_leading_time_markers(raw_event)
 
 # ==========================
 # Titolo partite e Vavoo I/O
@@ -351,23 +382,30 @@ def _league_short_and_country(effective_category_src: str) -> tuple[str, str|Non
 
 def _teams_from_event(raw_event: str) -> tuple[str|None, str|None]:
     # Usa porzione dopo l'ultimo ':' se presente per evitare prefissi tipo "Italy - Serie A :"
-    teams_segment = raw_event.rsplit(':', 1)[-1].strip() if ':' in raw_event else raw_event
+    cleaned = _strip_leading_time_markers(raw_event)
+    teams_segment = cleaned.rsplit(':', 1)[-1].strip() if ':' in cleaned else cleaned
     t1, t2 = extract_teams(teams_segment)
     return t1, t2
 
-def format_live_title(effective_category_src: str, raw_event: str, rome_dt: datetime.datetime) -> str:
-    hhmm = rome_dt.strftime('%H:%M') if isinstance(rome_dt, datetime.datetime) else ''
-    date_str = rome_dt.strftime('%d/%m') if isinstance(rome_dt, datetime.datetime) else ''
+def build_titles(effective_category_src: str, raw_event: str, rome_dt: datetime.datetime) -> tuple[str, str]:
+    """
+    Restituisce (external_name, internal_epg_description).
+    - Esterno: "⏰ HH:MM : <Match/Title> - <Lega> DD/MM" (senza paese)
+    - Interno: "🔴 Inizio: HH:MM - <Match/Title> - <Lega> DD/MM <Paese>" (con paese se presente)
+    """
+    hhmm = rome_dt.strftime('%H:%M')
+    date_str = rome_dt.strftime('%d/%m')
     league_short, country = _league_short_and_country(effective_category_src)
     t1, t2 = _teams_from_event(raw_event)
     if t1 and t2:
-        base = f"🔴 Inizio: {hhmm} {t1} vs {t2} {league_short} {date_str}"
+        match = f"{t1} vs {t2}"
     else:
-        title = extract_event_title(raw_event)
-        base = f"🔴 Inizio: {hhmm} {title} {league_short} {date_str}"
+        match = extract_event_title(raw_event)
+    external = f"⏰ {hhmm} : {match} - {league_short} {date_str}".strip()
+    internal = f"🔴 Inizio: {hhmm} - {match} - {league_short} {date_str}"
     if country:
-        base = f"{base} {country}"
-    return base.strip()
+        internal = f"{internal} {country}"
+    return external, internal.strip()
 
 # ----- Vavoo helpers -----
 
@@ -539,28 +577,20 @@ def main():
                         continue
                 time_str = game.get('time', '00:00')
                 start_dt_utc = parse_event_datetime(day, time_str)
-                if pytz and TZ_ROME:
-                    rome_dt = start_dt_utc.astimezone(TZ_ROME)
-                    # Mostra data + ora locale Roma
-                    rome_str = rome_dt.strftime('%d/%m %H:%M')
-                else:
-                    # Nessuna timezone: mostra solo data senza orario e senza etichetta UTC
-                    rome_str = start_dt_utc.strftime('%d/%m')
-                # Titolo evento: formato compatto solo per calcio e top leghe richieste
-                if mapped_cat in SOCCER_MAPPED_CATS:
-                    title = format_live_title(effective_category_src, raw_event, rome_dt if pytz and TZ_ROME else start_dt_utc)
-                else:
-                    title = extract_event_title(raw_event)
-                # Prefissi per basket in base alla lega se non già presente
+                rome_dt = to_rome(start_dt_utc)
+                # Event title/source adjustments (basket prefixes) prima di costruire i titoli
+                display_event = raw_event
                 if mapped_cat == 'basket':
-                    if re.search(r'\bNBA\b', raw_event, re.IGNORECASE) and not re.match(r'^NBA\b', title, re.IGNORECASE):
-                        title = f"NBA: {title}"
-                    elif re.search(r'\bLBA\b', raw_event, re.IGNORECASE) and not re.match(r'^LBA\b', title, re.IGNORECASE):
-                        title = f"LBA: {title}"
-                    elif re.search(r'Euroleague|Eurolega', raw_event, re.IGNORECASE) and not re.match(r'^(Euroleague|Eurolega)\b', title, re.IGNORECASE):
-                        title = f"Euroleague: {title}"
-                    elif re.search(r'Coppa Italia', raw_event, re.IGNORECASE) and not re.match(r'^Coppa Italia', title, re.IGNORECASE):
-                        title = f"Coppa Italia Basket: {title}"
+                    base_title = extract_event_title(raw_event)
+                    if re.search(r'\bNBA\b', raw_event, re.IGNORECASE) and not re.match(r'^NBA\b', base_title, re.IGNORECASE):
+                        display_event = f"NBA: {base_title}"
+                    elif re.search(r'\bLBA\b', raw_event, re.IGNORECASE) and not re.match(r'^LBA\b', base_title, re.IGNORECASE):
+                        display_event = f"LBA: {base_title}"
+                    elif re.search(r'Euroleague|Eurolega', raw_event, re.IGNORECASE) and not re.match(r'^(Euroleague|Eurolega)\b', base_title, re.IGNORECASE):
+                        display_event = f"Euroleague: {base_title}"
+                    elif re.search(r'Coppa Italia', raw_event, re.IGNORECASE) and not re.match(r'^Coppa Italia', base_title, re.IGNORECASE):
+                        display_event = f"Coppa Italia Basket: {base_title}"
+                external_name, internal_desc = build_titles(effective_category_src, display_event, rome_dt)
                 logo = build_logo(effective_category_src, raw_event)
                 streams_list = []
                 for ch in game.get('channels', []):
@@ -570,7 +600,7 @@ def main():
                     ch_name = ''
                     if isinstance(ch, dict):
                         ch_name = ch.get('channel_name') or f"CH-{ch.get('channel_id','')}"
-                    if should_include_channel_text(f"{ch_name} {title} {effective_category_src}"):
+                    if should_include_channel_text(f"{ch_name} {external_name} {effective_category_src}"):
                         streams_list.append({'url': url, 'title': ch_name})
                 # Aggiungi eventuali canali Vavoo equivalenti (solo canali IT noti)
                 if streams_list:
@@ -578,14 +608,14 @@ def main():
                     streams_list = add_vavoo_streams_if_any(streams_list, candidate_names)
                 if not streams_list:
                     continue
-                event_id = build_event_id(title, start_dt_utc)
+                event_id = build_event_id(external_name, start_dt_utc)
                 entry = {
                     'id': event_id,
-                    'name': title,
+                    'name': external_name,
                     'streams': streams_list,
                     'logo': logo or None,
                     'category': mapped_cat,
-                    'description': f"{effective_category_src} {rome_str}",
+                    'description': internal_desc,
                     'eventStart': start_dt_utc.replace(microsecond=0).isoformat().replace('+00:00','Z')
                 }
                 dynamic_channels.append(entry)
