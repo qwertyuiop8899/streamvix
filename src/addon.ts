@@ -1121,7 +1121,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             } catch {}
             
             // Aggiungi prefisso tv: agli ID, posterShape landscape e EPG
-            const tvChannelsWithPrefix = await Promise.all(filteredChannels.map(async (channel: any) => {
+                const tvChannelsWithPrefix = await Promise.all(filteredChannels.map(async (channel: any) => {
                 const channelWithPrefix = {
                     ...channel,
                     id: `tv:${channel.id}`,
@@ -1135,18 +1135,23 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 if ((channel as any)._dynamic) {
                     const eventStart = (channel as any).eventStart || (channel as any).eventstart; // fallback
                     const baseDesc = channel.description || '';
-                    if (eventStart) {
-                        try {
-                            const dt = new Date(eventStart);
-                            const hhmm = dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Rome' }).replace(/\./g, ':');
-                            // Richiesto: linea unica iniziale con icona e orario + titolo evento
-                            channelWithPrefix.description = `🔴 Inizio: ${hhmm} ${channel.name}${baseDesc ? `\n${baseDesc}` : ''}`.trim();
-                        } catch {
+                        const stripTimePrefix = (t: string): string => t.replace(/^\s*([⏰🕒]?\s*)?\d{1,2}[\.:]\d{2}\s*[:\-]\s*/i, '').trim();
+                        if (eventStart) {
+                            try {
+                                const dt = new Date(eventStart);
+                                const hhmm = dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Rome' }).replace(/\./g, ':');
+                                const titleBase = stripTimePrefix(channel.name || '');
+                                // Nome canale nel catalogo: ⏰ HH:MM : Titolo
+                                (channelWithPrefix as any).name = `⏰ ${hhmm} : ${titleBase}`;
+                                // Summary/EPG su una sola riga: 🔴 Inizio: HH:MM - Titolo Italy
+                                channelWithPrefix.description = `🔴 Inizio: ${hhmm} - ${titleBase}${baseDesc ? ` ${baseDesc}` : ''}`.trim();
+                            } catch {
+                                channelWithPrefix.description = baseDesc || channel.name;
+                            }
+                        } else {
+                            // Se manca l'orario, mantieni nome e descrizione originali
                             channelWithPrefix.description = baseDesc || channel.name;
                         }
-                    } else {
-                        channelWithPrefix.description = baseDesc || channel.name;
-                    }
                 } else if (epgManager) {
                     // Canali tradizionali: EPG
                     try {
@@ -1221,11 +1226,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const eventStart = (channel as any).eventStart || (channel as any).eventstart;
                     const baseDesc = channel.description || '';
                     let finalDesc = baseDesc || channel.name;
+                    const stripTimePrefix = (t: string): string => t.replace(/^\s*([⏰🕒]?\s*)?\d{1,2}[\.:]\d{2}\s*[:\-]\s*/i, '').trim();
                     if (eventStart) {
                         try {
                             const dt = new Date(eventStart);
                             const hhmm = dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Rome' }).replace(/\./g, ':');
-                            finalDesc = `🔴 Inizio: ${hhmm} ${channel.name}${baseDesc ? `\n${baseDesc}` : ''}`.trim();
+                            const titleBase = stripTimePrefix(channel.name || '');
+                            // Aggiorna il nome anche in meta per coerenza
+                            (metaWithPrefix as any).name = `⏰ ${hhmm} : ${titleBase}`;
+                            finalDesc = `🔴 Inizio: ${hhmm} - ${titleBase}${baseDesc ? ` ${baseDesc}` : ''}`.trim();
                         } catch {/* ignore */}
                     }
                     (metaWithPrefix as any).description = finalDesc;
