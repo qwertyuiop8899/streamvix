@@ -354,6 +354,7 @@ const baseManifest: Manifest = {
     idPrefixes: ["tt", "kitsu", "tv", "mal", "tmdb"],
     catalogs: [
         {
+            id: "streamvix_tv",
             type: "tv",
             name: "StreamViX TV",
             extra: [
