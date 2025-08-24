@@ -148,14 +148,14 @@ async function resolveDynamicEventUrl(dUrl: string, providerTitle: string, mfpUr
             dynamicStreamCache.set(cacheKey, { finalUrl, ts: now });
             return { url: finalUrl, title: providerTitle };
         } else {
-            const fallback = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(dUrl)}`;
-            dynamicStreamCache.set(cacheKey, { finalUrl: fallback, ts: now });
-            return { url: fallback, title: providerTitle };
+            // Do NOT return extractor/video fallback in dynamic channels; keep original URL instead
+            dynamicStreamCache.set(cacheKey, { finalUrl: dUrl, ts: now });
+            return { url: dUrl, title: providerTitle };
         }
     } catch {
-        const fallback = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(dUrl)}`;
-        dynamicStreamCache.set(cacheKey, { finalUrl: fallback, ts: now });
-        return { url: fallback, title: providerTitle };
+        // On error, avoid returning extractor/video fallback; expose original URL
+        dynamicStreamCache.set(cacheKey, { finalUrl: dUrl, ts: now });
+        return { url: dUrl, title: providerTitle };
     }
 }
 
@@ -1715,13 +1715,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             let t = (e.title || 'Stream').trim();
                             if (!t) t = 'Stream';
                             if (!t.startsWith('[Player Esterno]')) t = `[Player Esterno] ${t}`;
-                            // Richiesta: usare stessa logica proxy extractor ma con redirect_stream=true per Player Esterno
-                            let finalUrl = e.url;
-                            if (mfpUrl && mfpPsw && !finalUrl.startsWith(mfpUrl)) {
-                                finalUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(finalUrl)}`;
-                            }
-                            // Evita doppio d= annidato
-                            streams.push({ url: finalUrl, title: t });
+                            // Non wrappare in extractor/video: pubblica l'URL originale
+                            streams.push({ url: e.url, title: t });
                         }
                         debugLog(`[DynamicStreams][FAST] restituiti ${streams.length} stream diretti (senza extractor) con etichetta`);
                         dynamicHandled = true;
@@ -1782,7 +1777,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         });
                         for (const r of resolved) streams.push(r);
                         // Append leftover entries (beyond CAP) as direct FAST (no extractor) to still expose them
-                        if (extraFast.length) {
+            if (extraFast.length) {
                             const leftoversToShow = CAP === 1 ? extraFast.slice(0, 1) : extraFast;
                             let appended = 0;
                             for (const e of leftoversToShow) {
@@ -1790,11 +1785,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 let t = (e.title || 'Stream').trim();
                                 if (!t) t = 'Stream';
                                 t = t.replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim();
-                                let finalUrl = e.url;
-                                if (mfpUrl && mfpPsw && !finalUrl.startsWith(mfpUrl)) {
-                                    finalUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(finalUrl)}`;
-                                }
-                                streams.push({ url: finalUrl, title: `[Player Esterno] ${t}` });
+                // Non wrappare in extractor/video: tieni URL originale
+                streams.push({ url: e.url, title: `[Player Esterno] ${t}` });
                                 appended++;
                             }
                             debugLog(`[DynamicStreams][EXTRACTOR] appended ${appended}/${extraFast.length} leftover direct streams (CAP=${CAP})`);
@@ -1979,22 +1971,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     });
                                     debugLog(`Aggiunto staticUrlD Proxy (MFP, nuova logica): ${finalUrl}`);
                                 } else {
-                                    // Fallback: vecchio link
-                                    const daddyProxyUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
-                                    streams.push({
-                                        url: daddyProxyUrl,
-                                        title: `[🌐D] ${channel.name} [ITA]`
-                                    });
-                                    debugLog(`Aggiunto staticUrlD Proxy (MFP, fallback): ${daddyProxyUrl}`);
+                                    // Nothing returned; avoid adding extractor/video fallback
                                 }
                             } catch (err) {
-                                // Fallback: vecchio link
-                                const daddyProxyUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=true&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
-                                streams.push({
-                                    url: daddyProxyUrl,
-                                    title: `[🌐D] ${channel.name} [ITA]`
-                                });
-                                debugLog(`Aggiunto staticUrlD Proxy (MFP, errore): ${daddyProxyUrl}`);
+                                // Error; skip extractor/video fallback altogether
                             }
                         } else {
                             streams.push({
@@ -2136,6 +2116,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // Se già gestito come evento dinamico, salta Vavoo/TVTap e ritorna subito
                     if (dynamicHandled) {
                         for (const s of streams) {
+                            // Skip any remaining MFP extractor links entirely
+                            if (/\/extractor\/video\?/i.test(s.url)) {
+                                debugLog('[DynamicStreams] Skipping extractor/video URL in dynamicHandled emit:', s.url);
+                                continue;
+                            }
                             // Support special marker '#headers#<b64json>' to attach headers properly
                             const marker = '#headers#';
                             if (s.url.includes(marker)) {
@@ -2150,7 +2135,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const variantTitle = /^\s*\[?\s*(➡️|🏠|✌️)\s*V/i.test(s.title);
                             if (variantTitle && looksVavoo) {
                                     const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
-                                    allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
+                                    allStreams.push({ name: 'Vavoo', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
                                 } else {
                                     allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
                                 }
@@ -2261,18 +2246,24 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     // Dopo aver popolato streams (nella logica TV):
                     for (const s of streams) {
+                        // Drop any extractor/video links
+                        if (/\/extractor\/video\?/i.test(s.url)) {
+                            debugLog('[Streams] Skipping extractor/video URL in final emit:', s.url);
+                            continue;
+                        }
                         const marker = '#headers#';
                         if (s.url.includes(marker)) {
                             const [pureUrl, b64] = s.url.split(marker);
                             let hdrs: Record<string, string> | undefined;
                             try { hdrs = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch {}
-                            allStreams.push({ name: 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
+                            const isVavooClean = !!hdrs && hdrs['Referer'] === 'https://vavoo.to/' && hdrs['User-Agent'] === DEFAULT_VAVOO_UA;
+                            allStreams.push({ name: isVavooClean ? 'Vavoo' : 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                         } else {
                             const looksVavoo = /\b(sunshine|hls\/index\.m3u8)\b/.test(s.url) && !/\bproxy\/hls\//.test(s.url);
                             const variantTitle = /^\s*\[?\s*(➡️|🏠|✌️)\s*V/i.test(s.title);
                             if (variantTitle && looksVavoo) {
                                 const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
-                                allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
+                                allStreams.push({ name: 'Vavoo', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
                             } else {
                                 allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
                             }
