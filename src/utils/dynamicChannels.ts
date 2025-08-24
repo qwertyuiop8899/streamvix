@@ -84,25 +84,26 @@ function resolveDynamicFile(): string {
     path.resolve(process.cwd(), 'config/dynamic_channels.json')
   ];
 
-  // Filtra esistenti e raccogli dimensioni; preferisci quello più grande e non in /config/config/
-  const existing: { p: string; size: number; nested: boolean }[] = [];
+  // Filtra esistenti e raccogli dimensioni; preferisci quello più grande, non-nested e non "tiny" (es. touch -> 0/1 byte)
+  const existing: { p: string; size: number; nested: boolean; tiny: boolean }[] = [];
   for (const p of candidates) {
     try {
       if (fs.existsSync(p)) {
         let size = 0;
         try { size = fs.statSync(p).size || 0; } catch {}
-        existing.push({ p, size, nested: /\/(^|.*\/)config\/config\//.test(p) || p.includes(path.sep + 'config' + path.sep + 'config' + path.sep) });
+        existing.push({ p, size, nested: /\/(^|.*\/)config\/config\//.test(p) || p.includes(path.sep + 'config' + path.sep + 'config' + path.sep), tiny: size < 10 });
       }
     } catch {}
   }
   if (existing.length) {
-    // Ordina: non-nested prima, poi size desc
+    // Ordina: non-nested prima, non-tiny prima, poi size desc
     existing.sort((a, b) => {
       if (a.nested !== b.nested) return a.nested ? 1 : -1;
+      if (a.tiny !== b.tiny) return a.tiny ? 1 : -1;
       return b.size - a.size;
     });
     const chosen = existing[0];
-    try { console.log('[DynamicChannels] Path selezionato:', chosen.p, 'size=', chosen.size, 'nested=', chosen.nested); } catch {}
+    try { console.log('[DynamicChannels] Path selezionato:', chosen.p, 'size=', chosen.size, 'nested=', chosen.nested, 'tiny=', chosen.tiny); } catch {}
     return chosen.p;
   }
   try { console.warn('[DynamicChannels] dynamic_channels.json non trovato in nessuno dei path candidati, uso primo fallback:', candidates[0]); } catch {}
