@@ -1427,6 +1427,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const vavooCleanPromises: Promise<void>[] = [];
                     // Collect clean Vavoo results per variant index to prepend in order later
                     const vavooCleanPrepend: Array<{ url: string; title: string } | undefined> = [];
+                    // Keep track of found Vavoo variant URLs to allow fallback insertion
+                    const vavooFoundUrls: string[] = [];
                     // Stato toggle MPD (solo da config checkbox, niente override da env per evitare comportamento inatteso)
                     const mpdEnabled = !!config.enableMpd;
 
@@ -1459,7 +1461,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     try {
                                         const clean = await resolveVavooCleanUrl(vUrl, clientIp);
                                         if (clean && clean.url) {
-                                            const title2 = `➡️ V ${alias} [ITA]`;
+                                            const title2 = `➡️ V-1 ${alias} [ITA]`;
                                             // stash headers via behaviorHints when pushing later
                                             streams.unshift({ url: clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64'), title: title2 });
                                         }
@@ -1849,7 +1851,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                         }
                         // Se trovi almeno un link, aggiungi tutti come stream separati numerati
-                        if (foundVavooLinks.length > 0) {
+            if (foundVavooLinks.length > 0) {
                             foundVavooLinks.forEach(({ url, key }, idx) => {
                                 const streamTitle = `[✌️V-${idx + 1}] ${channel.name} [ITA]`;
                                 if (mfpUrl && mfpPsw) {
@@ -1864,6 +1866,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         url
                                     });
                                 }
+                vavooFoundUrls.push(url);
                                 // For each found link, also prepare a clean variant labeled per index (➡️ V-1, V-2, ...)
                                 const reqObj: any = (global as any).lastExpressRequest;
                                 const clientIp = getClientIpFromReq(reqObj);
@@ -1898,6 +1901,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             url
                                         });
                                     }
+                                    vavooFoundUrls.push(url);
                                     // Prepare clean variant per index as well
                                     const reqObj: any = (global as any).lastExpressRequest;
                                     const clientIp = getClientIpFromReq(reqObj);
@@ -2027,9 +2031,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     if (vavooCleanPromises.length) {
                         try { await Promise.allSettled(vavooCleanPromises); } catch {}
                         // Prepend clean Vavoo variants in order (V-1 first)
+                        let inserted = 0;
                         for (let i = vavooCleanPrepend.length - 1; i >= 0; i--) {
                             const entry = vavooCleanPrepend[i];
-                            if (entry) streams.unshift(entry);
+                            if (entry) { streams.unshift(entry); inserted++; }
+                        }
+                        // If none resolved clean, add numbered fallbacks with default headers for visibility
+                        if (inserted === 0 && vavooFoundUrls.length > 0) {
+                            for (let i = vavooFoundUrls.length - 1; i >= 0; i--) {
+                                const u = vavooFoundUrls[i];
+                                const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
+                                const urlWithHeaders = u + `#headers#` + Buffer.from(JSON.stringify(hdrs)).toString('base64');
+                                streams.unshift({ title: `➡️ V-${i + 1} ${channel.name} [ITA]`, url: urlWithHeaders });
+                            }
                         }
                     }
                     // Dopo aver popolato streams (nella logica TV):
