@@ -8,7 +8,7 @@ import { AnimeUnityProvider } from './providers/animeunity-provider';
 import { AnimeWorldProvider } from './providers/animeworld-provider';
 import { KitsuProvider } from './providers/kitsu'; 
 import { formatMediaFlowUrl } from './utils/mediaflow';
-import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels } from './utils/dynamicChannels';
+import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels, getDynamicFilePath, getDynamicFileStats } from './utils/dynamicChannels';
 
 // --- Lightweight declarations to avoid TS complaints if @types/node non installati ---
 // (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.)
@@ -2183,8 +2183,10 @@ app.get('/live/update', async (req: Request, res: Response) => {
         // Esegue Live.py immediatamente (se esiste) e ricarica i canali
         // Riutilizza executeLiveScript già definita nello scheduler e recupera stdout/stderr
         const execRes = await (async () => { try { return await (executeLiveScript as any)(); } catch { return undefined; } })();
-        // Assicurati di avere il conteggio aggiornato degli eventi dinamici
-        const dyn = loadDynamicChannels(true);
+    // Assicurati di avere il conteggio aggiornato degli eventi dinamici
+    const dyn = loadDynamicChannels(true);
+    const dynPath = getDynamicFilePath();
+    const dynStats = getDynamicFileStats();
         // Risposta arricchita con conteggio e uno snippet di stdout/stderr
         const liveStdout: string | undefined = execRes?.stdout ? String(execRes.stdout) : undefined;
         const liveStderr: string | undefined = execRes?.stderr ? String(execRes.stderr) : undefined;
@@ -2202,6 +2204,12 @@ app.get('/live/update', async (req: Request, res: Response) => {
             message: `Live.py eseguito (se presente) e canali ricaricati: eventi dinamici=${dyn.length}${createdCount!=null?` (creati=${createdCount})`:''}`,
             dynamicCount: dyn.length,
             createdCount,
+            dynamicFile: {
+                path: dynPath,
+                exists: dynStats.exists,
+                size: dynStats.size,
+                mtime: dynStats.mtimeMs ? new Date(dynStats.mtimeMs).toISOString() : null
+            },
             liveStdout: clip(liveStdout),
             liveStderr: clip(liveStderr)
         });
