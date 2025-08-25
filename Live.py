@@ -109,6 +109,7 @@ EXTRA_LOGOS = {
     'UFC': 'Boxing.png',             # Uniforma logo per eventi UFC dentro boxing
     'Baseball': 'Baseball.png',
     'NFL': 'NFL.png',
+    'NHL': 'NHL.png',
     'Darts': 'Darts.png'             # Nome file da confermare
      
 }
