@@ -3,7 +3,7 @@
 
 Genera il file JSON dinamico (config/dynamic_channels.json) per l'addon StreamViX
 partendo da daddyliveSchedule.json.
-
+a
 Specifiche richieste:
   - Niente M3U8, EPG o riferimenti MFP: solo JSON.
   - Filtra SOLO:
