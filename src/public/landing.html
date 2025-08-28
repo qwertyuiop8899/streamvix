@@ -8,8 +8,10 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 2em; max-width: 800px; margin: auto; background: #1a1a1a; color: #e0e0e0; }
         h1 { color: #ae4545; }
         a { color: #ae4545; }
-        .install-button-container { padding: 2em 0; }
+    .install-button-container { padding: 2em 0; }
         .install-button { display: inline-block; padding: 12px 24px; background-color: #ae4545; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 1.1em; }
+    /* Ensure single-column layout for the whole page */
+    html, body { max-width: 900px; margin: 0 auto; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(140,82,255,0.3);} 70% { box-shadow: 0 0 0 16px rgba(140,82,255,0);} 100% { box-shadow: 0 0 0 0 rgba(140,82,255,0);} }
     </style>
 </head>
@@ -29,7 +31,7 @@
         </p>
 
         <div style="text-align: center; margin-bottom: 0.5rem;">
-            <button id="togglePrivateFeatures" class="toggle-btn" style="display: inline-flex; align-items: center; background-color: rgba(140, 82, 255, 0.2); border-radius: 0.4rem; padding: 0.4rem 0.8rem; border: 1px solid rgba(140, 82, 255, 0.4); cursor: pointer;">
+            <button id="togglePrivateFeatures" type="button" class="toggle-btn" style="display: inline-flex; align-items: center; background-color: rgba(140, 82, 255, 0.2); border-radius: 0.4rem; padding: 0.4rem 0.8rem; border: 1px solid rgba(140, 82, 255, 0.4); cursor: pointer;">
                 <span class="toggle-icon" style="margin-right: 0.5rem; transition: transform 0.3s ease;">▼</span>
                 <span style="font-weight: 500; color: #8c52ff;">Mostra le funzionalità dell'istanza privata</span>
             </button>
@@ -79,13 +81,14 @@
         const manifestUrl = `${window.location.protocol}//${window.location.host}/manifest.json`;
         installLink.href = `stremio://install-addon/${encodeURIComponent(manifestUrl)}`;
         // Toggle sezione ElfHosted
-        (function(){
+                (function(){
           const features = document.getElementById('privateInstanceFeatures');
           const toggleBtn = document.getElementById('togglePrivateFeatures');
           const icon = toggleBtn ? toggleBtn.querySelector('.toggle-icon') : null;
           if (features && toggleBtn) {
             features.style.display = 'none';
-            toggleBtn.addEventListener('click', () => {
+                        toggleBtn.addEventListener('click', (e) => {
+                            if (e && typeof e.preventDefault === 'function') e.preventDefault();
               const isHidden = features.style.display === 'none';
               features.style.display = isHidden ? 'block' : 'none';
               if (icon) icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
