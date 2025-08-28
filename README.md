@@ -25,6 +25,7 @@ Istanza ElfHosted a pagamento CON MEDIAFLOWProxy incluso (Per Eventi Sportivi)
 * **🌐 Proxy Unificato:** Un solo proxy MFP per tutti i contenuti (film, serie, anime, TV).
 * **⚡ Modalità FAST Dinamica:** Eventi Live con URL dirette senza passare dall'extractor (toggle runtime) tutte etichettate `[Player Esterno]`.
 * **🎯 Limite & Priorità Estrazioni:** In modalità extractor applica CAP di concorrenza e priorità per sorgenti italiane.
+* **📡 Supporto Live TV:** Canali TV italiani e Eventi Sportivi visibili senza Mediaflow Proxy, scegliere i canali [Vavoo] o con 🏠.
 
 ---
 Comandi per Live TV da browser
@@ -297,6 +298,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
