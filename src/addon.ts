@@ -472,7 +472,7 @@ function decodeStaticUrl(url: string): string {
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
     version: "5.6.24",
-    name: "StreamViX",
+    name: "StreamViX | Elfhosted",
     description: "Addon for Vixsrc, Anime providers Live TV and Events.",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
     types: ["movie", "series", "tv", "anime"],
