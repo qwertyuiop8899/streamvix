@@ -25,7 +25,10 @@ html {
 }
 
 body {
+	/* Use a single-column flex layout to avoid unintended side-by-side columns */
 	display: flex;
+	flex-direction: column;
+	align-items: center;
 	font-family: 'Open Sans', Arial, sans-serif;
 	color: white;
 }
@@ -99,7 +102,9 @@ button:active {
 }
 
 #addon {
-	width: 70vh;
+	/* Make the main container responsive and single-column */
+	width: 100%;
+	max-width: 900px;
 	margin: auto;
 }
 
@@ -279,7 +284,8 @@ function landingTemplate(manifest: any) {
 			const icon = toggleBtn ? toggleBtn.querySelector('.toggle-icon') : null;
 			if (features && toggleBtn) {
 				features.style.display = 'none';
-				toggleBtn.addEventListener('click', () => {
+				toggleBtn.addEventListener('click', (e) => {
+					if (e && typeof e.preventDefault === 'function') e.preventDefault();
 					const isHidden = features.style.display === 'none';
 					features.style.display = isHidden ? 'block' : 'none';
 					if (icon) icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
@@ -323,7 +329,7 @@ function landingTemplate(manifest: any) {
 
 				<!-- Pulsante di toggle per le funzionalità dell'istanza privata -->
 				<div style="text-align: center; margin-bottom: 0.5rem;">
-					<button id="togglePrivateFeatures" class="toggle-btn" style="display: inline-flex; align-items: center; background-color: rgba(140, 82, 255, 0.2); border-radius: 0.4rem; padding: 0.4rem 0.8rem; border: 1px solid rgba(140, 82, 255, 0.4); cursor: pointer;">
+					<button id="togglePrivateFeatures" type="button" class="toggle-btn" style="display: inline-flex; align-items: center; background-color: rgba(140, 82, 255, 0.2); border-radius: 0.4rem; padding: 0.4rem 0.8rem; border: 1px solid rgba(140, 82, 255, 0.4); cursor: pointer;">
 						<span class="toggle-icon" style="margin-right: 0.5rem; transition: transform 0.3s ease;">▼</span>
 						<span style="font-weight: 500; color: #8c52ff;">Mostra le funzionalità dell'istanza privata</span>
 					</button>
