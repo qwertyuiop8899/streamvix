@@ -9,32 +9,25 @@
         h1 { color: #ae4545; }
         a { color: #ae4545; }
         .install-button-container { padding: 2em 0; }
-        .install-button {
-            display: inline-block;
-            padding: 12px 24px;
-            background-color: #ae4545;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
-            font-size: 1.1em;
-        }
+        .install-button { display: inline-block; padding: 12px 24px; background-color: #ae4545; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 1.1em; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(140,82,255,0.3);} 70% { box-shadow: 0 0 0 16px rgba(140,82,255,0);} 100% { box-shadow: 0 0 0 0 rgba(140,82,255,0);} }
     </style>
 </head>
 <body>
-    <!-- Sezione informativa ElfHosted (tradotta in italiano) -->
+    <h1>StreamVix Stremio Addon</h1>
+    <p>StreamViX addon con Vixsrc, AnimeUnity, AnimeSaturn, TV e Eventi Sportivi</p>
+
+    <!-- Sezione informativa ElfHosted (sotto la descrizione) -->
     <div id="elfhostedInfoSection" class="full-width" style="background: linear-gradient(135deg, rgba(140, 82, 255, 0.15), rgba(0, 163, 255, 0.15)); border-radius: 0.6rem; padding: 1rem; margin: 1rem 0px; border: 1px solid rgba(140, 82, 255, 0.3); animation: 2s ease 0s infinite normal none running pulse; display: block;">
         <p style="font-size: 1rem; text-align: center; margin-bottom: 0.5rem; color: #fff;">
-            <span style="font-weight: 600; color: #8c52ff;"> NUOVO HOSTING PARTNER </span>
+            <span style="font-weight: 600; color: #8c52ff;"> NUOVO PARTNER DI HOSTING </span>
         </p>
         <p style="text-align: center; margin-bottom: 0.75rem;">
             Infrastruttura di hosting donata da <a href="https://elfhosted.com/" target="_blank" style="color: #00c16e; font-weight: 600; text-decoration: none;">ElfHosted</a> ❤️ e
             mantenuta in modo indipendente da <a href="https://hayd.uk" target="_blank" style="color: #00a3ff; font-weight: 600; text-decoration: none;">Hayduk</a>. Consulta la <a href="https://stremio-addons-guide.elfhosted.com/" target="_blank" style="color: #00a3ff; font-weight: 600; text-decoration: none;">Guida agli addon Stremio di ElfHosted</a>
-            per altri addon, oppure ottieni <a href="https://store.elfhosted.com/product/streamvix/" target="_blank" style="color: #00c16e; font-weight: 600; text-decoration: none;">la tua istanza privata e isolata (Con MediaflowProxy 4K)</a> (<i>sostieni direttamente il tuo sviluppatore!</i>)
+            per altri addon, oppure ottieni <a href="https://store.elfhosted.com/product/streamvix/" target="_blank" style="color: #00c16e; font-weight: 600; text-decoration: none;">la tua istanza privata e isolata (con MediaflowProxy 4K)</a> (<i>sostieni direttamente il tuo sviluppatore!</i>)
         </p>
 
-        <!-- Pulsante di toggle per le funzionalità dell'istanza privata -->
         <div style="text-align: center; margin-bottom: 0.5rem;">
             <button id="togglePrivateFeatures" class="toggle-btn" style="display: inline-flex; align-items: center; background-color: rgba(140, 82, 255, 0.2); border-radius: 0.4rem; padding: 0.4rem 0.8rem; border: 1px solid rgba(140, 82, 255, 0.4); cursor: pointer;">
                 <span class="toggle-icon" style="margin-right: 0.5rem; transition: transform 0.3s ease;">▼</span>
@@ -42,7 +35,6 @@
             </button>
         </div>
 
-        <!-- Sezione a scomparsa con le funzionalità -->
         <div id="privateInstanceFeatures" class="cookie-config collapsed" style="background: rgba(15, 15, 15, 0.5); margin-top: 0.5rem; display: none;">
             <div style="padding: 0.75rem;">
                 <h3 style="font-size: 0.95rem; margin-bottom: 0.75rem; color: #fff; text-align: center;">Informazioni sull'istanza privata ElfHosted</h3>
@@ -78,8 +70,7 @@
             </div>
         </div>
     </div>
-    <h1>StreamVix Stremio Addon</h1>
-    <p>This addon provides streams from VixSrc for movies and series.</p>
+
     <div class="install-button-container">
         <a id="install-link" href="#" class="install-button">Install Addon</a>
     </div>
