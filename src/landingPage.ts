@@ -317,7 +317,7 @@ function landingTemplate(manifest: any) {
 			<h2 class="description">StreamViX addon con Vixsrc, AnimeUnity, AnimeSaturn, TV e Eventi Sportivi</h2>
 
 			<!-- Sezione informativa ElfHosted (sotto la descrizione) -->
-			<div id="elfhostedInfoSection" class="full-width" style="background: linear-gradient(135deg, rgba(140, 82, 255, 0.35), rgba(0, 163, 255, 0.35)); border-radius: 0.6rem; padding: 1rem; margin: 1rem 0px; border: 1px solid rgba(140, 82, 255, 0.6); animation: 2s ease 0s infinite normal none running pulse; display: block;">
+			<div id="elfhostedInfoSection" class="full-width" style="background: linear-gradient(135deg, rgba(140, 82, 255, 0.9), rgba(0, 163, 255, 0.9)); border-radius: 0.6rem; padding: 1rem; margin: 1rem 0px; border: 1px solid rgba(140, 82, 255, 0.9); animation: 2s ease 0s infinite normal none running pulse; display: block;">
 				<p style="font-size: 1rem; text-align: center; margin-bottom: 0.5rem; color: #fff;">
 					<span style="font-weight: 600; color: #8c52ff;"> NUOVO PARTNER DI HOSTING </span>
 				</p>
@@ -329,14 +329,14 @@ function landingTemplate(manifest: any) {
 
 				<!-- Pulsante di toggle per le funzionalità dell'istanza privata -->
 				<div style="text-align: center; margin-bottom: 0.5rem;">
-					<button id="togglePrivateFeatures" type="button" class="toggle-btn" style="display: inline-flex; align-items: center; background-color: rgba(140, 82, 255, 0.35); border-radius: 0.4rem; padding: 0.4rem 0.8rem; border: 1px solid rgba(140, 82, 255, 0.6); cursor: pointer;">
+					<button id="togglePrivateFeatures" type="button" class="toggle-btn" style="display: inline-flex; align-items: center; background-color: rgba(140, 82, 255, 0.85); border-radius: 0.4rem; padding: 0.4rem 0.8rem; border: 1px solid rgba(140, 82, 255, 0.9); cursor: pointer;">
 						<span class="toggle-icon" style="margin-right: 0.5rem; transition: transform 0.3s ease;">▼</span>
 						<span style="font-weight: 500; color: #8c52ff;">Mostra le funzionalità dell'istanza privata</span>
 					</button>
 				</div>
 
 				<!-- Sezione a scomparsa con le funzionalità -->
-				<div id="privateInstanceFeatures" class="cookie-config collapsed" style="background: rgba(15, 15, 15, 0.75); margin-top: 0.5rem; display: none;">
+				<div id="privateInstanceFeatures" class="cookie-config collapsed" style="background: rgba(15, 15, 15, 0.9); margin-top: 0.5rem; display: none;">
 					<div style="padding: 0.75rem;">
 						<h3 style="font-size: 0.95rem; margin-bottom: 0.75rem; color: #fff; text-align: center;">Informazioni sull'istanza privata ElfHosted</h3>
 
@@ -359,14 +359,14 @@ function landingTemplate(manifest: any) {
 							</li>
 						</ul>
 
-					<div style="margin-top: 1rem; background: rgba(10, 10, 10, 0.65); border-radius: 0.5rem; padding: 0.75rem; border: 1px dashed rgba(140, 82, 255, 0.5);">
+					<div style="margin-top: 1rem; background: rgba(10, 10, 10, 0.85); border-radius: 0.5rem; padding: 0.75rem; border: 1px dashed rgba(140, 82, 255, 0.7);">
 						<p style="font-size: 0.85rem; color: #fff; margin: 0; text-align: center;">
 							Ospitato da ElfHosted con prova gratuita disponibile
 						</p>
 					</div>
 
 					<div style="text-align: center; margin-top: 1rem;">
-						<a href="https://store.elfhosted.com/product/streamvix/" target="_blank" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(140, 82, 255, 0.35); color: #8c52ff; font-weight: 500; font-size: 0.85rem; border-radius: 0.5rem; text-decoration: none; border: 1px solid rgba(140, 82, 255, 0.6);">Vedi su ElfHosted</a>
+						<a href="https://store.elfhosted.com/product/streamvix/" target="_blank" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(140, 82, 255, 0.85); color: #fff; font-weight: 600; font-size: 0.9rem; border-radius: 0.5rem; text-decoration: none; border: 1px solid rgba(140, 82, 255, 0.9);">Vedi su ElfHosted</a>
 					</div>
 				</div>
 			</div>
