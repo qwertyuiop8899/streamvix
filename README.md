@@ -5,7 +5,12 @@
 
 Un addon per Stremio che estrae sorgenti streaming dai siti vixsrc e animeunity animesaturn daddy e vavoo per permetterti di guardare film, serie TV, anime e tv con la massima semplicità.
 
-[Installazione](https://streamvix.hayd.uk/)
+[Link di Installazione](https://streamvix.hayd.uk/)
+
+Istanza ElfHosted a pagamento CON MEDIAFLOW incluso
+
+[Istanza ElfHosted con Mediaflow](https://store.elfhosted.com/product/streamvix/)
+
 
 ---
 
@@ -292,6 +297,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
