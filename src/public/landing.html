@@ -3,27 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StreamVix Addon for Stremio</title>
+    <title>StreamViX | Elfhosted</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 2em; max-width: 800px; margin: auto; background: #1a1a1a; color: #e0e0e0; }
         h1 { color: #ae4545; }
         a { color: #ae4545; }
-        .install-button-container { padding: 2em 0; }
-        .install-button {
-            display: inline-block;
-            padding: 12px 24px;
-            background-color: #ae4545;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
-            font-size: 1.1em;
-        }
+    .install-button-container { padding: 2em 0; }
+        .install-button { display: inline-block; padding: 12px 24px; background-color: #ae4545; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 1.1em; }
+    /* Ensure single-column layout for the whole page */
+    html, body { max-width: 900px; margin: 0 auto; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(140,82,255,0.3);} 70% { box-shadow: 0 0 0 16px rgba(140,82,255,0);} 100% { box-shadow: 0 0 0 0 rgba(140,82,255,0);} }
     </style>
 </head>
 <body>
-    <h1>StreamVix Stremio Addon</h1>
-    <p>This addon provides streams from VixSrc for movies and series.</p>
+    <h1>StreamViX | Elfhosted</h1>
+    <p>StreamViX addon con Vixsrc, AnimeUnity, AnimeSaturn, TV e Eventi Sportivi</p>
+
+    <!-- Sezione informativa ElfHosted (sotto la descrizione) -->
+    <div id="elfhostedInfoSection" class="full-width" style="background: linear-gradient(135deg, rgba(40, 20, 80, 0.95), rgba(10, 30, 60, 0.95)); border-radius: 0.6rem; padding: 1rem; margin: 1rem 0px; border: 1px solid rgba(140, 82, 255, 0.95); animation: 2s ease 0s infinite normal none running pulse; display: block;">
+        <p style="font-size: 1rem; text-align: center; margin-bottom: 0.5rem; color: #fff;">
+            <span style="font-weight: 600; color: #8c52ff;"> NUOVO PARTNER DI HOSTING </span>
+        </p>
+        <p style="text-align: center; margin-bottom: 0.75rem;">
+            Infrastruttura di hosting donata da <a href="https://elfhosted.com/" target="_blank" style="color: #00c16e; font-weight: 600; text-decoration: none;">ElfHosted</a> ❤️ e
+            mantenuta in modo indipendente da <a href="https://hayd.uk" target="_blank" style="color: #00a3ff; font-weight: 600; text-decoration: none;">Hayduk</a>. Consulta la <a href="https://stremio-addons-guide.elfhosted.com/" target="_blank" style="color: #00a3ff; font-weight: 600; text-decoration: none;">Guida agli addon Stremio di ElfHosted</a>
+            per altri addon, oppure ottieni <a href="https://store.elfhosted.com/product/streamvix/" target="_blank" style="color: #00c16e; font-weight: 600; text-decoration: none;">la tua istanza privata e isolata (con MediaflowProxy 4K)</a> (<i>sostieni direttamente il tuo sviluppatore!</i>)
+        </p>
+
+        <div style="text-align: center; margin-bottom: 0.5rem;">
+            <button id="togglePrivateFeatures" type="button" class="toggle-btn" style="display: inline-flex; align-items: center; background-color: rgba(140, 82, 255, 0.85); border-radius: 0.4rem; padding: 0.4rem 0.8rem; border: 1px solid rgba(140, 82, 255, 0.9); cursor: pointer;">
+                <span class="toggle-icon" style="margin-right: 0.5rem; transition: transform 0.3s ease;">▼</span>
+                <span style="font-weight: 500; color: #8c52ff;">Mostra le funzionalità dell'istanza privata</span>
+            </button>
+        </div>
+
+    <div id="privateInstanceFeatures" class="cookie-config collapsed" style="background: rgba(10, 10, 12, 0.96); margin-top: 0.5rem; display: none;">
+            <div style="padding: 0.75rem;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.75rem; color: #fff; text-align: center;">Informazioni sull'istanza privata ElfHosted</h3>
+
+                <ul style="list-style-type: none; padding: 0; margin: 0;">
+                    <li style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
+                        <span style="color: #00c16e; margin-right: 0.5rem;">•</span>
+                        <span style="font-size: 0.85rem; color: #fff;">Istanze private con rate‑limit separati fino a 4K</span>
+                    </li>
+                    <li style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
+                        <span style="color: #00c16e; margin-right: 0.5rem;">•</span>
+                        <span style="font-size: 0.85rem; color: #fff;">Recupero link più veloce</span>
+                    </li>
+                    <li style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
+                        <span style="color: #00c16e; margin-right: 0.5rem;">•</span>
+                        <span style="font-size: 0.85rem; color: #fff;">Tutti i link sono raggiungibili a differenza di Render e Huggingface (Mediaflow)</span>
+                    </li>
+                    <li style="display: flex; align-items: flex-start; margin-bottom: 0;">
+                        <span style="color: #00c16e; margin-right: 0.5rem;">•</span>
+                        <span style="font-size: 0.85rem; color: #fff;">Il 33% dei costi di hosting va allo sviluppo dell'addon</span>
+                    </li>
+                </ul>
+
+                <div style="margin-top: 1rem; background: rgba(5, 5, 8, 0.96); border-radius: 0.5rem; padding: 0.75rem; border: 1px dashed rgba(140, 82, 255, 0.85);">
+                    <p style="font-size: 0.85rem; color: #fff; margin: 0; text-align: center;">
+                        Ospitato da ElfHosted con prova gratuita disponibile
+                    </p>
+                </div>
+
+                <div style="text-align: center; margin-top: 1rem;">
+                    <a href="https://store.elfhosted.com/product/streamvix/" target="_blank" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(140, 82, 255, 0.85); color: #fff; font-weight: 600; font-size: 0.9rem; border-radius: 0.5rem; text-decoration: none; border: 1px solid rgba(140, 82, 255, 0.9);">Vedi su ElfHosted</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="install-button-container">
         <a id="install-link" href="#" class="install-button">Install Addon</a>
     </div>
@@ -31,6 +80,21 @@
         const installLink = document.getElementById('install-link');
         const manifestUrl = `${window.location.protocol}//${window.location.host}/manifest.json`;
         installLink.href = `stremio://install-addon/${encodeURIComponent(manifestUrl)}`;
+        // Toggle sezione ElfHosted
+                (function(){
+          const features = document.getElementById('privateInstanceFeatures');
+          const toggleBtn = document.getElementById('togglePrivateFeatures');
+          const icon = toggleBtn ? toggleBtn.querySelector('.toggle-icon') : null;
+          if (features && toggleBtn) {
+            features.style.display = 'none';
+                        toggleBtn.addEventListener('click', (e) => {
+                            if (e && typeof e.preventDefault === 'function') e.preventDefault();
+              const isHidden = features.style.display === 'none';
+              features.style.display = isHidden ? 'block' : 'none';
+              if (icon) icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+            });
+          }
+        })();
     </script>
 </body>
 </html>
