@@ -25,7 +25,10 @@ html {
 }
 
 body {
+	/* Use a single-column flex layout to avoid unintended side-by-side columns */
 	display: flex;
+	flex-direction: column;
+	align-items: center;
 	font-family: 'Open Sans', Arial, sans-serif;
 	color: white;
 }
@@ -99,7 +102,9 @@ button:active {
 }
 
 #addon {
-	width: 40vh;
+	/* Make the main container responsive and single-column */
+	width: 100%;
+	max-width: 900px;
 	margin: auto;
 }
 
@@ -162,6 +167,12 @@ button:active {
 
 .full-width {
 	width: 100%;
+}
+
+@keyframes pulse {
+	0% { box-shadow: 0 0 0 0 rgba(140, 82, 255, 0.3); }
+	70% { box-shadow: 0 0 0 16px rgba(140, 82, 255, 0); }
+	100% { box-shadow: 0 0 0 0 rgba(140, 82, 255, 0); }
 }
 `
 
@@ -266,6 +277,21 @@ function landingTemplate(manifest: any) {
 				}
 			};
 		}
+		// Toggle sezione ElfHosted
+		try {
+			const features = document.getElementById('privateInstanceFeatures');
+			const toggleBtn = document.getElementById('togglePrivateFeatures');
+			const icon = toggleBtn ? toggleBtn.querySelector('.toggle-icon') : null;
+			if (features && toggleBtn) {
+				features.style.display = 'none';
+				toggleBtn.addEventListener('click', (e) => {
+					if (e && typeof e.preventDefault === 'function') e.preventDefault();
+					const isHidden = features.style.display === 'none';
+					features.style.display = isHidden ? 'block' : 'none';
+					if (icon) icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+				});
+			}
+		} catch (e) { console.warn(e); }
 	`;
 
 	return `
@@ -288,7 +314,62 @@ function landingTemplate(manifest: any) {
 			</div>
 			<h1 class="name">${manifest.name}</h1>
 			<h2 class="version">v${manifest.version || '0.0.0'}</h2>
-			<h2 class="description">${manifest.description || ''}</h2>
+			<h2 class="description">StreamViX addon con Vixsrc, AnimeUnity, AnimeSaturn, TV e Eventi Sportivi</h2>
+
+			<!-- Sezione informativa ElfHosted (sotto la descrizione) -->
+			<div id="elfhostedInfoSection" class="full-width" style="background: linear-gradient(135deg, rgba(40, 20, 80, 0.95), rgba(10, 30, 60, 0.95)); border-radius: 0.6rem; padding: 1rem; margin: 1rem 0px; border: 1px solid rgba(140, 82, 255, 0.95); animation: 2s ease 0s infinite normal none running pulse; display: block;">
+				<p style="font-size: 1rem; text-align: center; margin-bottom: 0.5rem; color: #fff;">
+					<span style="font-weight: 600; color: #8c52ff;"> NUOVO PARTNER DI HOSTING </span>
+				</p>
+				<p style="text-align: center; margin-bottom: 0.75rem;">
+					Infrastruttura di hosting donata da <a href="https://elfhosted.com/" target="_blank" style="color: #00c16e; font-weight: 600; text-decoration: none;">ElfHosted</a> ❤️ e
+					mantenuta in modo indipendente da <a href="https://hayd.uk" target="_blank" style="color: #00a3ff; font-weight: 600; text-decoration: none;">Hayduk</a>. Consulta la <a href="https://stremio-addons-guide.elfhosted.com/" target="_blank" style="color: #00a3ff; font-weight: 600; text-decoration: none;">Guida agli addon Stremio di ElfHosted</a>
+					per altri addon, oppure ottieni <a href="https://store.elfhosted.com/product/streamvix/" target="_blank" style="color: #00c16e; font-weight: 600; text-decoration: none;">la tua istanza privata e isolata (con MediaflowProxy 4K)</a> (<i>sostieni direttamente il tuo sviluppatore!</i>)
+				</p>
+
+				<!-- Pulsante di toggle per le funzionalità dell'istanza privata -->
+				<div style="text-align: center; margin-bottom: 0.5rem;">
+					<button id="togglePrivateFeatures" type="button" class="toggle-btn" style="display: inline-flex; align-items: center; background-color: rgba(80, 40, 140, 0.95); border-radius: 0.4rem; padding: 0.4rem 0.8rem; border: 1px solid rgba(140, 82, 255, 0.95); cursor: pointer;">
+						<span class="toggle-icon" style="margin-right: 0.5rem; transition: transform 0.3s ease;">▼</span>
+						<span style="font-weight: 500; color: #8c52ff;">Mostra le funzionalità dell'istanza privata</span>
+					</button>
+				</div>
+
+				<!-- Sezione a scomparsa con le funzionalità -->
+				<div id="privateInstanceFeatures" class="cookie-config collapsed" style="background: rgba(10, 10, 12, 0.96); margin-top: 0.5rem; display: none;">
+					<div style="padding: 0.75rem;">
+						<h3 style="font-size: 0.95rem; margin-bottom: 0.75rem; color: #fff; text-align: center;">Informazioni sull'istanza privata ElfHosted</h3>
+
+						<ul style="list-style-type: none; padding: 0; margin: 0;">
+							<li style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
+								<span style="color: #00c16e; margin-right: 0.5rem;">•</span>
+								<span style="font-size: 0.85rem; color: #fff;">Istanze private con rate‑limit separati fino a 4K</span>
+							</li>
+							<li style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
+								<span style="color: #00c16e; margin-right: 0.5rem;">•</span>
+								<span style="font-size: 0.85rem; color: #fff;">Recupero link più veloce</span>
+							</li>
+							<li style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
+								<span style="color: #00c16e; margin-right: 0.5rem;">•</span>
+								<span style="font-size: 0.85rem; color: #fff;">Tutti i link sono raggiungibili a differenza di Render e Huggingface (Mediaflow)</span>
+							</li>
+							<li style="display: flex; align-items: flex-start; margin-bottom: 0;">
+								<span style="color: #00c16e; margin-right: 0.5rem;">•</span>
+								<span style="font-size: 0.85rem; color: #fff;">Il 33% dei costi di hosting va allo sviluppo dell'addon</span>
+							</li>
+						</ul>
+
+					<div style="margin-top: 1rem; background: rgba(5, 5, 8, 0.96); border-radius: 0.5rem; padding: 0.75rem; border: 1px dashed rgba(140, 82, 255, 0.85);">
+						<p style="font-size: 0.85rem; color: #fff; margin: 0; text-align: center;">
+							Ospitato da ElfHosted con prova gratuita disponibile
+						</p>
+					</div>
+
+					<div style="text-align: center; margin-top: 1rem;">
+						<a href="https://store.elfhosted.com/product/streamvix/" target="_blank" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(140, 82, 255, 0.85); color: #fff; font-weight: 600; font-size: 0.9rem; border-radius: 0.5rem; text-decoration: none; border: 1px solid rgba(140, 82, 255, 0.9);">Vedi su ElfHosted</a>
+					</div>
+				</div>
+			</div>
 
 			<div class="separator"></div>
 
