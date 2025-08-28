@@ -343,7 +343,7 @@ function landingTemplate(manifest: any) {
 						<ul style="list-style-type: none; padding: 0; margin: 0;">
 							<li style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
 								<span style="color: #00c16e; margin-right: 0.5rem;">•</span>
-								<span style="font-size: 0.85rem; color: #fff;">Istanze private con rate‑limit separati</span>
+								<span style="font-size: 0.85rem; color: #fff;">Istanze private con rate‑limit separati fino a 4K</span>
 							</li>
 							<li style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
 								<span style="color: #00c16e; margin-right: 0.5rem;">•</span>
@@ -351,7 +351,7 @@ function landingTemplate(manifest: any) {
 							</li>
 							<li style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
 								<span style="color: #00c16e; margin-right: 0.5rem;">•</span>
-								<span style="font-size: 0.85rem; color: #fff;">Provider regionali aggiuntivi in sviluppo</span>
+								<span style="font-size: 0.85rem; color: #fff;">Tutti i link sono raggiungibili a differenza di Render e Huggingface (Mediaflow)</span>
 							</li>
 							<li style="display: flex; align-items: flex-start; margin-bottom: 0;">
 								<span style="color: #00c16e; margin-right: 0.5rem;">•</span>
