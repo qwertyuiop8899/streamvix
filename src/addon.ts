@@ -532,7 +532,6 @@ const baseManifest: Manifest = {
         { key: "mediaFlowProxyPassword", title: "MediaFlow Proxy Password", type: "text" },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
     { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox" },
-    { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox" },
     { key: "disableLiveTv", title: "Disable Live TV", type: "checkbox" },
     { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
     { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
