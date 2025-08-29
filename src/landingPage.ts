@@ -106,18 +106,19 @@ button:active {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 1rem;
-	padding: 0.6rem 0.4rem;
+	gap: 0.6rem;
+	padding: 0.45rem 0.25rem;
 	border-radius: 10px;
 }
 .toggle-title {
 	font-size: 1rem;
-	font-weight: 600;
+	font-weight: 700;
+	letter-spacing: 0.01em;
 }
 .toggle-right {
 	display: inline-flex;
 	align-items: center;
-	gap: 0.6rem;
+	gap: 0.4rem;
 }
 .toggle-off, .toggle-on {
 	font-size: 0.85rem;
@@ -167,7 +168,7 @@ button:active {
 #addon {
 	/* Make the main container responsive and single-column */
 	width: 100%;
-	max-width: 900px;
+	max-width: 720px;
 	margin: auto;
 }
 
