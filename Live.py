@@ -62,8 +62,8 @@ except Exception:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REMOTE_SCHEDULE_URL = 'https://raw.githubusercontent.com/ciccioxm3/STRTV/main/daddyliveSchedule.json'
 # Permetti override del percorso di output tramite variabile d'ambiente DYNAMIC_FILE
-# Default: scrivi sotto <repo>/config/dynamic_channels.json
-OUTPUT_FILE = os.environ.get('DYNAMIC_FILE') or os.path.join(BASE_DIR, 'config', 'dynamic_channels.json')
+# Default: usa una posizione scrivibile nel container/host
+OUTPUT_FILE = os.environ.get('DYNAMIC_FILE') or '/tmp/dynamic_channels.json'
 TV_CHANNELS_DB = os.path.join(BASE_DIR, 'config', 'tv_channels.json')
 
 LOGO_BASE = 'https://raw.githubusercontent.com/qwertyuiop8899/logo/main'
