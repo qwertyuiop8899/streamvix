@@ -242,8 +242,24 @@ function landingTemplate(manifest: any) {
 			installLink.onclick = () => {
 				return mainForm.reportValidity()
 			}
+			const buildConfigFromForm = () => {
+				const config: Record<string, any> = {}
+				const elements = mainForm.querySelectorAll('input, select, textarea') as NodeListOf<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+				elements.forEach((el) => {
+					const key = el.id || el.getAttribute('name') || ''
+					if (!key) return
+					if ((el as HTMLInputElement).type === 'checkbox') {
+						config[key] = !!(el as HTMLInputElement).checked
+					} else if (el.tagName.toLowerCase() === 'select') {
+						config[key] = (el as HTMLSelectElement).value
+					} else {
+						config[key] = (el as HTMLInputElement).value
+					}
+				})
+				return config
+			}
 			const updateLink = () => {
-				const config = Object.fromEntries(new FormData(mainForm))
+				const config = buildConfigFromForm()
 				installLink.href = 'stremio://' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json'
 			}
 			mainForm.onchange = updateLink
@@ -261,7 +277,20 @@ function landingTemplate(manifest: any) {
 				const mainForm = document.getElementById('mainForm');
 				// Se il form di configurazione esiste, costruisci l'URL con i suoi dati
 				if (mainForm) {
-					const config = Object.fromEntries(new FormData(mainForm));
+					const formEl = mainForm as HTMLFormElement;
+					const config: Record<string, any> = {};
+					const elements = formEl.querySelectorAll('input, select, textarea') as NodeListOf<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>;
+					elements.forEach((el) => {
+						const key = el.id || el.getAttribute('name') || '';
+						if (!key) return;
+						if ((el as HTMLInputElement).type === 'checkbox') {
+							config[key] = !!(el as HTMLInputElement).checked;
+						} else if (el.tagName.toLowerCase() === 'select') {
+							config[key] = (el as HTMLSelectElement).value;
+						} else {
+							config[key] = (el as HTMLInputElement).value;
+						}
+					});
 					manifestUrl = window.location.protocol + '//' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json';
 				} else {
 					// Altrimenti, usa l'URL del manifest di base
