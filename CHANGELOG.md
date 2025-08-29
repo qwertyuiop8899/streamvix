@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.1...v1.0.2) (2025-08-29)
+
+
+### Bug Fixes
+
+* updating name ([a8c3c2d](https://github.com/qwertyuiop8899/streamvix/commit/a8c3c2d177f7641af6174e059517d2f659a017e5))
+
 ## [1.0.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.0...v1.0.1) (2025-08-29)
 
 
