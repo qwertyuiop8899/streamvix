@@ -293,14 +293,14 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         const obj = getObject(id);
         finalNameForProxy += ` (S${obj.season}E${obj.episode})`;
       }
-      finalNameForProxy += ' (Proxy) [ITA]'; // Aggiungi sempre (Proxy)
+      finalNameForProxy += '[ITA]'; 
     } else { // Titolo TMDB non trovato, usa il fallback
       if (type === 'movie') {
-        finalNameForProxy = 'Movie Stream (Proxy) [ITA]';
+        finalNameForProxy = 'Movie Stream [ITA]';
       } else { // Serie
         const obj = getObject(id);
         // Per richiesta utente, anche i titoli di fallback delle serie dovrebbero avere S/E
-        finalNameForProxy = `Series Stream (Proxy) (S${obj.season}E${obj.episode}) [ITA]`;
+        finalNameForProxy = `Series Stream (S${obj.season}E${obj.episode}) [ITA]`;
       }
     }
     
