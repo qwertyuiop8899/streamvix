@@ -101,6 +101,69 @@ button:active {
 	box-shadow: 0 0 0 0.5vh white inset;
 }
 
+/* Pretty toggle styles */
+.toggle-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.6rem 0.4rem;
+	border-radius: 10px;
+}
+.toggle-title {
+	font-size: 1rem;
+	font-weight: 600;
+}
+.toggle-right {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.6rem;
+}
+.toggle-off, .toggle-on {
+	font-size: 0.85rem;
+	font-weight: 700;
+	letter-spacing: 0.03em;
+}
+.toggle-off { color: #888; }
+.toggle-on { color: #888; }
+.toggle-row.is-on .toggle-on { color: #00c16e; }
+.toggle-row:not(.is-on) .toggle-off { color: #ff3b3b; }
+
+/* Switch */
+.switch {
+	position: relative;
+	display: inline-block;
+	width: 62px;
+	height: 30px;
+}
+.switch input { display: none; }
+.slider {
+	position: absolute;
+	cursor: pointer;
+	top: 0; left: 0; right: 0; bottom: 0;
+	background-color: #b31b1b; /* red when OFF */
+	transition: 0.2s ease;
+	border-radius: 30px;
+	box-shadow: 0 0 10px rgba(140, 82, 255, 0.5); /* purple glow */
+}
+.slider:before {
+	position: absolute;
+	content: "";
+	height: 24px;
+	width: 24px;
+	left: 3px;
+	top: 3px;
+	background-color: #fff;
+	border-radius: 50%;
+	transition: 0.2s ease;
+}
+
+.switch input:checked + .slider {
+	background-color: #00c16e; /* green when ON */
+	box-shadow: 0 0 14px rgba(140, 82, 255, 0.9); /* stronger glow */
+}
+.switch input:checked + .slider:before { transform: translateX(32px); }
+
 #addon {
 	/* Make the main container responsive and single-column */
 	width: 100%;
@@ -195,7 +258,7 @@ function landingTemplate(manifest: any) {
 		let options = ''
 		manifest.config.forEach((elem: any) => {
 			const key = elem.key
-			if (['text', 'number', 'password'].includes(elem.type)) {
+			if (["text", "number", "password"].includes(elem.type)) {
 				const isRequired = elem.required ? ' required' : ''
 				const defaultHTML = elem.default ? ` value="${elem.default}"` : ''
 				const inputType = elem.type
@@ -205,15 +268,44 @@ function landingTemplate(manifest: any) {
 					<input type="${inputType}" id="${key}" name="${key}" class="full-width"${defaultHTML}${isRequired}/>
 				</div>
 				`
-			} else if (elem.type === 'checkbox') {
-				const isChecked = elem.default === 'checked' ? ' checked' : ''
-				options += `
-				<div class="form-element">
-					<label for="${key}">
-						<input type="checkbox" id="${key}" name="${key}"${isChecked}> <span class="label-to-right">${elem.title}</span>
-					</label>
-				</div>
-				`
+				} else if (elem.type === 'checkbox') {
+					// Custom pretty toggle for known keys
+					const toggleMap: any = {
+						'disableVixsrc': { title: 'VixSrc', invert: true },
+						'disableLiveTv': { title: 'LiveTV', invert: true },
+						'animeunityEnabled': { title: 'Anime Unity', invert: false },
+						'animesaturnEnabled': { title: 'Anime Saturn', invert: false },
+						'animeworldEnabled': { title: 'Anime World', invert: false },
+					}
+					if (toggleMap[key]) {
+						const t = toggleMap[key];
+						// All default ON visually: mark as checked
+						const checkedAttr = ' checked';
+						options += `
+						<div class="form-element">
+							<div class="toggle-row" data-toggle-row="${key}">
+								<span class="toggle-title">${t.title}</span>
+								<div class="toggle-right">
+									<span class="toggle-off">OFF</span>
+									<label class="switch">
+										<input type="checkbox" id="${key}" name="${key}" data-config-key="${key}" data-invert="${t.invert ? 'true' : 'false'}"${checkedAttr} />
+										<span class="slider"></span>
+									</label>
+									<span class="toggle-on">ON</span>
+								</div>
+							</div>
+						</div>
+						`
+					} else {
+						const isChecked = elem.default === 'checked' ? ' checked' : ''
+						options += `
+						<div class="form-element">
+							<label for="${key}">
+								<input type="checkbox" id="${key}" name="${key}"${isChecked}> <span class="label-to-right">${elem.title}</span>
+							</label>
+						</div>
+						`
+					}
 			} else if (elem.type === 'select') {
 				const defaultValue = elem.default || (elem.options || [])[0]
 				options += `<div class="form-element">
@@ -249,8 +341,14 @@ function landingTemplate(manifest: any) {
 					elements.forEach(function(el) {
 						var key = el.id || el.getAttribute('name') || '';
 						if (!key) return;
-						if (el.type === 'checkbox') config[key] = !!el.checked;
-						else config[key] = el.value;
+						if (el.type === 'checkbox') {
+							var cfgKey = el.getAttribute('data-config-key') || key;
+							var invert = el.getAttribute('data-invert') === 'true';
+							var val = !!el.checked;
+							config[cfgKey] = invert ? !val : val;
+						} else {
+							config[key] = el.value;
+						}
 					});
 					return config;
 				};
@@ -259,6 +357,20 @@ function landingTemplate(manifest: any) {
 					installLink.setAttribute('href', 'stremio://' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json');
 				};
 					(mainForm).onchange = updateLink;
+					// initialize toggle visual ON/OFF state classes
+					var toggleRows = (mainForm).querySelectorAll('[data-toggle-row]');
+					var setRowState = function(row){
+						if (!row) return;
+						var input = row.querySelector('input[type="checkbox"]');
+						if (!input) return;
+						if (input.checked) { row.classList.add('is-on'); } else { row.classList.remove('is-on'); }
+					};
+					toggleRows.forEach(function(row){
+						setRowState(row);
+						var input = row.querySelector('input[type="checkbox"]');
+						if (input) input.addEventListener('change', function(){ setRowState(row); });
+					});
+
 				// expose globally for bottom script
 					window.updateLink = updateLink;
 			}
@@ -280,7 +392,12 @@ function landingTemplate(manifest: any) {
 					elements.forEach(function(el) {
 						var key = el.id || el.getAttribute('name') || '';
 						if (!key) return;
-						if (el.type === 'checkbox') { config[key] = !!el.checked; } else { config[key] = el.value; }
+						if (el.type === 'checkbox') {
+							var cfgKey = el.getAttribute('data-config-key') || key;
+							var invert = el.getAttribute('data-invert') === 'true';
+							var val = !!el.checked;
+							config[cfgKey] = invert ? !val : val;
+						} else { config[key] = el.value; }
 					});
 					manifestUrl = window.location.protocol + '//' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json';
 				} else {
