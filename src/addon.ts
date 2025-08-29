@@ -472,7 +472,7 @@ function decodeStaticUrl(url: string): string {
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
     version: "5.6.24",
-    name: "StreamViX | ElfHosted",
+    name: "StreamViX | Elfhosted",
     description: "Addon for Vixsrc, Anime providers Live TV and Events.",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
     types: ["movie", "series", "tv", "anime"],
@@ -2830,7 +2830,10 @@ async function executeLiveScript(): Promise<{ stdout?: string; stderr?: string; 
     try {
         const { execFile } = require('child_process');
         const result = await new Promise<{ stdout?: string; stderr?: string; error?: string }>((resolve) => {
-            const child = execFile('python3', [LIVE_SCRIPT_PATH], { timeout: 1000 * 60 * 4 }, (err: any, stdout: string, stderr: string) => {
+            const child = execFile('python3', [LIVE_SCRIPT_PATH], {
+                timeout: 1000 * 60 * 4,
+                env: { ...process.env, DYNAMIC_FILE: '/tmp/dynamic_channels.json' }
+            }, (err: any, stdout: string, stderr: string) => {
                 if (stdout) logLive('Output Live.py', stdout.slice(0, 800));
                 if (stderr) logLive('Stderr Live.py', stderr.slice(0, 800));
                 if (err) logLive('Errore Live.py', err.message || err);

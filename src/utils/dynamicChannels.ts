@@ -72,6 +72,8 @@ function resolveDynamicFile(): string {
 
   // 2) Cerca in possibili posizioni (support legacy nested config/config)
   const candidates = [
+  // Preferred writable temp path in containers/hosts
+  '/tmp/dynamic_channels.json',
     // Dev (ts-node src/...): __dirname ~ src/utils -> ../../config => root/config (OK)
     path.resolve(__dirname, '../../config/dynamic_channels.json'),
     // Dist (addon.js compilato in dist/, utils in dist/utils): usare ../../../config -> root/config
