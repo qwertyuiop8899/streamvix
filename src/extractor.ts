@@ -22,6 +22,8 @@ export interface VixCloudStreamInfo {
   streamUrl: string;
   referer: string;
   source: 'proxy' | 'direct';
+  // Optional: estimated content size in bytes (parsed from VixSrc page)
+  sizeBytes?: number;
 }
 
 /**
@@ -308,11 +310,29 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     const finalStreamUrl = await getActualStreamUrl(proxyStreamUrl);
     console.log(`Final m3u8 URL: ${finalStreamUrl}`);
     
+    // Prova ad estrarre la dimensione (bytes) dalla pagina VixSrc
+    let sizeBytes: number | undefined = undefined;
+  try {
+      const pageRes = await fetch(url);
+      if (pageRes.ok) {
+        const html = await pageRes.text();
+        const sizeMatch = html.match(/\"size\":(\d+)/);
+        if (sizeMatch) {
+      // Nel codice originale la size è in kB -> converti in bytes (kB * 1024)
+      const kB = parseInt(sizeMatch[1] as string, 10);
+      if (!isNaN(kB) && kB >= 0) sizeBytes = kB * 1024;
+        }
+      }
+    } catch (e) {
+      // Ignora errori di parsing/rete: la dimensione è solo informativa
+    }
+
     return { 
       name: finalNameForProxy, 
       streamUrl: finalStreamUrl, 
       referer: url, 
-      source: 'proxy' 
+      source: 'proxy',
+      ...(typeof sizeBytes === 'number' ? { sizeBytes } : {})
     };
   }
 
