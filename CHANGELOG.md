@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.3...v1.0.4) (2025-08-29)
+
+
+### Bug Fixes
+
+* vixsrc fhd ([be462ca](https://github.com/qwertyuiop8899/streamvix/commit/be462cac4aa6d3b88cf1479cedc42c28102224dd))
+
 ## [1.0.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.2...v1.0.3) (2025-08-29)
 
 
