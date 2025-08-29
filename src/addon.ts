@@ -2467,13 +2467,27 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const res: VixCloudStreamInfo[] | null = await getStreamContent(id, type, finalConfig);
 
                     if (res) {
+                        // helper: compact bytes format (e.g., 123.4 MB)
+                        const fmtBytes = (n: number): string => {
+                            const units = ['B','KB','MB','GB','TB'];
+                            let v = n;
+                            let u = 0;
+                            while (v >= 1024 && u < units.length - 1) { v /= 1024; u++; }
+                            return `${v.toFixed(v >= 10 || u === 0 ? 0 : 1)} ${units[u]}`;
+                        };
                         for (const st of res) {
                             if (st.streamUrl == null) continue;
                             
-                            console.log(`Adding stream with title: "${st.name}"`);
+                            // Costruisci il title: mantieni il nome invariato, e SOLO per VixSrc aggiungi sotto la riga 💾 size
+                            let finalTitle = st.name;
+                            if (typeof st.sizeBytes === 'number' && st.sizeBytes > 0) {
+                                finalTitle = `${st.name}\n💾 ${fmtBytes(st.sizeBytes)}`;
+                            }
+
+                            console.log(`Adding stream with title: "${finalTitle}"`);
 
                             allStreams.push({
-                                title: st.name,
+                                title: finalTitle,
                                 name: 'StreamViX Vx',
                                 url: st.streamUrl,
                                 behaviorHints: {
