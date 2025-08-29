@@ -111,9 +111,11 @@ button:active {
 	border-radius: 10px;
 }
 .toggle-title {
-	font-size: 1rem;
+	font-size: 1.1rem;
 	font-weight: 700;
 	letter-spacing: 0.01em;
+	color: #c9b3ff; /* soft purple */
+	text-shadow: 0 0 8px rgba(140, 82, 255, 0.6);
 }
 .toggle-right {
 	display: inline-flex;
@@ -231,6 +233,19 @@ button:active {
 
 .full-width {
 	width: 100%;
+}
+
+/* Actions row: install + copy side by side */
+.actions-row {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	flex-wrap: wrap;
+}
+.actions-row .install-link button,
+.actions-row #copyManifestLink {
+	margin: 0; /* override global button margin */
 }
 
 @keyframes pulse {
@@ -407,8 +422,14 @@ function landingTemplate(manifest: any) {
 				try {
 					if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
 						navigator.clipboard.writeText(manifestUrl).then(function(){
-							copyManifestLink.textContent = 'Copiato!';
-							setTimeout(function(){ copyManifestLink.textContent = 'COPIA MANIFEST URL'; }, 2000);
+							copyManifestLink.textContent = 'COPIATO!';
+							copyManifestLink.style.background = '#1f8b4c';
+							copyManifestLink.style.boxShadow = '0 0 12px rgba(31, 139, 76, 0.8)';
+							setTimeout(function(){
+								copyManifestLink.textContent = 'COPIA MANIFEST URL';
+								copyManifestLink.style.background = '#8A5AAB';
+								copyManifestLink.style.boxShadow = '0 0.5vh 1vh rgba(0, 0, 0, 0.2)';
+							}, 1600);
 						});
 					} else {
 						throw new Error('Clipboard API non disponibile');
@@ -525,10 +546,12 @@ function landingTemplate(manifest: any) {
 
 			${formHTML}
 
-			<a id="installLink" class="install-link" href="#">
-			<button name="Install">INSTALL</button>
-			</a>
-			<button id="copyManifestLink" style="margin-top: 1vh;">COPIA MANIFEST URL</button>
+			<div class="actions-row">
+				<a id="installLink" class="install-link" href="#">
+					<button name="Install">INSTALLA SU STREMIO</button>
+				</a>
+				<button id="copyManifestLink">COPIA MANIFEST URL</button>
+			</div>
 			${contactHTML}
 		</div>
 		<script>
