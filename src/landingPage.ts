@@ -287,11 +287,11 @@ function landingTemplate(manifest: any) {
 				} else if (elem.type === 'checkbox') {
 					// Custom pretty toggle for known keys
 					const toggleMap: any = {
-						'disableVixsrc': { title: 'VixSrc', invert: true },
-						'disableLiveTv': { title: 'LiveTV', invert: true },
-						'animeunityEnabled': { title: 'Anime Unity', invert: false },
-						'animesaturnEnabled': { title: 'Anime Saturn', invert: false },
-						'animeworldEnabled': { title: 'Anime World', invert: false },
+						'disableVixsrc': { title: 'VixSrc 🍿', invert: true },
+						'disableLiveTv': { title: 'LiveTV 📺', invert: true },
+						'animeunityEnabled': { title: 'Anime Unity ⛩️', invert: false },
+						'animesaturnEnabled': { title: 'Anime Saturn 🪐', invert: false },
+						'animeworldEnabled': { title: 'Anime World 🌍', invert: false },
 					}
 					if (toggleMap[key]) {
 						const t = toggleMap[key];
@@ -537,7 +537,7 @@ function landingTemplate(manifest: any) {
 
 			<div class="separator"></div>
 
-			<h3 class="gives">This addon has more :</h3>
+			<h3 class="gives">In Questo Addon puoi trovare :</h3>
 			<ul>
 			${stylizedTypes.map((t: string) => `<li>${t}</li>`).join('')}
 			</ul>
