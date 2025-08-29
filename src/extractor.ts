@@ -293,16 +293,16 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       finalNameForProxy = tmdbApiTitle;
       if (type !== 'movie') { // È una serie, aggiungi Stagione/Episodio
         const obj = getObject(id);
-        finalNameForProxy += ` (S${obj.season}E${obj.episode})`;
+        finalNameForProxy += ` (S${obj.season}•E${obj.episode})`;
       }
-      finalNameForProxy += '[ITA]'; 
+      finalNameForProxy += ' [ITA]'; 
     } else { // Titolo TMDB non trovato, usa il fallback
       if (type === 'movie') {
-        finalNameForProxy = 'Movie Stream [ITA]';
+        finalNameForProxy = 'Movie Stream  [ITA]';
       } else { // Serie
         const obj = getObject(id);
         // Per richiesta utente, anche i titoli di fallback delle serie dovrebbero avere S/E
-        finalNameForProxy = `Series Stream (S${obj.season}E${obj.episode}) [ITA]`;
+        finalNameForProxy = `Series Stream (S${obj.season}•E${obj.episode})  [ITA]`;
       }
     }
     
@@ -441,10 +441,10 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       if (baseTitle) {
         // Se abbiamo un titolo, ora siamo sicuri che sia una stringa.
         if (type === 'movie') {
-          determinedName = `${baseTitle} [ITA]`;
+          determinedName = `${baseTitle}  [ITA]`;
         } else { // È una serie, aggiungi info S/E
           const obj = getObject(id);
-          determinedName = `${baseTitle} (S${obj.season}E${obj.episode}) [ITA]`;
+          determinedName = `${baseTitle} (S${obj.season}•E${obj.episode}) [ITA]`;
         }
       } else {
         // Se non abbiamo un titolo (baseTitle è null), usiamo un nome di fallback.
@@ -453,7 +453,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         } else { // È una serie
           const obj = getObject(id);
           // Per richiesta utente, anche i titoli di fallback delle serie dovrebbero avere S/E
-          determinedName = `Series Stream (Direct) (S${obj.season}E${obj.episode}) [ITA]`;
+          determinedName = `Series Stream (Direct) (S${obj.season}•E${obj.episode})  [ITA]`;
         }
       }
       
@@ -489,4 +489,5 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     return null;
   }
 }
+
 
