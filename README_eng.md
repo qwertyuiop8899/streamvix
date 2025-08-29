@@ -1,6 +1,13 @@
-# 🎬 StreamViX
-An addon for Stremio that extracts streaming sources from the sites vixsrc and animeunity, animesaturn, daddy, and vavoo to let you watch movies, TV series, anime, and TV with maximum simplicity.
----
+# 🎬 StreamViX | ElfHosted 
+
+An addon for Stremio that scrapes streaming sources from the sites vixsrc and animeunity animesaturn daddy and vavoo to let you watch movies, TV series, anime and live TV with maximum simplicity.
+
+[Installation Link](https://streamvix.hayd.uk/)
+
+Paid ElfHosted instance WITH MEDIAFLOWProxy included (For Sports Events)
+
+[ElfHosted instance with Mediaflow](https://store.elfhosted.com/product/streamvix/)
+
 ## ✨ Main Features
 * **✅ Movie Support:** Finds streaming sources for movies using their TMDB ID.
 * **📺 TV Series Support:** Finds streams for each episode of a TV series, based on TMDB ID in season/episode format.
@@ -9,11 +16,18 @@ An addon for Stremio that extracts streaming sources from the sites vixsrc and a
 * **📡 Sports Events Support:** Sports events updated daily.
 * **🔗 Seamless Integration:** Integrates beautifully with the Stremio interface for a smooth user experience.
 * **🌐 Unified Proxy:** A single MFP proxy for all content (movies, series, anime, TV).
+* **⚡ Dynamic FAST Mode: Live events with direct URLs bypassing the extractor (runtime toggle), all labeled [External Player].
+* **🎯 Extraction Limits & Priority: In extractor mode, applies concurrency CAP and prioritizes Italian sources.
+* **📡 Live TV Support: Italian TV channels and Sports Events viewable without Mediaflow Proxy; choose channels marked [Vavoo] or with 🏠.
+
+
+
 ---
 Commands for Live TV from browser
 http://urladdon/live/update   update live events list
 http://urladdon/live/purge    clear old events
 http://urladdon/live/reload   update the stremio catalog
+
 ## 🔧 Simplified Configuration
 StreamViX uses a **unified proxy system** that simplifies configuration:
 ### 🌐 Unified MFP Proxy
