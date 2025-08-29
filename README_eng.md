@@ -18,7 +18,7 @@ Paid ElfHosted instance WITH MEDIAFLOWProxy included (For Sports Events)
 * **🌐 Unified Proxy:** A single MFP proxy for all content (movies, series, anime, TV).
 * **⚡ Dynamic FAST Mode: Live events with direct URLs bypassing the extractor (runtime toggle), all labeled [External Player].
 * **🎯 Extraction Limits & Priority: In extractor mode, applies concurrency CAP and prioritizes Italian sources.
-* **📡 Live TV Support: Italian TV channels and Sports Events viewable without Mediaflow Proxy; choose channels marked [Vavoo] or with 🏠.
+* **📡 Live TV Support: Italian TV channels and Sports Events viewable without Mediaflow Proxy; choose channels marked [Vavoo] or with 🏠. 
 
 
 
