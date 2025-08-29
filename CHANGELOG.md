@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.0...v1.0.1) (2025-08-29)
+
+
+### Bug Fixes
+
+* move dynamic channels to /tmp ([4abc561](https://github.com/qwertyuiop8899/streamvix/commit/4abc5613a66062d0220fc46629f920c64859996f))
+* move dynamic event to /tmp ([4abc561](https://github.com/qwertyuiop8899/streamvix/commit/4abc5613a66062d0220fc46629f920c64859996f))
+
 ## 1.0.0 (2025-08-28)
 
 
