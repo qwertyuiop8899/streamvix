@@ -36,6 +36,7 @@ interface AddonConfig {
     animesaturnEnabled?: boolean;
     animeworldEnabled?: boolean;
     disableLiveTv?: boolean;
+    disableVixsrc?: boolean;
 }
 
 function debugLog(...args: any[]) {
@@ -530,6 +531,8 @@ const baseManifest: Manifest = {
         { key: "mediaFlowProxyUrl", title: "MediaFlow Proxy URL", type: "text" },
         { key: "mediaFlowProxyPassword", title: "MediaFlow Proxy Password", type: "text" },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
+    { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox" },
+    { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox" },
     { key: "disableLiveTv", title: "Disable Live TV", type: "checkbox" },
     { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
     { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
@@ -2447,6 +2450,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // Mantieni logica VixSrc per tutti gli altri ID
                 if (!id.startsWith('kitsu:') && !id.startsWith('mal:') && !id.startsWith('tv:')) {
                     console.log(`📺 Processing non-Kitsu or MAL ID with VixSrc: ${id}`);
+                    // Gate VixSrc by config flag (default ON if absent)
+                    try {
+                        const cfg3 = { ...configCache } as AddonConfig;
+                        if (cfg3.disableVixsrc === true) {
+                            console.log('⛔ VixSrc disabled by config.disableVixsrc=true');
+                            return { streams: allStreams };
+                        }
+                    } catch {}
                     
                     const finalConfig: ExtractorConfig = {
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
