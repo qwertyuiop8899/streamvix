@@ -239,30 +239,29 @@ function landingTemplate(manifest: any) {
 			<div class="separator"></div>
 			`
 			script += `
-			installLink.onclick = () => {
-				return mainForm.reportValidity()
+			var installLink = document.getElementById('installLink');
+			var mainForm = document.getElementById('mainForm');
+			if (installLink && mainForm) {
+				installLink.onclick = function () { return (mainForm && typeof mainForm.reportValidity === 'function') ? mainForm.reportValidity() : true; };
+				var buildConfigFromForm = function() {
+					var config = {};
+					var elements = (mainForm).querySelectorAll('input, select, textarea');
+					elements.forEach(function(el) {
+						var key = el.id || el.getAttribute('name') || '';
+						if (!key) return;
+						if (el.type === 'checkbox') config[key] = !!el.checked;
+						else config[key] = el.value;
+					});
+					return config;
+				};
+				var updateLink = function() {
+					var config = buildConfigFromForm();
+					installLink.setAttribute('href', 'stremio://' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json');
+				};
+					(mainForm).onchange = updateLink;
+				// expose globally for bottom script
+					window.updateLink = updateLink;
 			}
-			const buildConfigFromForm = () => {
-				const config: Record<string, any> = {}
-				const elements = mainForm.querySelectorAll('input, select, textarea') as NodeListOf<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-				elements.forEach((el) => {
-					const key = el.id || el.getAttribute('name') || ''
-					if (!key) return
-					if ((el as HTMLInputElement).type === 'checkbox') {
-						config[key] = !!(el as HTMLInputElement).checked
-					} else if (el.tagName.toLowerCase() === 'select') {
-						config[key] = (el as HTMLSelectElement).value
-					} else {
-						config[key] = (el as HTMLInputElement).value
-					}
-				})
-				return config
-			}
-			const updateLink = () => {
-				const config = buildConfigFromForm()
-				installLink.href = 'stremio://' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json'
-			}
-			mainForm.onchange = updateLink
 			`
 		}
 	}
@@ -270,54 +269,51 @@ function landingTemplate(manifest: any) {
 	// Aggiunge la logica per il pulsante "Copia Manifest" allo script
 	// Questa logica viene aggiunta indipendentemente dalla presenza di un form di configurazione
 	script += `
-		const copyManifestLink = document.getElementById('copyManifestLink');
+		var copyManifestLink = document.getElementById('copyManifestLink');
 		if (copyManifestLink) {
-			copyManifestLink.onclick = async () => {
-				let manifestUrl;
-				const mainForm = document.getElementById('mainForm');
-				// Se il form di configurazione esiste, costruisci l'URL con i suoi dati
+			copyManifestLink.onclick = function () {
+				var manifestUrl;
+				var mainForm = document.getElementById('mainForm');
 				if (mainForm) {
-					const formEl = mainForm as HTMLFormElement;
-					const config: Record<string, any> = {};
-					const elements = formEl.querySelectorAll('input, select, textarea') as NodeListOf<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>;
-					elements.forEach((el) => {
-						const key = el.id || el.getAttribute('name') || '';
+					var config = {};
+					var elements = (mainForm).querySelectorAll('input, select, textarea');
+					elements.forEach(function(el) {
+						var key = el.id || el.getAttribute('name') || '';
 						if (!key) return;
-						if ((el as HTMLInputElement).type === 'checkbox') {
-							config[key] = !!(el as HTMLInputElement).checked;
-						} else if (el.tagName.toLowerCase() === 'select') {
-							config[key] = (el as HTMLSelectElement).value;
-						} else {
-							config[key] = (el as HTMLInputElement).value;
-						}
+						if (el.type === 'checkbox') { config[key] = !!el.checked; } else { config[key] = el.value; }
 					});
 					manifestUrl = window.location.protocol + '//' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json';
 				} else {
-					// Altrimenti, usa l'URL del manifest di base
 					manifestUrl = window.location.protocol + '//' + window.location.host + '/manifest.json';
 				}
 				try {
-					await navigator.clipboard.writeText(manifestUrl);
-					copyManifestLink.textContent = 'Copiato!';
-					setTimeout(() => { copyManifestLink.textContent = 'COPIA MANIFEST URL'; }, 2000);
+					if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+						navigator.clipboard.writeText(manifestUrl).then(function(){
+							copyManifestLink.textContent = 'Copiato!';
+							setTimeout(function(){ copyManifestLink.textContent = 'COPIA MANIFEST URL'; }, 2000);
+						});
+					} else {
+						throw new Error('Clipboard API non disponibile');
+					}
 				} catch (err) {
 					console.error('Errore durante la copia: ', err);
-					alert('Impossibile copiare l\\'URL. Copialo manualmente: ' + manifestUrl);
+					alert("Impossibile copiare l'URL. Copialo manualmente: " + manifestUrl);
 				}
+				return false;
 			};
 		}
 		// Toggle sezione ElfHosted
 		try {
-			const features = document.getElementById('privateInstanceFeatures');
-			const toggleBtn = document.getElementById('togglePrivateFeatures');
-			const icon = toggleBtn ? toggleBtn.querySelector('.toggle-icon') : null;
+			var features = document.getElementById('privateInstanceFeatures');
+			var toggleBtn = document.getElementById('togglePrivateFeatures');
+			var icon = toggleBtn ? toggleBtn.querySelector('.toggle-icon') : null;
 			if (features && toggleBtn) {
 				features.style.display = 'none';
-				toggleBtn.addEventListener('click', (e) => {
+				toggleBtn.addEventListener('click', function(e) {
 					if (e && typeof e.preventDefault === 'function') e.preventDefault();
-					const isHidden = features.style.display === 'none';
+					var isHidden = features.style.display === 'none';
 					features.style.display = isHidden ? 'block' : 'none';
-					if (icon) icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+					if (icon) { icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)'; }
 				});
 			}
 		} catch (e) { console.warn(e); }
@@ -419,11 +415,14 @@ function landingTemplate(manifest: any) {
 		</div>
 		<script>
 			${script}
-
-			if (typeof updateLink === 'function')
-			updateLink()
-			else
-			installLink.href = 'stremio://' + window.location.host + '/manifest.json'
+			try {
+				if (typeof window.updateLink === 'function') {
+					window.updateLink();
+				} else {
+					var installLink = document.getElementById('installLink');
+					if (installLink) installLink.setAttribute('href', 'stremio://' + window.location.host + '/manifest.json');
+				}
+			} catch (e) { /* no-op */ }
 		</script>
 	</body>
 
