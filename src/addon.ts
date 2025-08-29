@@ -35,6 +35,8 @@ interface AddonConfig {
     animeunityEnabled?: boolean;
     animesaturnEnabled?: boolean;
     animeworldEnabled?: boolean;
+    disableLiveTv?: boolean;
+    disableVixsrc?: boolean;
 }
 
 function debugLog(...args: any[]) {
@@ -529,9 +531,12 @@ const baseManifest: Manifest = {
         { key: "mediaFlowProxyUrl", title: "MediaFlow Proxy URL", type: "text" },
         { key: "mediaFlowProxyPassword", title: "MediaFlow Proxy Password", type: "text" },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
-        { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
-        { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
-        { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" }
+    { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox" },
+    { key: "disableLiveTv", title: "Disable Live TV", type: "checkbox" },
+    { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
+    { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
+    { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
+    
     ]
 };
 
@@ -1108,6 +1113,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     // === TV CATALOG HANDLER ONLY ===
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
         if (type === "tv") {
+            // Simple runtime toggle: hide TV when disabled
+            try {
+                const cfg = { ...configCache } as AddonConfig;
+                if (cfg.disableLiveTv) {
+                    console.log('📴 TV catalog disabled by config.disableLiveTv');
+                    return { metas: [], cacheMaxAge: 0 };
+                }
+            } catch {}
             try {
                 const lastReq0: any = (global as any).lastExpressRequest;
                 console.log('📥 Catalog TV request:', {
@@ -1416,6 +1429,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     builder.defineMetaHandler(async ({ type, id }: { type: string; id: string }) => {
         console.log(`📺 META REQUEST: type=${type}, id=${id}`);
         if (type === "tv") {
+            try {
+                const cfg = { ...configCache } as AddonConfig;
+                if (cfg.disableLiveTv) {
+                    console.log('📴 TV meta disabled by config.disableLiveTv');
+                    return { meta: null };
+                }
+            } catch {}
             // Gestisci tutti i possibili formati di ID che Stremio può inviare
             let cleanId = id;
             if (id.startsWith('tv:')) {
@@ -1576,6 +1596,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                 // === LOGICA TV ===
                 if (type === "tv") {
+                    // Runtime disable live TV
+                    try {
+                        const cfg2 = { ...configCache } as AddonConfig;
+                        if (cfg2.disableLiveTv) {
+                            console.log('📴 TV streams disabled by config.disableLiveTv');
+                            return { streams: [] };
+                        }
+                    } catch {}
                     // Assicura che i canali dinamici siano presenti anche se la prima richiesta è uno stream (senza passare dal catalog)
                     try {
                         loadDynamicChannels(false);
@@ -2281,12 +2309,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // Provider flags: default ON unless explicitly disabled
                 const envFlag = (name: string) => {
                     const v = process.env[name];
-                    if (!v) return undefined;
+                    if (v == null) return undefined;
                     return v.toLowerCase() === 'true';
                 };
-                const animeUnityEnabled = envFlag('ANIMEUNITY_ENABLED') ?? (config.animeunityEnabled === false ? false : true);
-                const animeSaturnEnabled = envFlag('ANIMESATURN_ENABLED') ?? (config.animesaturnEnabled === false ? false : true);
-                const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (config.animeworldEnabled === false ? false : true);
+                // New rule: enabled only when checkbox true (or env forces true)
+                const animeUnityEnabled = envFlag('ANIMEUNITY_ENABLED') ?? (config.animeunityEnabled === true);
+                const animeSaturnEnabled = envFlag('ANIMESATURN_ENABLED') ?? (config.animesaturnEnabled === true);
+                const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (config.animeworldEnabled === true);
                 
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld
                 if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled)) {
@@ -2420,6 +2449,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // Mantieni logica VixSrc per tutti gli altri ID
                 if (!id.startsWith('kitsu:') && !id.startsWith('mal:') && !id.startsWith('tv:')) {
                     console.log(`📺 Processing non-Kitsu or MAL ID with VixSrc: ${id}`);
+                    // Gate VixSrc by config flag (default ON if absent)
+                    try {
+                        const cfg3 = { ...configCache } as AddonConfig;
+                        if (cfg3.disableVixsrc === true) {
+                            console.log('⛔ VixSrc disabled by config.disableVixsrc=true');
+                            return { streams: allStreams };
+                        }
+                    } catch {}
                     
                     const finalConfig: ExtractorConfig = {
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
@@ -2430,13 +2467,27 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const res: VixCloudStreamInfo[] | null = await getStreamContent(id, type, finalConfig);
 
                     if (res) {
+                        // helper: compact bytes format (e.g., 123.4 MB)
+                        const fmtBytes = (n: number): string => {
+                            const units = ['B','KB','MB','GB','TB'];
+                            let v = n;
+                            let u = 0;
+                            while (v >= 1024 && u < units.length - 1) { v /= 1024; u++; }
+                            return `${v.toFixed(v >= 10 || u === 0 ? 0 : 1)} ${units[u]}`;
+                        };
                         for (const st of res) {
                             if (st.streamUrl == null) continue;
                             
-                            console.log(`Adding stream with title: "${st.name}"`);
+                            // Costruisci il title: mantieni il nome invariato, e SOLO per VixSrc aggiungi sotto la riga 💾 size
+                            let finalTitle = st.name;
+                            if (typeof st.sizeBytes === 'number' && st.sizeBytes > 0) {
+                                finalTitle = `${st.name}\n💾 ${fmtBytes(st.sizeBytes)}`;
+                            }
+
+                            console.log(`Adding stream with title: "${finalTitle}"`);
 
                             allStreams.push({
-                                title: st.name,
+                                title: finalTitle,
                                 name: 'StreamViX Vx',
                                 url: st.streamUrl,
                                 behaviorHints: {

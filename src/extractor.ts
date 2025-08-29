@@ -22,6 +22,8 @@ export interface VixCloudStreamInfo {
   streamUrl: string;
   referer: string;
   source: 'proxy' | 'direct';
+  // Optional: estimated content size in bytes (parsed from VixSrc page)
+  sizeBytes?: number;
 }
 
 /**
@@ -291,16 +293,16 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       finalNameForProxy = tmdbApiTitle;
       if (type !== 'movie') { // È una serie, aggiungi Stagione/Episodio
         const obj = getObject(id);
-        finalNameForProxy += ` (S${obj.season}E${obj.episode})`;
+        finalNameForProxy += ` (S${obj.season}•E${obj.episode})`;
       }
-      finalNameForProxy += ' (Proxy) [ITA]'; // Aggiungi sempre (Proxy)
+      finalNameForProxy += ' [ITA]'; 
     } else { // Titolo TMDB non trovato, usa il fallback
       if (type === 'movie') {
-        finalNameForProxy = 'Movie Stream (Proxy) [ITA]';
+        finalNameForProxy = 'Movie Stream  [ITA]';
       } else { // Serie
         const obj = getObject(id);
         // Per richiesta utente, anche i titoli di fallback delle serie dovrebbero avere S/E
-        finalNameForProxy = `Series Stream (Proxy) (S${obj.season}E${obj.episode}) [ITA]`;
+        finalNameForProxy = `Series Stream (S${obj.season}•E${obj.episode})  [ITA]`;
       }
     }
     
@@ -308,11 +310,29 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     const finalStreamUrl = await getActualStreamUrl(proxyStreamUrl);
     console.log(`Final m3u8 URL: ${finalStreamUrl}`);
     
+    // Prova ad estrarre la dimensione (bytes) dalla pagina VixSrc
+    let sizeBytes: number | undefined = undefined;
+  try {
+      const pageRes = await fetch(url);
+      if (pageRes.ok) {
+        const html = await pageRes.text();
+        const sizeMatch = html.match(/\"size\":(\d+)/);
+        if (sizeMatch) {
+      // Nel codice originale la size è in kB -> converti in bytes (kB * 1024)
+      const kB = parseInt(sizeMatch[1] as string, 10);
+      if (!isNaN(kB) && kB >= 0) sizeBytes = kB * 1024;
+        }
+      }
+    } catch (e) {
+      // Ignora errori di parsing/rete: la dimensione è solo informativa
+    }
+
     return { 
       name: finalNameForProxy, 
       streamUrl: finalStreamUrl, 
       referer: url, 
-      source: 'proxy' 
+      source: 'proxy',
+      ...(typeof sizeBytes === 'number' ? { sizeBytes } : {})
     };
   }
 
@@ -421,10 +441,10 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       if (baseTitle) {
         // Se abbiamo un titolo, ora siamo sicuri che sia una stringa.
         if (type === 'movie') {
-          determinedName = `${baseTitle} [ITA]`;
+          determinedName = `${baseTitle}  [ITA]`;
         } else { // È una serie, aggiungi info S/E
           const obj = getObject(id);
-          determinedName = `${baseTitle} (S${obj.season}E${obj.episode}) [ITA]`;
+          determinedName = `${baseTitle} (S${obj.season}•E${obj.episode}) [ITA]`;
         }
       } else {
         // Se non abbiamo un titolo (baseTitle è null), usiamo un nome di fallback.
@@ -433,7 +453,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         } else { // È una serie
           const obj = getObject(id);
           // Per richiesta utente, anche i titoli di fallback delle serie dovrebbero avere S/E
-          determinedName = `Series Stream (Direct) (S${obj.season}E${obj.episode}) [ITA]`;
+          determinedName = `Series Stream (Direct) (S${obj.season}•E${obj.episode})  [ITA]`;
         }
       }
       
@@ -469,4 +489,5 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     return null;
   }
 }
+
 
