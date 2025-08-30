@@ -3,6 +3,7 @@ import * as path from 'path';
 import { KitsuProvider } from './kitsu';
 import { formatMediaFlowUrl } from '../utils/mediaflow';
 import { AnimeWorldConfig, AnimeWorldResult, AnimeWorldEpisode, StreamForStremio } from '../types/animeunity';
+import { checkIsAnimeById } from '../utils/animeGate';
 
 // Cache semplice in-memory per titoli tradotti per evitare chiamate ripetute
 const englishTitleCache = new Map<string, string>();
@@ -233,11 +234,33 @@ export class AnimeWorldProvider {
   }
   async handleImdbRequest(imdbId: string, seasonNumber: number | null, episodeNumber: number | null, isMovie=false): Promise<{ streams: StreamForStremio[] }> {
     if (!this.config.enabled) return { streams: [] };
-    try { const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey); return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie); } catch(e){ console.error('[AnimeWorld] imdb handler error', e); return { streams: [] }; }
+    try {
+      const gateEnabled = (process.env.ANIME_GATE_ENABLED || 'true') !== 'false';
+      if (gateEnabled) {
+        const gate = await checkIsAnimeById('imdb', imdbId, this.config.tmdbApiKey, isMovie ? 'movie' : 'tv');
+        if (!gate.isAnime) {
+          console.log(`[AnimeWorld] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for ${imdbId}`);
+          return { streams: [] };
+        }
+      }
+      const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
+      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+    } catch(e){ console.error('[AnimeWorld] imdb handler error', e); return { streams: [] }; }
   }
   async handleTmdbRequest(tmdbId: string, seasonNumber: number | null, episodeNumber: number | null, isMovie=false): Promise<{ streams: StreamForStremio[] }> {
     if (!this.config.enabled) return { streams: [] };
-    try { const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey); return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie); } catch(e){ console.error('[AnimeWorld] tmdb handler error', e); return { streams: [] }; }
+    try {
+      const gateEnabled = (process.env.ANIME_GATE_ENABLED || 'true') !== 'false';
+      if (gateEnabled) {
+        const gate = await checkIsAnimeById('tmdb', tmdbId, this.config.tmdbApiKey, isMovie ? 'movie' : 'tv');
+        if (!gate.isAnime) {
+          console.log(`[AnimeWorld] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for TMDB ${tmdbId}`);
+          return { streams: [] };
+        }
+      }
+      const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
+      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+    } catch(e){ console.error('[AnimeWorld] tmdb handler error', e); return { streams: [] }; }
   }
 
   async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie=false): Promise<{ streams: StreamForStremio[] }> {
