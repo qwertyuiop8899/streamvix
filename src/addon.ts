@@ -1589,8 +1589,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 
                 // Prima della logica degli stream TV, aggiungi:
                 // Usa sempre lo stesso proxy per tutto
-                let mfpUrl = config.mediaFlowProxyUrl ? normalizeProxyUrl(config.mediaFlowProxyUrl) : '';
-                let mfpPsw = config.mediaFlowProxyPassword || '';
+                // MediaFlow config: allow fallback to environment variables if not provided via addon config
+                let mfpUrlRaw = '';
+                let mfpPswRaw = '';
+                try {
+                    mfpUrlRaw = (config.mediaFlowProxyUrl || (process && process.env && (process.env.MFP_URL || process.env.MEDIAFLOW_PROXY_URL)) || '').toString().trim();
+                    mfpPswRaw = (config.mediaFlowProxyPassword || (process && process.env && (process.env.MFP_PASSWORD || process.env.MEDIAFLOW_PROXY_PASSWORD)) || '').toString().trim();
+                } catch {}
+                let mfpUrl = mfpUrlRaw ? normalizeProxyUrl(mfpUrlRaw) : '';
+                let mfpPsw = mfpPswRaw;
+                debugLog(`[MFP] Using url=${mfpUrl ? 'SET' : 'MISSING'} pass=${mfpPsw ? 'SET' : 'MISSING'}`);
 
                 // === LOGICA TV ===
                 if (type === "tv") {
