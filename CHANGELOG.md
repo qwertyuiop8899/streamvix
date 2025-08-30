@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.7](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.6...v1.0.7) (2025-08-30)
+
+
+### Bug Fixes
+
+* add live script at startup ([1a7fa02](https://github.com/qwertyuiop8899/streamvix/commit/1a7fa02ac615fc0c6209457f0ade0e00b0d8f12f))
+
 ## [1.0.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.5...v1.0.6) (2025-08-30)
 
 
