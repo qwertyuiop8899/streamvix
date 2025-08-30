@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.8...v1.0.9) (2025-08-30)
+
+
+### Bug Fixes
+
+* bump version ([93bfec2](https://github.com/qwertyuiop8899/streamvix/commit/93bfec29c73046170d17e09e50e9f4a8b6c96368))
+
 ## [1.0.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.7...v1.0.8) (2025-08-30)
 
 
