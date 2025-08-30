@@ -245,7 +245,7 @@ function getClientIpFromReq(req: any): string | null {
             }
         }
         // 4) Express provided (requires trust proxy to be set elsewhere)
-        const ips = Array.isArray((req as any).ips) ? (req as any).ips : [];
+    const ips = Array.isArray((req as any).ips) ? (req as any).ips : [];
         if (ips.length) {
             const chosen = pickFirstPublic(ips);
             if (chosen) { vdbg('IP pick via req.ips', { ips, chosen }); return chosen; }
@@ -1700,6 +1700,73 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         vdbg('Alias clean resolve failed', { alias, error: msg });
                                         console.log('[VAVOO] Clean resolve skipped/failed:', msg);
                                     }
+                                    // Iniezione Vavoo incapsulata via MediaFlow (stessa logica di staticUrlD)
+                                    try {
+                                        if (mfpUrl && mfpPsw) {
+                                            const extractorUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(vUrl)}`;
+                                            const res2 = await fetch(extractorUrl);
+                                            if (res2.ok) {
+                                                const data2 = await res2.json();
+                                                let finalUrl2 = data2.mediaflow_proxy_url || `${mfpUrl}/proxy/hls/manifest.m3u8`;
+                                                if (data2.query_params) {
+                                                    const params = new URLSearchParams();
+                                                    for (const [kk, vv] of Object.entries(data2.query_params)) {
+                                                        if (vv !== null) params.append(kk, String(vv));
+                                                    }
+                                                    finalUrl2 += (finalUrl2.includes('?') ? '&' : '?') + params.toString();
+                                                }
+                                                if (data2.destination_url) finalUrl2 += (finalUrl2.includes('?') ? '&' : '?') + 'd=' + encodeURIComponent(data2.destination_url);
+                                                if (data2.request_headers) {
+                                                    for (const [hk2, hv2] of Object.entries(data2.request_headers)) {
+                                                        if (hv2 !== null) finalUrl2 += '&h_' + hk2 + '=' + encodeURIComponent(String(hv2));
+                                                    }
+                                                }
+                                                const title3 = `🌐 ${alias} (Vavoo/MFP) [ITA]`;
+                                                let insertAt = 0;
+                                                try { if (streams.length && /\(Vavoo\)/i.test(streams[0].title)) insertAt = 1; } catch {}
+                                                try { streams.splice(insertAt, 0, { url: finalUrl2, title: title3 }); } catch { streams.push({ url: finalUrl2, title: title3 }); }
+                                                vdbg('Alias Vavoo/MFP injected', { alias, url: finalUrl2.substring(0, 140) });
+                                            } else {
+                                                vdbg('Extractor for Vavoo/MFP NOT OK', { status: res2.status });
+                                            }
+                                        } else {
+                                            vdbg('Skip Vavoo/MFP injection: MFP config missing');
+                                        }
+                                    } catch (e2) {
+                                        vdbg('Vavoo/MFP injection error', String((e2 as any)?.message || e2));
+                                    }
+                                    // Iniezioni extra: DAZN ZONA IT -> usa staticUrlMpd di 'dazn1'; EUROSPORT 1/2 IT -> usa staticUrlMpd di 'eurosport1'/'eurosport2'
+                                    try {
+                                        const textsScan: string[] = [channel?.name || '', ...candidateTexts].map(t => (t || '').toLowerCase());
+                                        const hasDaznZonaIt = textsScan.some(t => /dazn\s*zona\s*it/.test(t));
+                                        const hasEu1It = textsScan.some(t => /eurosport\s*1/.test(t) && /\bit\b/.test(t));
+                                        const hasEu2It = textsScan.some(t => /eurosport\s*2/.test(t) && /\bit\b/.test(t));
+                                        const injectFromStaticMpd = async (staticId: string) => {
+                                            try {
+                                                const base = (staticBaseChannels || []).find((c: any) => c && c.id === staticId);
+                                                if (!base || !base.staticUrlMpd) return;
+                                                const decodedUrl = decodeStaticUrl(base.staticUrlMpd);
+                                                let finalUrl = decodedUrl;
+                                                let proxyUsed = false;
+                                                if (mfpUrl && mfpPsw) {
+                                                    const urlParts = decodedUrl.split('&');
+                                                    const baseUrl = urlParts[0];
+                                                    const additionalParams = urlParts.slice(1);
+                                                    finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                                                    for (const param of additionalParams) if (param) finalUrl += `&${param}`;
+                                                    proxyUsed = true;
+                                                }
+                                                const title = `${proxyUsed ? '' : '[❌Proxy]'}[🎬MPD] ${base.name} [ITA]`;
+                                                let insertAt = 0;
+                                                try { while (insertAt < streams.length && /(\(Vavoo\))/i.test(streams[insertAt].title)) insertAt++; } catch {}
+                                                try { streams.splice(insertAt, 0, { url: finalUrl, title }); } catch { streams.push({ url: finalUrl, title }); }
+                                                vdbg('Injected staticUrlMpd from static channel', { id: staticId, url: finalUrl.substring(0, 140) });
+                                            } catch {}
+                                        };
+                                        if (hasDaznZonaIt) await injectFromStaticMpd('dazn1');
+                                        if (hasEu1It) await injectFromStaticMpd('eurosport1');
+                                        if (hasEu2It) await injectFromStaticMpd('eurosport2');
+                                    } catch {}
                                     console.log(`✅ [VAVOO] Injected first stream from alias='${alias}' -> ${vUrl.substring(0, 60)}...`);
                                 } else {
                                     console.log(`⚠️ [VAVOO] Alias trovato ma nessun URL in cache: '${alias}'`);
