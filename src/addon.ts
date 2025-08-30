@@ -680,6 +680,7 @@ let epgManager: EPGManager | null = null;
 let globalBuilder: any;
 let globalAddonInterface: any;
 let globalRouter: any;
+let lastDisableLiveTvFlag: boolean | undefined;
 
 // Cache per i link Vavoo
 interface VavooCache {
@@ -2728,12 +2729,16 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     }
 
     // ✅ Inizializza il router globale se non è ancora stato fatto
-    if (!globalRouter) {
-        console.log('🔧 Initializing global router...');
+    const currentDisable = !!(configCache as any)?.disableLiveTv;
+    const needRebuild = (!globalRouter) || (lastDisableLiveTvFlag !== currentDisable);
+    if (needRebuild) {
+        if (globalRouter) console.log('🔁 Rebuilding addon router due to config change (disableLiveTv=%s)', currentDisable);
+        else console.log('🔧 Initializing global router...');
         globalBuilder = createBuilder(configCache);
         globalAddonInterface = globalBuilder.getInterface();
         globalRouter = getRouter(globalAddonInterface);
-        console.log('✅ Global router initialized');
+        lastDisableLiveTvFlag = currentDisable;
+        console.log('✅ Global router %s', needRebuild ? 'initialized/updated' : 'initialized');
     }
 
     // USA SEMPRE il router globale
