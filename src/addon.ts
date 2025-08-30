@@ -20,6 +20,8 @@ declare const process: any;
 declare const Buffer: any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare function require(name: string): any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare const global: any;
 import { AnimeUnityConfig } from "./types/animeunity";
 import { EPGManager } from './utils/epg';
 import { execFile } from 'child_process';
@@ -470,6 +472,8 @@ function decodeStaticUrl(url: string): string {
         return url;
     }
 }
+
+// Helper: compute Europe/Rome interpretation for eventStart even if timezone is missing
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
@@ -1363,11 +1367,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const stripTimePrefix = (t: string): string => t.replace(/^\s*([⏰🕒]?\s*)?\d{1,2}[\.:]\d{2}\s*[:\-]\s*/i, '').trim();
                     if (eventStart) {
                         try {
-                            const dt = new Date(eventStart);
-                            const hhmm = dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Rome' }).replace(/\./g, ':');
-                            const ddmm = (() => {
-                                try { return dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Rome' }); } catch { return ''; }
-                            })();
+                            const hhmm = epgManager ? epgManager.formatDynamicHHMM(eventStart) : new Date(eventStart).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\./g, ':');
+                            const ddmm = epgManager ? epgManager.formatDynamicDDMM(eventStart) : '';
                             const rawTitle = stripTimePrefix(channel.name || '');
                             const parts = rawTitle.split(' - ').map(s => s.trim()).filter(Boolean);
                             const eventTitle = parts[0] || rawTitle;
@@ -1402,8 +1403,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (epgChannelId) {
                             const currentProgram = await epgManager.getCurrentProgram(epgChannelId);
                             if (currentProgram) {
-                                const startTime = epgManager.formatTime(currentProgram.start);
-                                const endTime = currentProgram.stop ? epgManager.formatTime(currentProgram.stop) : '';
+                                const startTime = epgManager.formatTime(currentProgram.start, 'live');
+                                const endTime = currentProgram.stop ? epgManager.formatTime(currentProgram.stop, 'live') : '';
                                 const epgInfo = `🔴 ORA: ${currentProgram.title} (${startTime}${endTime ? `-${endTime}` : ''})`;
                                 channelWithPrefix.description = `${channel.description || ''}\n\n${epgInfo}`;
                             }
@@ -1477,11 +1478,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const stripTimePrefix = (t: string): string => t.replace(/^\s*([⏰🕒]?\s*)?\d{1,2}[\.:]\d{2}\s*[:\-]\s*/i, '').trim();
                     if (eventStart) {
                         try {
-                            const dt = new Date(eventStart);
-                            const hhmm = dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Rome' }).replace(/\./g, ':');
-                            const ddmm = (() => {
-                                try { return dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Rome' }); } catch { return ''; }
-                            })();
+                            const hhmm = epgManager ? epgManager.formatDynamicHHMM(eventStart) : new Date(eventStart).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\./g, ':');
+                            const ddmm = epgManager ? epgManager.formatDynamicDDMM(eventStart) : '';
                             const rawTitle = stripTimePrefix(channel.name || '');
                             const parts = rawTitle.split(' - ').map(s => s.trim()).filter(Boolean);
                             const eventTitle = parts[0] || rawTitle;
@@ -1511,14 +1509,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const nextProgram = await epgManager.getNextProgram(epgChannelId);
                             let epgDescription = channel.description || '';
                             if (currentProgram) {
-                                const startTime = epgManager.formatTime(currentProgram.start);
-                                const endTime = currentProgram.stop ? epgManager.formatTime(currentProgram.stop) : '';
+                                const startTime = epgManager.formatTime(currentProgram.start, 'live');
+                                const endTime = currentProgram.stop ? epgManager.formatTime(currentProgram.stop, 'live') : '';
                                 epgDescription += `\n\n🔴 IN ONDA ORA (${startTime}${endTime ? `-${endTime}` : ''}): ${currentProgram.title}`;
                                 if (currentProgram.description) epgDescription += `\n${currentProgram.description}`;
                             }
                             if (nextProgram) {
-                                const nextStartTime = epgManager.formatTime(nextProgram.start);
-                                const nextEndTime = nextProgram.stop ? epgManager.formatTime(nextProgram.stop) : '';
+                                const nextStartTime = epgManager.formatTime(nextProgram.start, 'live');
+                                const nextEndTime = nextProgram.stop ? epgManager.formatTime(nextProgram.stop, 'live') : '';
                                 epgDescription += `\n\n⏭️ A SEGUIRE (${nextStartTime}${nextEndTime ? `-${nextEndTime}` : ''}): ${nextProgram.title}`;
                                 if (nextProgram.description) epgDescription += `\n${nextProgram.description}`;
                             }
@@ -3027,7 +3025,7 @@ setTimeout(() => scheduleNextAutoPurge(), 7000);
 try {
     const dynamicFilePath = path.join(__dirname, '../config/dynamic_channels.json');
     if (fs.existsSync(dynamicFilePath)) {
-        fs.watch(dynamicFilePath, { persistent: false }, (evt) => {
+    fs.watch(dynamicFilePath, { persistent: false }, (evt: any) => {
             if (evt === 'change') {
                 console.log('🔄 Detected change in dynamic_channels.json -> invalidate & reload');
                 invalidateDynamicChannels();
