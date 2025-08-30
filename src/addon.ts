@@ -20,6 +20,8 @@ declare const process: any;
 declare const Buffer: any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare function require(name: string): any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare const global: any;
 import { AnimeUnityConfig } from "./types/animeunity";
 import { EPGManager } from './utils/epg';
 import { execFile } from 'child_process';
@@ -245,7 +247,7 @@ function getClientIpFromReq(req: any): string | null {
             }
         }
         // 4) Express provided (requires trust proxy to be set elsewhere)
-        const ips = Array.isArray((req as any).ips) ? (req as any).ips : [];
+    const ips = Array.isArray((req as any).ips) ? (req as any).ips : [];
         if (ips.length) {
             const chosen = pickFirstPublic(ips);
             if (chosen) { vdbg('IP pick via req.ips', { ips, chosen }); return chosen; }
@@ -470,6 +472,8 @@ function decodeStaticUrl(url: string): string {
         return url;
     }
 }
+
+// Helper: compute Europe/Rome interpretation for eventStart even if timezone is missing
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
@@ -1363,11 +1367,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const stripTimePrefix = (t: string): string => t.replace(/^\s*([⏰🕒]?\s*)?\d{1,2}[\.:]\d{2}\s*[:\-]\s*/i, '').trim();
                     if (eventStart) {
                         try {
-                            const dt = new Date(eventStart);
-                            const hhmm = dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Rome' }).replace(/\./g, ':');
-                            const ddmm = (() => {
-                                try { return dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Rome' }); } catch { return ''; }
-                            })();
+                            const hhmm = epgManager ? epgManager.formatDynamicHHMM(eventStart) : new Date(eventStart).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\./g, ':');
+                            const ddmm = epgManager ? epgManager.formatDynamicDDMM(eventStart) : '';
                             const rawTitle = stripTimePrefix(channel.name || '');
                             const parts = rawTitle.split(' - ').map(s => s.trim()).filter(Boolean);
                             const eventTitle = parts[0] || rawTitle;
@@ -1402,8 +1403,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (epgChannelId) {
                             const currentProgram = await epgManager.getCurrentProgram(epgChannelId);
                             if (currentProgram) {
-                                const startTime = epgManager.formatTime(currentProgram.start);
-                                const endTime = currentProgram.stop ? epgManager.formatTime(currentProgram.stop) : '';
+                                const startTime = epgManager.formatTime(currentProgram.start, 'live');
+                                const endTime = currentProgram.stop ? epgManager.formatTime(currentProgram.stop, 'live') : '';
                                 const epgInfo = `🔴 ORA: ${currentProgram.title} (${startTime}${endTime ? `-${endTime}` : ''})`;
                                 channelWithPrefix.description = `${channel.description || ''}\n\n${epgInfo}`;
                             }
@@ -1477,11 +1478,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const stripTimePrefix = (t: string): string => t.replace(/^\s*([⏰🕒]?\s*)?\d{1,2}[\.:]\d{2}\s*[:\-]\s*/i, '').trim();
                     if (eventStart) {
                         try {
-                            const dt = new Date(eventStart);
-                            const hhmm = dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Rome' }).replace(/\./g, ':');
-                            const ddmm = (() => {
-                                try { return dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Rome' }); } catch { return ''; }
-                            })();
+                            const hhmm = epgManager ? epgManager.formatDynamicHHMM(eventStart) : new Date(eventStart).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\./g, ':');
+                            const ddmm = epgManager ? epgManager.formatDynamicDDMM(eventStart) : '';
                             const rawTitle = stripTimePrefix(channel.name || '');
                             const parts = rawTitle.split(' - ').map(s => s.trim()).filter(Boolean);
                             const eventTitle = parts[0] || rawTitle;
@@ -1511,14 +1509,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const nextProgram = await epgManager.getNextProgram(epgChannelId);
                             let epgDescription = channel.description || '';
                             if (currentProgram) {
-                                const startTime = epgManager.formatTime(currentProgram.start);
-                                const endTime = currentProgram.stop ? epgManager.formatTime(currentProgram.stop) : '';
+                                const startTime = epgManager.formatTime(currentProgram.start, 'live');
+                                const endTime = currentProgram.stop ? epgManager.formatTime(currentProgram.stop, 'live') : '';
                                 epgDescription += `\n\n🔴 IN ONDA ORA (${startTime}${endTime ? `-${endTime}` : ''}): ${currentProgram.title}`;
                                 if (currentProgram.description) epgDescription += `\n${currentProgram.description}`;
                             }
                             if (nextProgram) {
-                                const nextStartTime = epgManager.formatTime(nextProgram.start);
-                                const nextEndTime = nextProgram.stop ? epgManager.formatTime(nextProgram.stop) : '';
+                                const nextStartTime = epgManager.formatTime(nextProgram.start, 'live');
+                                const nextEndTime = nextProgram.stop ? epgManager.formatTime(nextProgram.stop, 'live') : '';
                                 epgDescription += `\n\n⏭️ A SEGUIRE (${nextStartTime}${nextEndTime ? `-${nextEndTime}` : ''}): ${nextProgram.title}`;
                                 if (nextProgram.description) epgDescription += `\n${nextProgram.description}`;
                             }
@@ -1591,8 +1589,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 
                 // Prima della logica degli stream TV, aggiungi:
                 // Usa sempre lo stesso proxy per tutto
-                let mfpUrl = config.mediaFlowProxyUrl ? normalizeProxyUrl(config.mediaFlowProxyUrl) : '';
-                let mfpPsw = config.mediaFlowProxyPassword || '';
+                // MediaFlow config: allow fallback to environment variables if not provided via addon config
+                let mfpUrlRaw = '';
+                let mfpPswRaw = '';
+                try {
+                    mfpUrlRaw = (config.mediaFlowProxyUrl || (process && process.env && (process.env.MFP_URL || process.env.MEDIAFLOW_PROXY_URL)) || '').toString().trim();
+                    mfpPswRaw = (config.mediaFlowProxyPassword || (process && process.env && (process.env.MFP_PASSWORD || process.env.MEDIAFLOW_PROXY_PASSWORD)) || '').toString().trim();
+                } catch {}
+                let mfpUrl = mfpUrlRaw ? normalizeProxyUrl(mfpUrlRaw) : '';
+                let mfpPsw = mfpPswRaw;
+                debugLog(`[MFP] Using url=${mfpUrl ? 'SET' : 'MISSING'} pass=${mfpPsw ? 'SET' : 'MISSING'}`);
 
                 // === LOGICA TV ===
                 if (type === "tv") {
@@ -1687,9 +1693,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     // Only prepend the CLEAN non-MFP link (per-request, with headers)
                                     const reqObj: any = (global as any).lastExpressRequest;
                                     const clientIp = getClientIpFromReq(reqObj);
+                                    let vavooCleanResolved: { url: string; headers: Record<string,string> } | null = null;
                                     try {
                                         const clean = await resolveVavooCleanUrl(vUrl, clientIp);
                                         if (clean && clean.url) {
+                                            vavooCleanResolved = clean;
                                             vdbg('Alias clean resolved', { alias, url: clean.url.substring(0, 140) });
                                             const title2 = `🏠 ${alias} (Vavoo) [ITA]`;
                                             // stash headers via behaviorHints when pushing later
@@ -1700,6 +1708,53 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         vdbg('Alias clean resolve failed', { alias, error: msg });
                                         console.log('[VAVOO] Clean resolve skipped/failed:', msg);
                                     }
+                                    // Iniezione Vavoo/MFP: incapsula SEMPRE l'URL vavoo.to originale (come in Live TV), senza extractor
+                                    try {
+                                        if (mfpUrl && mfpPsw) {
+                                            const finalUrl2 = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(vUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                            const title3 = `🌐 ${alias} (Vavoo/MFP) [ITA]`;
+                                            let insertAt = 0;
+                                            try { if (streams.length && /(\(Vavoo\))/i.test(streams[0].title)) insertAt = 1; } catch {}
+                                            try { streams.splice(insertAt, 0, { url: finalUrl2, title: title3 }); } catch { streams.push({ url: finalUrl2, title: title3 }); }
+                                            vdbg('Alias Vavoo/MFP injected (direct proxy/hls on vUrl)', { alias, url: finalUrl2.substring(0, 140) });
+                                        } else {
+                                            vdbg('Skip Vavoo/MFP injection: MFP config missing');
+                                        }
+                                    } catch (e2) {
+                                        vdbg('Vavoo/MFP injection error', String((e2 as any)?.message || e2));
+                                    }
+                                    // Iniezioni extra: DAZN ZONA IT -> usa staticUrlMpd di 'dazn1'; EUROSPORT 1/2 IT -> usa staticUrlMpd di 'eurosport1'/'eurosport2'
+                                    try {
+                                        const textsScan: string[] = [channel?.name || '', ...candidateTexts].map(t => (t || '').toLowerCase());
+                                        const hasDaznZonaIt = textsScan.some(t => /dazn\s*zona\s*it/.test(t));
+                                        const hasEu1It = textsScan.some(t => /eurosport\s*1/.test(t) && /\bit\b/.test(t));
+                                        const hasEu2It = textsScan.some(t => /eurosport\s*2/.test(t) && /\bit\b/.test(t));
+                                        const injectFromStaticMpd = async (staticId: string) => {
+                                            try {
+                                                const base = (staticBaseChannels || []).find((c: any) => c && c.id === staticId);
+                                                if (!base || !base.staticUrlMpd) return;
+                                                const decodedUrl = decodeStaticUrl(base.staticUrlMpd);
+                                                let finalUrl = decodedUrl;
+                                                let proxyUsed = false;
+                                                if (mfpUrl && mfpPsw) {
+                                                    const urlParts = decodedUrl.split('&');
+                                                    const baseUrl = urlParts[0];
+                                                    const additionalParams = urlParts.slice(1);
+                                                    finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                                                    for (const param of additionalParams) if (param) finalUrl += `&${param}`;
+                                                    proxyUsed = true;
+                                                }
+                                                const title = `${proxyUsed ? '' : '[❌Proxy]'}[🎬MPD] ${base.name} [ITA]`;
+                                                let insertAt = 0;
+                                                try { while (insertAt < streams.length && /(\(Vavoo\))/i.test(streams[insertAt].title)) insertAt++; } catch {}
+                                                try { streams.splice(insertAt, 0, { url: finalUrl, title }); } catch { streams.push({ url: finalUrl, title }); }
+                                                vdbg('Injected staticUrlMpd from static channel', { id: staticId, url: finalUrl.substring(0, 140) });
+                                            } catch {}
+                                        };
+                                        if (hasDaznZonaIt) await injectFromStaticMpd('dazn1');
+                                        if (hasEu1It) await injectFromStaticMpd('eurosport1');
+                                        if (hasEu2It) await injectFromStaticMpd('eurosport2');
+                                    } catch {}
                                     console.log(`✅ [VAVOO] Injected first stream from alias='${alias}' -> ${vUrl.substring(0, 60)}...`);
                                 } else {
                                     console.log(`⚠️ [VAVOO] Alias trovato ma nessun URL in cache: '${alias}'`);
@@ -2960,7 +3015,7 @@ setTimeout(() => scheduleNextAutoPurge(), 7000);
 try {
     const dynamicFilePath = path.join(__dirname, '../config/dynamic_channels.json');
     if (fs.existsSync(dynamicFilePath)) {
-        fs.watch(dynamicFilePath, { persistent: false }, (evt) => {
+    fs.watch(dynamicFilePath, { persistent: false }, (evt: any) => {
             if (evt === 'change') {
                 console.log('🔄 Detected change in dynamic_channels.json -> invalidate & reload');
                 invalidateDynamicChannels();

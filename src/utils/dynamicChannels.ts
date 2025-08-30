@@ -129,6 +129,8 @@ export function getDynamicFileStats(): { exists: boolean; size: number; mtimeMs:
   }
 }
 
+// Time helpers were moved to EPG manager (src/utils/epg.ts)
+
 export function loadDynamicChannels(force = false): DynamicChannel[] {
   const now = Date.now();
   // Se richiesto, forza sempre il reload (no cache)

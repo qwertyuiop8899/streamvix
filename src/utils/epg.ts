@@ -4,6 +4,9 @@ import * as zlib from 'zlib';
 import { parseString } from 'xml2js'; // mantenuto per fallback
 import fetch from 'node-fetch';
 import * as sax from 'sax';
+// Minimal declarations to avoid TS node types requirement
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare const process: any;
 
 export interface EPGProgram {
     start: string;
@@ -38,6 +41,12 @@ export interface EPGConfig {
     lightMode?: boolean; // parsing streaming e dati ridotti
     keepWindowHours?: number; // finestra ore future + 2h passato
     storeDescription?: boolean; // salva descrizione
+    // Nuove opzioni per correggere orari live/dynamic
+    timeAdjust?: {
+        liveOffsetMinutes?: number;     // correzione additiva in minuti per i canali live (EPG)
+        dynamicOffsetMinutes?: number;  // correzione additiva in minuti per gli eventi dynamic
+    };
+    assumeZone?: string; // es. 'Europe/Rome' (default)
 }
 
 export class EPGManager {
@@ -52,6 +61,9 @@ export class EPGManager {
     private lightMode: boolean = false;
     private keepWindowHours: number = 26;
     private storeDescription: boolean = true;
+    private assumeZone: string = 'Europe/Rome';
+    private liveOffsetMinutesAdj: number = 0;
+    private dynamicOffsetMinutesAdj: number = 0;
 
     constructor(config: EPGConfig) {
         this.config = {
@@ -68,6 +80,9 @@ export class EPGManager {
     this.lightMode = !!this.config.lightMode;
     this.keepWindowHours = this.config.keepWindowHours || this.keepWindowHours;
     this.storeDescription = this.config.storeDescription !== undefined ? this.config.storeDescription : this.storeDescription;
+    this.assumeZone = this.config.assumeZone || 'Europe/Rome';
+    this.liveOffsetMinutesAdj = this.config.timeAdjust?.liveOffsetMinutes ?? 0;
+    this.dynamicOffsetMinutesAdj = this.config.timeAdjust?.dynamicOffsetMinutes ?? 0;
         
         // Crea la directory cache se non esiste
         if (!fs.existsSync(this.config.cacheDir!)) {
@@ -96,6 +111,36 @@ export class EPGManager {
         const [hours, minutes] = this.timeZoneOffset.substring(1).split(':');
         this.offsetMinutes = (parseInt(hours) * 60 + parseInt(minutes)) * 
                              (this.timeZoneOffset.startsWith('+') ? 1 : -1);
+    }
+
+    // Calcola l'offset (in minuti) di un fuso orario specifico per un istante dato
+    private tzOffsetMinutes(zone: string, at: Date): number {
+        try {
+            const dtf = new Intl.DateTimeFormat('en-US', {
+                timeZone: zone,
+                hour12: false,
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            } as any);
+            const parts = (dtf as any).formatToParts(at) as Array<{ type: string; value: string }>;
+            const map: Record<string, string> = {};
+            for (const p of parts) map[p.type] = p.value;
+            const asUTC = Date.UTC(Number(map.year), Number(map.month) - 1, Number(map.day), Number(map.hour), Number(map.minute), Number(map.second));
+            return Math.round((asUTC - at.getTime()) / 60000);
+        } catch {
+            return 0;
+        }
+    }
+
+    // Crea una Date interpretando il tempo come locale del fuso 'zone' (es. Europe/Rome)
+    private makeDateFromLocalInZone(y: number, m: number, d: number, hh: number, mm: number, ss: number, zone: string): Date {
+        // Primo guess: UTC con stessi componenti
+        const guessUTC = Date.UTC(y, m - 1, d, hh, mm, ss);
+        // Offset del fuso in quell'istante
+        const off = this.tzOffsetMinutes(zone, new Date(guessUTC));
+        // Per ottenere l'istante assoluto corrispondente a quell'orario locale: sottrai l'offset
+        const ms = Date.UTC(y, m - 1, d, hh, mm, ss) - off * 60000;
+        return new Date(ms);
     }
 
     /**
@@ -452,17 +497,14 @@ export class EPGManager {
             const match = epgDate.match(regex);
             
             if (!match) {
-                // Fallback per formato senza timezone
+                // Fallback per formato senza timezone: interpreta come ora locale del fuso configurato (es. Europe/Rome)
                 const year = parseInt(epgDate.substr(0, 4));
-                const month = parseInt(epgDate.substr(4, 2)) - 1; // Month is 0-indexed
+                const month = parseInt(epgDate.substr(4, 2));
                 const day = parseInt(epgDate.substr(6, 2));
                 const hour = parseInt(epgDate.substr(8, 2));
                 const minute = parseInt(epgDate.substr(10, 2));
                 const second = parseInt(epgDate.substr(12, 2));
-                
-                // Assumiamo UTC e convertiamo al fuso orario italiano
-                const utcDate = new Date(Date.UTC(year, month, day, hour, minute, second));
-                return new Date(utcDate.getTime() + (this.offsetMinutes * 60 * 1000));
+                return this.makeDateFromLocalInZone(year, month, day, hour, minute, second, this.assumeZone);
             }
             
             const [_, year, month, day, hour, minute, second, timezone] = match;
@@ -481,15 +523,51 @@ export class EPGManager {
     /**
      * Formatta la data per la visualizzazione usando il fuso orario italiano
      */
-    public formatTime(epgDate: string): string {
+    public formatTime(epgDate: string, mode: 'live' | 'dynamic' = 'live'): string {
         const date = this.parseEPGDate(epgDate);
-        // Applica l'offset del fuso orario italiano se non è già stato applicato
-        const localDate = new Date(date.getTime() + (this.offsetMinutes * 60 * 1000));
-        return localDate.toLocaleTimeString('it-IT', { 
+        // Applica solo l'eventuale correzione configurata; il rendering usa direttamente Europe/Rome
+        const adj = mode === 'dynamic' ? this.dynamicOffsetMinutesAdj : this.liveOffsetMinutesAdj;
+        const d2 = new Date(date.getTime() + (adj * 60 * 1000));
+        return d2.toLocaleTimeString('it-IT', { 
             hour: '2-digit', 
             minute: '2-digit',
-            hour12: false
+            hour12: false,
+            timeZone: this.assumeZone
         }).replace(/\./g, ':');
+    }
+
+    // ====== Helper per eventi dinamici ======
+    private normalizeDynamicDate(iso: string): Date | null {
+        if (!iso) return null;
+        try {
+            const hasTz = /Z|[+-]\d{2}:?\d{2}$/.test(iso);
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return null;
+            if (hasTz) return d; // assoluta
+            // Interpreta come ora locale del sistema e trasla verso il fuso configurato (Europe/Rome)
+            const localOff = d.getTimezoneOffset();
+            const zoneOff = this.tzOffsetMinutes(this.assumeZone, d);
+            // porta l'istante a rappresentare la stessa ora locale del fuso configurato
+            return new Date(d.getTime() + (localOff - zoneOff) * 60000);
+        } catch { return null; }
+    }
+
+    public formatDynamicHHMM(iso: string): string {
+        const d = this.normalizeDynamicDate(iso) || new Date(iso);
+        const d2 = new Date(d.getTime() + (this.dynamicOffsetMinutesAdj * 60 * 1000));
+        return d2.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: this.assumeZone }).replace(/\./g, ':');
+    }
+
+    public formatDynamicDDMM(iso: string): string {
+        const d = this.normalizeDynamicDate(iso) || new Date(iso);
+        const d2 = new Date(d.getTime() + (this.dynamicOffsetMinutesAdj * 60 * 1000));
+        try {
+            return d2.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', timeZone: this.assumeZone });
+        } catch {
+            const dd = String(d2.getDate()).padStart(2, '0');
+            const mm = String(d2.getMonth() + 1).padStart(2, '0');
+            return `${dd}/${mm}`;
+        }
     }
 
     /**
