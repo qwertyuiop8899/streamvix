@@ -445,6 +445,19 @@ export class AnimeWorldProvider {
         .replace(/Special/gi,'')
         .replace(/\s{2,}/g,' ')
         .trim();
+      // Fallback: se il nome è vuoto o è solo un'etichetta (es. "ITA"), ricava dal slug o dal titolo richiesto
+      let baseName = cleanName;
+      const looksLikeLangOnly = /^[A-Z]{2,4}$/i.test(baseName || '');
+      if (!baseName || baseName.length < 3 || looksLikeLangOnly) {
+        const slugBase = ((v.slug || '') as string).toLowerCase().split('.')[0];
+        // rimuovi suffissi lingua dal slug e normalizza
+        let fromSlug = slugBase
+          .replace(/(?:^|[-_])(sub[-_]?ita|cr[-_]?ita|ita[-_]?cr|ita)(?:$|[-_])/gi, ' ')
+          .replace(/[^a-z0-9]+/gi, ' ')
+          .trim();
+        if (!fromSlug) fromSlug = (normalized || title || '').toString();
+        baseName = fromSlug;
+      }
       const sNum = seasonNumber || 1;
       let langLabel = 'SUB';
       if (v.language_type === 'ITA') langLabel = 'ITA';
@@ -455,7 +468,7 @@ export class AnimeWorldProvider {
         const lowerMp4 = (mp4 || '').toLowerCase();
         if (lowerSlug.includes('subita') || /sub_?ita/i.test(lowerMp4)) langLabel = 'SUB'; else langLabel = 'RAW';
       }
-      let titleStream = `${capitalize(cleanName)} ${langLabel} S${sNum}`;
+  let titleStream = `${capitalize(baseName)} ▪ ${langLabel} ▪ S${sNum}`;
       if (episodeNumber) titleStream += `E${episodeNumber}`;
       return { title: titleStream, url: mediaFlowUrl, behaviorHints: { notWebReady: true } } as StreamForStremio;
     } catch (e) {
