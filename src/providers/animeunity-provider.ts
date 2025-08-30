@@ -4,6 +4,7 @@ import { formatMediaFlowUrl } from '../utils/mediaflow';
 import { AnimeUnityConfig, StreamForStremio } from '../types/animeunity';
 import * as path from 'path';
 import axios from 'axios';
+import { checkIsAnimeById } from '../utils/animeGate';
 
 // Helper function to invoke the Python scraper
 async function invokePythonScraper(args: string[]): Promise<any> {
@@ -274,6 +275,14 @@ export class AnimeUnityProvider {
       return { streams: [] };
     }
     try {
+      const gateEnabled = (process.env.ANIME_GATE_ENABLED || 'true') !== 'false';
+      if (gateEnabled) {
+        const gate = await checkIsAnimeById('imdb', imdbId, this.config.tmdbApiKey, isMovie ? 'movie' : 'tv');
+        if (!gate.isAnime) {
+          console.log(`[AnimeUnity] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for ${imdbId}`);
+          return { streams: [] };
+        }
+      }
       const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
       console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
@@ -288,6 +297,14 @@ export class AnimeUnityProvider {
       return { streams: [] };
     }
     try {
+      const gateEnabled = (process.env.ANIME_GATE_ENABLED || 'true') !== 'false';
+      if (gateEnabled) {
+        const gate = await checkIsAnimeById('tmdb', tmdbId, this.config.tmdbApiKey, isMovie ? 'movie' : 'tv');
+        if (!gate.isAnime) {
+          console.log(`[AnimeUnity] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for TMDB ${tmdbId}`);
+          return { streams: [] };
+        }
+      }
       const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
       console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
