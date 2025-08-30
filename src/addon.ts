@@ -24,7 +24,7 @@ declare function require(name: string): any;
 declare const global: any;
 import { AnimeUnityConfig } from "./types/animeunity";
 import { EPGManager } from './utils/epg';
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import * as crypto from 'crypto';
 import * as util from 'util';
 
@@ -1007,6 +1007,26 @@ try {
         updateVavooCache().then(success => {
             if (success) {
                 console.log(`✅ Cache Vavoo aggiornata con successo all'avvio`);
+                // Avvia Live.py subito dopo il successo della cache Vavoo (una volta, non bloccante)
+                try {
+                    const livePath = path.join(__dirname, '../Live.py');
+                    const fs = require('fs');
+                    if (fs.existsSync(livePath)) {
+                        const trySpawn = (py: string) => {
+                            try {
+                                const child = require('child_process').spawn(py, [livePath], { detached: true, stdio: 'ignore' });
+                                child.unref();
+                                console.log(`[Live.py] avviato in background con '${py}'`);
+                                return true;
+                            } catch { return false; }
+                        };
+                        if (!trySpawn('python3')) trySpawn('python');
+                    } else {
+                        console.log('[Live.py] non trovato, skip');
+                    }
+                } catch (e) {
+                    console.log('[Live.py] errore avvio non bloccante:', (e as any)?.message || e);
+                }
             } else {
                 console.log(`⚠️ Aggiornamento cache Vavoo fallito all'avvio, verrà ritentato periodicamente`);
             }
