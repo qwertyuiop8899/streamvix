@@ -12,7 +12,7 @@
   ,
   "timeAdjust": {
     "liveOffsetMinutes": 0,
-    "dynamicOffsetMinutes": 60
+    "dynamicOffsetMinutes": 0
   },
   "assumeZone": "Europe/Rome"
 }
