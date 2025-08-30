@@ -415,9 +415,9 @@ export class AnimeSaturnProvider {
         .replace(/ITA/gi, '')
         .replace(/CR/gi, '')
         .trim();
-      const sNum = seasonNumber || 1;
+  const sNum = seasonNumber || 1;
   const langLabel = language_type === 'ITA' ? 'ITA' : 'SUB';
-  let streamTitle = `${capitalize(cleanName)} ${langLabel} S${sNum}`;
+  let streamTitle = `${capitalize(cleanName)} ▪ ${langLabel} ▪ S${sNum}`;
       if (episodeNumber) {
         streamTitle += `E${episodeNumber}`;
       }
