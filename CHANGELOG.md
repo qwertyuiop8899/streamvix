@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.5...v1.0.6) (2025-08-30)
+
+
+### Bug Fixes
+
+* add stream alternativi su eventi e fix epg ([67db6fb](https://github.com/qwertyuiop8899/streamvix/commit/67db6fbc471e67153fdca6731089fff531361dd7))
+* epg fix e link alternativi su eventi ([67db6fb](https://github.com/qwertyuiop8899/streamvix/commit/67db6fbc471e67153fdca6731089fff531361dd7))
+
 ## [1.0.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.4...v1.0.5) (2025-08-29)
 
 
