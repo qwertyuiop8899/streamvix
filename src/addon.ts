@@ -680,6 +680,7 @@ let epgManager: EPGManager | null = null;
 let globalBuilder: any;
 let globalAddonInterface: any;
 let globalRouter: any;
+let lastDisableLiveTvFlag: boolean | undefined;
 
 // Cache per i link Vavoo
 interface VavooCache {
@@ -1127,12 +1128,24 @@ function normalizeProxyUrl(url: string): string {
 // Funzione per creare il builder con configurazione dinamica
 function createBuilder(initialConfig: AddonConfig = {}) {
     const manifest = loadCustomConfig();
+    // Applica un filtro leggero al manifest per nascondere il catalogo TV quando disabilitato
+    const effectiveManifest: Manifest = (() => {
+        try {
+            if (initialConfig && (initialConfig as any).disableLiveTv) {
+                const filtered = { ...manifest } as Manifest;
+                const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
+                filtered.catalogs = cats.filter(c => !(c && (c as any).id === 'streamvix_tv'));
+                return filtered;
+            }
+        } catch {}
+        return manifest;
+    })();
     
     if (initialConfig.mediaFlowProxyUrl || initialConfig.enableMpd || initialConfig.tmdbApiKey) {
-        manifest.name;
+        effectiveManifest.name; // no-op to avoid unused warning pattern
     }
     
-    const builder = new addonBuilder(manifest);
+    const builder = new addonBuilder(effectiveManifest);
 
     // === TV CATALOG HANDLER ONLY ===
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
@@ -2618,15 +2631,49 @@ app.get('/', (_: Request, res: Response) => {
     res.send(landingHTML);
 });
 
+// Serve manifest dynamically so we can hide TV catalog when disableLiveTv is true
+// Also supports config passed via path segment or query string (?config=...)
+// CORS for manifest endpoints
+app.options(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json'], (_req: Request, res: Response) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.sendStatus(204);
+});
+
+app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json'], (req: Request, res: Response) => {
+    try {
+        const base = loadCustomConfig();
+    // Parse optional config from URL segment OR query string (?config=...)
+    const rawParamCfg = (req.params as any)?.config;
+    const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
+    const cfgFromUrl = rawParamCfg ? parseConfigFromArgs(rawParamCfg) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
+        const effectiveDisable = (cfgFromUrl as any)?.disableLiveTv ?? (configCache as any)?.disableLiveTv;
+        const filtered: Manifest = { ...base } as Manifest;
+        if (!Array.isArray((filtered as any).catalogs)) (filtered as any).catalogs = [];
+        if (effectiveDisable) {
+            const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
+            filtered.catalogs = cats.filter(c => !(c && (c as any).id === 'streamvix_tv'));
+        }
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+        res.json(filtered);
+    } catch (e: any) {
+        console.error('❌ Manifest route error:', e?.message || e);
+        const fallback = loadCustomConfig();
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+        res.json(fallback);
+    }
+});
+
 // ✅ Middleware semplificato che usa sempre il router globale
 app.use((req: Request, res: Response, next: NextFunction) => {
-    // Inject the search query directly into req.query.search for AnimeWorld catalog requests
-    if (
-        req.path === '/catalog/animeworld/anime/search.json' &&
-        req.query && typeof req.query.query === 'string'
-    ) {
-        req.query.search = req.query.query;
-    }
+    // ...
     debugLog(`Incoming request: ${req.method} ${req.path}`);
     debugLog(`Full URL: ${req.url}`);
     debugLog(`Path segments:`, req.path.split('/'));
@@ -2638,20 +2685,15 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     const configString = req.path.split('/')[1];
     debugLog(`Config string extracted: "${configString}" (length: ${configString ? configString.length : 0})`);
 
-    // AGGIORNA SOLO LA CACHE GLOBALE senza ricreare il builder
-    if (configString && configString.includes('eyJtZnBQcm94eVVybCI6Imh0dHA6Ly8xOTIuMTY4LjEuMTAwOjkwMDAi')) {
-        debugLog('📌 Found known MFP config pattern, updating global cache');
-        // Non forzare più nessun valore hardcoded, lascia solo la configurazione fornita
-        // Object.assign(configCache, { ... }); // RIMOSSO
-    }
+    // ...
 
-    // Altri parsing di configurazione (PRIMA della logica TV)
+    // Parse configuration from URL path segment once (before TV logic)
     if (configString && configString.length > 10 && !configString.startsWith('stream') && !configString.startsWith('meta') && !configString.startsWith('manifest')) {
         const parsedConfig = parseConfigFromArgs(configString);
         if (Object.keys(parsedConfig).length > 0) {
-            debugLog('� Found valid config in URL, updating global cache');
+            debugLog('🔧 Found valid config in URL, updating global cache');
             Object.assign(configCache, parsedConfig);
-            debugLog('� Updated global config cache:', configCache);
+            debugLog('🔧 Updated global config cache:', configCache);
         }
     }
 
@@ -2663,15 +2705,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
         debugLog('📺 Current proxy config for TV streams:', configCache);
     }
 
-    // Altri parsing di configurazione
-    if (configString && configString.length > 10 && !configString.startsWith('stream') && !configString.startsWith('meta') && !configString.startsWith('manifest')) {
-        const parsedConfig = parseConfigFromArgs(configString);
-        if (Object.keys(parsedConfig).length > 0) {
-            debugLog('� Found valid config in URL, updating global cache');
-            Object.assign(configCache, parsedConfig);
-            debugLog('� Updated global config cache:', configCache);
-        }
-    }
+    // ...
 
     // PATCH: Inject full search query for AnimeWorld catalog search
     if (
@@ -2697,12 +2731,16 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     }
 
     // ✅ Inizializza il router globale se non è ancora stato fatto
-    if (!globalRouter) {
-        console.log('🔧 Initializing global router...');
+    const currentDisable = !!(configCache as any)?.disableLiveTv;
+    const needRebuild = (!globalRouter) || (lastDisableLiveTvFlag !== currentDisable);
+    if (needRebuild) {
+        if (globalRouter) console.log('🔁 Rebuilding addon router due to config change (disableLiveTv=%s)', currentDisable);
+        else console.log('🔧 Initializing global router...');
         globalBuilder = createBuilder(configCache);
         globalAddonInterface = globalBuilder.getInterface();
         globalRouter = getRouter(globalAddonInterface);
-        console.log('✅ Global router initialized');
+        lastDisableLiveTvFlag = currentDisable;
+        console.log('✅ Global router %s', needRebuild ? 'initialized/updated' : 'initialized');
     }
 
     // USA SEMPRE il router globale

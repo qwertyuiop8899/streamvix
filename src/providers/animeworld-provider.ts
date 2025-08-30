@@ -3,6 +3,7 @@ import * as path from 'path';
 import { KitsuProvider } from './kitsu';
 import { formatMediaFlowUrl } from '../utils/mediaflow';
 import { AnimeWorldConfig, AnimeWorldResult, AnimeWorldEpisode, StreamForStremio } from '../types/animeunity';
+import { checkIsAnimeById } from '../utils/animeGate';
 
 // Cache semplice in-memory per titoli tradotti per evitare chiamate ripetute
 const englishTitleCache = new Map<string, string>();
@@ -233,11 +234,33 @@ export class AnimeWorldProvider {
   }
   async handleImdbRequest(imdbId: string, seasonNumber: number | null, episodeNumber: number | null, isMovie=false): Promise<{ streams: StreamForStremio[] }> {
     if (!this.config.enabled) return { streams: [] };
-    try { const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey); return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie); } catch(e){ console.error('[AnimeWorld] imdb handler error', e); return { streams: [] }; }
+    try {
+      const gateEnabled = (process.env.ANIME_GATE_ENABLED || 'true') !== 'false';
+      if (gateEnabled) {
+        const gate = await checkIsAnimeById('imdb', imdbId, this.config.tmdbApiKey, isMovie ? 'movie' : 'tv');
+        if (!gate.isAnime) {
+          console.log(`[AnimeWorld] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for ${imdbId}`);
+          return { streams: [] };
+        }
+      }
+      const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
+      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+    } catch(e){ console.error('[AnimeWorld] imdb handler error', e); return { streams: [] }; }
   }
   async handleTmdbRequest(tmdbId: string, seasonNumber: number | null, episodeNumber: number | null, isMovie=false): Promise<{ streams: StreamForStremio[] }> {
     if (!this.config.enabled) return { streams: [] };
-    try { const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey); return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie); } catch(e){ console.error('[AnimeWorld] tmdb handler error', e); return { streams: [] }; }
+    try {
+      const gateEnabled = (process.env.ANIME_GATE_ENABLED || 'true') !== 'false';
+      if (gateEnabled) {
+        const gate = await checkIsAnimeById('tmdb', tmdbId, this.config.tmdbApiKey, isMovie ? 'movie' : 'tv');
+        if (!gate.isAnime) {
+          console.log(`[AnimeWorld] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for TMDB ${tmdbId}`);
+          return { streams: [] };
+        }
+      }
+      const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
+      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+    } catch(e){ console.error('[AnimeWorld] tmdb handler error', e); return { streams: [] }; }
   }
 
   async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie=false): Promise<{ streams: StreamForStremio[] }> {
@@ -445,6 +468,19 @@ export class AnimeWorldProvider {
         .replace(/Special/gi,'')
         .replace(/\s{2,}/g,' ')
         .trim();
+      // Fallback: se il nome è vuoto o è solo un'etichetta (es. "ITA"), ricava dal slug o dal titolo richiesto
+      let baseName = cleanName;
+      const looksLikeLangOnly = /^[A-Z]{2,4}$/i.test(baseName || '');
+      if (!baseName || baseName.length < 3 || looksLikeLangOnly) {
+        const slugBase = ((v.slug || '') as string).toLowerCase().split('.')[0];
+        // rimuovi suffissi lingua dal slug e normalizza
+        let fromSlug = slugBase
+          .replace(/(?:^|[-_])(sub[-_]?ita|cr[-_]?ita|ita[-_]?cr|ita)(?:$|[-_])/gi, ' ')
+          .replace(/[^a-z0-9]+/gi, ' ')
+          .trim();
+        if (!fromSlug) fromSlug = (normalized || title || '').toString();
+        baseName = fromSlug;
+      }
       const sNum = seasonNumber || 1;
       let langLabel = 'SUB';
       if (v.language_type === 'ITA') langLabel = 'ITA';
@@ -455,7 +491,7 @@ export class AnimeWorldProvider {
         const lowerMp4 = (mp4 || '').toLowerCase();
         if (lowerSlug.includes('subita') || /sub_?ita/i.test(lowerMp4)) langLabel = 'SUB'; else langLabel = 'RAW';
       }
-      let titleStream = `${capitalize(cleanName)} ${langLabel} S${sNum}`;
+  let titleStream = `${capitalize(baseName)} ▪ ${langLabel} ▪ S${sNum}`;
       if (episodeNumber) titleStream += `E${episodeNumber}`;
       return { title: titleStream, url: mediaFlowUrl, behaviorHints: { notWebReady: true } } as StreamForStremio;
     } catch (e) {
