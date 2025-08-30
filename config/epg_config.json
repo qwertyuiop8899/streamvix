@@ -9,4 +9,10 @@
   "lightMode": true,
   "keepWindowHours": 26,
   "storeDescription": true
+  ,
+  "timeAdjust": {
+    "liveOffsetMinutes": 0,
+    "dynamicOffsetMinutes": 60
+  },
+  "assumeZone": "Europe/Rome"
 }
