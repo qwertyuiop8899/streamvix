@@ -3,6 +3,7 @@ import { AnimeSaturnConfig, AnimeSaturnResult, AnimeSaturnEpisode, StreamForStre
 import * as path from 'path';
 import axios from 'axios';
 import { KitsuProvider } from './kitsu';
+import { checkIsAnimeById } from '../utils/animeGate';
 
 // Helper function to invoke the Python scraper
 async function invokePythonScraper(args: string[]): Promise<any> {
@@ -317,6 +318,15 @@ export class AnimeSaturnProvider {
       return { streams: [] };
     }
     try {
+      // Anime gate: decide if this IMDB id refers to anime; if not, skip
+      const gateEnabled = (process.env.ANIME_GATE_ENABLED || 'true') !== 'false';
+      if (gateEnabled) {
+        const gate = await checkIsAnimeById('imdb', imdbId, this.config.tmdbApiKey, isMovie ? 'movie' : 'tv');
+        if (!gate.isAnime) {
+          console.log(`[AnimeSaturn] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for ${imdbId}`);
+          return { streams: [] };
+        }
+      }
       const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
       // Recupera anche l'id MAL tramite Haglund
       let malId: string | undefined = undefined;
@@ -343,6 +353,15 @@ export class AnimeSaturnProvider {
       return { streams: [] };
     }
     try {
+      // Anime gate on TMDB
+      const gateEnabled = (process.env.ANIME_GATE_ENABLED || 'true') !== 'false';
+      if (gateEnabled) {
+        const gate = await checkIsAnimeById('tmdb', tmdbId, this.config.tmdbApiKey, isMovie ? 'movie' : 'tv');
+        if (!gate.isAnime) {
+          console.log(`[AnimeSaturn] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for TMDB ${tmdbId}`);
+          return { streams: [] };
+        }
+      }
       const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
       // Recupera anche l'id MAL tramite Haglund
       let malId: string | undefined = undefined;
