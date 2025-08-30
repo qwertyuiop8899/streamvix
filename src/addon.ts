@@ -1127,12 +1127,24 @@ function normalizeProxyUrl(url: string): string {
 // Funzione per creare il builder con configurazione dinamica
 function createBuilder(initialConfig: AddonConfig = {}) {
     const manifest = loadCustomConfig();
+    // Applica un filtro leggero al manifest per nascondere il catalogo TV quando disabilitato
+    const effectiveManifest: Manifest = (() => {
+        try {
+            if (initialConfig && (initialConfig as any).disableLiveTv) {
+                const filtered = { ...manifest } as Manifest;
+                const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
+                filtered.catalogs = cats.filter(c => !(c && (c as any).id === 'streamvix_tv'));
+                return filtered;
+            }
+        } catch {}
+        return manifest;
+    })();
     
     if (initialConfig.mediaFlowProxyUrl || initialConfig.enableMpd || initialConfig.tmdbApiKey) {
-        manifest.name;
+        effectiveManifest.name; // no-op to avoid unused warning pattern
     }
     
-    const builder = new addonBuilder(manifest);
+    const builder = new addonBuilder(effectiveManifest);
 
     // === TV CATALOG HANDLER ONLY ===
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
@@ -2616,6 +2628,25 @@ app.get('/', (_: Request, res: Response) => {
     const landingHTML = landingTemplate(manifest);
     res.setHeader('Content-Type', 'text/html');
     res.send(landingHTML);
+});
+
+// Serve manifest dynamically so we can hide TV catalog when disableLiveTv is true
+app.get(['/manifest.json', '/:config/manifest.json'], (req: Request, res: Response) => {
+    try {
+        const base = loadCustomConfig();
+        // Parse optional config from URL segment and merge with cached config
+        const cfgFromUrl = (req.params as any)?.config ? parseConfigFromArgs((req.params as any).config) : {};
+        const effectiveDisable = (cfgFromUrl as any)?.disableLiveTv ?? (configCache as any)?.disableLiveTv;
+        const filtered: Manifest = { ...base } as Manifest;
+        if (effectiveDisable) {
+            const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
+            filtered.catalogs = cats.filter(c => !(c && (c as any).id === 'streamvix_tv'));
+        }
+        res.json(filtered);
+    } catch (e: any) {
+        console.error('❌ Manifest route error:', e?.message || e);
+        res.json(loadCustomConfig());
+    }
 });
 
 // ✅ Middleware semplificato che usa sempre il router globale
