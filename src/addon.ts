@@ -1693,9 +1693,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     // Only prepend the CLEAN non-MFP link (per-request, with headers)
                                     const reqObj: any = (global as any).lastExpressRequest;
                                     const clientIp = getClientIpFromReq(reqObj);
+                                    let vavooCleanResolved: { url: string; headers: Record<string,string> } | null = null;
                                     try {
                                         const clean = await resolveVavooCleanUrl(vUrl, clientIp);
                                         if (clean && clean.url) {
+                                            vavooCleanResolved = clean;
                                             vdbg('Alias clean resolved', { alias, url: clean.url.substring(0, 140) });
                                             const title2 = `🏠 ${alias} (Vavoo) [ITA]`;
                                             // stash headers via behaviorHints when pushing later
@@ -1732,8 +1734,25 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                 try { if (streams.length && /\(Vavoo\)/i.test(streams[0].title)) insertAt = 1; } catch {}
                                                 try { streams.splice(insertAt, 0, { url: finalUrl2, title: title3 }); } catch { streams.push({ url: finalUrl2, title: title3 }); }
                                                 vdbg('Alias Vavoo/MFP injected', { alias, url: finalUrl2.substring(0, 140) });
-                                            } else {
+                        } else {
+                                                // Fallback: se l'extractor non risponde OK, incapsula comunque via proxy/hls il link CLEAN (o vUrl come ultima risorsa)
                                                 vdbg('Extractor for Vavoo/MFP NOT OK', { status: res2.status });
+                                                try {
+                            const baseD = (vavooCleanResolved && vavooCleanResolved.url) ? vavooCleanResolved.url : vUrl;
+                                                    let finalUrl2 = `${mfpUrl}/proxy/hls/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseD)}`;
+                                                    // Propaga eventuali headers del CLEAN dentro al proxy come h_*
+                            const hdrs = (vavooCleanResolved && vavooCleanResolved.headers) ? vavooCleanResolved.headers : {} as Record<string,string>;
+                                                    for (const [hk2, hv2] of Object.entries(hdrs || {})) {
+                                                        if (hv2 != null) finalUrl2 += '&h_' + hk2 + '=' + encodeURIComponent(String(hv2));
+                                                    }
+                                                    const title3 = `🌐 ${alias} (Vavoo/MFP) [ITA]`;
+                                                    let insertAt = 0;
+                                                    try { if (streams.length && /(\(Vavoo\))/i.test(streams[0].title)) insertAt = 1; } catch {}
+                                                    try { streams.splice(insertAt, 0, { url: finalUrl2, title: title3 }); } catch { streams.push({ url: finalUrl2, title: title3 }); }
+                                                    vdbg('Alias Vavoo/MFP injected (fallback proxy/hls)', { alias, url: finalUrl2.substring(0, 140) });
+                                                } catch (e3) {
+                                                    vdbg('Vavoo/MFP fallback injection failed', String((e3 as any)?.message || e3));
+                                                }
                                             }
                                         } else {
                                             vdbg('Skip Vavoo/MFP injection: MFP config missing');
