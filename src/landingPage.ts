@@ -295,9 +295,10 @@ function landingTemplate(manifest: any) {
 					}
 					if (toggleMap[key]) {
 						const t = toggleMap[key];
-						// Determine checked state from elem.default (boolean) if provided; default visually ON
-						const defaultVal = (typeof (elem as any).default === 'boolean') ? !!(elem as any).default : true;
-						const checkedAttr = defaultVal ? ' checked' : '';
+						// Determine checked from elem.default boolean if provided; default visually ON
+						const hasDefault = (typeof (elem as any).default === 'boolean');
+						const isChecked = hasDefault ? !!(elem as any).default : true;
+						const checkedAttr = isChecked ? ' checked' : '';
 						options += `
 						<div class="form-element">
 							<div class="toggle-row" data-toggle-row="${key}">
