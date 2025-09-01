@@ -2605,6 +2605,34 @@ const app = express();
 // Trust proxy chain so req.ip / req.ips use X-Forwarded-For correctly when behind a proxy/CDN
 try { (app as any).set('trust proxy', true); } catch {}
 
+// PRIORITY: Configure routes must be first to avoid conflicts with global router
+// Single, minimal Configure handler: '/{config}/configure'
+app.get(/^\/(.+)\/configure\/?$/, (req: Request, res: Response) => {
+    try {
+        const base = loadCustomConfig();
+        // First capture group includes everything between the first slash and '/configure'
+        const between = (req.params as any)[0] as string;
+        const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
+        const cfgFromUrl = between ? parseConfigFromArgs(between) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
+        const manifestWithDefaults: any = { ...base };
+        if (Array.isArray(manifestWithDefaults.config)) {
+            manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
+                const val = (cfgFromUrl as any)?.[c?.key];
+                if (typeof val !== 'undefined') return { ...c, default: c.type === 'checkbox' ? !!val : String(val) };
+                return c;
+            });
+        }
+        res.setHeader('Content-Type', 'text/html');
+        return res.send(landingTemplate(manifestWithDefaults));
+    } catch (e) {
+        console.error('❌ Configure (regex) error:', (e as any)?.message || e);
+        const manifest = loadCustomConfig();
+        res.setHeader('Content-Type', 'text/html');
+        return res.send(landingTemplate(manifest));
+    }
+});
+
+
 app.use('/public', express.static(path.join(__dirname, '..', 'public')));
 
 // Redirect convenience: allow /stream/tv/<id> (no .json) -> proper .json endpoint
@@ -2648,8 +2676,23 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
     const rawParamCfg = (req.params as any)?.config;
     const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
     const cfgFromUrl = rawParamCfg ? parseConfigFromArgs(rawParamCfg) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
+        // Build a manifest copy with defaults prefilled from cfgFromUrl or runtime cache
+        const manifestWithDefaults: any = { ...base };
+        const sourceCfg = (cfgFromUrl && Object.keys(cfgFromUrl).length) ? cfgFromUrl : (configCache as any);
+        if (Array.isArray(manifestWithDefaults.config) && manifestWithDefaults.config.length) {
+            manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
+                const key = c?.key;
+                if (!key) return c;
+                const val = (sourceCfg as any)?.[key];
+                if (typeof val !== 'undefined') {
+                    if (c.type === 'checkbox') return { ...c, default: !!val };
+                    else return { ...c, default: String(val) };
+                }
+                return c;
+            });
+        }
         const effectiveDisable = (cfgFromUrl as any)?.disableLiveTv ?? (configCache as any)?.disableLiveTv;
-        const filtered: Manifest = { ...base } as Manifest;
+        const filtered: Manifest = { ...manifestWithDefaults } as Manifest;
         if (!Array.isArray((filtered as any).catalogs)) (filtered as any).catalogs = [];
         if (effectiveDisable) {
             const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
@@ -2662,7 +2705,7 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
         res.json(filtered);
     } catch (e: any) {
         console.error('❌ Manifest route error:', e?.message || e);
-        const fallback = loadCustomConfig();
+    const fallback = loadCustomConfig();
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -2746,6 +2789,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     // USA SEMPRE il router globale
     globalRouter(req, res, next);
 });
+
 
 // ============ TVTAP RESOLVE ENDPOINT ============
 // Endpoint per risolvere i link TVTap in tempo reale

@@ -295,8 +295,11 @@ function landingTemplate(manifest: any) {
 					}
 					if (toggleMap[key]) {
 						const t = toggleMap[key];
-						// All default ON visually: mark as checked
-						const checkedAttr = ' checked';
+						// Determine checked from elem.default boolean if provided; default visually ON
+						const hasDefault = (typeof (elem as any).default === 'boolean');
+						// For inverted toggles (disable*), show ON when default=false (i.e., feature enabled)
+						const isChecked = hasDefault ? (t.invert ? !((elem as any).default as boolean) : !!(elem as any).default) : true;
+						const checkedAttr = isChecked ? ' checked' : '';
 						options += `
 						<div class="form-element">
 							<div class="toggle-row" data-toggle-row="${key}">
@@ -313,7 +316,10 @@ function landingTemplate(manifest: any) {
 						</div>
 						`
 					} else {
-						const isChecked = elem.default === 'checked' ? ' checked' : ''
+						// Support boolean default as well as legacy 'checked'
+						const isChecked = (typeof (elem as any).default === 'boolean')
+							? (((elem as any).default as boolean) ? ' checked' : '')
+							: (elem.default === 'checked' ? ' checked' : '')
 						options += `
 						<div class="form-element">
 							<label for="${key}">
