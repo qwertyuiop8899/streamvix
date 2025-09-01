@@ -295,8 +295,9 @@ function landingTemplate(manifest: any) {
 					}
 					if (toggleMap[key]) {
 						const t = toggleMap[key];
-						// All default ON visually: mark as checked
-						const checkedAttr = ' checked';
+						// Determine checked state from elem.default (boolean) if provided; default visually ON
+						const defaultVal = (typeof (elem as any).default === 'boolean') ? !!(elem as any).default : true;
+						const checkedAttr = defaultVal ? ' checked' : '';
 						options += `
 						<div class="form-element">
 							<div class="toggle-row" data-toggle-row="${key}">
@@ -313,7 +314,10 @@ function landingTemplate(manifest: any) {
 						</div>
 						`
 					} else {
-						const isChecked = elem.default === 'checked' ? ' checked' : ''
+						// Support boolean default as well as legacy 'checked'
+						const isChecked = (typeof (elem as any).default === 'boolean')
+							? (((elem as any).default as boolean) ? ' checked' : '')
+							: (elem.default === 'checked' ? ' checked' : '')
 						options += `
 						<div class="form-element">
 							<label for="${key}">
