@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.10](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.9...v1.0.10) (2025-09-01)
+
+
+### Bug Fixes
+
+* add placeholder per anime ([da3a971](https://github.com/qwertyuiop8899/streamvix/commit/da3a9716fbb0cdb45f9550fa18dd2bc5870ee59c))
+* anime ([c8d69a1](https://github.com/qwertyuiop8899/streamvix/commit/c8d69a1d0806938a43069bc34e12915042aee86f))
+
 ## [1.0.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.8...v1.0.9) (2025-08-30)
 
 
