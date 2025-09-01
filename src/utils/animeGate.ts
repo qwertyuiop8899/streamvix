@@ -7,6 +7,7 @@
 // Feature flag: ANIME_GATE_ENABLED (default true). Callers can still import and decide.
 
 export type ExternalIdType = 'imdb' | 'tmdb';
+import type { StreamForStremio } from '../types/animeunity';
 
 export interface AnimeGateResult {
   isAnime: boolean;
@@ -106,4 +107,23 @@ export async function checkIsAnimeById(
     return { isAnime: true, hasMal, hasKitsu, reason: 'tmdb-fallback' };
   }
   return { isAnime: false, hasMal, hasKitsu, reason: 'no-mapping-and-not-animation-jp' };
+}
+
+// Build a placeholder informational stream for IMDB/TMDB anime lookups
+// Shown to suggest using Kitsu for accurate matching
+export function buildAnimeIdWarningStream(source: ExternalIdType): StreamForStremio | null {
+  const enabled = (process.env.ANIME_GATE_PLACEHOLDER_ENABLED || 'true') !== 'false';
+  if (!enabled) return null;
+  const title = '⚠️ La ricerca potrebbe essere errata - usare Kitsu ⚠️';
+  // Use a harmless URL; marked notWebReady so players won’t try to play in web
+  const url = 'https://kitsu.io';
+  return {
+    title,
+    url,
+    behaviorHints: {
+      notWebReady: true,
+      source,
+      notice: true
+    } as any
+  };
 }
