@@ -60,7 +60,7 @@ except Exception:
     ZI_ROME = None
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-REMOTE_SCHEDULE_URL = 'https://raw.githubusercontent.com/ciccioxm3/STRTV/main/daddyliveSchedule.json'
+REMOTE_SCHEDULE_URL = 'https://raw.githubusercontent.com/qwertyuiop8899/logo/main/daddyliveSchedule.json'
 # Permetti override del percorso di output tramite variabile d'ambiente DYNAMIC_FILE
 # Default: usa una posizione scrivibile nel container/host
 OUTPUT_FILE = os.environ.get('DYNAMIC_FILE') or '/tmp/dynamic_channels.json'
