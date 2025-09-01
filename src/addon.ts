@@ -2605,32 +2605,7 @@ const app = express();
 // Trust proxy chain so req.ip / req.ips use X-Forwarded-For correctly when behind a proxy/CDN
 try { (app as any).set('trust proxy', true); } catch {}
 
-app.use('/public', express.static(path.join(__dirname, '..', 'public')));
-
-// Redirect convenience: allow /stream/tv/<id> (no .json) -> proper .json endpoint
-app.get('/stream/tv/:id', (req: Request, res: Response, next: NextFunction) => {
-    // Se già termina con .json non fare nulla
-    if (req.originalUrl.endsWith('.json')) return next();
-    const id = req.params.id;
-    const q = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
-    const target = `/stream/tv/${id}.json${q}`;
-    res.redirect(302, target);
-});
-
-// Salva l'ultima request Express per fallback nel catalog handler (quando il router interno non passa req)
-app.use((req: Request, _res: Response, next: NextFunction) => {
-    (global as any).lastExpressRequest = req;
-    next();
-});
-
-// ✅ CORRETTO: Annotazioni di tipo esplicite per Express
-app.get('/', (_: Request, res: Response) => {
-    const manifest = loadCustomConfig();
-    const landingHTML = landingTemplate(manifest);
-    res.setHeader('Content-Type', 'text/html');
-    res.send(landingHTML);
-});
-
+// PRIORITY: Configure routes must be first to avoid conflicts with global router
 // Single, minimal Configure handler: '/{config}/configure'
 app.get(/^\/(.+)\/configure\/?$/, (req: Request, res: Response) => {
     try {
@@ -2657,34 +2632,31 @@ app.get(/^\/(.+)\/configure\/?$/, (req: Request, res: Response) => {
     }
 });
 
-// Explicit '/configure' handler to render Configure page via query (?config=...) or defaults
-app.get('/configure', (req: Request, res: Response) => {
-    try {
-        const base = loadCustomConfig();
-        const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
-        const cfgFromQuery = rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {};
-        const manifestWithDefaults: any = { ...base };
-        const sourceCfg = (cfgFromQuery && Object.keys(cfgFromQuery).length) ? cfgFromQuery : (configCache as any);
-        if (Array.isArray(manifestWithDefaults.config) && manifestWithDefaults.config.length) {
-            manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
-                const key = c?.key;
-                if (!key) return c;
-                const val = (sourceCfg as any)?.[key];
-                if (typeof val !== 'undefined') {
-                    if (c.type === 'checkbox') return { ...c, default: !!val };
-                    else return { ...c, default: String(val) };
-                }
-                return c;
-            });
-        }
-        res.setHeader('Content-Type', 'text/html');
-        return res.send(landingTemplate(manifestWithDefaults));
-    } catch (e) {
-        console.error('❌ Configure (/configure) error:', (e as any)?.message || e);
-        const manifest = loadCustomConfig();
-        res.setHeader('Content-Type', 'text/html');
-        return res.send(landingTemplate(manifest));
-    }
+
+app.use('/public', express.static(path.join(__dirname, '..', 'public')));
+
+// Redirect convenience: allow /stream/tv/<id> (no .json) -> proper .json endpoint
+app.get('/stream/tv/:id', (req: Request, res: Response, next: NextFunction) => {
+    // Se già termina con .json non fare nulla
+    if (req.originalUrl.endsWith('.json')) return next();
+    const id = req.params.id;
+    const q = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
+    const target = `/stream/tv/${id}.json${q}`;
+    res.redirect(302, target);
+});
+
+// Salva l'ultima request Express per fallback nel catalog handler (quando il router interno non passa req)
+app.use((req: Request, _res: Response, next: NextFunction) => {
+    (global as any).lastExpressRequest = req;
+    next();
+});
+
+// ✅ CORRETTO: Annotazioni di tipo esplicite per Express
+app.get('/', (_: Request, res: Response) => {
+    const manifest = loadCustomConfig();
+    const landingHTML = landingTemplate(manifest);
+    res.setHeader('Content-Type', 'text/html');
+    res.send(landingHTML);
 });
 
 // Serve manifest dynamically so we can hide TV catalog when disableLiveTv is true
@@ -2818,39 +2790,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     globalRouter(req, res, next);
 });
 
-// Final fallback: if anything ending with /configure slips through, serve the landing page
-app.use((req: Request, res: Response, next: NextFunction) => {
-    try {
-        const rawUrl = (req as any).originalUrl || req.url || '';
-        const urlNoQuery = rawUrl.split('?')[0] || '';
-        if (/\/configure\/?$/.test(urlNoQuery)) {
-            const base = loadCustomConfig();
-            const between = urlNoQuery.replace(/^\//, '').replace(/\/configure\/?$/, '');
-            const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
-            const cfgFromUrl = between ? parseConfigFromArgs(between) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
-            const sourceCfg = (cfgFromUrl && Object.keys(cfgFromUrl).length) ? cfgFromUrl : (configCache as any);
-            const manifestWithDefaults: any = { ...loadCustomConfig() };
-            if (Array.isArray(manifestWithDefaults.config) && manifestWithDefaults.config.length) {
-                manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
-                    const key = c?.key;
-                    if (!key) return c;
-                    const val = (sourceCfg as any)?.[key];
-                    if (typeof val !== 'undefined') {
-                        if (c.type === 'checkbox') return { ...c, default: !!val };
-                        else return { ...c, default: String(val) };
-                    }
-                    return c;
-                });
-            }
-            const html = landingTemplate(manifestWithDefaults);
-            res.setHeader('Content-Type', 'text/html');
-            return res.status(200).send(html);
-        }
-    } catch (e) {
-        // ignore and continue
-    }
-    return next();
-});
 
 // ============ TVTAP RESOLVE ENDPOINT ============
 // Endpoint per risolvere i link TVTap in tempo reale
