@@ -2631,39 +2631,7 @@ app.get('/', (_: Request, res: Response) => {
     res.send(landingHTML);
 });
 
-// Serve a configurable landing for Stremio's Configure button
-// Supports /configure and /:config/configure, pre-filling defaults from provided config (if any)
-app.get(['/configure', '/:config/configure', '/cfg/:config/configure'], (req: Request, res: Response) => {
-    try {
-        const base = loadCustomConfig();
-        const rawParamCfg = (req.params as any)?.config;
-        const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
-        const cfgFromUrl = rawParamCfg ? parseConfigFromArgs(rawParamCfg) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
-        const sourceCfg = (cfgFromUrl && Object.keys(cfgFromUrl).length) ? cfgFromUrl : (configCache as any);
-        const manifestWithDefaults: any = { ...base };
-        if (Array.isArray(manifestWithDefaults.config) && manifestWithDefaults.config.length) {
-            manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
-                const key = c?.key;
-                if (!key) return c;
-                const val = (sourceCfg as any)?.[key];
-                if (typeof val !== 'undefined') {
-                    if (c.type === 'checkbox') return { ...c, default: !!val };
-                    else return { ...c, default: String(val) };
-                }
-                return c;
-            });
-        }
-        const html = landingTemplate(manifestWithDefaults);
-        res.setHeader('Content-Type', 'text/html');
-        res.send(html);
-    } catch (e: any) {
-        console.error('❌ Configure route error:', e?.message || e);
-        const manifest = loadCustomConfig();
-        const html = landingTemplate(manifest);
-        res.setHeader('Content-Type', 'text/html');
-        res.send(html);
-    }
-});
+// (No explicit configure routes here; handled inside middleware below for robustness)
 
 // Serve manifest dynamically so we can hide TV catalog when disableLiveTv is true
 // Also supports config passed via path segment or query string (?config=...)
@@ -2723,6 +2691,40 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
 // ✅ Middleware semplificato che usa sempre il router globale
 app.use((req: Request, res: Response, next: NextFunction) => {
     // ...
+    // Handle any path ending with "/configure" to support Stremio's Configure button
+    try {
+        // Match both '/.../configure' and '/.../configure/' ignoring query string
+        const rawUrl = (req as any).originalUrl || req.url || '';
+        const urlNoQuery = rawUrl.split('?')[0] || '';
+        const endsWithConfigure = /\/configure\/?$/.test(urlNoQuery);
+        if (endsWithConfigure) {
+            const base = loadCustomConfig();
+            // Extract encoded config from original URL (not decoded), safe against %2F inside JSON
+            // urlNoQuery like '/%7B...%7D/configure' -> take between leading '/' and trailing '/configure'
+            const between = urlNoQuery.replace(/^\//, '').replace(/\/configure\/?$/, '');
+            const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
+            const cfgFromUrl = between ? parseConfigFromArgs(between) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
+            const sourceCfg = (cfgFromUrl && Object.keys(cfgFromUrl).length) ? cfgFromUrl : (configCache as any);
+            const manifestWithDefaults: any = { ...base };
+            if (Array.isArray(manifestWithDefaults.config) && manifestWithDefaults.config.length) {
+                manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
+                    const key = c?.key;
+                    if (!key) return c;
+                    const val = (sourceCfg as any)?.[key];
+                    if (typeof val !== 'undefined') {
+                        if (c.type === 'checkbox') return { ...c, default: !!val };
+                        else return { ...c, default: String(val) };
+                    }
+                    return c;
+                });
+            }
+            const html = landingTemplate(manifestWithDefaults);
+            res.setHeader('Content-Type', 'text/html');
+            return res.send(html);
+        }
+    } catch (e) {
+        console.error('❌ Configure intercept error:', (e as any)?.message || e);
+    }
     debugLog(`Incoming request: ${req.method} ${req.path}`);
     debugLog(`Full URL: ${req.url}`);
     debugLog(`Path segments:`, req.path.split('/'));
