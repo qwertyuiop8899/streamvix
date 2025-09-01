@@ -4,37 +4,6 @@
 Genera il file JSON dinamico (config/dynamic_channels.json) per l'addon StreamViX
 partendo da daddyliveSchedule.json.
 
-Specifiche richieste:
-  - Niente M3U8, EPG o riferimenti MFP: solo JSON.
-  - Filtra SOLO:
-      Italy - Serie A
-      Italy - Serie B
-      Italy - Serie C
-      UEFA Champions League
-      UEFA Europa League
-      Conference League
-      Coppa Italia
-      Tennis (solo se esattamente "Tennis")
-      motor sports / motorsports (solo eventi MotoGP o F1 / Formula 1)
-  - Escludi canali con keyword: college, youth.
-  - Loghi:
-      Serie A / Serie B: Team1_vs_Team2.png (nomi normalizzati) dal repo
-        https://raw.githubusercontent.com/qwertyuiop8899/logo/main
-        Normalizzazioni: rimozione prefissi (AS, AC, SSC, etc.), Internazionale -> Inter, AS Roma -> Roma,
-        SSC Napoli -> Napoli, rimuovi parola "Calcio".
-      Serie C: se evento contiene Salernitana -> Salernitana.png
-      Coppe: UEFA_Champions_League.png, UEFA_Europa_League.png, Conference_League.png, Coppa_Italia.png
-      F1: F1.png
-      MotoGP: MotoGP.png
-      Tennis: Tennis.png (se presente, non validiamo l'esistenza in rete).
-  - Un logo mancante non blocca l'evento (logo = null).
-  - Campi output per ogni evento:
-        id, name, streams[{url,title}], logo, category (seriea|serieb|seriec|coppe|tennis|f1|motogp),
-        description (Categoria + orario Europe/Rome), eventStart (UTC ISO con Z).
-  - Nessun expiresAt: calcolato dall'addon (02:00 Europe/Rome giorno dopo).
-
-Nota tempo: il file originale usa orario UK. Se disponibile pytz convertiamo Europe/London -> UTC.
-Altrimenti assumiamo l'orario come UTC.
 """
 
 from __future__ import annotations
@@ -60,7 +29,7 @@ except Exception:
     ZI_ROME = None
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-REMOTE_SCHEDULE_URL = 'https://raw.githubusercontent.com/ciccioxm3/STRTV/main/daddyliveSchedule.json'
+REMOTE_SCHEDULE_URL = 'https://raw.githubusercontent.com/qwertyuiop8899/logo/main/daddyliveSchedule.json'
 # Permetti override del percorso di output tramite variabile d'ambiente DYNAMIC_FILE
 # Default: usa una posizione scrivibile nel container/host
 OUTPUT_FILE = os.environ.get('DYNAMIC_FILE') or '/tmp/dynamic_channels.json'

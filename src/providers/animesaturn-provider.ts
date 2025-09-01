@@ -3,7 +3,7 @@ import { AnimeSaturnConfig, AnimeSaturnResult, AnimeSaturnEpisode, StreamForStre
 import * as path from 'path';
 import axios from 'axios';
 import { KitsuProvider } from './kitsu';
-import { checkIsAnimeById } from '../utils/animeGate';
+import { checkIsAnimeById, buildAnimeIdWarningStream } from '../utils/animeGate';
 
 // Helper function to invoke the Python scraper
 async function invokePythonScraper(args: string[]): Promise<any> {
@@ -326,6 +326,12 @@ export class AnimeSaturnProvider {
           console.log(`[AnimeSaturn] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for ${imdbId}`);
           return { streams: [] };
         }
+        const placeholder = buildAnimeIdWarningStream('imdb');
+        if (placeholder) {
+          const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
+          const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+          return { streams: [placeholder, ...res.streams] };
+        }
       }
       const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
       // Recupera anche l'id MAL tramite Haglund
@@ -360,6 +366,12 @@ export class AnimeSaturnProvider {
         if (!gate.isAnime) {
           console.log(`[AnimeSaturn] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for TMDB ${tmdbId}`);
           return { streams: [] };
+        }
+        const placeholder = buildAnimeIdWarningStream('tmdb');
+        if (placeholder) {
+          const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
+          const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+          return { streams: [placeholder, ...res.streams] };
         }
       }
       const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
