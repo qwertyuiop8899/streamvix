@@ -2631,7 +2631,38 @@ app.get('/', (_: Request, res: Response) => {
     res.send(landingHTML);
 });
 
-// (No explicit configure routes here; handled inside middleware below for robustness)
+// Explicit Configure handlers (complement intercept): works for /configure and /:config/configure
+app.get(['/configure', '/:config/configure', '/cfg/:config/configure'], (req: Request, res: Response) => {
+    try {
+        const base = loadCustomConfig();
+        const rawParamCfg = (req.params as any)?.config;
+        const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
+        const cfgFromUrl = rawParamCfg ? parseConfigFromArgs(rawParamCfg) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
+        const sourceCfg = (cfgFromUrl && Object.keys(cfgFromUrl).length) ? cfgFromUrl : (configCache as any);
+        const manifestWithDefaults: any = { ...base };
+        if (Array.isArray(manifestWithDefaults.config) && manifestWithDefaults.config.length) {
+            manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
+                const key = c?.key;
+                if (!key) return c;
+                const val = (sourceCfg as any)?.[key];
+                if (typeof val !== 'undefined') {
+                    if (c.type === 'checkbox') return { ...c, default: !!val };
+                    else return { ...c, default: String(val) };
+                }
+                return c;
+            });
+        }
+        const html = landingTemplate(manifestWithDefaults);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+    } catch (e: any) {
+        console.error('❌ Configure route error:', e?.message || e);
+        const manifest = loadCustomConfig();
+        const html = landingTemplate(manifest);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+    }
+});
 
 // Serve manifest dynamically so we can hide TV catalog when disableLiveTv is true
 // Also supports config passed via path segment or query string (?config=...)
@@ -2796,6 +2827,40 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
     // USA SEMPRE il router globale
     globalRouter(req, res, next);
+});
+
+// Final fallback: if anything ending with /configure slips through, serve the landing page
+app.use((req: Request, res: Response, next: NextFunction) => {
+    try {
+        const rawUrl = (req as any).originalUrl || req.url || '';
+        const urlNoQuery = rawUrl.split('?')[0] || '';
+        if (/\/configure\/?$/.test(urlNoQuery)) {
+            const base = loadCustomConfig();
+            const between = urlNoQuery.replace(/^\//, '').replace(/\/configure\/?$/, '');
+            const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
+            const cfgFromUrl = between ? parseConfigFromArgs(between) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
+            const sourceCfg = (cfgFromUrl && Object.keys(cfgFromUrl).length) ? cfgFromUrl : (configCache as any);
+            const manifestWithDefaults: any = { ...loadCustomConfig() };
+            if (Array.isArray(manifestWithDefaults.config) && manifestWithDefaults.config.length) {
+                manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
+                    const key = c?.key;
+                    if (!key) return c;
+                    const val = (sourceCfg as any)?.[key];
+                    if (typeof val !== 'undefined') {
+                        if (c.type === 'checkbox') return { ...c, default: !!val };
+                        else return { ...c, default: String(val) };
+                    }
+                    return c;
+                });
+            }
+            const html = landingTemplate(manifestWithDefaults);
+            res.setHeader('Content-Type', 'text/html');
+            return res.status(200).send(html);
+        }
+    } catch (e) {
+        // ignore and continue
+    }
+    return next();
 });
 
 // ============ TVTAP RESOLVE ENDPOINT ============
