@@ -2624,11 +2624,82 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 });
 
 // ✅ CORRETTO: Annotazioni di tipo esplicite per Express
-app.get('/', (_: Request, res: Response) => {
-    const manifest = loadCustomConfig();
-    const landingHTML = landingTemplate(manifest);
-    res.setHeader('Content-Type', 'text/html');
-    res.send(landingHTML);
+app.get('/', (req: Request, res: Response) => {
+    try {
+        const base = loadCustomConfig();
+        const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
+        const cfgFromUrl = rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {};
+        const sourceCfg = (cfgFromUrl && Object.keys(cfgFromUrl).length) ? cfgFromUrl : (configCache as any);
+        const manifestWithDefaults: any = { ...base };
+        if (Array.isArray(manifestWithDefaults.config) && manifestWithDefaults.config.length) {
+            manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
+                const key = c?.key;
+                if (!key) return c;
+                const val = (sourceCfg as any)?.[key];
+                if (typeof val !== 'undefined') {
+                    if (c.type === 'checkbox') return { ...c, default: !!val };
+                    else return { ...c, default: String(val) };
+                }
+                return c;
+            });
+        }
+        const landingHTML = landingTemplate(manifestWithDefaults);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(landingHTML);
+    } catch {
+        const manifest = loadCustomConfig();
+        const landingHTML = landingTemplate(manifest);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(landingHTML);
+    }
+});
+
+// Regex-based Configure handlers (robust to decoded slashes in config)
+app.get(/^\/configure\/?$/, (req: Request, res: Response) => {
+    try {
+        const base = loadCustomConfig();
+        const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
+        const cfgFromUrl = rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {};
+        const manifestWithDefaults: any = { ...base };
+        if (Array.isArray(manifestWithDefaults.config)) {
+            manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
+                const val = (cfgFromUrl as any)?.[c?.key];
+                if (typeof val !== 'undefined') return { ...c, default: c.type === 'checkbox' ? !!val : String(val) };
+                return c;
+            });
+        }
+        res.setHeader('Content-Type', 'text/html');
+        return res.send(landingTemplate(manifestWithDefaults));
+    } catch {
+        const manifest = loadCustomConfig();
+        res.setHeader('Content-Type', 'text/html');
+        return res.send(landingTemplate(manifest));
+    }
+});
+
+app.get(/^\/(.+)\/configure\/?$/, (req: Request, res: Response) => {
+    try {
+        const base = loadCustomConfig();
+        // First capture group includes everything between the first slash and '/configure'
+        const between = (req.params as any)[0] as string;
+        const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
+        const cfgFromUrl = between ? parseConfigFromArgs(between) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
+        const manifestWithDefaults: any = { ...base };
+        if (Array.isArray(manifestWithDefaults.config)) {
+            manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
+                const val = (cfgFromUrl as any)?.[c?.key];
+                if (typeof val !== 'undefined') return { ...c, default: c.type === 'checkbox' ? !!val : String(val) };
+                return c;
+            });
+        }
+        res.setHeader('Content-Type', 'text/html');
+        return res.send(landingTemplate(manifestWithDefaults));
+    } catch (e) {
+        console.error('❌ Configure (regex) error:', (e as any)?.message || e);
+        const manifest = loadCustomConfig();
+        res.setHeader('Content-Type', 'text/html');
+        return res.send(landingTemplate(manifest));
+    }
 });
 
 // Explicit Configure handlers (complement intercept): works for /configure and /:config/configure
