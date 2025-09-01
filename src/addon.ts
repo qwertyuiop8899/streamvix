@@ -2632,8 +2632,38 @@ app.get('/', (_: Request, res: Response) => {
 });
 
 // Serve a configurable landing for Stremio's Configure button
-// Supports both /configure and /:config/configure, pre-filling defaults from provided config
-// (Removed custom /configure handler to rely on Stremio Configure flow via manifest)
+// Supports /configure and /:config/configure, pre-filling defaults from provided config (if any)
+app.get(['/configure', '/:config/configure', '/cfg/:config/configure'], (req: Request, res: Response) => {
+    try {
+        const base = loadCustomConfig();
+        const rawParamCfg = (req.params as any)?.config;
+        const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
+        const cfgFromUrl = rawParamCfg ? parseConfigFromArgs(rawParamCfg) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
+        const sourceCfg = (cfgFromUrl && Object.keys(cfgFromUrl).length) ? cfgFromUrl : (configCache as any);
+        const manifestWithDefaults: any = { ...base };
+        if (Array.isArray(manifestWithDefaults.config) && manifestWithDefaults.config.length) {
+            manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
+                const key = c?.key;
+                if (!key) return c;
+                const val = (sourceCfg as any)?.[key];
+                if (typeof val !== 'undefined') {
+                    if (c.type === 'checkbox') return { ...c, default: !!val };
+                    else return { ...c, default: String(val) };
+                }
+                return c;
+            });
+        }
+        const html = landingTemplate(manifestWithDefaults);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+    } catch (e: any) {
+        console.error('❌ Configure route error:', e?.message || e);
+        const manifest = loadCustomConfig();
+        const html = landingTemplate(manifest);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+    }
+});
 
 // Serve manifest dynamically so we can hide TV catalog when disableLiveTv is true
 // Also supports config passed via path segment or query string (?config=...)
