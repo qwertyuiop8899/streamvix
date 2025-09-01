@@ -297,7 +297,8 @@ function landingTemplate(manifest: any) {
 						const t = toggleMap[key];
 						// Determine checked from elem.default boolean if provided; default visually ON
 						const hasDefault = (typeof (elem as any).default === 'boolean');
-						const isChecked = hasDefault ? !!(elem as any).default : true;
+						// For inverted toggles (disable*), show ON when default=false (i.e., feature enabled)
+						const isChecked = hasDefault ? (t.invert ? !((elem as any).default as boolean) : !!(elem as any).default) : true;
 						const checkedAttr = isChecked ? ' checked' : '';
 						options += `
 						<div class="form-element">
