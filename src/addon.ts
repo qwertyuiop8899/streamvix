@@ -2625,10 +2625,60 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 // ✅ CORRETTO: Annotazioni di tipo esplicite per Express
 app.get('/', (_: Request, res: Response) => {
-    const manifest = loadCustomConfig();
+    const base = loadCustomConfig();
+    // Prefill defaults from current runtime config cache
+    const cfg = { ...(configCache as any) };
+    const manifest: any = { ...base };
+    if (Array.isArray(manifest.config) && manifest.config.length) {
+        manifest.config = manifest.config.map((c: any) => {
+            const key = c?.key;
+            if (!key) return c;
+            const val = (cfg as any)[key];
+            if (typeof val !== 'undefined') {
+                if (c.type === 'checkbox') return { ...c, default: !!val };
+                else return { ...c, default: String(val) };
+            }
+            return c;
+        });
+    }
     const landingHTML = landingTemplate(manifest);
     res.setHeader('Content-Type', 'text/html');
     res.send(landingHTML);
+});
+
+// Serve a configurable landing for Stremio's Configure button
+// Supports both /configure and /:config/configure, pre-filling defaults from provided config
+app.get(['/configure', '/:config/configure'], (req: Request, res: Response) => {
+    try {
+        const base = loadCustomConfig();
+        // clone and enrich manifest.config default values from passed config
+        const rawParamCfg = (req.params as any)?.config;
+        const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
+    // If no config in path/query, fallback to current runtime config cache
+    const cfg = rawParamCfg ? parseConfigFromArgs(rawParamCfg) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : { ...(configCache as any) });
+        const manifest: any = { ...base };
+        if (Array.isArray(manifest.config) && manifest.config.length) {
+            manifest.config = manifest.config.map((c: any) => {
+                const key = c?.key;
+                if (!key) return c;
+                const val = (cfg as any)[key];
+                if (typeof val !== 'undefined') {
+                    // map to default according to field type
+                    if (c.type === 'checkbox') return { ...c, default: !!val };
+                    else return { ...c, default: String(val) };
+                }
+                return c;
+            });
+        }
+        const html = landingTemplate(manifest);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+    } catch (e) {
+        const manifest = loadCustomConfig();
+        const html = landingTemplate(manifest);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+    }
 });
 
 // Serve manifest dynamically so we can hide TV catalog when disableLiveTv is true
@@ -2648,6 +2698,10 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
     const rawParamCfg = (req.params as any)?.config;
     const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
     const cfgFromUrl = rawParamCfg ? parseConfigFromArgs(rawParamCfg) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
+        // Persist runtime config so /configure can prefill even if Stremio doesn't send config in path
+        if (cfgFromUrl && Object.keys(cfgFromUrl).length) {
+            try { Object.assign(configCache as any, cfgFromUrl); } catch {}
+        }
         const effectiveDisable = (cfgFromUrl as any)?.disableLiveTv ?? (configCache as any)?.disableLiveTv;
         const filtered: Manifest = { ...base } as Manifest;
         if (!Array.isArray((filtered as any).catalogs)) (filtered as any).catalogs = [];
