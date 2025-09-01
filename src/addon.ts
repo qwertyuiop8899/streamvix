@@ -2633,37 +2633,7 @@ app.get('/', (_: Request, res: Response) => {
 
 // Serve a configurable landing for Stremio's Configure button
 // Supports both /configure and /:config/configure, pre-filling defaults from provided config
-app.get(['/configure', '/:config/configure'], (req: Request, res: Response) => {
-    try {
-        const base = loadCustomConfig();
-        // clone and enrich manifest.config default values from passed config
-        const rawParamCfg = (req.params as any)?.config;
-        const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
-        const cfg = rawParamCfg ? parseConfigFromArgs(rawParamCfg) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
-        const manifest: any = { ...base };
-        if (Array.isArray(manifest.config) && manifest.config.length) {
-            manifest.config = manifest.config.map((c: any) => {
-                const key = c?.key;
-                if (!key) return c;
-                const val = (cfg as any)[key];
-                if (typeof val !== 'undefined') {
-                    // map to default according to field type
-                    if (c.type === 'checkbox') return { ...c, default: !!val };
-                    else return { ...c, default: String(val) };
-                }
-                return c;
-            });
-        }
-        const html = landingTemplate(manifest);
-        res.setHeader('Content-Type', 'text/html');
-        res.send(html);
-    } catch (e) {
-        const manifest = loadCustomConfig();
-        const html = landingTemplate(manifest);
-        res.setHeader('Content-Type', 'text/html');
-        res.send(html);
-    }
-});
+// (Removed custom /configure handler to rely on Stremio Configure flow via manifest)
 
 // Serve manifest dynamically so we can hide TV catalog when disableLiveTv is true
 // Also supports config passed via path segment or query string (?config=...)
@@ -2682,8 +2652,23 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
     const rawParamCfg = (req.params as any)?.config;
     const rawQueryCfg = typeof req.query.config === 'string' ? (req.query.config as string) : undefined;
     const cfgFromUrl = rawParamCfg ? parseConfigFromArgs(rawParamCfg) : (rawQueryCfg ? parseConfigFromArgs(rawQueryCfg) : {});
+        // Build a manifest copy with defaults prefilled from cfgFromUrl or runtime cache
+        const manifestWithDefaults: any = { ...base };
+        const sourceCfg = (cfgFromUrl && Object.keys(cfgFromUrl).length) ? cfgFromUrl : (configCache as any);
+        if (Array.isArray(manifestWithDefaults.config) && manifestWithDefaults.config.length) {
+            manifestWithDefaults.config = manifestWithDefaults.config.map((c: any) => {
+                const key = c?.key;
+                if (!key) return c;
+                const val = (sourceCfg as any)?.[key];
+                if (typeof val !== 'undefined') {
+                    if (c.type === 'checkbox') return { ...c, default: !!val };
+                    else return { ...c, default: String(val) };
+                }
+                return c;
+            });
+        }
         const effectiveDisable = (cfgFromUrl as any)?.disableLiveTv ?? (configCache as any)?.disableLiveTv;
-        const filtered: Manifest = { ...base } as Manifest;
+        const filtered: Manifest = { ...manifestWithDefaults } as Manifest;
         if (!Array.isArray((filtered as any).catalogs)) (filtered as any).catalogs = [];
         if (effectiveDisable) {
             const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
@@ -2696,7 +2681,7 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
         res.json(filtered);
     } catch (e: any) {
         console.error('❌ Manifest route error:', e?.message || e);
-        const fallback = loadCustomConfig();
+    const fallback = loadCustomConfig();
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
