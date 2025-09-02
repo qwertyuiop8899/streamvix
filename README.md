@@ -232,27 +232,9 @@ TMDB Api KEY, MFP link e MFP password e i due flag necessari verranno gestiti da
 Apri un terminale nella directory dove hai salvato il `docker-compose.yml` ed esegui il seguente comando per costruire l'immagine e avviare il container in background:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
-Se ci saranno aggiornamenti, eseguire i seguenti comandi :
-
-```bash
-# Ferma tutto
-sudo docker compose down streamvixau
-
-# Rimuovi l'immagine specifica
-sudo docker rmi streamvix
-
-# Pulisci la build cache
-sudo docker builder prune -f
-
-# Ricostruisci completamente senza cache
-sudo docker compose build --no-cache streamvix
-
-# Avvia
-sudo docker compose up -d streamvix
-```
-
+Con watchtower l'immagine sara' aggiornata automaticamente.
 
 ### 💻 Metodo 3: Installazione Locale (per Esperti NON TESTATO)
 
@@ -309,6 +291,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
