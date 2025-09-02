@@ -415,7 +415,18 @@ export class AnimeWorldProvider {
   const episodes: AnimeWorldEpisode[] = await invokePython(['get_episodes','--anime-slug', v.slug]);
       if (!episodes || !episodes.length) return null;
       let target: AnimeWorldEpisode | undefined;
-      if (isMovie) target = episodes[0]; else if (episodeNumber != null) target = episodes.find(e => e.number === episodeNumber) || episodes[0]; else target = episodes[0];
+      if (isMovie) {
+        target = episodes[0];
+      } else if (episodeNumber != null) {
+        // Richiesta episodio specifico: accetta SOLO se esiste quel numero
+        target = episodes.find(e => e.number === episodeNumber);
+        if (!target) {
+          console.log(`[AnimeWorld] Skipping ${v.language_type} version: episode ${episodeNumber} not found for slug=${v.slug}`);
+          return null;
+        }
+      } else {
+        target = episodes[0];
+      }
       if (!target) return null;
       return { v, target, ms: Date.now() - t0 };
     } catch (e) {
