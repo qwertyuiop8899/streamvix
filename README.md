@@ -206,13 +206,24 @@ Salva il seguente contenuto in un file chiamato `docker-compose.yml`, oppure agg
 ```yaml
 services:
   streamvix:
-    build: https://github.com/qwertyuiop8899/StreamViX.git#main
+    image: krystall0/streamvix:latest  
     container_name: streamvix
-    restart: unless-stopped
     ports:
-      - '7860:7860'
+      - "7860:7860"
+    environment:
+      - BOTHLINK=true
+      - MFP_URL= # your mediaflow proxy instance url or http://container-name:port
+      - MFP_PSW= # The password of your mediaflow proxy instance
+      - TMDB_API_KEY= #https://www.themoviedb.org/settings/api
+    restart: always
+#   Use watchtower for automatic image updates
+
+#   watchtower:
+#     image: containrrr/watchtower
+#     container_name: watchtower
+#     volumes:
+#     - /var/run/docker.sock:/var/run/docker.sock
 ```
-Sostituisci il link con il tuo fork se preferisci https://github.com/qwertyuiop8899/StreamViX_MFP.git#main
 
 TMDB Api KEY, MFP link e MFP password e i due flag necessari verranno gestiti dalla pagina di installazione.
 
@@ -298,6 +309,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
