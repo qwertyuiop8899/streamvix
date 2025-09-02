@@ -184,6 +184,7 @@ export class AnimeWorldProvider {
       const raw: AnimeWorldResult[] = await invokePython(['search','--query', title]);
       if (!raw) return [];
       // Infer language_type similar to AnimeUnity/AnimeSaturn conventions
+        const normSlugKey = title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
         const mapped = raw.map(r => {
           const name = r.name ? r.name.toLowerCase() : '';
           const slug = r.slug ? r.slug.toLowerCase() : '';
@@ -196,6 +197,13 @@ export class AnimeWorldProvider {
             language_type = 'CR ITA';
           } else if (/(^|[-_\s])ita($|[-_\s])/i.test(name) || /(^|[-_\s])ita($|[-_\s])/i.test(slug) || name.endsWith('-ita') || slug.endsWith('-ita') || (name.includes('ita') || slug.includes('ita'))) {
             language_type = 'ITA';
+          } else {
+            // Heuristic: lo slug "base" (senza suffissi tipo -ita) è la versione SUB ITA del sito
+            const basePart = (slug || name).split('.')[0];
+            const cleaned = basePart.replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+            if (cleaned === normSlugKey) {
+              language_type = 'SUB ITA';
+            }
           }
           return { ...r, language_type };
         });
