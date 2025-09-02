@@ -204,6 +204,9 @@ def get_stream(slug: str, episode: int | None):
             if e['number'] == episode:
                 target = e
                 break
+        # Se episodio specifico non trovato, non fare fallback al primo
+        if target is None:
+            return {'mp4_url': None, 'episode_page': None}
     if not target:
         target = eps[0]
     href = target['id']

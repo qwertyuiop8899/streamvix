@@ -184,6 +184,7 @@ export class AnimeWorldProvider {
       const raw: AnimeWorldResult[] = await invokePython(['search','--query', title]);
       if (!raw) return [];
       // Infer language_type similar to AnimeUnity/AnimeSaturn conventions
+        const normSlugKey = title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
         const mapped = raw.map(r => {
           const name = r.name ? r.name.toLowerCase() : '';
           const slug = r.slug ? r.slug.toLowerCase() : '';
@@ -196,6 +197,13 @@ export class AnimeWorldProvider {
             language_type = 'CR ITA';
           } else if (/(^|[-_\s])ita($|[-_\s])/i.test(name) || /(^|[-_\s])ita($|[-_\s])/i.test(slug) || name.endsWith('-ita') || slug.endsWith('-ita') || (name.includes('ita') || slug.includes('ita'))) {
             language_type = 'ITA';
+          } else {
+            // Heuristic: lo slug "base" (senza suffissi tipo -ita) è la versione SUB ITA del sito
+            const basePart = (slug || name).split('.')[0];
+            const cleaned = basePart.replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+            if (cleaned === normSlugKey) {
+              language_type = 'SUB ITA';
+            }
           }
           return { ...r, language_type };
         });
@@ -345,77 +353,38 @@ export class AnimeWorldProvider {
     return s.includes('movie') || /-movie-/.test(s);
   };
 
-  // Se stiamo richiedendo un episodio numerato (non movie), preferisci una coppia ITA + SUB, escludendo i movie
+  // Episodio specifico: considera tutte le versioni non-movie tra ITA/SUB/CR, senza aggiunte artificiali
   let selected: typeof reduced = [];
   if (episodeNumber != null && !isMovie) {
-    const itaCandidates = reduced.filter(v => v.language_type === 'ITA' && !isMovieSlug(v));
-    const subCandidates = reduced.filter(v => v.language_type === 'SUB ITA' && !isMovieSlug(v));
-    if (itaCandidates.length) selected.push(itaCandidates[0]);
-    if (subCandidates.length) selected.push(subCandidates[0]);
-    // fallback se manca una delle due: prendi altra versione non movie
-    if (selected.length < 2) {
-      for (const v of reduced) {
-        if (selected.includes(v)) continue;
-        if (isMovieSlug(v)) continue;
-        selected.push(v);
-        if (selected.length === 2) break;
-      }
-    }
-    // se ancora 0 (caso raro), prendi qualsiasi
-    if (!selected.length) selected = reduced.slice(0, 2);
-    // Nuova logica: se manca SUB ma esistono versioni ORIGINAL, aggiungi quella base (no rewrite/ova/special)
-    if (!selected.find(v => v.language_type === 'SUB ITA')) {
-      const originalAll = versions.filter(v => v.language_type === 'ORIGINAL');
-      if (originalAll.length) {
-        const bannedTokens = /(rewrite|special|movie|ova|recap|extra|summary)/i;
-        const normSlugKey = (normalizeTitleForSearch(title)).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-        const origCandidates = originalAll
-          .filter(o => !bannedTokens.test(o.slug || o.name || ''))
-          .map(o => ({ o, score: scoreOriginalMatch(o.slug || o.name || '', normSlugKey) }))
-          .sort((a,b) => a.score - b.score);
-        if (origCandidates.length) {
-          const best = origCandidates[0].o;
-          if (!selected.includes(best)) {
-            selected.push(best);
-            console.log('[AnimeWorld] Added ORIGINAL base version due to missing SUB:', best.slug || best.name, 'score=', origCandidates[0].score);
-          }
-        } else {
-          // come fallback prendi comunque il primo ORIGINAL non ancora selezionato
-            const anyOrig = originalAll.find(o => !selected.includes(o));
-            if (anyOrig) {
-              selected.push(anyOrig);
-              console.log('[AnimeWorld] Added fallback ORIGINAL (no clean candidate).');
-            }
-        }
-      }
-    }
+    selected = reduced.filter(v => !isMovieSlug(v));
   } else {
-    // per film o richieste senza ep specifico, mantieni primi due (anche movie se serve)
+    // Film o richieste senza episodio: mantieni primi due
     selected = reduced.slice(0, 2);
   }
-
-  // Se presente una versione CR ITA e abbiamo già ITA + SUB, prova ad aggiungere ORIGINAL (terza) per avere trio completo
-  if (!isMovie && episodeNumber != null) {
-    const hasCr = reduced.some(v => v.language_type === 'CR ITA');
-    if (hasCr) {
-      const original = versions.find(v => v.language_type === 'ORIGINAL');
-      if (original && !selected.includes(original)) selected.push(original);
-    }
-  }
-  const limited = selected.slice(0, 3);
-  console.log('[AnimeWorld] Processing versions (filtered ITA/SUB/CR+maybe ORIGINAL):', limited.map(v => `${v.language_type}:${v.slug || v.name}`).join(', '));
+  console.log('[AnimeWorld] Processing versions (candidates):', selected.map(v => `${v.language_type}:${v.slug || v.name}`).join(', '));
 
   const seen = new Set<string>();
   const tBatch = Date.now();
 
   // Parallel fetch episodes
-  const episodeInfos = await Promise.all(limited.map(async v => {
+  const episodeInfos = await Promise.all(selected.map(async v => {
     try {
       const t0 = Date.now();
   const episodes: AnimeWorldEpisode[] = await invokePython(['get_episodes','--anime-slug', v.slug]);
       if (!episodes || !episodes.length) return null;
       let target: AnimeWorldEpisode | undefined;
-      if (isMovie) target = episodes[0]; else if (episodeNumber != null) target = episodes.find(e => e.number === episodeNumber) || episodes[0]; else target = episodes[0];
+      if (isMovie) {
+        target = episodes[0];
+      } else if (episodeNumber != null) {
+        // Richiesta episodio specifico: accetta SOLO se esiste quel numero
+        target = episodes.find(e => e.number === episodeNumber);
+        if (!target) {
+          console.log(`[AnimeWorld] Skipping ${v.language_type} version: episode ${episodeNumber} not found for slug=${v.slug}`);
+          return null;
+        }
+      } else {
+        target = episodes[0];
+      }
       if (!target) return null;
       return { v, target, ms: Date.now() - t0 };
     } catch (e) {
@@ -494,15 +463,10 @@ export class AnimeWorldProvider {
         baseName = fromSlug;
       }
       const sNum = seasonNumber || 1;
-      let langLabel = 'SUB';
-      if (v.language_type === 'ITA') langLabel = 'ITA';
-      else if (v.language_type === 'CR ITA') langLabel = 'CR';
-      else if (v.language_type === 'ORIGINAL') {
-        // Se il file o slug suggerisce sub ita, etichetta SUB, altrimenti RAW
-        const lowerSlug = (v.slug || '').toLowerCase();
-        const lowerMp4 = (mp4 || '').toLowerCase();
-        if (lowerSlug.includes('subita') || /sub_?ita/i.test(lowerMp4)) langLabel = 'SUB'; else langLabel = 'RAW';
-      }
+  let langLabel = 'SUB';
+  if (v.language_type === 'ITA') langLabel = 'ITA';
+  else if (v.language_type === 'SUB ITA') langLabel = 'SUB';
+  else if (v.language_type === 'CR ITA') langLabel = 'CR';
   let titleStream = `${capitalize(baseName)} ▪ ${langLabel} ▪ S${sNum}`;
       if (episodeNumber) titleStream += `E${episodeNumber}`;
       return { title: titleStream, url: mediaFlowUrl, behaviorHints: { notWebReady: true } } as StreamForStremio;
