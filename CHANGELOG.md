@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.11...v1.0.12) (2025-09-02)
+
+
+### Bug Fixes
+
+* fix AW removing placeholder ([bbbdf2c](https://github.com/qwertyuiop8899/streamvix/commit/bbbdf2ceb3f9b0c580f10c534532de3c9759db2f))
+* fix AW removing placeholder ([bbbdf2c](https://github.com/qwertyuiop8899/streamvix/commit/bbbdf2ceb3f9b0c580f10c534532de3c9759db2f))
+
 ## [1.0.11](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.10...v1.0.11) (2025-09-01)
 
 
