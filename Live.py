@@ -611,13 +611,17 @@ def main():
                             effective_category_src = 'Soccer'
                         else:
                             continue  # evento soccer non whitelisted e senza parole chiave
-                    effective_category_src = detected
+                    else:
+                        # assegna solo se realmente trovato
+                        effective_category_src = detected
                 else:
                     if not category_whitelisted:
                         continue  # categoria non whitelisted
                 # Filtro specifico richiesto: nella categoria Tennis includi SOLO eventi con ATP o WTA nel nome
                 if effective_category_src == 'Tennis' and not re.search(r'\b(ATP|WTA|Wimbledon|Australian|Nitto|Garros|Open|King)\b', raw_event, re.IGNORECASE):
                     continue
+                if not effective_category_src:
+                    continue  # safety guard
                 mapped_cat = map_category(effective_category_src, raw_event)
                 if not mapped_cat:
                     continue
