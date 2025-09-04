@@ -37,8 +37,11 @@ interface AddonConfig {
     animeunityEnabled?: boolean;
     animesaturnEnabled?: boolean;
     animeworldEnabled?: boolean;
+    guardaserieEnabled?: boolean;
+    guardahdEnabled?: boolean;
     disableLiveTv?: boolean;
     disableVixsrc?: boolean;
+    tvtapProxyEnabled?: boolean; // true = NO proxy (link diretto TvTap), false = usa proxy se disponibile
 }
 
 function debugLog(...args: any[]) {
@@ -126,7 +129,7 @@ async function resolveDynamicEventUrl(dUrl: string, providerTitle: string, mfpUr
     if (!mfpUrl || !mfpPsw) return { url: dUrl, title: providerTitle };
     const cacheKey = `${mfpUrl}|${mfpPsw}|${dUrl}`;
     const now = Date.now();
-    const cached = dynamicStreamCache.get(cacheKey);
+        const cached = dynamicStreamCache.get(cacheKey);
     if (cached && (now - cached.ts) < DYNAMIC_STREAM_TTL_MS) {
         return { url: cached.finalUrl, title: providerTitle };
     }
@@ -285,7 +288,7 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
                 app: { platform: 'android', version: '3.1.21', buildId: '289515000', engine: 'hbc85', signatures: ['6e8a975e3cbf07d5de823a760d4c2547f86c1403105020adee5de67ac510999e'], installer: 'app.revanced.manager.flutter' },
                 version: { package: 'tv.vavoo.app', binary: '3.1.21', js: '3.1.21' }
             },
-            appFocusTime: 0,
+                ipLocation: (clientIp && (!VAVOO_FORCE_SERVER_IP || VAVOO_SET_IPLOCATION_ONLY)) ? clientIp : '',
             playerActive: false,
             playDuration: 0,
             devMode: false,
@@ -296,7 +299,6 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             process: 'app',
             firstAppStart: Date.now(),
             lastAppStart: Date.now(),
-            ipLocation: (clientIp && (!VAVOO_FORCE_SERVER_IP || VAVOO_SET_IPLOCATION_ONLY)) ? clientIp : '',
             adblockEnabled: true,
             proxy: { supported: ['ss','openvpn'], engine: 'ss', ssVersion: 1, enabled: true, autoServer: true, id: 'de-fra' },
             iap: { supported: false }
@@ -540,6 +542,9 @@ const baseManifest: Manifest = {
     { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
     { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
     { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
+    { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
+    { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
+    { key: "tvtapProxyEnabled", title: "TvTap NO Proxy", type: "checkbox" },
     
     ]
 };
@@ -1732,7 +1737,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         if (clean && clean.url) {
                                             vavooCleanResolved = clean;
                                             vdbg('Alias clean resolved', { alias, url: clean.url.substring(0, 140) });
-                                            const title2 = `🏠 ${alias} (Vavoo) [ITA]`;
+                                            const title2 = `🏠 ${alias} (Vavoo🔓) [ITA]`;
                                             // stash headers via behaviorHints when pushing later
                                             streams.unshift({ url: clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64'), title: title2 });
                                         }
@@ -1779,7 +1784,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                 }
                                                 const title = `${proxyUsed ? '' : '[❌Proxy]'}[🎬MPD] ${base.name} [ITA]`;
                                                 let insertAt = 0;
-                                                try { while (insertAt < streams.length && /(\(Vavoo\))/i.test(streams[insertAt].title)) insertAt++; } catch {}
+                                                try { while (insertAt < streams.length && /(\(Vavoo🔓\))/i.test(streams[insertAt].title)) insertAt++; } catch {}
                                                 try { streams.splice(insertAt, 0, { url: finalUrl, title }); } catch { streams.push({ url: finalUrl, title }); }
                                                 vdbg('Injected staticUrlMpd from static channel', { id: staticId, url: finalUrl.substring(0, 140) });
                                             } catch {}
@@ -2244,14 +2249,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 let hdrs: Record<string, string> | undefined;
                                 try { hdrs = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch {}
                             const isVavooClean = !!hdrs && hdrs['Referer'] === 'https://vavoo.to/' && hdrs['User-Agent'] === DEFAULT_VAVOO_UA;
-                            allStreams.push({ name: isVavooClean ? 'Vavoo' : 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
+                            allStreams.push({ name: isVavooClean ? 'Vavoo🔓' : 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                             } else {
                             // Fallback: if this looks like a clean Vavoo sunshine URL and title starts with a variant tag, attach default headers
                                 const looksVavoo = /\b(sunshine|hls\/index\.m3u8)\b/.test(s.url) && !/\bproxy\/hls\//.test(s.url);
                             const variantTitle = /^\s*\[?\s*(➡️|🏠|✌️)\s*V/i.test(s.title);
                             if (variantTitle && looksVavoo) {
                                     const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
-                                    allStreams.push({ name: 'Vavoo', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
+                                    allStreams.push({ name: 'Vavoo🔓', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
                                 } else {
                                     allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
                                 }
@@ -2263,6 +2268,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // --- TVTAP: cerca usando vavooNames ---
                     const vavooNamesArr = (channel as any).vavooNames || [channel.name];
                     console.log(`[TVTap] Cerco canale con vavooNames:`, vavooNamesArr);
+                    // tvtapProxyEnabled: TRUE = NO PROXY (mostra 🔓), FALSE = usa proxy se possibile
+                    const tvtapNoProxy = !!config.tvtapProxyEnabled;
                     
                     // Prova ogni nome nei vavooNames
                     for (const vavooName of vavooNamesArr) {
@@ -2313,20 +2320,23 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             });
                             
                             if (tvtapUrl) {
-                                const streamTitle = `[📺 TvTap SD] ${channel.name} [ITA]`;
-                                if (mfpUrl && mfpPsw) {
-                                    const tvtapProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(tvtapUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                const baseTitle = `[📺 TvTap SD] ${channel.name} [ITA]`;
+                                if (tvtapNoProxy || !(mfpUrl && mfpPsw)) {
+                                    // NO Proxy mode scelto (checkbox ON) oppure mancano credenziali -> link diretto con icona 🔓 senza [❌Proxy]
                                     streams.push({
-                                        title: streamTitle,
-                                        url: tvtapProxyUrl
-                                    });
-                                } else {
-                                    streams.push({
-                                        title: `[❌Proxy]${streamTitle}`,
+                                        title: `🔓 ${baseTitle}`,
                                         url: tvtapUrl
                                     });
+                                    console.log(`[TVTap] DIRECT (NO PROXY mode=${tvtapNoProxy}) per ${channel.name} tramite ${vavooName}`);
+                                } else {
+                                    // Checkbox OFF e credenziali presenti -> usa proxy
+                                    const tvtapProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(tvtapUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                    streams.push({
+                                        title: baseTitle,
+                                        url: tvtapProxyUrl
+                                    });
+                                    console.log(`[TVTap] PROXY stream per ${channel.name} tramite ${vavooName}`);
                                 }
-                                console.log(`[TVTap] RISULTATO: stream aggiunto per ${channel.name} tramite ${vavooName}`);
                                 break; // Esci dal loop se trovi un risultato
                             }
                         } catch (error) {
@@ -2373,13 +2383,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             let hdrs: Record<string, string> | undefined;
                             try { hdrs = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch {}
                             const isVavooClean = !!hdrs && hdrs['Referer'] === 'https://vavoo.to/' && hdrs['User-Agent'] === DEFAULT_VAVOO_UA;
-                            allStreams.push({ name: isVavooClean ? 'Vavoo' : 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
+                            allStreams.push({ name: isVavooClean ? 'Vavoo🔓' : 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                         } else {
                             const looksVavoo = /\b(sunshine|hls\/index\.m3u8)\b/.test(s.url) && !/\bproxy\/hls\//.test(s.url);
                             const variantTitle = /^\s*\[?\s*(➡️|🏠|✌️)\s*V/i.test(s.title);
                             if (variantTitle && looksVavoo) {
                                 const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
-                                allStreams.push({ name: 'Vavoo', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
+                                allStreams.push({ name: 'Vavoo🔓', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
                             } else {
                                 allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
                             }
@@ -2404,9 +2414,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const animeUnityEnabled = envFlag('ANIMEUNITY_ENABLED') ?? (config.animeunityEnabled === true);
                 const animeSaturnEnabled = envFlag('ANIMESATURN_ENABLED') ?? (config.animesaturnEnabled === true);
                 const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (config.animeworldEnabled === true);
+                const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (config.guardaserieEnabled === true);
+                const guardaHdEnabled = envFlag('GUARDAHD_ENABLED') ?? (config.guardahdEnabled === true);
                 
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled)) {
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardaHdEnabled)) {
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
@@ -2430,6 +2442,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     let animeUnityStreams: Stream[] = [];
                     let animeSaturnStreams: Stream[] = [];
                     let animeWorldStreams: Stream[] = [];
+                    let guardaSerieStreams: Stream[] = [];
+                    let guardaHdStreams: Stream[] = [];
                     // Parsing stagione/episodio per IMDB/TMDB
                     let seasonNumber: number | null = null;
                     let episodeNumber: number | null = null;
@@ -2530,6 +2544,50 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                         } catch (error) {
                             console.error('[AnimeWorld] Errore:', error);
+                        }
+                    }
+
+                    // GuardaSerie
+                    if (guardaSerieEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
+                        try {
+                            const { GuardaSerieProvider } = await import('./providers/guardaserie-provider');
+                            const gsProvider = new GuardaSerieProvider({
+                                enabled: guardaSerieEnabled,
+                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
+                                mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
+                                mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || ''
+                            });
+                            let result;
+                            if (id.startsWith('tt')) result = await gsProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            else if (id.startsWith('tmdb:')) result = await gsProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            if (result?.streams) {
+                                guardaSerieStreams = result.streams;
+                                for (const s of guardaSerieStreams) allStreams.push({ ...s, name: 'StreamViX GS 🔓' });
+                            }
+                        } catch (e) {
+                            console.error('[GuardaSerie] Errore:', e);
+                        }
+                    }
+
+                    // GuardaHD
+                    if (guardaHdEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
+                        try {
+                            const { GuardaHdProvider } = await import('./providers/guardahd-provider');
+                            const ghProvider = new GuardaHdProvider({
+                                enabled: guardaHdEnabled,
+                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
+                                mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
+                                mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || ''
+                            });
+                            let result;
+                            if (id.startsWith('tt')) result = await ghProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            else if (id.startsWith('tmdb:')) result = await ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            if (result?.streams) {
+                                guardaHdStreams = result.streams;
+                                for (const s of guardaHdStreams) allStreams.push({ ...s, name: 'StreamViX GH 🔓' });
+                            }
+                        } catch (e) {
+                            console.error('[GuardaHD] Errore:', e);
                         }
                     }
                 }
