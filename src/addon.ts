@@ -1737,7 +1737,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         if (clean && clean.url) {
                                             vavooCleanResolved = clean;
                                             vdbg('Alias clean resolved', { alias, url: clean.url.substring(0, 140) });
-                                            const title2 = `🏠 ${alias} (Vavoo) [ITA]`;
+                                            const title2 = `🏠 ${alias} (Vavoo🔓) [ITA]`;
                                             // stash headers via behaviorHints when pushing later
                                             streams.unshift({ url: clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64'), title: title2 });
                                         }
@@ -1784,7 +1784,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                 }
                                                 const title = `${proxyUsed ? '' : '[❌Proxy]'}[🎬MPD] ${base.name} [ITA]`;
                                                 let insertAt = 0;
-                                                try { while (insertAt < streams.length && /(\(Vavoo\))/i.test(streams[insertAt].title)) insertAt++; } catch {}
+                                                try { while (insertAt < streams.length && /(\(Vavoo🔓\))/i.test(streams[insertAt].title)) insertAt++; } catch {}
                                                 try { streams.splice(insertAt, 0, { url: finalUrl, title }); } catch { streams.push({ url: finalUrl, title }); }
                                                 vdbg('Injected staticUrlMpd from static channel', { id: staticId, url: finalUrl.substring(0, 140) });
                                             } catch {}
@@ -2249,14 +2249,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 let hdrs: Record<string, string> | undefined;
                                 try { hdrs = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch {}
                             const isVavooClean = !!hdrs && hdrs['Referer'] === 'https://vavoo.to/' && hdrs['User-Agent'] === DEFAULT_VAVOO_UA;
-                            allStreams.push({ name: isVavooClean ? 'Vavoo' : 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
+                            allStreams.push({ name: isVavooClean ? 'Vavoo🔓' : 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                             } else {
                             // Fallback: if this looks like a clean Vavoo sunshine URL and title starts with a variant tag, attach default headers
                                 const looksVavoo = /\b(sunshine|hls\/index\.m3u8)\b/.test(s.url) && !/\bproxy\/hls\//.test(s.url);
                             const variantTitle = /^\s*\[?\s*(➡️|🏠|✌️)\s*V/i.test(s.title);
                             if (variantTitle && looksVavoo) {
                                     const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
-                                    allStreams.push({ name: 'Vavoo', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
+                                    allStreams.push({ name: 'Vavoo🔓', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
                                 } else {
                                     allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
                                 }
@@ -2384,13 +2384,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             let hdrs: Record<string, string> | undefined;
                             try { hdrs = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch {}
                             const isVavooClean = !!hdrs && hdrs['Referer'] === 'https://vavoo.to/' && hdrs['User-Agent'] === DEFAULT_VAVOO_UA;
-                            allStreams.push({ name: isVavooClean ? 'Vavoo' : 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
+                            allStreams.push({ name: isVavooClean ? 'Vavoo🔓' : 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                         } else {
                             const looksVavoo = /\b(sunshine|hls\/index\.m3u8)\b/.test(s.url) && !/\bproxy\/hls\//.test(s.url);
                             const variantTitle = /^\s*\[?\s*(➡️|🏠|✌️)\s*V/i.test(s.title);
                             if (variantTitle && looksVavoo) {
                                 const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
-                                allStreams.push({ name: 'Vavoo', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
+                                allStreams.push({ name: 'Vavoo🔓', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
                             } else {
                                 allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
                             }
@@ -2563,7 +2563,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             else if (id.startsWith('tmdb:')) result = await gsProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             if (result?.streams) {
                                 guardaSerieStreams = result.streams;
-                                for (const s of guardaSerieStreams) allStreams.push({ ...s, name: 'StreamViX GS' });
+                                for (const s of guardaSerieStreams) allStreams.push({ ...s, name: 'StreamViX GS 🔓' });
                             }
                         } catch (e) {
                             console.error('[GuardaSerie] Errore:', e);
@@ -2585,7 +2585,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             else if (id.startsWith('tmdb:')) result = await ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             if (result?.streams) {
                                 guardaHdStreams = result.streams;
-                                for (const s of guardaHdStreams) allStreams.push({ ...s, name: 'StreamViX GH' });
+                                for (const s of guardaHdStreams) allStreams.push({ ...s, name: 'StreamViX GH 🔓' });
                             }
                         } catch (e) {
                             console.error('[GuardaHD] Errore:', e);
