@@ -292,6 +292,8 @@ function landingTemplate(manifest: any) {
 						'animeunityEnabled': { title: 'Anime Unity ⛩️', invert: false },
 						'animesaturnEnabled': { title: 'Anime Saturn 🪐', invert: false },
 						'animeworldEnabled': { title: 'Anime World 🌍', invert: false },
+						'guardaserieEnabled': { title: 'GuardaSerie 🎞️', invert: false },
+						'guardahdEnabled': { title: 'GuardaHD 🎬', invert: false },
 					}
 					if (toggleMap[key]) {
 						const t = toggleMap[key];
