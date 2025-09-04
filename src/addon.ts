@@ -2546,7 +2546,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const { GuardaSerieProvider } = await import('./providers/guardaserie-provider');
                             const gsProvider = new GuardaSerieProvider({
                                 enabled: guardaSerieEnabled,
-                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '',
+                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                                 mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
                                 mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || ''
                             });
@@ -2568,7 +2568,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const { GuardaHdProvider } = await import('./providers/guardahd-provider');
                             const ghProvider = new GuardaHdProvider({
                                 enabled: guardaHdEnabled,
-                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '',
+                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                                 mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
                                 mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || ''
                             });
