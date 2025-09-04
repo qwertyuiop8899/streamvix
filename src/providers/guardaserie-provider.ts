@@ -1,4 +1,4 @@
-/** GuardaSerie Provider (raw HLS, no proxy) - single clean implementation Thanks UrloMythus for the logic*/
+/** GuardaSerie Provider (raw HLS, no proxy) - single clean implementation */
 import type { StreamForStremio } from '../types/animeunity';
 import { getFullUrl } from '../utils/domains';
 
@@ -243,23 +243,28 @@ export class GuardaSerieProvider {
   }
   /**
    * Format stream title according to spec:
-   * Movie: "<Title> • [ITA] • 📏<size> • <res>"
-   * Episode: "<Title> S<season>E<episode> • [ITA] • 📏<size> • <res>"
-   * Always include size & resolution when available. If missing, omit that segment.
+   * Line 1: Movie: "<Title> • [ITA]"  | Episode: "<Title> S<season>E<episode> • [ITA]"
+   * Line 2 (only if size or res present): "� <size>[ • <res>]"
+   * Always show size/res on second line like VixSrc formatting request.
    */
   private formatStreamTitle(title: string, season: number | null, episode: number | null, info?: { res?: string; size?: string }): string {
-    const parts: string[] = [];
-    let base = (title || '').trim();
-    if (base) {
-      if (season != null && episode != null) base += ` S${season}E${episode}`;
-      parts.push(base);
-    } else if (season != null && episode != null) {
-      parts.push(`S${season}E${episode}`);
+    let line1 = (title || '').trim();
+    if (season != null && episode != null) {
+      if (line1) line1 += ` S${season}E${episode}`; else line1 = `S${season}E${episode}`;
     }
-    parts.push('[ITA]');
-    if (info?.size) parts.push(`�${info.size}`);
-    if (info?.res) parts.push(info.res);
-    return parts.join(' • ');
+    if (!line1) line1 = 'Stream';
+    // Ensure bullet before [ITA]
+    if (!/• \[ITA\]$/i.test(line1)) {
+      if (/\[ITA\]$/i.test(line1)) line1 = line1.replace(/\s*\[ITA\]$/i,' • [ITA]'); else line1 += ' • [ITA]';
+    }
+    const sizePart = info?.size ? info.size : undefined;
+    const resPart = info?.res ? info.res : undefined;
+    let line2 = '';
+    if (sizePart || resPart) {
+      line2 = '💾 ' + (sizePart || '');
+      if (resPart) line2 += (sizePart ? ' • ' : '') + resPart;
+    }
+    return line2 ? `${line1}\n${line2}` : line1;
   }
 
   private async getHlsInfoSafe(url: string): Promise<{ res?: string; size?: string }> {
