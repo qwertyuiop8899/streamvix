@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.15](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.14...v1.0.15) (2025-09-04)
+
+
+### Bug Fixes
+
+* live with world soccer bump version ([afc0f9e](https://github.com/qwertyuiop8899/streamvix/commit/afc0f9ee9fc53858478c4736a0c6f41a4a9b6049))
+* live with world soccer bump version ([afc0f9e](https://github.com/qwertyuiop8899/streamvix/commit/afc0f9ee9fc53858478c4736a0c6f41a4a9b6049))
+
 ## [1.0.14](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.13...v1.0.14) (2025-09-04)
 
 
