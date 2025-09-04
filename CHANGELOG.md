@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.14](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.13...v1.0.14) (2025-09-04)
+
+
+### Bug Fixes
+
+* provider Guarda ([60856fc](https://github.com/qwertyuiop8899/streamvix/commit/60856fc118db82fcd87e5a08dd525fe3f1d03e75))
+
 ## [1.0.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.12...v1.0.13) (2025-09-04)
 
 
