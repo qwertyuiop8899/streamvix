@@ -7,6 +7,8 @@ An addon for Stremio that scrapes streaming sources from the sites vixsrc and an
 Paid ElfHosted instance WITH MEDIAFLOWProxy included (For Sports Events)
 
 [ElfHosted instance with Mediaflow](https://store.elfhosted.com/product/streamvix/)
+
+
 <img width="230" height="293" alt="icon" src="https://github.com/user-attachments/assets/11ef8b0e-6d55-44a4-9ccc-ae7031e99f34" />
 
 
