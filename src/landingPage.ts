@@ -292,7 +292,7 @@ function landingTemplate(manifest: any) {
 						'animeunityEnabled': { title: 'Anime Unity ⛩️', invert: false },
 						'animesaturnEnabled': { title: 'Anime Saturn 🪐', invert: false },
 						'animeworldEnabled': { title: 'Anime World 🌍', invert: false },
-						'guardaserieEnabled': { title: 'GuardaSerie 🎞️', invert: false },
+						'guardaserieEnabled': { title: 'GuardaSerie 📼', invert: false },
 						'guardahdEnabled': { title: 'GuardaHD 🎬', invert: false },
 						'tvtapProxyEnabled': { title: 'TvTap Proxy 🔁', invert: false },
 					}
@@ -580,3 +580,4 @@ function landingTemplate(manifest: any) {
 }
 
 export { landingTemplate };
+
