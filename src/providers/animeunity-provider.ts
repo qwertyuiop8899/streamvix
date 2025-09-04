@@ -4,7 +4,7 @@ import { formatMediaFlowUrl } from '../utils/mediaflow';
 import { AnimeUnityConfig, StreamForStremio } from '../types/animeunity';
 import * as path from 'path';
 import axios from 'axios';
-import { checkIsAnimeById, buildAnimeIdWarningStream } from '../utils/animeGate';
+import { checkIsAnimeById } from '../utils/animeGate';
 
 // Helper function to invoke the Python scraper
 async function invokePythonScraper(args: string[]): Promise<any> {
@@ -282,17 +282,13 @@ export class AnimeUnityProvider {
           console.log(`[AnimeUnity] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for ${imdbId}`);
           return { streams: [] };
         }
-        // If recognized as anime, prepend placeholder warning stream
-        const placeholder = buildAnimeIdWarningStream('imdb');
-        if (placeholder) {
-          const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
-          const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
-          return { streams: [placeholder, ...res.streams] };
-        }
+  // Removed placeholder injection; icon added directly to titles
       }
-      const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
-      console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
-      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+  const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
+  console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
+  const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+  res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
+  return res;
     } catch (error) {
       console.error('Error handling IMDB request:', error);
       return { streams: [] };
@@ -311,16 +307,13 @@ export class AnimeUnityProvider {
           console.log(`[AnimeUnity] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for TMDB ${tmdbId}`);
           return { streams: [] };
         }
-        const placeholder = buildAnimeIdWarningStream('tmdb');
-        if (placeholder) {
-          const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
-          const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
-          return { streams: [placeholder, ...res.streams] };
-        }
+  // Removed placeholder injection; icon added directly to titles
       }
-      const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
-      console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
-      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+  const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
+  console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
+  const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+  res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
+  return res;
     } catch (error) {
       console.error('Error handling TMDB request:', error);
       return { streams: [] };
