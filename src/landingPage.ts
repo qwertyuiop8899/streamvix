@@ -487,7 +487,7 @@ function landingTemplate(manifest: any) {
 			</div>
 			<h1 class="name">${manifest.name}</h1>
 			<h2 class="version">v${manifest.version || '0.0.0'}</h2>
-			<h2 class="description">StreamViX addon con Vixsrc, AnimeUnity, AnimeSaturn, TV e Eventi Sportivi</h2>
+			<h2 class="description">StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, TV ed Eventi Live</h2>
 
 			<!-- Sezione informativa ElfHosted (sotto la descrizione) -->
 			<div id="elfhostedInfoSection" class="full-width" style="background: linear-gradient(135deg, rgba(40, 20, 80, 0.95), rgba(10, 30, 60, 0.95)); border-radius: 0.6rem; padding: 1rem; margin: 1rem 0px; border: 1px solid rgba(140, 82, 255, 0.95); animation: 2s ease 0s infinite normal none running pulse; display: block;">
@@ -580,3 +580,4 @@ function landingTemplate(manifest: any) {
 }
 
 export { landingTemplate };
+
