@@ -9,15 +9,6 @@ Paid ElfHosted instance WITH MEDIAFLOWProxy included (For Sports Events)
 [ElfHosted instance with Mediaflow](https://store.elfhosted.com/product/streamvix/)
 <img width="230" height="293" alt="icon" src="https://github.com/user-attachments/assets/11ef8b0e-6d55-44a4-9ccc-ae7031e99f34" />
 
-# 🎬 StreamViX | ElfHosted
-
-A Stremio addon that extracts streaming sources from vixsrc, animeunity, animesaturn, daddy and vavoo so you can watch movies, TV series, anime and live TV with maximum simplicity.
-
-[Installation Link](https://streamvix.hayd.uk/)
-
-Paid ElfHosted instance WITH MEDIAFLOWProxy included (For Sports Events)
-
-[ElfHosted instance with Mediaflow](https://store.elfhosted.com/product/streamvix/)
 
 ---
 
