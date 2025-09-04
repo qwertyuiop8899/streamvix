@@ -44,7 +44,9 @@ BASE_CATEGORIES = {
     'UEFA Champions League', 'UEFA Europa League', 'Conference League', 'Coppa Italia',
     'Tennis', 'motor sports', 'motorsports', 'Motorsport',  # aggiunto 'Motorsport' (singolare) dal sorgente HTML
     # Nuove categorie dirette
-    'Basketball', 'Volleyball', 'Ice Hockey', 'Wrestling', 'Boxing', 'Darts', 'WWE', 'Baseball', 'Football'
+    'Basketball', 'Volleyball', 'Ice Hockey', 'Wrestling', 'Boxing', 'Darts', 'WWE', 'Baseball', 'Football',
+    # Nuova categoria generica Soccer (macro contenitore partite internazionali Italy / World / Euro)
+    'Soccer'
     , 'MMA', 'UFC',
     # Nuove leghe calcio richieste
     'England - Premier League', 'Spain - Liga', 'Germany - Bundesliga', 'France - Ligue 1'
@@ -70,6 +72,7 @@ LEAGUE_LOGOS = {
 EXTRA_LOGOS = {
     'Basketball': 'Basket.png',
     'Volleyball': 'Pallavolo.png',
+    'Soccer': 'Soccer.png',
     'Ice Hockey': 'IceHockey.png',  # Nome file da confermare
     'Wrestling': 'Wrestling.png',    # Nome file da confermare
     'WWE': 'Wrestling.png',          # Alias WWE usa stesso logo wrestling
@@ -255,6 +258,8 @@ def build_logo(category_src: str, raw_event: str) -> str | None:
         return None
     if category_src == 'Tennis':
         return f"{LOGO_BASE}/Tennis.png"
+    if category_src == 'Soccer':
+        return f"{LOGO_BASE}/Soccer.png"
     if category_src in EXTRA_LOGOS:
         return f"{LOGO_BASE}/{EXTRA_LOGOS[category_src]}"
     if category_src in ('Italy - Serie A', 'Italy - Serie B'):
@@ -307,9 +312,14 @@ def map_category(category_src: str, raw_event: str) -> str | None:
         if re.search(r'Coppa Italia', raw_event, re.IGNORECASE): return 'basket'
         return None
     if category_src == 'Volleyball':
-        # Solo campionato italiano: rilievo su nomi squadre italiane comuni / "Italy" / "Serie A"
-        if re.search(r'Italy|SuperLega|Serie A3|Serie A2|Serie A|Modena|Trento|Perugia|Civitanova|Piacenza|Milano|Verona|Monza|Taranto|Cisterna|Padova|Grottazzolina|Cuneo', raw_event, re.IGNORECASE):
+        # Estende: eventi Mondiali / Europei / Italia campionato
+        if re.search(r'World|Euro|Italy|SuperLega|Serie A3|Serie A2|Serie A|Modena|Trento|Perugia|Civitanova|Piacenza|Milano|Verona|Monza|Taranto|Cisterna|Padova|Grottazzolina|Cuneo', raw_event, re.IGNORECASE):
             return 'volleyball'
+        return None
+    if category_src == 'Soccer':
+        # Categoria generica per partite internazionali (non già catturate da whitelists) con parole chiave Italy / World / Euro
+        if re.search(r'Italy|World|Euro', raw_event, re.IGNORECASE):
+            return 'soccer'
         return None
     if category_src == 'Ice Hockey':
         # Includi solo eventi NHL: match "NHL" oppure nomi squadre note
@@ -596,7 +606,11 @@ def main():
                 if is_soccer_container:
                     detected = detect_inline_competition(raw_event)
                     if not detected:
-                        continue  # evento soccer non whitelisted
+                        # Fallback nuova categoria Soccer: se contiene parole chiave generiche internazionali includi come "Soccer"
+                        if re.search(r'Italy|World|Euro', raw_event, re.IGNORECASE):
+                            effective_category_src = 'Soccer'
+                        else:
+                            continue  # evento soccer non whitelisted e senza parole chiave
                     effective_category_src = detected
                 else:
                     if not category_whitelisted:
