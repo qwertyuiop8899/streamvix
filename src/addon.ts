@@ -37,6 +37,8 @@ interface AddonConfig {
     animeunityEnabled?: boolean;
     animesaturnEnabled?: boolean;
     animeworldEnabled?: boolean;
+    guardaserieEnabled?: boolean;
+    guardahdEnabled?: boolean;
     disableLiveTv?: boolean;
     disableVixsrc?: boolean;
 }
@@ -126,7 +128,7 @@ async function resolveDynamicEventUrl(dUrl: string, providerTitle: string, mfpUr
     if (!mfpUrl || !mfpPsw) return { url: dUrl, title: providerTitle };
     const cacheKey = `${mfpUrl}|${mfpPsw}|${dUrl}`;
     const now = Date.now();
-    const cached = dynamicStreamCache.get(cacheKey);
+        const cached = dynamicStreamCache.get(cacheKey);
     if (cached && (now - cached.ts) < DYNAMIC_STREAM_TTL_MS) {
         return { url: cached.finalUrl, title: providerTitle };
     }
@@ -285,7 +287,7 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
                 app: { platform: 'android', version: '3.1.21', buildId: '289515000', engine: 'hbc85', signatures: ['6e8a975e3cbf07d5de823a760d4c2547f86c1403105020adee5de67ac510999e'], installer: 'app.revanced.manager.flutter' },
                 version: { package: 'tv.vavoo.app', binary: '3.1.21', js: '3.1.21' }
             },
-            appFocusTime: 0,
+                ipLocation: (clientIp && (!VAVOO_FORCE_SERVER_IP || VAVOO_SET_IPLOCATION_ONLY)) ? clientIp : '',
             playerActive: false,
             playDuration: 0,
             devMode: false,
@@ -296,7 +298,6 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             process: 'app',
             firstAppStart: Date.now(),
             lastAppStart: Date.now(),
-            ipLocation: (clientIp && (!VAVOO_FORCE_SERVER_IP || VAVOO_SET_IPLOCATION_ONLY)) ? clientIp : '',
             adblockEnabled: true,
             proxy: { supported: ['ss','openvpn'], engine: 'ss', ssVersion: 1, enabled: true, autoServer: true, id: 'de-fra' },
             iap: { supported: false }
@@ -540,6 +541,8 @@ const baseManifest: Manifest = {
     { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
     { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
     { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
+    { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
+    { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
     
     ]
 };
@@ -2404,9 +2407,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const animeUnityEnabled = envFlag('ANIMEUNITY_ENABLED') ?? (config.animeunityEnabled === true);
                 const animeSaturnEnabled = envFlag('ANIMESATURN_ENABLED') ?? (config.animesaturnEnabled === true);
                 const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (config.animeworldEnabled === true);
+                const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (config.guardaserieEnabled === true);
+                const guardaHdEnabled = envFlag('GUARDAHD_ENABLED') ?? (config.guardahdEnabled === true);
                 
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled)) {
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardaHdEnabled)) {
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
@@ -2430,6 +2435,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     let animeUnityStreams: Stream[] = [];
                     let animeSaturnStreams: Stream[] = [];
                     let animeWorldStreams: Stream[] = [];
+                    let guardaSerieStreams: Stream[] = [];
+                    let guardaHdStreams: Stream[] = [];
                     // Parsing stagione/episodio per IMDB/TMDB
                     let seasonNumber: number | null = null;
                     let episodeNumber: number | null = null;
@@ -2530,6 +2537,50 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                         } catch (error) {
                             console.error('[AnimeWorld] Errore:', error);
+                        }
+                    }
+
+                    // GuardaSerie
+                    if (guardaSerieEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
+                        try {
+                            const { GuardaSerieProvider } = await import('./providers/guardaserie-provider');
+                            const gsProvider = new GuardaSerieProvider({
+                                enabled: guardaSerieEnabled,
+                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '',
+                                mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
+                                mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || ''
+                            });
+                            let result;
+                            if (id.startsWith('tt')) result = await gsProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            else if (id.startsWith('tmdb:')) result = await gsProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            if (result?.streams) {
+                                guardaSerieStreams = result.streams;
+                                for (const s of guardaSerieStreams) allStreams.push({ ...s, name: 'StreamViX GS' });
+                            }
+                        } catch (e) {
+                            console.error('[GuardaSerie] Errore:', e);
+                        }
+                    }
+
+                    // GuardaHD
+                    if (guardaHdEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
+                        try {
+                            const { GuardaHdProvider } = await import('./providers/guardahd-provider');
+                            const ghProvider = new GuardaHdProvider({
+                                enabled: guardaHdEnabled,
+                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '',
+                                mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
+                                mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || ''
+                            });
+                            let result;
+                            if (id.startsWith('tt')) result = await ghProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            else if (id.startsWith('tmdb:')) result = await ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            if (result?.streams) {
+                                guardaHdStreams = result.streams;
+                                for (const s of guardaHdStreams) allStreams.push({ ...s, name: 'StreamViX GH' });
+                            }
+                        } catch (e) {
+                            console.error('[GuardaHD] Errore:', e);
                         }
                     }
                 }
