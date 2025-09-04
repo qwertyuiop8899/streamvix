@@ -3,7 +3,7 @@ import * as path from 'path';
 import { KitsuProvider } from './kitsu';
 import { formatMediaFlowUrl } from '../utils/mediaflow';
 import { AnimeWorldConfig, AnimeWorldResult, AnimeWorldEpisode, StreamForStremio } from '../types/animeunity';
-import { checkIsAnimeById, buildAnimeIdWarningStream } from '../utils/animeGate';
+import { checkIsAnimeById } from '../utils/animeGate';
 
 // Cache semplice in-memory per titoli tradotti per evitare chiamate ripetute
 const englishTitleCache = new Map<string, string>();
@@ -250,15 +250,12 @@ export class AnimeWorldProvider {
           console.log(`[AnimeWorld] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for ${imdbId}`);
           return { streams: [] };
         }
-        const placeholder = buildAnimeIdWarningStream('imdb');
-        if (placeholder) {
-          const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
-          const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
-          return { streams: [placeholder, ...res.streams] };
-        }
+  // Removed placeholder injection; icon added directly to titles
       }
-      const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
-      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+  const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
+  const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+  res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
+  return res;
     } catch(e){ console.error('[AnimeWorld] imdb handler error', e); return { streams: [] }; }
   }
   async handleTmdbRequest(tmdbId: string, seasonNumber: number | null, episodeNumber: number | null, isMovie=false): Promise<{ streams: StreamForStremio[] }> {
@@ -271,15 +268,12 @@ export class AnimeWorldProvider {
           console.log(`[AnimeWorld] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for TMDB ${tmdbId}`);
           return { streams: [] };
         }
-        const placeholder = buildAnimeIdWarningStream('tmdb');
-        if (placeholder) {
-          const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
-          const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
-          return { streams: [placeholder, ...res.streams] };
-        }
+  // Removed placeholder injection; icon added directly to titles
       }
-      const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
-      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+  const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
+  const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+  res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
+  return res;
     } catch(e){ console.error('[AnimeWorld] tmdb handler error', e); return { streams: [] }; }
   }
 

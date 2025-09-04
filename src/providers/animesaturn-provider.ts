@@ -3,7 +3,7 @@ import { AnimeSaturnConfig, AnimeSaturnResult, AnimeSaturnEpisode, StreamForStre
 import * as path from 'path';
 import axios from 'axios';
 import { KitsuProvider } from './kitsu';
-import { checkIsAnimeById, buildAnimeIdWarningStream } from '../utils/animeGate';
+import { checkIsAnimeById } from '../utils/animeGate';
 
 // Helper function to invoke the Python scraper
 async function invokePythonScraper(args: string[]): Promise<any> {
@@ -326,14 +326,9 @@ export class AnimeSaturnProvider {
           console.log(`[AnimeSaturn] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for ${imdbId}`);
           return { streams: [] };
         }
-        const placeholder = buildAnimeIdWarningStream('imdb');
-        if (placeholder) {
-          const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
-          const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
-          return { streams: [placeholder, ...res.streams] };
-        }
+  // Placeholder stream removed; warning now via icon prefix in stream titles
       }
-      const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
+  const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
       // Recupera anche l'id MAL tramite Haglund
       let malId: string | undefined = undefined;
       try {
@@ -347,7 +342,10 @@ export class AnimeSaturnProvider {
         }
       } catch {}
       console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
-      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie, malId);
+  const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie, malId);
+  // Prefix warning icon for non-Kitsu/MAL origin (IMDB)
+  res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
+  return res;
     } catch (error) {
       console.error('Error handling IMDB request:', error);
       return { streams: [] };
@@ -367,14 +365,9 @@ export class AnimeSaturnProvider {
           console.log(`[AnimeSaturn] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for TMDB ${tmdbId}`);
           return { streams: [] };
         }
-        const placeholder = buildAnimeIdWarningStream('tmdb');
-        if (placeholder) {
-          const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
-          const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
-          return { streams: [placeholder, ...res.streams] };
-        }
+  // Placeholder stream removed; warning now via icon prefix in stream titles
       }
-      const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
+  const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
       // Recupera anche l'id MAL tramite Haglund
       let malId: string | undefined = undefined;
       try {
@@ -383,7 +376,9 @@ export class AnimeSaturnProvider {
         malId = haglundResp[0]?.myanimelist?.toString() || undefined;
       } catch {}
       console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
-      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie, malId);
+  const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie, malId);
+  res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
+  return res;
     } catch (error) {
       console.error('Error handling TMDB request:', error);
       return { streams: [] };

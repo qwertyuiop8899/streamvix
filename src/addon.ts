@@ -2567,9 +2567,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (st.streamUrl == null) continue;
                             
                             // Costruisci il title: mantieni il nome invariato, e SOLO per VixSrc aggiungi sotto la riga 💾 size
-                            let finalTitle = st.name;
+                            let adjustedName = st.name || '';
+                            // Inserisci bullet prima di [ITA] se presente e non già preceduto da bullet
+                            adjustedName = adjustedName.replace(/\s*•\s*\[ITA\]$/i, ' • [ITA]');
+                            adjustedName = adjustedName.replace(/\s*\[ITA\]$/i, ' • [ITA]');
+                            let finalTitle = adjustedName;
                             if (typeof st.sizeBytes === 'number' && st.sizeBytes > 0) {
-                                finalTitle = `${st.name}\n💾 ${fmtBytes(st.sizeBytes)}`;
+                                finalTitle = `${adjustedName}\n💾 ${fmtBytes(st.sizeBytes)}`;
                             }
 
                             console.log(`Adding stream with title: "${finalTitle}"`);
