@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.12...v1.0.13) (2025-09-04)
+
+
+### Bug Fixes
+
+* name anime with cinemeta and vixsrc ([714c32c](https://github.com/qwertyuiop8899/streamvix/commit/714c32c71f1556fbd116ef8b382459031d0e4f7b))
+* name anime with cinemeta and vixsrc ([714c32c](https://github.com/qwertyuiop8899/streamvix/commit/714c32c71f1556fbd116ef8b382459031d0e4f7b))
+
 ## [1.0.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.11...v1.0.12) (2025-09-02)
 
 
