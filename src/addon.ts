@@ -41,7 +41,7 @@ interface AddonConfig {
     guardahdEnabled?: boolean;
     disableLiveTv?: boolean;
     disableVixsrc?: boolean;
-    tvtapProxyEnabled?: boolean; // nuovo toggle: se true usa mediaflow proxy per TvTap
+    tvtapProxyEnabled?: boolean; // true = NO proxy (link diretto TvTap), false = usa proxy se disponibile
 }
 
 function debugLog(...args: any[]) {
@@ -544,7 +544,7 @@ const baseManifest: Manifest = {
     { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
     { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
     { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
-    { key: "tvtapProxyEnabled", title: "Enable TvTap Proxy", type: "checkbox" },
+    { key: "tvtapProxyEnabled", title: "TvTap NO Proxy", type: "checkbox" },
     
     ]
 };
@@ -2268,8 +2268,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // --- TVTAP: cerca usando vavooNames ---
                     const vavooNamesArr = (channel as any).vavooNames || [channel.name];
                     console.log(`[TVTap] Cerco canale con vavooNames:`, vavooNamesArr);
-                    // Nuovo toggle: se tvtapProxyEnabled è FALSE forziamo sempre link diretto (anche se MFP è configurato)
-                    const tvtapProxyOn = !!config.tvtapProxyEnabled;
+                    // tvtapProxyEnabled: TRUE = NO PROXY (mostra 🔓), FALSE = usa proxy se possibile
+                    const tvtapNoProxy = !!config.tvtapProxyEnabled;
                     
                     // Prova ogni nome nei vavooNames
                     for (const vavooName of vavooNamesArr) {
@@ -2321,22 +2321,21 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             
                             if (tvtapUrl) {
                                 const baseTitle = `[📺 TvTap SD] ${channel.name} [ITA]`;
-                                if (tvtapProxyOn && mfpUrl && mfpPsw) {
-                                    // Proxy abilitato e credenziali presenti -> usa MediaFlow
+                                if (tvtapNoProxy || !(mfpUrl && mfpPsw)) {
+                                    // NO Proxy mode scelto (checkbox ON) oppure mancano credenziali -> link diretto con icona 🔓 senza [❌Proxy]
+                                    streams.push({
+                                        title: `🔓 ${baseTitle}`,
+                                        url: tvtapUrl
+                                    });
+                                    console.log(`[TVTap] DIRECT (NO PROXY mode=${tvtapNoProxy}) per ${channel.name} tramite ${vavooName}`);
+                                } else {
+                                    // Checkbox OFF e credenziali presenti -> usa proxy
                                     const tvtapProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(tvtapUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                     streams.push({
                                         title: baseTitle,
                                         url: tvtapProxyUrl
                                     });
-                                    console.log(`[TVTap] RISULTATO: stream PROXY aggiunto per ${channel.name} tramite ${vavooName}`);
-                                } else {
-                                    // Toggle disabilitato (default) oppure mancano credenziali -> link diretto
-                                    // Manteniamo prefisso [❌Proxy] come per gli altri canali quando non passa dal proxy
-                                    streams.push({
-                                        title: `[❌Proxy]${baseTitle}`,
-                                        url: tvtapUrl
-                                    });
-                                    console.log(`[TVTap] RISULTATO: stream DIRECT (no proxy) aggiunto per ${channel.name} tramite ${vavooName} (tvtapProxyEnabled=${tvtapProxyOn})`);
+                                    console.log(`[TVTap] PROXY stream per ${channel.name} tramite ${vavooName}`);
                                 }
                                 break; // Esci dal loop se trovi un risultato
                             }
