@@ -41,6 +41,7 @@ interface AddonConfig {
     guardahdEnabled?: boolean;
     disableLiveTv?: boolean;
     disableVixsrc?: boolean;
+    tvtapProxyEnabled?: boolean; // nuovo toggle: se true usa mediaflow proxy per TvTap
 }
 
 function debugLog(...args: any[]) {
@@ -543,6 +544,7 @@ const baseManifest: Manifest = {
     { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
     { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
     { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
+    { key: "tvtapProxyEnabled", title: "Enable TvTap Proxy", type: "checkbox" },
     
     ]
 };
@@ -2266,6 +2268,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // --- TVTAP: cerca usando vavooNames ---
                     const vavooNamesArr = (channel as any).vavooNames || [channel.name];
                     console.log(`[TVTap] Cerco canale con vavooNames:`, vavooNamesArr);
+                    // Nuovo toggle: se tvtapProxyEnabled è FALSE forziamo sempre link diretto (anche se MFP è configurato)
+                    const tvtapProxyOn = !!config.tvtapProxyEnabled;
                     
                     // Prova ogni nome nei vavooNames
                     for (const vavooName of vavooNamesArr) {
@@ -2316,20 +2320,24 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             });
                             
                             if (tvtapUrl) {
-                                const streamTitle = `[📺 TvTap SD] ${channel.name} [ITA]`;
-                                if (mfpUrl && mfpPsw) {
+                                const baseTitle = `[📺 TvTap SD] ${channel.name} [ITA]`;
+                                if (tvtapProxyOn && mfpUrl && mfpPsw) {
+                                    // Proxy abilitato e credenziali presenti -> usa MediaFlow
                                     const tvtapProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(tvtapUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                     streams.push({
-                                        title: streamTitle,
+                                        title: baseTitle,
                                         url: tvtapProxyUrl
                                     });
+                                    console.log(`[TVTap] RISULTATO: stream PROXY aggiunto per ${channel.name} tramite ${vavooName}`);
                                 } else {
+                                    // Toggle disabilitato (default) oppure mancano credenziali -> link diretto
+                                    // Manteniamo prefisso [❌Proxy] come per gli altri canali quando non passa dal proxy
                                     streams.push({
-                                        title: `[❌Proxy]${streamTitle}`,
+                                        title: `[❌Proxy]${baseTitle}`,
                                         url: tvtapUrl
                                     });
+                                    console.log(`[TVTap] RISULTATO: stream DIRECT (no proxy) aggiunto per ${channel.name} tramite ${vavooName} (tvtapProxyEnabled=${tvtapProxyOn})`);
                                 }
-                                console.log(`[TVTap] RISULTATO: stream aggiunto per ${channel.name} tramite ${vavooName}`);
                                 break; // Esci dal loop se trovi un risultato
                             }
                         } catch (error) {
