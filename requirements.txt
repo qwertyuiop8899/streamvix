@@ -1,7 +1,11 @@
 requests
+httpx
+aiohttp
+curl_cffi
 beautifulsoup4
-json
-os
-re
-pyDes 
-pycryptodome 
+lxml
+fake-headers
+pyDes
+pycryptodome
+pytesseract
+pillow

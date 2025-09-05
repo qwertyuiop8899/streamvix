@@ -294,6 +294,7 @@ function landingTemplate(manifest: any) {
 						'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
 						'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
 						'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
+						'eurostreamingEnabled': { title: 'Eurostreaming ES ▶️ - 🔓', invert: false },
 						'tvtapProxyEnabled': { title: 'TvTap NO Proxy 🔓', invert: false },
 					}
 					if (toggleMap[key]) {

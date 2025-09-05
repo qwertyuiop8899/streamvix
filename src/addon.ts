@@ -39,6 +39,7 @@ interface AddonConfig {
     animeworldEnabled?: boolean;
     guardaserieEnabled?: boolean;
     guardahdEnabled?: boolean;
+    eurostreamingEnabled?: boolean;
     disableLiveTv?: boolean;
     disableVixsrc?: boolean;
     tvtapProxyEnabled?: boolean; // true = NO proxy (link diretto TvTap), false = usa proxy se disponibile
@@ -479,9 +480,9 @@ function decodeStaticUrl(url: string): string {
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "6.0.23",
+    version: "6.1.23",
     name: "StreamViX | Elfhosted",
-    description: "StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, TV ed Eventi Live",
+    description: "StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
     types: ["movie", "series", "tv", "anime"],
     idPrefixes: ["tt", "kitsu", "tv", "mal", "tmdb"],
@@ -545,6 +546,7 @@ const baseManifest: Manifest = {
     { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
     { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
     { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
+    { key: "eurostreamingEnabled", title: "Eurostreaming ES", type: "checkbox" },
     { key: "tvtapProxyEnabled", title: "TvTap NO Proxy", type: "checkbox" },
     
     ]
@@ -2417,9 +2419,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (config.animeworldEnabled === true);
                 const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (config.guardaserieEnabled === true);
                 const guardaHdEnabled = envFlag('GUARDAHD_ENABLED') ?? (config.guardahdEnabled === true);
+                // Eurostreaming: default ON unless explicitly disabled (config false) or env sets true/false
+                const eurostreamingEnv = envFlag('EUROSTREAMING_ENABLED');
+                const eurostreamingEnabled = eurostreamingEnv !== undefined
+                    ? eurostreamingEnv
+                    : (config.eurostreamingEnabled !== false); // default true
                 
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardaHdEnabled)) {
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardaHdEnabled || eurostreamingEnabled)) {
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
@@ -2445,6 +2452,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     let animeWorldStreams: Stream[] = [];
                     let guardaSerieStreams: Stream[] = [];
                     let guardaHdStreams: Stream[] = [];
+                    let euroStreams: Stream[] = [];
                     // Parsing stagione/episodio per IMDB/TMDB
                     let seasonNumber: number | null = null;
                     let episodeNumber: number | null = null;
@@ -2593,6 +2601,29 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                         } catch (e) {
                             console.error('[GuardaHD] Errore:', e);
+                        }
+                    }
+                    // Eurostreaming (IMDB only for now) - force run for series episodes even if others disabled
+                    if (id.startsWith('tt') && seasonNumber != null && episodeNumber != null && eurostreamingEnabled) {
+                        const esStart = Date.now();
+                        console.log('[Eurostreaming][Addon] START imdbId=', id, 'season=', seasonNumber, 'episode=', episodeNumber, 'isMovie=', isMovie);
+                        try {
+                            const { EurostreamingProvider } = await import('./providers/eurostreaming-provider');
+                            const esProvider = new EurostreamingProvider({
+                                enabled: true,
+                                mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
+                                mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
+                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
+                            });
+                            const esResult = await esProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            euroStreams = esResult.streams;
+                            console.log('[Eurostreaming][Addon] provider returned', euroStreams.length, 'streams in', (Date.now()-esStart)+'ms');
+                            if (!euroStreams.length) console.log('[Eurostreaming][Addon] EMPTY result - check PY stderr for [ESDBG] logs');
+                            // Log sample
+                            euroStreams.slice(0,3).forEach((s,idx)=> console.log('[Eurostreaming][Addon] sample', idx, s.title));
+                            for (const s of euroStreams) allStreams.push({ ...s, name: 'StreamViX ES' });
+                        } catch (e) {
+                            console.error('[Eurostreaming] Errore:', e);
                         }
                     }
                 }

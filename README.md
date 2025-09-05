@@ -18,6 +18,7 @@ Istanza ElfHosted a pagamento CON MEDIAFLOWProxy incluso (Per Eventi Sportivi)
 
 * **✅ Supporto Film:** Trova flussi streaming per i film utilizzando il loro ID TMDB.
 * **📺 Supporto Serie TV:** Trova flussi per ogni episodio di una serie TV, basandosi su ID TMDB in formato stagione/episodio.
+* **🇪🇺 Eurostreaming (ES) Episodi:** Integrazione sperimentale per episodi tramite pulsante toggle (titolo StreamViX ES) con estrazione Python dedicata.
 * **⛩️ Supporto Anime:** Trova flussi per ogni episodio di una determinato Anime, ora supporta ricerca sia da cinemeta, sia da tmdb che da kitsu.
 * **📡 Supporto Live TV:** Canali TV italiani con EPG integrato.
 * **📡 Supporto Eventi Sportivi:** Eventi sportivi aggiornati ogni giorno.
@@ -291,10 +292,8 @@ Questo progetto è inteso esclusivamente a scopo educativo. L'utente è l'unico 
 Original extraction logic written by https://github.com/mhdzumair for the extractor code https://github.com/mhdzumair/mediaflow-proxy 
 Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for the main code and stremio addon
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
-Thanks to @webstreamr for the extractor logic! 
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
-
 
 
 
