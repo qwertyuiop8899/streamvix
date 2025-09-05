@@ -15,32 +15,62 @@ function runPythonEuro(argsObj: { imdb?: string; tmdb?: string; season?: number|
     if (argsObj.tmdb) args.push('--tmdb', argsObj.tmdb);
     if (argsObj.season != null) args.push('--season', String(argsObj.season));
     if (argsObj.episode != null) args.push('--episode', String(argsObj.episode));
-  if (argsObj.isMovie) args.push('--movie');
-  if (argsObj.tmdbKey) args.push('--tmdbKey', argsObj.tmdbKey);
+    if (argsObj.isMovie) args.push('--movie');
+    if (argsObj.tmdbKey) args.push('--tmdbKey', argsObj.tmdbKey);
     args.push('--mfp', argsObj.mfp ? '1':'0');
-  // Enable debug diagnostics if env flag set
-  if ((process.env.ES_DEBUG || '').match(/^(1|true|on)$/i)) args.push('--debug','1');
-  console.log('[Eurostreaming][PY] spawn', script, args.join(' '));
-  const start = Date.now();
-  // Prefer project virtualenv python if present
-  const venvPy = path.join(__dirname, '..', '..', '.venv', 'bin', 'python');
-  const pythonCmd = require('fs').existsSync(venvPy) ? venvPy : 'python3';
-  if (pythonCmd !== 'python3') console.log('[Eurostreaming][PY] using venv python', pythonCmd);
-  const py = spawn(pythonCmd, [script, ...args]);
-    const killer = setTimeout(()=>{ if(!finished){ finished = true; try{py.kill('SIGKILL');}catch{}; resolve({ error: 'timeout' }); } }, timeoutMs);
-  py.stdout.on('data', d=> { const chunk = d.toString(); stdout += chunk; if (chunk.length) console.log('[Eurostreaming][PY][stdout-chunk]', chunk.slice(0,200)); });
-  py.stderr.on('data', d=> { const chunk = d.toString(); stderr += chunk; if (chunk.length) console.log('[Eurostreaming][PY][stderr-chunk]', chunk.trim().split('\n').slice(-3).join(' | ')); });
-  py.on('close', code => { if(finished) return; finished = true; clearTimeout(killer); const dur = Date.now()-start; if(code!==0){ console.error('[Eurostreaming][PY] exit', code, 'dur=',dur,'ms stderr_head=', stderr.slice(0,400)); return resolve({ error: stderr || 'exit '+code }); }
-    try {
-      console.log('[Eurostreaming][PY] raw stdout length', stdout.length);
-      const parsed = JSON.parse(stdout);
-      console.log('[Eurostreaming][PY] parsed streams', parsed.streams ? parsed.streams.length : 0);
-      if ((!parsed.streams || !parsed.streams.length) && (parsed as any).diag) {
-        console.log('[Eurostreaming][PY][diag]', JSON.stringify((parsed as any).diag));
-      }
-      resolve(parsed);
-    } catch(e){ console.error('[Eurostreaming][PY] parse error', e, 'stdout_head=', stdout.slice(0,400)); resolve({ error: 'parse error' }); } });
-    py.on('error', err => { if(finished) return; finished = true; clearTimeout(killer); console.error('[Eurostreaming][PY] proc err', err); resolve({ error: 'proc error' }); });
+    // Enable debug diagnostics if env flag set
+    if ((process.env.ES_DEBUG || '').match(/^(1|true|on)$/i)) args.push('--debug','1');
+    console.log('[Eurostreaming][PY] spawn', script, args.join(' '));
+    const start = Date.now();
+    // Prefer project virtualenv python if present
+    const venvPy = path.join(__dirname, '..', '..', '.venv', 'bin', 'python');
+    const pythonCmd = require('fs').existsSync(venvPy) ? venvPy : 'python3';
+    if (pythonCmd !== 'python3') console.log('[Eurostreaming][PY] using venv python', pythonCmd);
+    // Ensure dependencies first
+    ensurePyDeps(pythonCmd).then(()=> {
+      const py = spawn(pythonCmd, [script, ...args]);
+      const killer = setTimeout(()=>{ if(!finished){ finished = true; try{py.kill('SIGKILL');}catch{}; resolve({ error: 'timeout' }); } }, timeoutMs);
+      py.stdout.on('data', d=> { const chunk = d.toString(); stdout += chunk; if (chunk.length) console.log('[Eurostreaming][PY][stdout-chunk]', chunk.slice(0,200)); });
+      py.stderr.on('data', d=> { const chunk = d.toString(); stderr += chunk; if (chunk.length) console.log('[Eurostreaming][PY][stderr-chunk]', chunk.trim().split('\n').slice(-3).join(' | ')); });
+      py.on('close', code => { if(finished) return; finished = true; clearTimeout(killer); const dur = Date.now()-start; if(code!==0){ console.error('[Eurostreaming][PY] exit', code, 'dur=',dur,'ms stderr_head=', stderr.slice(0,400)); return resolve({ error: stderr || 'exit '+code }); }
+        try {
+          console.log('[Eurostreaming][PY] raw stdout length', stdout.length);
+          const parsed = JSON.parse(stdout);
+          console.log('[Eurostreaming][PY] parsed streams', parsed.streams ? parsed.streams.length : 0);
+          if ((!parsed.streams || !parsed.streams.length) && (parsed as any).diag) {
+            console.log('[Eurostreaming][PY][diag]', JSON.stringify((parsed as any).diag));
+          }
+          resolve(parsed);
+        } catch(e){ console.error('[Eurostreaming][PY] parse error', e, 'stdout_head=', stdout.slice(0,400)); resolve({ error: 'parse error' }); } });
+      py.on('error', err => { if(finished) return; finished = true; clearTimeout(killer); console.error('[Eurostreaming][PY] proc err', err); resolve({ error: 'proc error' }); });
+    });
+  });
+}
+
+// Bootstrap required Python dependencies once per process (creates .es_deps_ok sentinel)
+let depsBootstrapped = false;
+function ensurePyDeps(pythonCmd: string): Promise<void> {
+  if (depsBootstrapped) return Promise.resolve();
+  const fs = require('fs');
+  const sentinel = path.join(__dirname, '..', '..', '.es_deps_ok');
+  if (fs.existsSync(sentinel)) { depsBootstrapped = true; return Promise.resolve(); }
+  return new Promise((resolve) => {
+    const reqFile = path.join(__dirname, '..', '..', 'requirements.txt');
+    if (!fs.existsSync(reqFile)) { depsBootstrapped = true; return resolve(); }
+    const neededMods = ['curl_cffi','bs4','lxml','fake_headers','pytesseract','PIL'];
+    const checkCode = 'import importlib,sys;mods='+JSON.stringify(neededMods)+';missing=[m for m in mods if importlib.util.find_spec(m) is None];print("MISSING="+";".join(missing))';
+    const chk = spawn(pythonCmd, ['-c', checkCode]);
+    let out='';
+    chk.stdout.on('data',d=> out+=d.toString());
+    chk.on('close', ()=> {
+      const missLine = (out.match(/MISSING=([^\n]+)/)||[])[1]||'';
+      if (!missLine) { depsBootstrapped = true; try{fs.writeFileSync(sentinel,'ok');}catch{} return resolve(); }
+      const missing = missLine.split(';').filter(Boolean);
+      // Install only missing to keep it fast
+      const pipArgs = ['-m','pip','install','--disable-pip-version-check','--no-input','--no-warn-script-location','--quiet', ...missing];
+      const inst = spawn(pythonCmd, pipArgs, { stdio: 'ignore' });
+      inst.on('close', ()=> { depsBootstrapped = true; try{fs.writeFileSync(sentinel,'ok');}catch{} resolve(); });
+    });
   });
 }
 
