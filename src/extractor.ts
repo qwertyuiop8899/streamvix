@@ -128,6 +128,33 @@ async function checkTmdbIdOnVixSrc(tmdbId: string, type: ContentType): Promise<b
   }
 }
 
+// Verifica se uno specifico episodio (S/E) esiste su VixSrc
+async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: number): Promise<boolean> {
+  const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
+  try {
+    console.log(`VIX_EP_CHECK: Checking TMDB ID ${tmdbId} S${season}E${episode} against VixSrc episode list: ${listUrl}`);
+    const response = await fetch(listUrl);
+    if (!response.ok) {
+      console.error(`VIX_EP_CHECK: Failed to fetch VixSrc episode list, status: ${response.status}`);
+      return false;
+    }
+    const data = await response.json();
+    if (data && Array.isArray(data)) {
+      const exists = data.some((item: any) =>
+        item && item.tmdb_id?.toString() === tmdbId.toString() &&
+        Number(item.s) === Number(season) && Number(item.e) === Number(episode)
+      );
+      console.log(`VIX_EP_CHECK: Episode TMDB ${tmdbId} S${season}E${episode} ${exists ? 'found' : 'NOT found'} in VixSrc episode list.`);
+      return exists;
+    }
+    console.error('VIX_EP_CHECK: Episode list format not as expected');
+    return false;
+  } catch (error) {
+    console.error(`VIX_EP_CHECK: Error checking episode on VixSrc for TMDB ${tmdbId} S${season}E${episode}:`, error);
+    return false;
+  }
+}
+
 // 2. Modifica la funzione getUrl per rimuovere ?lang=it e aggiungere la verifica
 export async function getUrl(id: string, type: ContentType, config: ExtractorConfig): Promise<string | null> {
   if (type == "movie") {
@@ -153,6 +180,14 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
     const existsOnVixSrc = await checkTmdbIdOnVixSrc(tmdbSeriesId, type);
     if (!existsOnVixSrc) {
       console.log(`TMDB ID ${tmdbSeriesId} (from IMDB ${obj.id}) for series not found in VixSrc list. Skipping.`);
+      return null;
+    }
+    // Verifica anche che la specifica Stagione/Episodio esista
+    const seasonNum = Number(obj.season);
+    const episodeNum = Number(obj.episode);
+    const epExists = await checkEpisodeOnVixSrc(tmdbSeriesId, seasonNum, episodeNum);
+    if (!epExists) {
+      console.log(`VIX_EP_CHECK: Episode not found on VixSrc for TMDB ${tmdbSeriesId} S${seasonNum}E${episodeNum}. Skipping.`);
       return null;
     }
     
