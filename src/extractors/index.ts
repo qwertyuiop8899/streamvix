@@ -15,6 +15,9 @@ const extractors: HostExtractor[] = [
   // new WsDoodAdapter()
 ];
 
+// Note: Deltabit is now resolved end-to-end inside the Python eurostreaming provider (DeltaBit -> mp4),
+// so the previous TypeScript DeltabitExtractor has been removed to avoid duplicate resolution paths.
+
 export async function extractFromUrl(url: string, ctx: ExtractorContext): Promise<ExtractResult> {
   for (const ex of extractors) {
     if (ex.supports(url)) {
