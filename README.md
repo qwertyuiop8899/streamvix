@@ -291,8 +291,10 @@ Questo progetto è inteso esclusivamente a scopo educativo. L'utente è l'unico 
 Original extraction logic written by https://github.com/mhdzumair for the extractor code https://github.com/mhdzumair/mediaflow-proxy 
 Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for the main code and stremio addon
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
+Thanks to @webstreamr for the extractor logic! 
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 

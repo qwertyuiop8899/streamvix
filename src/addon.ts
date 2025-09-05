@@ -2585,7 +2585,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             else if (id.startsWith('tmdb:')) result = await ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             if (result?.streams) {
                                 guardaHdStreams = result.streams;
-                                for (const s of guardaHdStreams) allStreams.push({ ...s, name: 'StreamViX GH 🔓' });
+                                // Mixdrop: niente lucchetto; altri host mantengono 🔓
+                                for (const s of guardaHdStreams) {
+                                    const isMixdrop = s.title ? /\bmixdrop\b/i.test(s.title) : false;
+                                    allStreams.push({ ...s, name: isMixdrop ? 'StreamViX GH' : 'StreamViX GH 🔓' });
+                                }
                             }
                         } catch (e) {
                             console.error('[GuardaHD] Errore:', e);
