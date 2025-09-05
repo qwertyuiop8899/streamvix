@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.16](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.15...v1.0.16) (2025-09-05)
+
+
+### Bug Fixes
+
+* add alternative player for GH GS ([3ee17e4](https://github.com/qwertyuiop8899/streamvix/commit/3ee17e44b65f1b89472492d32dfd4cdcaf5bb911))
+* add gh and gs alternative player ([3ee17e4](https://github.com/qwertyuiop8899/streamvix/commit/3ee17e44b65f1b89472492d32dfd4cdcaf5bb911))
+* gh gs vix false positive ([2a56cc7](https://github.com/qwertyuiop8899/streamvix/commit/2a56cc7d68842405897baa43a8e2056074b538b2))
+
 ## [6.0.24] - 2025-09-05
 
 ### Fixes
