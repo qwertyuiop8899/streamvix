@@ -1,7 +1,7 @@
 import { HostExtractor, ExtractResult, ExtractorContext, normalizeUrl, parseSizeToBytes } from './base';
 import type { StreamForStremio } from '../types/animeunity';
 import { formatMediaFlowUrl } from '../utils/mediaflow';
-
+// NOTE thanks to webstreamr for the logic
 async function fetchText(url: string, referer?: string): Promise<string | null> {
   try {
     const headers: any = { 'User-Agent':'Mozilla/5.0 (MixdropExtractor)' };
