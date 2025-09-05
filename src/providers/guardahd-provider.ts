@@ -130,7 +130,9 @@ export class GuardaHdProvider {
         best = r;
       }
     }
-    return best;
+  if (!best) return null;
+  const threshold = Math.max(2, Math.floor(target.length * 0.25));
+  return bestScore <= threshold ? best : null;
   }
 
   private async fetchEpisodes(r: GHDSearchResult): Promise<GHDEpisode[]> {
