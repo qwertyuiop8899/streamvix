@@ -87,10 +87,20 @@ export class GuardaSerieProvider {
 
   private async fetchTmdbTitle(tmdbId: string, isMovie: boolean, key: string): Promise<string> {
     const base = isMovie ? 'movie' : 'tv';
-    const r = await fetch(`https://api.themoviedb.org/3/${base}/${tmdbId}?api_key=${key}`);
-    if (!r.ok) throw new Error('tmdb fail');
-    const j: any = await r.json();
-    return j?.title || j?.name || j?.original_title || j?.original_name || 'Unknown';
+    // First attempt: Italian localized title
+    let j: any = null;
+    try {
+      const rIt = await fetch(`https://api.themoviedb.org/3/${base}/${tmdbId}?api_key=${key}&language=it-IT`);
+      if (rIt.ok) j = await rIt.json();
+    } catch {}
+    // Fallback: default (original / English) if Italian missing or empty
+    if (!j || !(j.title || j.name || j.original_title || j.original_name)) {
+      try {
+        const rDef = await fetch(`https://api.themoviedb.org/3/${base}/${tmdbId}?api_key=${key}`);
+        if (rDef.ok) j = await rDef.json();
+      } catch {}
+    }
+    return (j?.title || j?.name || j?.original_title || j?.original_name || 'Unknown');
   }
 
   private async search(q: string): Promise<GSSearchResult[]> {
@@ -102,11 +112,11 @@ export class GuardaSerieProvider {
       const re = /<a[^>]+href=\"([^\"]+)\"[^>]*class=\"[^\">]*post-thumb[^>]*>\s*<img[^>]+alt=\"([^\"]+)\"/gi;
       let m: RegExpExecArray | null;
       while ((m = re.exec(html))) {
-        const href = m[1];
-        const title = m[2];
-        const id = href.split('/').filter(Boolean).pop() || href;
-        out.push({ id, slug: id, title });
-        if (out.length > 40) break;
+  const href = m[1];
+  const title = m[2];
+  const slug = href.split('/').filter(Boolean).pop() || href;
+  out.push({ id: slug, slug, title });
+  if (out.length > 40) break;
       }
       return out;
     } catch {
@@ -165,6 +175,7 @@ export class GuardaSerieProvider {
         out.push({ title: this.formatStreamTitle(r.title, null, null, info), url: u, behaviorHints:{ notWebReady:true } });
       }
     }
+    // Post-processing rule for movies? Requirement only for Guardaserie episodes; leave movies untouched
     return out;
   }
 
@@ -185,6 +196,26 @@ export class GuardaSerieProvider {
         out.push({ title: this.formatStreamTitle(r.title, season, episode, info), url: u, behaviorHints:{ notWebReady:true } });
       }
     }
+    // Post-processing: remove Dropload size if no SuperVideo present
+    try {
+      const superSize = (() => {
+        for (const s of out) {
+          if (/supervideo/i.test(s.title)) {
+            const p = this.parseSecondLineParts(s.title);
+            if (p.info?.size) return p.info.size;
+          }
+        }
+        return undefined;
+      })();
+      for (let i=0;i<out.length;i++) {
+        const parsed = this.parseSecondLineParts(out[i].title);
+        if (parsed.player?.toLowerCase() === 'dropload') {
+          const newInfo = { res: parsed.info?.res, size: superSize || undefined };
+          if (!superSize) delete (newInfo as any).size; // no size if supervideo absent
+          out[i].title = this.formatStreamTitle(r.title, season, episode, newInfo, parsed.player);
+        }
+      }
+    } catch {}
     return out;
   }
 
@@ -272,6 +303,31 @@ export class GuardaSerieProvider {
             for (let i=0;i<out.length;i++) {
               const p = this.parseSecondLineParts(out[i].title);
               out[i].title = this.formatStreamTitle(realTitle, season, episode, p.info, p.player);
+            }
+          }
+        } catch {}
+        // Apply Dropload size adoption: use SuperVideo size if present else none
+        try {
+          // capture resolved title from previous block (may be blank if resolution failed earlier)
+          let resolvedTitle = '';
+          try { resolvedTitle = await this.resolveTitle('imdb', imdbId, false); } catch {}
+          const superSize = (() => {
+            for (const s of out) {
+              if (/supervideo/i.test(s.title)) {
+                const p = this.parseSecondLineParts(s.title);
+                if (p.info?.size) return p.info.size;
+              }
+            }
+            return undefined;
+          })();
+          if (out.some(s => /dropload/i.test(s.title))) {
+            for (let i=0;i<out.length;i++) {
+              const parsed = this.parseSecondLineParts(out[i].title);
+              if (parsed.player?.toLowerCase() === 'dropload') {
+                const newInfo = { res: parsed.info?.res, size: superSize || undefined };
+                if (!superSize) delete (newInfo as any).size;
+                out[i].title = this.formatStreamTitle(resolvedTitle || '', season, episode, newInfo, parsed.player);
+              }
             }
           }
         } catch {}
