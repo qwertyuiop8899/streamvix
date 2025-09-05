@@ -1,7 +1,7 @@
 import { HostExtractor, ExtractResult, ExtractorContext, normalizeUrl } from './base';
 import type { StreamForStremio } from '../types/animeunity';
 // NOTE: Unlike Mixdrop we DO NOT wrap Doodstream with MediaFlow proxy to match webstreamr behavior.
-
+// NOTE thanks to webstreamr for the logic
 interface FetchResult { text: string | null; setCookie?: string[] }
 async function fetchText(url: string, referer?: string, cookieJar: string[] = [], extraHeaders: Record<string,string> = {}): Promise<FetchResult> {
   try {
