@@ -1,6 +1,6 @@
 import { HostExtractor, ExtractResult, ExtractorContext, normalizeUrl, parseSizeToBytes } from './base';
 import type { StreamForStremio } from '../types/animeunity';
-
+// NOTE thanks to webstreamr for the logic
 async function fetchText(url: string, referer?: string): Promise<string | null> {
   try {
     const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', ...(referer ? { Referer: referer } : {}) } as any });
