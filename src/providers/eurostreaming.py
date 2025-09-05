@@ -4,13 +4,50 @@ import re, os, json, base64, time, random, asyncio, sys
 from typing import Dict, Tuple, Optional
 
 from bs4 import BeautifulSoup, SoupStrainer  # type: ignore
-from fake_headers import Headers  # type: ignore
+try:
+    import lxml  # type: ignore  # noqa: F401
+    _HAVE_LXML = True
+except Exception:
+    _HAVE_LXML = False
+try:
+    from fake_headers import Headers  # type: ignore
+except Exception:
+    # Fallback minimal Headers generator if dependency missing (avoids hard failure)
+    class Headers:  # type: ignore
+        _UAS = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+            'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:123.0) Gecko/20100101 Firefox/123.0'
+        ]
+        def generate(self):
+            import random
+            return {
+                'User-Agent': random.choice(self._UAS),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.8,it;q=0.7',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive'
+            }
 try:
     import pytesseract  # type: ignore
     from PIL import Image  # type: ignore
+    _HAVE_PYTESSERACT = True
 except Exception:
-    pytesseract = None
-    Image = None
+    pytesseract = None  # type: ignore
+    Image = None  # type: ignore
+    _HAVE_PYTESSERACT = False
+
+# Detect presence of the external "tesseract" binary (required by pytesseract)
+_HAVE_TESSERACT_BIN = False
+if _HAVE_PYTESSERACT:
+    try:
+        # get_tesseract_version() raises if binary missing
+        pytesseract.get_tesseract_version()
+        _HAVE_TESSERACT_BIN = True
+    except Exception:  # pragma: no cover
+        _HAVE_TESSERACT_BIN = False
+        # We'll log later only if ES_DEBUG enabled to avoid noise
 
 try:
     from curl_cffi.requests import AsyncSession  # type: ignore
@@ -26,10 +63,14 @@ ForwardProxy = ""
 
 random_headers = Headers()
 
+# Chosen parser (fallback to stdlib if lxml missing)
+_PARSER = 'lxml' if _HAVE_LXML else 'html.parser'
+
 # Simple logger gated by ES_DEBUG env
 def log(*args):
     if os.environ.get('ES_DEBUG', '0') in ('1', 'true', 'True'):
-        print('[ES]', *args)
+        # Send debug logs to stderr so stdout stays clean JSON
+        print('[ES]', *args, file=sys.stderr)
 
 # ========= Utilities (re-implemented minimal) ========= #
 async def is_movie(id_value: str) -> Tuple[int, str, Optional[int], Optional[int]]:
@@ -115,7 +156,7 @@ async def deltabit(page_url, client):
     headers['origin'] = f'https://{origin}'
     headers['referer'] = page_url
     headers['user-agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
-    soup = BeautifulSoup(response.text, 'lxml', parse_only=SoupStrainer('input'))
+    soup = BeautifulSoup(response.text, _PARSER, parse_only=SoupStrainer('input'))
     data = {}
     for inp in soup:
         name = inp.get('name')
@@ -140,13 +181,37 @@ async def deltabit(page_url, client):
 from io import BytesIO
 
 def convert_numbers(base64_data):
-    if not (pytesseract and Image):
+    """Return OCR digits or '' if unavailable.
+
+    We explicitly distinguish 3 states:
+      1) pytesseract+binary OK -> return extracted digits
+      2) pytesseract module present but binary missing -> '' (log hint)
+      3) pytesseract module absent -> '' (log hint)
+    """
+    if not base64_data:
         return ""
-    image_data = base64.b64decode(base64_data)
-    image = Image.open(BytesIO(image_data))
-    custom_config = r'--oem 3 --psm 6 outputbase digits'
-    number_string = pytesseract.image_to_string(image, config=custom_config)
-    return number_string.strip()
+    if not _HAVE_PYTESSERACT:
+        log('ocr: pytesseract module not installed (install via pip + system package tesseract-ocr)')
+        return ""
+    if not _HAVE_TESSERACT_BIN:
+        log('ocr: tesseract binary missing. Install it (e.g. apt install -y tesseract-ocr tesseract-ocr-ita)')
+        return ""
+    if not Image:
+        log('ocr: PIL (pillow) not available')
+        return ""
+    try:
+        image_data = base64.b64decode(base64_data)
+        image = Image.open(BytesIO(image_data))
+        custom_config = r'--oem 3 --psm 6 outputbase digits'
+        number_string = pytesseract.image_to_string(image, config=custom_config)
+        number_string = number_string.strip()
+        log('ocr: raw result ->', number_string)
+        # Keep only digits just in case OCR leaks stray chars
+        number_string = re.sub(r'\D+', '', number_string)
+        return number_string
+    except Exception as e:  # pragma: no cover
+        log('ocr: exception', e)
+        return ""
 
 async def get_numbers(safego_url, client):
     log('safego:get_numbers', safego_url)
@@ -154,7 +219,7 @@ async def get_numbers(safego_url, client):
     headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64; rv:138.0) Gecko/20100101 Firefox/138.0'
     response = await client.get(ForwardProxy + safego_url, headers=headers, proxies=proxies)
     cookies = (response.cookies.get_dict())
-    soup = BeautifulSoup(response.text, 'lxml', parse_only=SoupStrainer('img'))
+    soup = BeautifulSoup(response.text, _PARSER, parse_only=SoupStrainer('img'))
     img = soup.img if soup else None
     if not img or not img.get('src'):
         log('safego:get_numbers: no captcha image found')
@@ -178,33 +243,32 @@ async def real_page(safego_url, client):
                 if cookies_raw:
                     cookies = json.loads(cookies_raw.replace("'", '"'))
         response = await client.post(ForwardProxy + safego_url, headers=headers, cookies=cookies, proxies=proxies)
-        soup = BeautifulSoup(response.text, 'lxml', parse_only=SoupStrainer('a'))
-        if len(soup) >= 1:
+        soup = BeautifulSoup(response.text, _PARSER, parse_only=SoupStrainer('a'))
+        if soup and len(soup) >= 1 and soup.a and soup.a.get('href'):
             log('safego: proceed href (cached cookies)')
             return soup.a['href']
-        else:
-            # Try OCR up to 2 times
-            for attempt in range(2):
-                log('safego: need captcha, fetching numbers (attempt', attempt+1, ')')
-                numbers, cookies = await get_numbers(safego_url, client)
-                numbers = convert_numbers(numbers)
-                log('safego: ocr ->', numbers)
-                data = {'captch4': numbers}
-                response = await client.post(ForwardProxy + safego_url, headers=headers, data=data, cookies=cookies, proxies=proxies)
-                cap4 = response.headers.get('set-cookie', '')
-                if cap4:
-                    cap4 = cap4.split(';')[0]
-                    cookies[cap4.split('=')[0]] = cap4.split('=')[1]
-                    with open(file_path, 'w') as file:
-                        file.write(str(cookies))
-                soup = BeautifulSoup(response.text, 'lxml', parse_only=SoupStrainer('a'))
-                if len(soup) >= 1 and soup.a and soup.a.get('href'):
-                    log('safego: proceed href (after captcha)')
-                    return soup.a['href']
-            log('safego: captcha failed after retries')
-            return None
+        # Try OCR up to 2 times
+        for attempt in range(2):
+            log('safego: need captcha, fetching numbers (attempt', attempt+1, ')')
+            numbers, cookies = await get_numbers(safego_url, client)
+            numbers = convert_numbers(numbers)
+            log('safego: ocr ->', numbers)
+            data = {'captch4': numbers}
+            response = await client.post(ForwardProxy + safego_url, headers=headers, data=data, cookies=cookies, proxies=proxies)
+            cap4 = response.headers.get('set-cookie', '')
+            if cap4:
+                cap4 = cap4.split(';')[0]
+                cookies[cap4.split('=')[0]] = cap4.split('=')[1]
+                with open(file_path, 'w') as file:
+                    file.write(str(cookies))
+            soup = BeautifulSoup(response.text, _PARSER, parse_only=SoupStrainer('a'))
+            if soup and len(soup) >= 1 and soup.a and soup.a.get('href'):
+                log('safego: proceed href (after captcha)')
+                return soup.a['href']
+        log('safego: captcha failed after retries')
+        return None
     except Exception as e:
-        print(e)
+        log('real_page: exception', e)
 
 async def get_host_link(pattern, atag, client):
     match = re.search(pattern, atag)
@@ -239,19 +303,20 @@ async def resolve_clicka_to_host(href_value, client):
 async def scraping_links(atag, MFP, client):
     # Check available hosts; prefer DeltaBit; fallback MixDrop
     log('scraping_links: in', ('...' if len(atag)>120 else atag))
-    if "MixDrop" and "DeltaBit" in atag:
-        soup = BeautifulSoup(atag, 'lxml', parse_only=SoupStrainer('a'))
+    if "MixDrop" in atag and "DeltaBit" in atag:
+        soup = BeautifulSoup(atag, _PARSER, parse_only=SoupStrainer('a'))
         delta_href = None
         mix_href = None
-        for a in soup:
-            text = (a.get_text(strip=True) or '').lower()
-            href = a.get('href')
-            if not href:
-                continue
-            if 'deltabit' in text and delta_href is None:
-                delta_href = href
-            if 'mixdrop' in text and mix_href is None:
-                mix_href = href
+        if soup:
+            for a in soup:
+                text = (a.get_text(strip=True) or '').lower()
+                href = a.get('href')
+                if not href:
+                    continue
+                if 'deltabit' in text and delta_href is None:
+                    delta_href = href
+                if 'mixdrop' in text and mix_href is None:
+                    mix_href = href
         href = await resolve_clicka_to_host(delta_href, client) if delta_href else None
         try:
             if not href:
@@ -268,13 +333,14 @@ async def scraping_links(atag, MFP, client):
         log('scraping_links: chosen ->', full_url)
         return full_url, name
     if "MixDrop" in atag and  "DeltaBit" not in atag:
-        soup = BeautifulSoup(atag, 'lxml', parse_only=SoupStrainer('a'))
+        soup = BeautifulSoup(atag, _PARSER, parse_only=SoupStrainer('a'))
         mix_href = None
-        for a in soup:
-            text = (a.get_text(strip=True) or '').lower()
-            if 'mixdrop' in text:
-                mix_href = a.get('href')
-                break
+        if soup:
+            for a in soup:
+                text = (a.get_text(strip=True) or '').lower()
+                if 'mixdrop' in text:
+                    mix_href = a.get('href')
+                    break
         href = await resolve_clicka_to_host(mix_href, client) if mix_href else None
         if not href:
             log('scraping_links: MixDrop pattern not found')
@@ -283,13 +349,14 @@ async def scraping_links(atag, MFP, client):
         log('scraping_links: chosen MixDrop ->', full_url)
         return full_url, name
     if 'DeltaBit' in atag and "MixDrop" not in atag:
-        soup = BeautifulSoup(atag, 'lxml', parse_only=SoupStrainer('a'))
+        soup = BeautifulSoup(atag, _PARSER, parse_only=SoupStrainer('a'))
         delta_href = None
-        for a in soup:
-            text = (a.get_text(strip=True) or '').lower()
-            if 'deltabit' in text:
-                delta_href = a.get('href')
-                break
+        if soup:
+            for a in soup:
+                text = (a.get_text(strip=True) or '').lower()
+                if 'deltabit' in text:
+                    delta_href = a.get('href')
+                    break
         href = await resolve_clicka_to_host(delta_href, client) if delta_href else None
         if not href:
             log('scraping_links: DeltaBit pattern not found')
@@ -315,9 +382,10 @@ async def search(showname, date, season, episode, MFP, client):
         description = description['content']['rendered']
         year_pattern = re.compile(r'(?<!/)(19|20)\d{2}(?!/)')
         match = year_pattern.search(description)
+        year = None
         if match:
             year = match.group(0)
-        else:
+        if not year:
             pattern = r'<a\s+href="([^"]+)"[^>]*>Continua a leggere</a>'
             match = re.search(pattern, description)
             if match:
@@ -326,25 +394,28 @@ async def search(showname, date, season, episode, MFP, client):
                 match = year_pattern.search(response_2.text)
                 if match:
                     year = match.group(0)
-        log('search: post', i['id'], 'year', locals().get('year'))
-        if str(locals().get('year')) == str(date) or date == 0:
-            episode = str(episode).zfill(2)
-            pattern = rf'{season}&#215;{episode}\s*(.*?)(?=<br\s*/?>)'
-            match = re.findall(pattern, description)
+        log('search: post', i['id'], 'year', year)
+        # Accept if year matches OR (no year extracted) OR (date == 0)
+        if (year and str(year) == str(date)) or (not year) or date == 0:
+            ep_str = str(episode).zfill(2)
+            pattern_ep = rf'{season}&#215;{ep_str}\s*(.*?)(?=<br\s*/?>)'
+            matches = re.findall(pattern_ep, description)
             urls = {}
-            if match:
-                log('search: episode rows found', len(match))
-                for episode_details in match:
-                    if "href" in episode_details:
-                        # part after the ' – '
+            if matches:
+                log('search: episode rows found', len(matches))
+                for episode_details in matches:
+                    if 'href' in episode_details:
                         part = episode_details
                         if ' – ' in part:
                             part = part.split(' – ', 1)[1]
                         full_url, name = await scraping_links(part, MFP, client)
                         if full_url:
                             urls[full_url] = name
-                log('search: urls collected', len(urls))
-                return urls
+                if urls:
+                    log('search: urls collected', len(urls))
+                    return urls
+            else:
+                log('search: no episode row pattern for this post')
 
 async def eurostreaming(id_value, client, MFP):
     try:
@@ -367,7 +438,7 @@ async def eurostreaming(id_value, client, MFP):
         log('eurostreaming: urls_found', 0 if not urls else len(urls))
         return urls
     except Exception as e:
-        print(e)
+        log('eurostreaming: exception', e)
         return None
 
 # ======== Test helpers ======== #
@@ -408,7 +479,8 @@ if __name__ == "__main__":
                 'py': sys.executable,
                 'version': sys.version.split()[0],
                 'curl_cffi': AsyncSession is not None,
-                'pytesseract': pytesseract is not None,
+                'pytesseract': _HAVE_PYTESSERACT,
+                'tesseract_bin': _HAVE_TESSERACT_BIN,
                 'cwd': os.getcwd()
             }
             print(json.dumps(result))
@@ -420,7 +492,8 @@ if __name__ == "__main__":
                     'py': sys.executable,
                     'version': sys.version.split()[0],
                     'curl_cffi': False,
-                    'pytesseract': pytesseract is not None,
+                    'pytesseract': _HAVE_PYTESSERACT,
+                    'tesseract_bin': _HAVE_TESSERACT_BIN,
                     'cwd': os.getcwd(),
                     'sys_path_head': sys.path[:5]
                 }
@@ -460,7 +533,8 @@ if __name__ == "__main__":
                 'py': sys.executable,
                 'version': sys.version.split()[0],
                 'curl_cffi': AsyncSession is not None,
-                'pytesseract': pytesseract is not None,
+                'pytesseract': _HAVE_PYTESSERACT,
+                'tesseract_bin': _HAVE_TESSERACT_BIN,
                 'streams_count': len(streams),
                 'args': {
                     'imdb': args.imdb,
@@ -473,8 +547,8 @@ if __name__ == "__main__":
         asyncio.run(_run_cli())
     except Exception:
         try:
-            # Fallback for older Python where event loop is running (rare)
             loop = asyncio.get_event_loop()
             loop.run_until_complete(_run_cli())
         except Exception as e:
+            # Final fallback: emit JSON error (still valid JSON)
             print(json.dumps({ 'error': str(e) }))
