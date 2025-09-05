@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Eurostreaming provider (MammaMia-style, 1:1 functions) with curl_cffi + fake_headers
 import re, os, json, base64, time, random, asyncio, sys
+import difflib
 from typing import Dict, Tuple, Optional
 
 from bs4 import BeautifulSoup, SoupStrainer  # type: ignore
@@ -368,18 +369,105 @@ async def scraping_links(atag, MFP, client):
         log('scraping_links: no supported hosts found')
         return None, ""
 
+STOPWORDS = {
+    'the','la','le','lo','gli','i','il','di','da','a','in','of','and','or','serie','series','season','show','tv','la','una','un','uno','del','della','degli','delle','de','el'
+}
+
+def _normalize_title(t: str) -> str:
+    t = t.lower()
+    t = re.sub(r'&[a-z]+;?', ' ', t)            # html entities
+    t = re.sub(r'[^a-z0-9]+', ' ', t)           # punctuation -> space
+    t = re.sub(r'\s+', ' ', t).strip()
+    return t
+
+def _token_list(t: str) -> list:
+    if not t:
+        return []
+    return [tok for tok in _normalize_title(t).split() if tok and (tok not in STOPWORDS) and (len(tok) > 2 or tok.isdigit())]
+
+def _token_set(t: str) -> set:
+    return set(_token_list(t))
+
 async def search(showname, date, season, episode, MFP, client):
     headers = random_headers.generate()
     log('search: query', showname, 'year', date, 'S', season, 'E', episode)
-    response = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/search?search={showname}&_fields=id", proxies=proxies, headers=headers)
+    reason = None
+    debug = { 'candidates': [], 'matched': [], 'filtered_tokens': [], 'rejected': [] }
+    try:
+        response = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/search?search={showname}&_fields=id", proxies=proxies, headers=headers)
+    except Exception as e:
+        log('search: wp search exception', e)
+        return None, 'search_request_failed', debug
     results = response.json()
-    log('search: ids', [r.get('id') for r in results] if isinstance(results, list) else results)
+    if not isinstance(results, list) or not results:
+        log('search: no results')
+        return None, 'no_search_results', debug
+    log('search: ids', [r.get('id') for r in results])
+    imdb_tokens = _token_set(showname.replace('+', ' '))
+    debug['imdb_tokens'] = sorted(list(imdb_tokens))
+    matched_any_title = False
+    imdb_tokens_list = list(imdb_tokens)
+    first_token = imdb_tokens_list[0] if imdb_tokens_list else None
     for i in results:
-        response = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/posts/{i['id']}?_fields=content", proxies=proxies, headers=headers)
+        try:
+            response = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/posts/{i['id']}?_fields=title,content", proxies=proxies, headers=headers)
+        except Exception as e:  # pragma: no cover
+            log('search: post fetch exception', i.get('id'), e)
+            continue
         if f'ID articolo non valido' in response.text:
             continue
-        description = response.json()
-        description = description['content']['rendered']
+        jp = response.json()
+        description = jp.get('content', {}).get('rendered', '')
+        post_title = jp.get('title', {}).get('rendered', '')
+        norm_post_title = _normalize_title(post_title)
+        post_tokens = _token_set(post_title)
+        inter = imdb_tokens & post_tokens
+        significant_overlap = [tok for tok in inter]
+        token_match_ratio = (len(inter) / max(1, len(imdb_tokens))) if imdb_tokens else 0
+        seq_ratio = difflib.SequenceMatcher(None, _normalize_title(showname.replace('+',' ')), norm_post_title).ratio() if showname else 0.0
+        # Base rules:
+        #  - Must contain first token (if more than 1 token in imdb) to reduce false positives.
+        #  - If single imdb token: require exact token and seq_ratio >= 0.85.
+        #  - Else require (len(significant_overlap) >=2 AND seq_ratio>=0.55) OR token_match_ratio>=0.7 OR seq_ratio>=0.85.
+        title_ok = False
+        if len(imdb_tokens) == 1:
+            title_ok = (len(inter) == 1 and seq_ratio >= 0.85)
+        else:
+            has_first = (first_token in post_tokens) if first_token else False
+            if has_first and len(significant_overlap) >= 2 and seq_ratio >= 0.55:
+                title_ok = True
+            elif token_match_ratio >= 0.7 and has_first:
+                title_ok = True
+            elif seq_ratio >= 0.85 and has_first:
+                title_ok = True
+        cand_entry = {
+            'post_id': i['id'],
+            'title': post_title,
+            'ratio_token': round(token_match_ratio,2),
+            'ratio_seq': round(seq_ratio,2),
+            'overlap': sorted(list(inter))
+        }
+        debug['candidates'].append(cand_entry)
+        if title_ok:
+            matched_any_title = True
+            cand_entry['accepted'] = True
+            debug['matched'].append({
+                'post_id': i['id'],
+                'title': post_title,
+                'tokens': sorted(list(post_tokens)),
+                'overlap': sorted(list(inter)),
+                'ratio_token': round(token_match_ratio,2),
+                'ratio_seq': round(seq_ratio,2)
+            })
+        else:
+            debug['rejected'].append({
+                'post_id': i['id'],
+                'title': post_title,
+                'overlap': sorted(list(inter)),
+                'ratio_token': round(token_match_ratio,2),
+                'ratio_seq': round(seq_ratio,2),
+                'reason': 'title_mismatch'
+            })
         year_pattern = re.compile(r'(?<!/)(19|20)\d{2}(?!/)')
         match = year_pattern.search(description)
         year = None
@@ -390,56 +478,86 @@ async def search(showname, date, season, episode, MFP, client):
             match = re.search(pattern, description)
             if match:
                 href_value = match.group(1)
-                response_2 = await client.get(ForwardProxy + href_value, proxies=proxies, headers=headers)
-                match = year_pattern.search(response_2.text)
-                if match:
-                    year = match.group(0)
-        log('search: post', i['id'], 'year', year)
-        # Accept if year matches OR (no year extracted) OR (date == 0)
-        if (year and str(year) == str(date)) or (not year) or date == 0:
-            ep_str = str(episode).zfill(2)
-            pattern_ep = rf'{season}&#215;{ep_str}\s*(.*?)(?=<br\s*/?>)'
-            matches = re.findall(pattern_ep, description)
-            urls = {}
-            if matches:
-                log('search: episode rows found', len(matches))
-                for episode_details in matches:
-                    if 'href' in episode_details:
-                        part = episode_details
-                        if ' – ' in part:
-                            part = part.split(' – ', 1)[1]
-                        full_url, name = await scraping_links(part, MFP, client)
-                        if full_url:
-                            urls[full_url] = name
-                if urls:
-                    log('search: urls collected', len(urls))
-                    return urls
-            else:
-                log('search: no episode row pattern for this post')
+                try:
+                    response_2 = await client.get(ForwardProxy + href_value, proxies=proxies, headers=headers)
+                    match2 = year_pattern.search(response_2.text)
+                    if match2:
+                        year = match2.group(0)
+                except Exception:
+                    pass
+        log('search: post', i['id'], 'post_title=', norm_post_title, 'year', year, 'token_ratio', f"{token_match_ratio:.2f}")
+        # Acceptance logic:
+        # 1. If year matches AND title_ok
+        # 2. If year missing, require title_ok
+        # 3. If date==0 (unknown imdb year), allow title_ok
+        if not title_ok:
+            continue  # skip year logic/episode scan
+        if year and str(year) != str(date) and date != 0:
+            # reject mismatched year when both present
+            continue
+        ep_str = str(episode).zfill(2)
+        # Accept also variations: × entity, literal x, uppercase X, S01E02 style fallback
+        patterns = [
+            rf'{season}&#215;{ep_str}\s*(.*?)(?=<br\s*/?>)',
+            rf'{season}[xX×]{ep_str}\s*(.*?)(?=<br\s*/?>)',
+            rf'S{int(season):02d}E{ep_str}\s*(.*?)(?=<br\s*/?>)'
+        ]
+        matches = []
+        for pat in patterns:
+            m = re.findall(pat, description)
+            if m:
+                matches = m
+                break
+        urls = {}
+        if matches:
+            log('search: episode rows found', len(matches))
+            for episode_details in matches:
+                if 'href' in episode_details:
+                    part = episode_details
+                    if ' – ' in part:
+                        part = part.split(' – ', 1)[1]
+                    full_url, name = await scraping_links(part, MFP, client)
+                    if full_url:
+                        urls[full_url] = name
+            if urls:
+                log('search: urls collected', len(urls))
+                return urls, None, debug
+        else:
+            log('search: no episode row pattern for this accepted post')
+    if not matched_any_title:
+        reason = 'no_title_match'
+    else:
+        reason = 'no_episode_match'
+    return None, reason, debug
 
 async def eurostreaming(id_value, client, MFP):
+    debug: Dict[str, object] = {}
     try:
-        general = await is_movie(id_value)
-        ismovie, clean_id, season_i, episode_i = general[0], general[1], general[2], general[3]
-        _type = "Eurostreaming"
-        if ismovie == 1:
-            return None
+        # Parse id and ensure it's a series
+        ismovie, clean_id, season_i, episode_i = await is_movie(id_value)
+        if ismovie == 1 or season_i is None or episode_i is None:
+            return None, 'is_movie', { 'note': 'movies not supported' }
         season = str(season_i)
         episode = str(episode_i)
+        # Fetch canonical title/year
         if "tmdb" in id_value:
-            showname, date = get_info_tmdb(clean_id, ismovie, _type)
+            showname, date = get_info_tmdb(clean_id, 0, "Eurostreaming")
         else:
-            showname, date = await get_info_imdb(clean_id, ismovie, _type, client)
+            showname, date = await get_info_imdb(clean_id, 0, "Eurostreaming", client)
         showname = re.sub(r'\s+', ' ', showname).strip()
+        debug['imdb_title'] = showname
+        debug['imdb_year'] = date
         log('eurostreaming: title/date', showname, date)
-        # URL-encode minimal (spaces -> +)
         showname_q = showname.replace(' ', '+')
-        urls = await search(showname_q, date, season, episode, MFP, client)
-        log('eurostreaming: urls_found', 0 if not urls else len(urls))
-        return urls
-    except Exception as e:
+        urls, reason, search_debug = await search(showname_q, date, season, episode, MFP, client)
+        if isinstance(search_debug, dict):
+            debug.update(search_debug)
+        log('eurostreaming: urls_found', 0 if not urls else len(urls), 'reason', reason)
+        return urls, reason, debug
+    except Exception as e:  # pragma: no cover
         log('eurostreaming: exception', e)
-        return None
+        debug['error'] = str(e)
+        return None, 'exception', debug
 
 # ======== Test helpers ======== #
 async def test_euro():
@@ -511,7 +629,12 @@ if __name__ == "__main__":
         if args.season is not None and args.episode is not None:
             idv = f"{idv}:{args.season}:{args.episode}"
         async with AsyncSession() as client:
-            urls = await eurostreaming(idv, client, args.mfp)
+            res = await eurostreaming(idv, client, args.mfp)
+            if isinstance(res, tuple) and len(res) == 3:
+                urls, reason, debug = res
+            else:
+                # backward safety
+                urls, reason, debug = (res, None, {})
             streams = []
             if isinstance(urls, dict):
                 for u, fname in urls.items():
@@ -540,7 +663,13 @@ if __name__ == "__main__":
                     'imdb': args.imdb,
                     'season': args.season,
                     'episode': args.episode
-                }
+                },
+                'reason': reason,
+                'title': debug.get('imdb_title') if isinstance(debug, dict) else None,
+                'imdb_tokens': debug.get('imdb_tokens') if isinstance(debug, dict) else None,
+                'matched_posts': debug.get('matched') if isinstance(debug, dict) else None,
+                'candidates': debug.get('candidates')[:5] if isinstance(debug, dict) and debug.get('candidates') else None,
+                'rejected': debug.get('rejected')[:5] if isinstance(debug, dict) and debug.get('rejected') else None
             }
             print(json.dumps(out))
     try:
