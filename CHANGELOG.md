@@ -4,6 +4,7 @@
 
 ### Fixes
 - Guardaserie/GuardaHD: evita falsi positivi quando la serie/film non viene trovata. Aggiunta soglia di similarità nei risultati di ricerca e verifica dell'ID IMDb nella pagina dettagli prima di estrarre gli stream.
+- Vixsrc evita falsi positivi con serie presenti ma con puntate ancora non presenti su vix
 
 ## [1.0.15](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.14...v1.0.15) (2025-09-04)
 
