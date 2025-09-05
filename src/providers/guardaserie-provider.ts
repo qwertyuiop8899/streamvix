@@ -136,7 +136,10 @@ export class GuardaSerieProvider {
         best = r;
       }
     }
-    return best;
+  // Apply a minimum similarity threshold to prevent false positives
+  if (!best) return null;
+  const threshold = Math.max(2, Math.floor(target.length * 0.25));
+  return bestScore <= threshold ? best : null;
   }
 
   private async fetchEpisodes(r: GSSearchResult): Promise<GSEpisode[]> {
@@ -237,10 +240,21 @@ export class GuardaSerieProvider {
         while((m=reA.exec(html)) && count<5){ const u=m[1]; if(/\/\d/.test(u)){ hrefs.push(u); count++; } }
       }
       if (!hrefs.length) return [];
-      const pageUrl = hrefs[1] || hrefs[0];
+      // Strictly validate candidate pages: must contain the exact IMDb id; otherwise skip
+      let pageUrl: string | null = null;
+      let detailHtml: string | null = null;
+      for (const href of hrefs.slice(0, 5)) {
+        const u = href.startsWith('http') ? href : `${this.base}${href.startsWith('/') ? '' : '/'}${href}`;
+        const h = await this.get(u);
+        if (!h) continue;
+        // Accept only if the target imdb id is present verbatim in the page
+        if (h.includes(imdbId)) { pageUrl = u; detailHtml = h; break; }
+      }
+      if (!pageUrl || !detailHtml) {
+        // No verified page -> no results (avoid false positive)
+        return [];
+      }
       console.log('[GS][Direct] chosen page', pageUrl);
-      const detailHtml = await this.get(pageUrl);
-      if (!detailHtml) return [];
       console.log('[GS][Direct] detail html length', detailHtml.length);
       // Locate the <li> for the requested episode id="serie-season_episode" and gather its mirrors
       const epId = `serie-${season}_${episode}`;
