@@ -1,10 +1,11 @@
 {
     "addonName": "StreamViX | ElfHosted",
     "addonId": "org.prisonmike.streamvix",
-    "addonDescription": "StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, TV ed Eventi Live",
-    "addonVersion": "6.0.23",
+    "addonDescription": "StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
+    "addonVersion": "6.1.23",
     "addonLogo": "https://raw.githubusercontent.com/qwertyuiop8899/streamvix/refs/heads/main/public/icon.png"
 }
+
 
 
 
