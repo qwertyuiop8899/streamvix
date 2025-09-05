@@ -6,7 +6,12 @@ RUN echo "Cache bust: $CACHE_BUST"
 
 # Installa git, python3, pip e dipendenze per compilazione
 USER root 
-RUN apt-get update && apt-get install -y git python3 python3-pip python3-dev build-essential ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    git \
+    python3 python3-pip python3-dev \
+    build-essential ca-certificates \
+    tesseract-ocr tesseract-ocr-ita tesseract-ocr-eng \
+    --no-install-recommends && rm -rf /var/lib/apt/lists/*
 # Imposta la directory di lavoro nell'immagine
 WORKDIR /usr/src/app
 
@@ -30,8 +35,10 @@ RUN rm -rf ./* ./.* 2>/dev/null || true && \
 
 
 
-# Installa le dipendenze Python necessarie per TVTap, filtrando quelle problematiche
-RUN pip3 install --no-cache-dir --break-system-packages requests beautifulsoup4 pycryptodome pyDes
+# Installa le dipendenze Python necessarie (inclusi OCR e curl_cffi)
+RUN pip3 install --no-cache-dir --break-system-packages \
+    requests beautifulsoup4 pycryptodome pyDes \
+    pillow pytesseract curl_cffi fake-headers lxml
 
 # Installa una versione specifica di pnpm per evitare problemi di compatibilità della piattaforma
 RUN npm install -g pnpm@8.15.5
