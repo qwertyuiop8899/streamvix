@@ -673,6 +673,10 @@ async def eurostreaming(id_value, client, MFP):
             showname, date = get_info_tmdb(clean_id, 0, "Eurostreaming")
         else:
             showname, date = await get_info_imdb(clean_id, 0, "Eurostreaming", client)
+        # Normalize whitespace first
+        showname = re.sub(r'\s+', ' ', showname).strip()
+        # Remove punctuation/symbols (simple ASCII fallback) to improve search (e.g. remove colon)
+        showname = re.sub(r'[^\w\s]', ' ', showname)
         showname = re.sub(r'\s+', ' ', showname).strip()
         debug['imdb_title'] = showname
         debug['imdb_year'] = date
