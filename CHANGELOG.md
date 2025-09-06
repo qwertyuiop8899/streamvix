@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.27](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.26...v1.0.27) (2025-09-06)
+
+
+### Bug Fixes
+
+* eu search ([d9ac452](https://github.com/qwertyuiop8899/streamvix/commit/d9ac45216d0dbb8c709dd876aa29229cff5e7a7c))
+* eu search def ([8ab2f31](https://github.com/qwertyuiop8899/streamvix/commit/8ab2f319bf40b91c8175552e6e22dd6f11e1ba8c))
+* euros search ([89f49a3](https://github.com/qwertyuiop8899/streamvix/commit/89f49a343f2b1b0bca4da9f007018e800d409134))
+
 ## [1.0.26](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.25...v1.0.26) (2025-09-06)
 
 
