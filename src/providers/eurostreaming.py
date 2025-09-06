@@ -1,13 +1,6 @@
 #!/usr/bin/env python3
 # Eurostreaming provider (MammaMia-style, 1:1 functions) with curl_cffi + fake_headers
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*- 
-# thanks to @urlomythus for the code
-#Adapted for use in Streamvix from:
-# Mammamia  in https://github.com/UrloMythus/MammaMia
-# 
-
-import re, os, json, base64, time, random, asyncio, sys
+import re, os, json, base64, time, random, asyncio, sys, unicodedata
 import difflib
 from typing import Dict, Tuple, Optional
 
@@ -381,9 +374,14 @@ STOPWORDS = {
 }
 
 def _normalize_title(t: str) -> str:
+    # Unicode normalize + strip accents so 'Mercoledì' -> 'Mercoledi'
+    if not t:
+        return ''
+    t = unicodedata.normalize('NFD', t)
+    t = ''.join(ch for ch in t if unicodedata.category(ch) != 'Mn')
     t = t.lower()
     t = re.sub(r'&[a-z]+;?', ' ', t)            # html entities
-    t = re.sub(r'[^a-z0-9]+', ' ', t)           # punctuation -> space
+    t = re.sub(r'[^a-z0-9]+', ' ', t)           # punctuation / non-ascii -> space
     t = re.sub(r'\s+', ' ', t).strip()
     return t
 
@@ -395,11 +393,36 @@ def _token_list(t: str) -> list:
 def _token_set(t: str) -> set:
     return set(_token_list(t))
 
+# Simple Levenshtein distance (iterative, O(min(n,m)) space)
+def _levenshtein(a: str, b: str) -> int:
+    if a == b:
+        return 0
+    la, lb = len(a), len(b)
+    if la == 0:
+        return lb
+    if lb == 0:
+        return la
+    # Ensure a is shorter
+    if la > lb:
+        a, b = b, a
+        la, lb = lb, la
+    prev = list(range(la + 1))
+    for j in range(1, lb + 1):
+        cur = [j] + [0]*la
+        bj = b[j-1]
+        for i in range(1, la + 1):
+            cost = 0 if a[i-1] == bj else 1
+            cur[i] = min(prev[i] + 1,      # deletion
+                         cur[i-1] + 1,     # insertion
+                         prev[i-1] + cost) # substitution
+        prev = cur
+    return prev[la]
+
 async def search(showname, date, season, episode, MFP, client):
     headers = random_headers.generate()
     log('search: query', showname, 'year', date, 'S', season, 'E', episode)
     reason = None
-    debug = { 'candidates': [], 'matched': [], 'filtered_tokens': [], 'rejected': [] }
+    debug = { 'candidates': [], 'matched': [], 'filtered_tokens': [], 'rejected': [], 'phase': None }
     try:
         response = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/search?search={showname}&_fields=id", proxies=proxies, headers=headers)
     except Exception as e:
@@ -415,6 +438,11 @@ async def search(showname, date, season, episode, MFP, client):
     matched_any_title = False
     imdb_tokens_list = list(imdb_tokens)
     first_token = imdb_tokens_list[0] if imdb_tokens_list else None
+    imdb_norm_title = _normalize_title(showname.replace('+',' '))
+
+    # We'll accumulate all posts first, then decide phase (strict vs fallback) and only then parse episode rows
+    posts_data = []  # each entry: { 'id', 'title', 'description', metrics..., 'strict_ok', 'fallback_ok', 'year' }
+
     for i in results:
         try:
             response = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/posts/{i['id']}?_fields=title,content", proxies=proxies, headers=headers)
@@ -426,19 +454,26 @@ async def search(showname, date, season, episode, MFP, client):
         jp = response.json()
         description = jp.get('content', {}).get('rendered', '')
         post_title = jp.get('title', {}).get('rendered', '')
-        norm_post_title = _normalize_title(post_title)
-        post_tokens = _token_set(post_title)
+        cleaned_post_title = re.sub(r'\([^)]*\)', ' ', post_title)
+        norm_post_title = _normalize_title(cleaned_post_title)
+        post_tokens = _token_set(cleaned_post_title)
         inter = imdb_tokens & post_tokens
         significant_overlap = [tok for tok in inter]
         token_match_ratio = (len(inter) / max(1, len(imdb_tokens))) if imdb_tokens else 0
         seq_ratio = difflib.SequenceMatcher(None, _normalize_title(showname.replace('+',' ')), norm_post_title).ratio() if showname else 0.0
-        # Base rules:
-        #  - Must contain first token (if more than 1 token in imdb) to reduce false positives.
-        #  - If single imdb token: require exact token and seq_ratio >= 0.85.
-        #  - Else require (len(significant_overlap) >=2 AND seq_ratio>=0.55) OR token_match_ratio>=0.7 OR seq_ratio>=0.85.
+        year = None
         title_ok = False
         if len(imdb_tokens) == 1:
-            title_ok = (len(inter) == 1 and seq_ratio >= 0.85)
+            single_tok = imdb_tokens_list[0]
+            has_token = (len(inter) == 1)
+            if has_token:
+                paren_relax = ('(' in post_title and ')' in post_title and len(single_tok) >= 6)
+                if seq_ratio >= 0.85:
+                    title_ok = True
+                elif len(single_tok) >= 6 and seq_ratio >= 0.67:
+                    title_ok = True
+                elif paren_relax and seq_ratio >= 0.60:
+                    title_ok = True
         else:
             has_first = (first_token in post_tokens) if first_token else False
             if has_first and len(significant_overlap) >= 2 and seq_ratio >= 0.55:
@@ -447,95 +482,181 @@ async def search(showname, date, season, episode, MFP, client):
                 title_ok = True
             elif seq_ratio >= 0.85 and has_first:
                 title_ok = True
+        strict_ok = False
+        if len(imdb_tokens) > 1:
+            if post_tokens == imdb_tokens or norm_post_title == imdb_norm_title:
+                strict_ok = True
+            else:
+                sym_diff = (post_tokens ^ imdb_tokens)
+                if len(sym_diff) == 1:
+                    strict_ok = True
+        if strict_ok and len(post_tokens) == len(imdb_tokens) and len(post_tokens & imdb_tokens) == len(imdb_tokens) - 1:
+            strict_ok = False
+        fallback_ok = title_ok
+        posts_data.append({
+            'id': i['id'],
+            'title': post_title,
+            'description': description,
+            'norm_title': norm_post_title,
+            'tokens': post_tokens,
+            'overlap': inter,
+            'ratio_token': token_match_ratio,
+            'ratio_seq': seq_ratio,
+            'strict_ok': strict_ok,
+            'fallback_ok': fallback_ok,
+            'year': year
+        })
         cand_entry = {
             'post_id': i['id'],
             'title': post_title,
             'ratio_token': round(token_match_ratio,2),
             'ratio_seq': round(seq_ratio,2),
-            'overlap': sorted(list(inter))
+            'overlap': sorted(list(inter)),
+            'strict_ok': strict_ok,
+            'fallback_ok': fallback_ok
         }
         debug['candidates'].append(cand_entry)
-        if title_ok:
-            matched_any_title = True
-            cand_entry['accepted'] = True
-            debug['matched'].append({
-                'post_id': i['id'],
-                'title': post_title,
-                'tokens': sorted(list(post_tokens)),
-                'overlap': sorted(list(inter)),
-                'ratio_token': round(token_match_ratio,2),
-                'ratio_seq': round(seq_ratio,2)
-            })
-        else:
-            debug['rejected'].append({
-                'post_id': i['id'],
-                'title': post_title,
-                'overlap': sorted(list(inter)),
-                'ratio_token': round(token_match_ratio,2),
-                'ratio_seq': round(seq_ratio,2),
-                'reason': 'title_mismatch'
-            })
         year_pattern = re.compile(r'(?<!/)(19|20)\d{2}(?!/)')
-        match = year_pattern.search(description)
-        year = None
-        if match:
-            year = match.group(0)
-        if not year:
+        match_year = year_pattern.search(description)
+        if match_year:
+            posts_data[-1]['year'] = match_year.group(0)
+        if not posts_data[-1]['year']:
             pattern = r'<a\s+href="([^"]+)"[^>]*>Continua a leggere</a>'
-            match = re.search(pattern, description)
-            if match:
-                href_value = match.group(1)
+            match_more = re.search(pattern, description)
+            if match_more:
+                href_value = match_more.group(1)
                 try:
                     response_2 = await client.get(ForwardProxy + href_value, proxies=proxies, headers=headers)
                     match2 = year_pattern.search(response_2.text)
                     if match2:
-                        year = match2.group(0)
+                        posts_data[-1]['year'] = match2.group(0)
                 except Exception:
                     pass
-        log('search: post', i['id'], 'post_title=', norm_post_title, 'year', year, 'token_ratio', f"{token_match_ratio:.2f}")
-        # Acceptance logic:
-        # 1. If year matches AND title_ok
-        # 2. If year missing, require title_ok
-        # 3. If date==0 (unknown imdb year), allow title_ok
-        if not title_ok:
-            continue  # skip year logic/episode scan
-        if year and str(year) != str(date) and date != 0:
-            # reject mismatched year when both present
+        log('search: post', i['id'], 'post_title=', norm_post_title, 'token_ratio', f"{token_match_ratio:.2f}")
+
+    # Phase 0: exact normalized title matches (full string equality) - highest priority
+    exact_matches = [p for p in posts_data if p['norm_title'] == imdb_norm_title]
+    chosen = []
+    if exact_matches:
+        debug['phase'] = 'exact'
+        chosen = exact_matches
+    else:
+        # Decide phase: prefer strict matches (token set equality or near) if any
+        strict_matches = [p for p in posts_data if p['strict_ok']]
+        if strict_matches:
+            debug['phase'] = 'strict'
+            chosen = strict_matches
+        else:
+            # fallback phase
+            debug['phase'] = 'fallback'
+            for p in posts_data:
+                if not p['fallback_ok']:
+                    continue
+                # Levenshtein-based single-token substitution penalty
+                if len(imdb_tokens) > 1 and len(p['tokens']) == len(imdb_tokens) and len(p['tokens'] & imdb_tokens) == len(imdb_tokens)-1:
+                    diff_tokens = list(p['tokens'] ^ imdb_tokens)
+                    if len(diff_tokens) == 2:
+                        dist = _levenshtein(diff_tokens[0], diff_tokens[1])
+                        if dist > 1:  # allow only typo-level (distance 1) differences
+                            debug['rejected'].append({
+                                'post_id': p['id'],
+                                'title': p['title'],
+                                'reason': f'replacement_distance({dist})',
+                                'ratio_token': round(p['ratio_token'],2),
+                                'ratio_seq': round(p['ratio_seq'],2),
+                                'overlap': sorted(list(p['overlap']))
+                            })
+                            continue
+                chosen.append(p)
+
+    # Populate matched / rejected debug lists
+    for p in posts_data:
+        if p in chosen:
+            matched_any_title = True
+            debug['matched'].append({
+                'post_id': p['id'],
+                'title': p['title'],
+                'tokens': sorted(list(p['tokens'])),
+                'overlap': sorted(list(p['overlap'])),
+                'ratio_token': round(p['ratio_token'],2),
+                'ratio_seq': round(p['ratio_seq'],2),
+                'phase': debug['phase']
+            })
+        else:
+            # Avoid double-adding entries already in rejected (like explicit substitution conflict)
+            already = any(r.get('post_id') == p['id'] for r in debug['rejected'])
+            if not already:
+                rej_reason = 'title_mismatch'
+                if len(imdb_tokens) == 1 and len(p['overlap']) == 1:
+                    rej_reason = f'single_token_low_seq({p['ratio_seq']:.2f})'
+                # Extra context: if near substitution with distance <=1 but still not chosen (e.g. year mismatch later), tag
+                if len(imdb_tokens) > 1 and len(p['tokens']) == len(imdb_tokens) and len(p['tokens'] & imdb_tokens) == len(imdb_tokens)-1:
+                    diff_tokens = list(p['tokens'] ^ imdb_tokens)
+                    if len(diff_tokens) == 2:
+                        dist = _levenshtein(diff_tokens[0], diff_tokens[1])
+                        rej_reason += f'_replacement_dist({dist})'
+                debug['rejected'].append({
+                    'post_id': p['id'],
+                    'title': p['title'],
+                    'overlap': sorted(list(p['overlap'])),
+                    'ratio_token': round(p['ratio_token'],2),
+                    'ratio_seq': round(p['ratio_seq'],2),
+                    'reason': rej_reason
+                })
+
+    if not chosen:
+        return None, 'no_title_match', debug
+
+    # Now attempt episode extraction over chosen posts
+    ep_str = str(episode).zfill(2)
+    # Episode line patterns: include multiple variants (HTML entity ×, plain x, unicode ×, padded/unpadded, optional spaces)
+    # Examples we want to catch: 1×01, 1x01, 1x1, 1 × 01, S01E01, S1E1, 1&#215;01
+    patterns = [
+        # HTML entity multiplication sign with padded episode
+        rf'{season}&#215;{ep_str}\s*(.*?)(?=<br\s*/?>)',
+        # HTML entity with unpadded episode
+        rf'{season}&#215;{int(episode)}\s*(.*?)(?=<br\s*/?>)',
+        # Plain/Unicode x with padded ep (no spaces)
+        rf'{season}[xX×]{ep_str}\s*(.*?)(?=<br\s*/?>)',
+        # Plain/Unicode x with unpadded ep
+        rf'{season}[xX×]{int(episode)}\s*(.*?)(?=<br\s*/?>)',
+        # Allow optional spaces around x and optional zero padding on episode
+        rf'{season}\s*[xX×]\s*0?{int(episode)}\s*(.*?)(?=<br\s*/?>)',
+        # SxxExx padded
+        rf'S{int(season):02d}E{ep_str}\s*(.*?)(?=<br\s*/?>)',
+        # SxEx (un/padded)
+        rf'S{int(season)}E0?{int(episode)}\s*(.*?)(?=<br\s*/?>)',
+    ]
+    for p in chosen:
+        # Year check per post
+        if p['year'] and str(p['year']) != str(date) and date != 0:
             continue
-        ep_str = str(episode).zfill(2)
-        # Accept also variations: × entity, literal x, uppercase X, S01E02 style fallback
-        patterns = [
-            rf'{season}&#215;{ep_str}\s*(.*?)(?=<br\s*/?>)',
-            rf'{season}[xX×]{ep_str}\s*(.*?)(?=<br\s*/?>)',
-            rf'S{int(season):02d}E{ep_str}\s*(.*?)(?=<br\s*/?>)'
-        ]
+        description = p['description']
         matches = []
         for pat in patterns:
             m = re.findall(pat, description)
             if m:
                 matches = m
                 break
+        if not matches:
+            continue
         urls = {}
-        if matches:
-            log('search: episode rows found', len(matches))
-            for episode_details in matches:
-                if 'href' in episode_details:
-                    part = episode_details
-                    if ' – ' in part:
-                        part = part.split(' – ', 1)[1]
-                    full_url, name = await scraping_links(part, MFP, client)
-                    if full_url:
-                        urls[full_url] = name
-            if urls:
-                log('search: urls collected', len(urls))
-                return urls, None, debug
-        else:
-            log('search: no episode row pattern for this accepted post')
-    if not matched_any_title:
-        reason = 'no_title_match'
-    else:
-        reason = 'no_episode_match'
-    return None, reason, debug
+        log('search: episode rows found (post', p['id'], ')', len(matches))
+        for episode_details in matches:
+            if 'href' in episode_details:
+                part = episode_details
+                if ' – ' in part:
+                    part = part.split(' – ', 1)[1]
+                full_url, name = await scraping_links(part, MFP, client)
+                if full_url:
+                    urls[full_url] = name
+        if urls:
+            log('search: urls collected', len(urls))
+            # Remember match ratio for downstream (percentage display)
+            debug['used_match_ratio_seq'] = round(p['ratio_seq'],4)
+            return urls, None, debug
+
+    return None, 'no_episode_match', debug
 
 async def eurostreaming(id_value, client, MFP):
     debug: Dict[str, object] = {}
@@ -644,6 +765,12 @@ if __name__ == "__main__":
                 urls, reason, debug = (res, None, {})
             streams = []
             if isinstance(urls, dict):
+                match_pct = None
+                if isinstance(debug, dict) and debug.get('used_match_ratio_seq') is not None:
+                    try:
+                        match_pct = int(round(float(debug['used_match_ratio_seq']) * 100))
+                    except Exception:
+                        match_pct = None
                 for u, fname in urls.items():
                     if not u:
                         continue
@@ -656,7 +783,7 @@ if __name__ == "__main__":
                         if re.search(pat, low, re.I):
                             lang = 'sub'
                             break
-                    streams.append({ 'url': u, 'title': fn or None, 'player': 'deltabit', 'lang': lang })
+                    streams.append({ 'url': u, 'title': fn or None, 'player': 'Deltabit', 'lang': lang, 'match_pct': match_pct })
             out = { 'streams': streams }
             # Attach diagnostics to aid Node integration debugging
             out['diag'] = {
