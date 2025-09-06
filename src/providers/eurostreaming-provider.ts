@@ -4,7 +4,7 @@ import type { StreamForStremio } from '../types/animeunity';
 
 export interface EurostreamingConfig { enabled: boolean; mfpUrl?: string; mfpPassword?: string; tmdbApiKey?: string; }
 
-interface PyResult { streams?: Array<{ url: string; title?: string; player?: string; size?: string; res?: string; lang?: string }>; error?: string }
+interface PyResult { streams?: Array<{ url: string; title?: string; player?: string; size?: string; res?: string; lang?: string; match_pct?: number|null }>; error?: string }
 
 function runPythonEuro(argsObj: { imdb?: string; tmdb?: string; season?: number|null; episode?: number|null; mfp: boolean; isMovie: boolean; tmdbKey?: string }, timeoutMs = 35000): Promise<PyResult> {
   const script = path.join(__dirname, 'eurostreaming.py');
@@ -91,12 +91,12 @@ export class EurostreamingProvider {
       } else {
         if (!/\[ITA\]/i.test(line1)) line1 = line1.replace(/\s*\[(SUB )?ITA\]$/i,'').trim()+ ' • [ITA]';
       }
-      const segs: string[] = [];
-      if (s.size) segs.push(s.size);
-      if (s.res) segs.push(s.res.toLowerCase());
-      segs.push((s.player||'es').toLowerCase());
-      if (lang==='sub') segs.push('sub');
-      const title = `${line1}\n💾 ${segs.join(' • ')}`;
+      const langTag = lang === 'sub' ? '[SUB ITA]' : '[ITA]';
+      const pct = (typeof s.match_pct === 'number' && s.match_pct >=0) ? ` • (${s.match_pct}%)` : '';
+      // Second line format: [LANG] • Player • (percentuale)
+      const playerName = s.player ? s.player : 'Deltabit';
+      const second = `${langTag} • ${playerName}${pct}`;
+      const title = `${line1}\n${second}`;
       out.push({ url: s.url, title, behaviorHints: { notWebReady: true } });
     }
     return out;
