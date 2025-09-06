@@ -1,3 +1,7 @@
+//Adapted for use in Streamvix from:
+// Mammamia  in https://github.com/UrloMythus/MammaMia
+// 
+
 import { spawn } from 'child_process';
 import * as path from 'path';
 import { KitsuProvider } from './kitsu';
