@@ -3,7 +3,7 @@ version: "3.9"
 services:
   streamvix:
     container_name: streamvix
-    build: .
+    build: https://github.com/qwertyuiop8899/streamvix
     ports:
       - "8746:7860"
     restart: unless-stopped
