@@ -42,7 +42,10 @@ interface AddonConfig {
     eurostreamingEnabled?: boolean;
     disableLiveTv?: boolean;
     disableVixsrc?: boolean;
-    tvtapProxyEnabled?: boolean; // true = NO proxy (link diretto TvTap), false = usa proxy se disponibile
+    liveTvEnableDaddy?: boolean;
+    liveTvEnableVavooMfp?: boolean;
+    liveTvEnableVavooNoProxy?: boolean;
+    liveTvEnableTvTap?: boolean;
 }
 
 function debugLog(...args: any[]) {
@@ -539,15 +542,19 @@ const baseManifest: Manifest = {
         { key: "mediaFlowProxyUrl", title: "MediaFlow Proxy URL", type: "text" },
         { key: "mediaFlowProxyPassword", title: "MediaFlow Proxy Password", type: "text" },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
-    { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox" },
-    { key: "disableLiveTv", title: "Disable Live TV", type: "checkbox" },
-    { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
-    { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
+    { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox", default: true }, // Richiede MFP, quindi disabilitato di default
+    { key: "disableLiveTv", title: "Disable Live TV", type: "checkbox" }, // Invertito: ON di default
+    { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox", default: false }, // Richiede MFP
+    { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox", default: false }, // Richiede MFP
     { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
     { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
     { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
     { key: "eurostreamingEnabled", title: "Eurostreaming ES", type: "checkbox" },
-    { key: "tvtapProxyEnabled", title: "TvTap NO Proxy", type: "checkbox" },
+    // Opzioni Live TV raggruppate
+    { key: "liveTvEnableDaddy", title: "LiveTV: Abilita Daddy", type: "checkbox", default: false }, // Richiede MFP
+    { key: "liveTvEnableVavooMfp", title: "LiveTV: Abilita Vavoo (con MFP)", type: "checkbox", default: false }, // Richiede MFP
+    { key: "liveTvEnableVavooNoProxy", title: "LiveTV: Abilita Vavoo (senza Proxy)", type: "checkbox" },
+    { key: "liveTvEnableTvTap", title: "LiveTV: Abilita TvTap", type: "checkbox" },
     
     ]
 };
@@ -1640,7 +1647,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 let mfpUrl = mfpUrlRaw ? normalizeProxyUrl(mfpUrlRaw) : '';
                 let mfpPsw = mfpPswRaw;
                 debugLog(`[MFP] Using url=${mfpUrl ? 'SET' : 'MISSING'} pass=${mfpPsw ? 'SET' : 'MISSING'}`);
-
+                // Flags per le fonti Live TV dalla configurazione
+                const daddyEnabled = config.liveTvEnableDaddy !== false; // Abilitato di default
+                const vavooMfpEnabled = config.liveTvEnableVavooMfp !== false; // Abilitato di default
+                const vavooNoProxyEnabled = config.liveTvEnableVavooNoProxy !== false; // Abilitato di default
+                const tvTapEnabled = config.liveTvEnableTvTap !== false; // Abilitato di default
                 // === LOGICA TV ===
                 if (type === "tv") {
                     // Runtime disable live TV
@@ -1705,7 +1716,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     debugLog(`Config DEBUG - mediaFlowProxyUrl: ${config.mediaFlowProxyUrl}`);
                     debugLog(`Config DEBUG - mediaFlowProxyPassword: ${config.mediaFlowProxyPassword ? '***' : 'NOT SET'}`);
                     
-                    let streams: { url: string; title: string }[] = [];
+                    let streams: { url: string; title: string; behaviorHints?: any }[] = [];
                     const vavooCleanPromises: Promise<void>[] = [];
                     // Collect clean Vavoo results per variant index to prepend in order later
                     const vavooCleanPrepend: Array<{ url: string; title: string } | undefined> = [];
@@ -2056,7 +2067,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     
                     // staticUrlD
-                    if ((channel as any).staticUrlD) {
+                    if ((channel as any).staticUrlD && daddyEnabled) {
                         if (mfpUrl && mfpPsw) {
                             // Nuova logica: chiama extractor/video con redirect_stream=false, poi costruisci il link proxy/hls/manifest.m3u8
                             const daddyApiBase = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
@@ -2109,7 +2120,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
                     // Vavoo
-                    if (!dynamicHandled && (channel as any).name) {
+                    if (!dynamicHandled && (channel as any).name && (vavooMfpEnabled || vavooNoProxyEnabled)) {
                         // DEBUG LOGS
                         console.log('🔧 [VAVOO] DEBUG - channel.name:', (channel as any).name);
                         const baseName = (channel as any).name.replace(/\s*(\(\d+\)|\d+)$/, '').trim();
@@ -2162,16 +2173,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             if (foundVavooLinks.length > 0) {
                             foundVavooLinks.forEach(({ url, key }, idx) => {
                                 const streamTitle = `[✌️ V-${idx + 1}] ${channel.name} [ITA]`;
-                                if (mfpUrl && mfpPsw) {
+                                // Aggiungi stream con proxy solo se abilitato e configurato
+                                if (vavooMfpEnabled && mfpUrl && mfpPsw) {
                                     const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
-                                    streams.push({
-                                        title: streamTitle,
-                                        url: vavooProxyUrl
-                                    });
-                                } else {
+                                    streams.push({ title: streamTitle, url: vavooProxyUrl });
+                                } else if (vavooMfpEnabled && !(mfpUrl && mfpPsw)) { // Mostra che il proxy manca se l'opzione è attiva ma MFP non è settato
                                     streams.push({
                                         title: `[❌Proxy]${streamTitle}`,
-                                        url
+                                        url,
+                                        behaviorHints: { notWebReady: true } as any
                                     });
                                 }
                 vavooFoundUrls.push(url);
@@ -2179,7 +2189,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const reqObj: any = (global as any).lastExpressRequest;
                                 const clientIp = getClientIpFromReq(reqObj);
                                 vavooCleanPromises.push((async () => {
-                                    vdbg('Variant clean resolve attempt', { index: idx + 1, url: url.substring(0, 140) });
+                                    if (!vavooNoProxyEnabled) return; // Salta se disabilitato
                                     try {
                                         const clean = await resolveVavooCleanUrl(url, clientIp);
                                         if (clean && clean.url) {
@@ -2200,16 +2210,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const links = Array.isArray(exact) ? exact : [exact];
                                 links.forEach((url, idx) => {
                                     const streamTitle = `[✌️ V-${idx + 1}] ${channel.name} [ITA]`;
-                                    if (mfpUrl && mfpPsw) {
-                                        const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
-                                        streams.push({
-                                            title: streamTitle,
-                                            url: vavooProxyUrl
+                                    if (vavooMfpEnabled && mfpUrl && mfpPsw) {
+                                        const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`; streams.push({
+                                            title: streamTitle, url: vavooProxyUrl
                                         });
-                                    } else {
+                                    } else if (vavooMfpEnabled && !(mfpUrl && mfpPsw)) {
                                         streams.push({
                                             title: `[❌Proxy]${streamTitle}`,
-                                            url
+                                            url,
+                                            behaviorHints: { notWebReady: true } as any
                                         });
                                     }
                                     vavooFoundUrls.push(url);
@@ -2217,7 +2226,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     const reqObj: any = (global as any).lastExpressRequest;
                                     const clientIp = getClientIpFromReq(reqObj);
                                     vavooCleanPromises.push((async () => {
-                                        vdbg('Variant clean resolve attempt', { index: idx + 1, url: url.substring(0, 140) });
+                                        if (!vavooNoProxyEnabled) return; // Salta se disabilitato
                                         try {
                                             const clean = await resolveVavooCleanUrl(url, clientIp);
                                             if (clean && clean.url) {
@@ -2270,12 +2279,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     // --- TVTAP: cerca usando vavooNames ---
                     const vavooNamesArr = (channel as any).vavooNames || [channel.name];
-                    console.log(`[TVTap] Cerco canale con vavooNames:`, vavooNamesArr);
-                    // tvtapProxyEnabled: TRUE = NO PROXY (mostra 🔓), FALSE = usa proxy se possibile
-                    const tvtapNoProxy = !!config.tvtapProxyEnabled;
+                    if (tvTapEnabled) { console.log(`[TVTap] Cerco canale con vavooNames:`, vavooNamesArr); }
                     
                     // Prova ogni nome nei vavooNames
-                    for (const vavooName of vavooNamesArr) {
+                    if (tvTapEnabled) for (const vavooName of vavooNamesArr) {
                         try {
                             console.log(`[TVTap] Provo con nome: ${vavooName}`);
                             
@@ -2324,21 +2331,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             
                             if (tvtapUrl) {
                                 const baseTitle = `[📺 TvTap SD] ${channel.name} [ITA]`;
-                                if (tvtapNoProxy || !(mfpUrl && mfpPsw)) {
-                                    // NO Proxy mode scelto (checkbox ON) oppure mancano credenziali -> link diretto con icona 🔓 senza [❌Proxy]
-                                    streams.push({
-                                        title: `🔓 ${baseTitle}`,
-                                        url: tvtapUrl
-                                    });
-                                    console.log(`[TVTap] DIRECT (NO PROXY mode=${tvtapNoProxy}) per ${channel.name} tramite ${vavooName}`);
-                                } else {
-                                    // Checkbox OFF e credenziali presenti -> usa proxy
+                                // TvTap è sempre senza proxy (link diretto)
+                                streams.push({
+                                    title: `🔓 ${baseTitle}`,
+                                    url: tvtapUrl
+                                });
+                                console.log(`[TVTap] DIRECT stream per ${channel.name} tramite ${vavooName}`);
+                                // Se il proxy è configurato, offri anche la versione con proxy
+                                if (mfpUrl && mfpPsw) {
                                     const tvtapProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(tvtapUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                     streams.push({
                                         title: baseTitle,
                                         url: tvtapProxyUrl
                                     });
-                                    console.log(`[TVTap] PROXY stream per ${channel.name} tramite ${vavooName}`);
                                 }
                                 break; // Esci dal loop se trovi un risultato
                             }
@@ -2347,7 +2352,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
                     
-                    if (streams.length === 0) {
+                    if (tvTapEnabled && streams.length === 0) {
                         console.log(`[TVTap] RISULTATO: nessun stream trovato per ${channel.name}`);
                     }
 

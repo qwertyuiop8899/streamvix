@@ -131,7 +131,11 @@ button:active {
 .toggle-on { color: #888; }
 .toggle-row.is-on .toggle-on { color: #00c16e; }
 .toggle-row:not(.is-on) .toggle-off { color: #ff3b3b; }
-
+.toggle-row.is-disabled {
+	opacity: 0.5;
+	pointer-events: none;
+}
+	
 /* Switch */
 .switch {
 	position: relative;
@@ -166,6 +170,21 @@ button:active {
 	box-shadow: 0 0 14px rgba(140, 82, 255, 0.9); /* stronger glow */
 }
 .switch input:checked + .slider:before { transform: translateX(32px); }
+
+/* Stili per la sottosezione LiveTV */
+.livetv-subsection {
+	padding-left: 2rem;
+	margin-top: -0.5rem;
+	margin-bottom: 0.5rem;
+	border-left: 3px solid rgba(140, 82, 255, 0.3);
+	max-height: 0;
+	overflow: hidden;
+	transition: max-height 0.4s ease-out, padding-top 0.4s ease-out, margin-top 0.4s ease-out;
+}
+.livetv-subsection.is-open {
+	max-height: 500px; /* Abbastanza grande da contenere le opzioni */
+	transition: max-height 0.5s ease-in;
+}
 
 #addon {
 	/* Make the main container responsive and single-column */
@@ -287,15 +306,18 @@ function landingTemplate(manifest: any) {
 				} else if (elem.type === 'checkbox') {
 					// Custom pretty toggle for known keys
 					const toggleMap: any = {
-						'disableVixsrc': { title: 'VixSrc 🍿', invert: true },
-						'disableLiveTv': { title: 'LiveTV 📺', invert: true },
-						'animeunityEnabled': { title: 'Anime Unity ⛩️', invert: false },
-						'animesaturnEnabled': { title: 'Anime Saturn 🪐', invert: false },
+						'disableVixsrc': { title: 'VixSrc 🍿 - 🔒', invert: true },
+						'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔒', invert: false },
+						'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔒', invert: false },
 						'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
 						'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
 						'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
 						'eurostreamingEnabled': { title: 'Eurostreaming ES ▶️ - 🔓', invert: false },
-						'tvtapProxyEnabled': { title: 'TvTap NO Proxy 🔓', invert: false },
+						'disableLiveTv': { title: 'LiveTV 📺', invert: true },
+						'liveTvEnableDaddy': { title: 'LiveTV: Daddy  - 🔒', invert: false },
+						'liveTvEnableVavooMfp': { title: 'LiveTV: Vavoo (MFP) 📺 - 🔒', invert: false },
+						'liveTvEnableVavooNoProxy': { title: 'LiveTV: Vavoo (No Proxy) 🔓', invert: false },
+						'liveTvEnableTvTap': { title: 'LiveTV: TvTap 🌍 - 🔓', invert: false },
 					}
 					if (toggleMap[key]) {
 						const t = toggleMap[key];
@@ -396,6 +418,71 @@ function landingTemplate(manifest: any) {
 						var input = row.querySelector('input[type="checkbox"]');
 						if (input) input.addEventListener('change', function(){ setRowState(row); });
 					});
+
+				// Logica per la sottosezione LiveTV
+				var mainLiveTvToggle = document.getElementById('disableLiveTv');
+				if (mainLiveTvToggle) {
+					var subOptions = ['liveTvEnableDaddy', 'liveTvEnableVavooMfp', 'liveTvEnableVavooNoProxy', 'liveTvEnableTvTap'];
+					var subSectionContainer = document.createElement('div');
+					subSectionContainer.className = 'livetv-subsection';
+					
+					subOptions.forEach(function(subKey) {
+						var row = document.querySelector('[data-toggle-row="' + subKey + '"]');
+						if (row && row.parentElement) {
+							subSectionContainer.appendChild(row.parentElement);
+						}
+					});
+					
+					var mainRow = document.querySelector('[data-toggle-row="disableLiveTv"]');
+					if (mainRow && mainRow.parentElement) {
+						mainRow.parentElement.insertAdjacentElement('afterend', subSectionContainer);
+					}
+
+					var toggleSubSection = function() {
+						var isLiveTvOn = mainLiveTvToggle.checked; // Ricorda che è invertito
+						subSectionContainer.classList.toggle('is-open', isLiveTvOn);
+					};
+					mainLiveTvToggle.addEventListener('change', toggleSubSection);
+					toggleSubSection(); // Imposta lo stato iniziale
+				}
+
+				// Logica per abilitare/disabilitare opzioni basate su MFP
+				var mfpUrlInput = document.getElementById('mediaFlowProxyUrl');
+				var mfpPassInput = document.getElementById('mediaFlowProxyPassword');
+				var mfpDependentKeys = ['disableVixsrc', 'animeunityEnabled', 'animesaturnEnabled', 'liveTvEnableDaddy', 'liveTvEnableVavooMfp'];
+
+				var checkMfpAndToggleOptions = function() {
+					var mfpUrl = mfpUrlInput ? mfpUrlInput.value.trim() : '';
+					var mfpPass = mfpPassInput ? mfpPassInput.value.trim() : '';
+					var mfpIsConfigured = mfpUrl !== '' && mfpPass !== '';
+
+					mfpDependentKeys.forEach(function(key) {
+						var row = document.querySelector('[data-toggle-row="' + key + '"]');
+						var input = document.getElementById(key);
+						if (!row || !input) return;
+
+						if (mfpIsConfigured) {
+							row.classList.remove('is-disabled');
+							// Se era spento, accendilo automaticamente la prima volta che si configurano le credenziali
+							if (!input.checked) {
+								input.checked = true;
+								// Aggiorna lo stato visuale e il link del manifest
+								setRowState(row);
+								if (window.updateLink) window.updateLink();
+							}
+						} else {
+							row.classList.add('is-disabled');
+							input.checked = false;
+							setRowState(row);
+						}
+					});
+				};
+
+				if (mfpUrlInput && mfpPassInput) {
+					mfpUrlInput.addEventListener('input', checkMfpAndToggleOptions);
+					mfpPassInput.addEventListener('input', checkMfpAndToggleOptions);
+					checkMfpAndToggleOptions(); // Controlla lo stato iniziale al caricamento della pagina
+				}
 
 				// expose globally for bottom script
 					window.updateLink = updateLink;
@@ -554,6 +641,13 @@ function landingTemplate(manifest: any) {
 
 			<div class="separator"></div>
 
+			<!-- Legenda Icone -->
+			<div style="text-align: center; margin-bottom: 2vh; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 8px;">
+				<p style="font-size: 1rem; margin: 0.2rem 0;">Legenda: </p>
+				<p style="font-size: 0.9rem; margin: 0.2rem 0;">🔓 = Utilizzabile senza MediaFlow Proxy (MFP)</p>
+				<p style="font-size: 0.9rem; margin: 0.2rem 0;">🔒 = Richiede MediaFlow Proxy (MFP)</p>
+			</div>
+
 			${formHTML}
 
 			<div class="actions-row">
@@ -581,4 +675,3 @@ function landingTemplate(manifest: any) {
 }
 
 export { landingTemplate };
-
