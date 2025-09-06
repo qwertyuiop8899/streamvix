@@ -1,7 +1,7 @@
 //# thanks to @urlomythus for the code
 //#Adapted for use in Streamvix from:
 //# Mammamia  in https://github.com/UrloMythus/MammaMia
-//# 
+//# thanks to @webstreamr for the code Mammamia  in https://github.com/webstreamr/webstreamr
 
 /** GuardaHD Provider (raw HLS, no proxy) - single clean implementation */
 import type { StreamForStremio } from '../types/animeunity';
