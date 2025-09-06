@@ -1,8 +1,5 @@
-//Adapted for use in Streamvix from:
-// Mammamia  in https://github.com/UrloMythus/MammaMia
-// 
-
 import { spawn } from 'child_process';
+import { spawnSync } from 'child_process';
 import * as path from 'path';
 import { KitsuProvider } from './kitsu';
 import { formatMediaFlowUrl } from '../utils/mediaflow';
@@ -183,36 +180,162 @@ export class AnimeWorldProvider {
   private kitsuProvider = new KitsuProvider();
   constructor(private config: AnimeWorldConfig) {}
 
+  private playLangCache = new Map<string,'ITA'|'SUB ITA'>();
+  private playLangSubChecked = new Set<string>();
+  private async inferLanguageFromPlayPage(slug: string): Promise<'ITA' | 'SUB ITA'> {
+    const cacheKey = slug;
+    if (this.playLangCache.has(cacheKey)) {
+      const cached = this.playLangCache.get(cacheKey)!;
+      // If cached ITA, return immediately. If SUB ITA and not yet rechecked, fall through to re-fetch to allow upgrade.
+      if (cached === 'ITA') return cached;
+      if (cached === 'SUB ITA' && this.playLangSubChecked.has(cacheKey)) return cached;
+      if (cached === 'SUB ITA' && !this.playLangSubChecked.has(cacheKey)) {
+        // mark so that only one recheck happens
+        this.playLangSubChecked.add(cacheKey);
+        console.log('[AnimeWorld][LangProbe] Rechecking SUB ITA cached slug for possible DUB upgrade:', slug);
+      }
+    }
+    const urls = [
+      `https://www.animeworld.ac/play/${slug}`,
+      `https://www.animeworld.so/play/${slug}`
+    ];
+    for (const url of urls) {
+      try {
+        const headerVariants: Record<string,string>[] = [
+          { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36', 'Accept-Language':'it-IT,it;q=0.9,en;q=0.6', 'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' },
+          { 'User-Agent': 'Mozilla/5.0 AWLangProbe', 'Accept-Language':'it-IT,it;q=0.9,en;q=0.6' }
+        ];
+        let html: string | null = null;
+        let lastStatus: number | null = null;
+        for (const headers of headerVariants) {
+          const r = await fetch(url, { headers });
+            lastStatus = r.status;
+            if (!r.ok) {
+              console.log(`[AnimeWorld][LangProbe] ${slug} status=${r.status} ua=${headers['User-Agent'].slice(0,40)}`);
+              continue;
+            }
+            html = await r.text();
+            console.log(`[AnimeWorld][LangProbe] OK status=${r.status} for ${slug} using UA=${headers['User-Agent'].slice(0,40)}`);
+            break;
+        }
+        if (!html) {
+          console.log('[AnimeWorld][LangProbe] Failed all header variants for', slug, 'lastStatus=', lastStatus, '-> trying curl fallback');
+          try {
+            const curl = spawnSync('curl', ['-L','-s','-A','Mozilla/5.0 (Windows NT 10.0; Win64; x64)','-H','Accept-Language: it-IT,it;q=0.9,en;q=0.6', url], { timeout: 8000 });
+            if (curl.status === 0 && curl.stdout) {
+              html = curl.stdout.toString();
+              console.log('[AnimeWorld][LangProbe] curl fallback OK for', slug, 'size=', html.length);
+            } else {
+              console.log('[AnimeWorld][LangProbe] curl fallback failed code=', curl.status, 'signal=', curl.signal);
+            }
+          } catch (e) {
+            console.log('[AnimeWorld][LangProbe] curl fallback exception', e);
+          }
+          if (!html) continue;
+        }
+        // Expanded DUB detection heuristics:
+        // 1. Any element with class containing 'dub'
+        // 2. Any standalone >DUB< text node
+        // 3. Common Italian words for dubbed ("doppi", "doppiato") near language badge
+        // 4. Data-attributes that contain 'dub'
+        const lower = html.toLowerCase();
+        let isDub = false;
+  if (/class=["'][^"']*\bdub\b[^"']*["']/i.test(html)) isDub = true;
+        else if (/>\s*dub\s*</i.test(html)) isDub = true;
+        else if (/doppiat[oa]|doppi\b/.test(lower)) isDub = true;
+        else if (/data-[a-z-]*="[^"]*dub[^"]*"/i.test(html)) isDub = true;
+  else if (/window\.animeDub\s*=\s*true/i.test(html)) isDub = true;
+        // Additional fallback: if NO 'sub' marker anywhere but we have an element referencing dub
+        if (!isDub && /fullmetal-alchemist-brotherhood/i.test(slug)) {
+          // Brotherhood specific debug: log first 400 chars around potential badge hints
+          const badgeIdx = lower.indexOf('dub');
+          if (badgeIdx !== -1) {
+            const snippet = lower.substring(Math.max(0, badgeIdx - 200), badgeIdx + 200);
+            console.log('[AnimeWorld][LangProbe][DEBUG] DUB snippet candidate:', snippet);
+          } else {
+            console.log('[AnimeWorld][LangProbe][DEBUG] No direct "dub" string found for', slug);
+          }
+        }
+        if (isDub) {
+          console.log('[AnimeWorld][LangProbe] Detected DUB badge -> ITA for', slug);
+          this.playLangCache.set(cacheKey, 'ITA');
+          return 'ITA';
+        }
+        // If we reached page successfully but no dub marker -> SUB ITA
+        this.playLangCache.set(cacheKey, 'SUB ITA');
+        return 'SUB ITA';
+      } catch { /* try next */ }
+    }
+    // Fallback assume SUB ITA
+    this.playLangCache.set(cacheKey, 'SUB ITA');
+    return 'SUB ITA';
+  }
+
   async searchAllVersions(title: string): Promise<AnimeWorldResult[]> {
     try {
       const raw: AnimeWorldResult[] = await invokePython(['search','--query', title]);
       if (!raw) return [];
-      // Infer language_type similar to AnimeUnity/AnimeSaturn conventions
-        const normSlugKey = title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-        const mapped = raw.map(r => {
-          const name = r.name ? r.name.toLowerCase() : '';
-          const slug = r.slug ? r.slug.toLowerCase() : '';
-          let language_type = 'ORIGINAL';
-          const isSubIta = name.includes('subita') || slug.includes('subita') || /sub[-_\s]?ita/.test(name) || /sub[-_\s]?ita/.test(slug);
-          const isCrIta = /ita[-_]?cr/.test(name) || /ita[-_]?cr/.test(slug) || /cr[-_]?ita/.test(name) || /cr[-_]?ita/.test(slug);
-          if (isSubIta) {
-            language_type = 'SUB ITA';
-          } else if (isCrIta) {
-            language_type = 'CR ITA';
-          } else if (/(^|[-_\s])ita($|[-_\s])/i.test(name) || /(^|[-_\s])ita($|[-_\s])/i.test(slug) || name.endsWith('-ita') || slug.endsWith('-ita') || (name.includes('ita') || slug.includes('ita'))) {
-            language_type = 'ITA';
-          } else {
-            // Heuristic: lo slug "base" (senza suffissi tipo -ita) è la versione SUB ITA del sito
-            const basePart = (slug || name).split('.')[0];
-            const cleaned = basePart.replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-            if (cleaned === normSlugKey) {
-              language_type = 'SUB ITA';
-            }
-          }
-          return { ...r, language_type };
+      const normSlugKey = title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+      const ALWAYS_ITA_SLUGS = new Set<string>([
+        'detective-conan.3yRqx'.toLowerCase()
+      ]);
+      const mapped = await Promise.all(raw.map(async r => {
+        const nameRaw = r.name || '';
+        const slugRaw = r.slug || '';
+        const name = nameRaw.toLowerCase();
+        const slug = slugRaw.toLowerCase();
+        let language_type: 'ORIGINAL' | 'SUB ITA' | 'CR ITA' | 'ITA' = 'ORIGINAL';
+        const nameHasSub = name.includes('subita') || /sub[-_\s]?ita/.test(name);
+        const slugHasSub = slug.includes('subita') || /sub[-_\s]?ita/.test(slug);
+        const isCrIta = /ita[-_]?cr/.test(name) || /ita[-_]?cr/.test(slug) || /cr[-_]?ita/.test(name) || /cr[-_]?ita/.test(slug);
+        const hasIta = /(^|[-_\s])ita($|[-_\s])/i.test(name) || /(^|[-_\s])ita($|[-_\s])/i.test(slug) || name.endsWith('-ita') || slug.endsWith('-ita') || (name.includes('ita') || slug.includes('ita'));
+        const basePart = (slug || name).split('.')[0];
+        const cleaned = basePart.replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  const baseMatch = cleaned === normSlugKey;
+  const hasDubName = /(^|\b)DUB(\b|$)/i.test(nameRaw.trim());
+        const onlyNameSaysSub = nameHasSub && !slugHasSub;
+        // Decision tree
+        if (slugHasSub) {
+          language_type = 'SUB ITA';
+        } else if (isCrIta) {
+          language_type = 'CR ITA';
+        } else if (hasIta) {
+          language_type = 'ITA';
+        } else if (hasDubName) {
+          // If the site label already shows DUB (and slug no sub marker), treat as ITA without probe
+          language_type = 'ITA';
+        } else if (onlyNameSaysSub) {
+          // Suspicious: title text has SUB but slug no -> probe
+          console.log('[AnimeWorld][LangMap] onlyNameSaysSub -> probing page for real lang', slugRaw);
+          language_type = await this.inferLanguageFromPlayPage(slugRaw);
+        } else if (baseMatch) {
+          console.log('[AnimeWorld][LangMap] Base slug match (no sub marker) -> probing', slugRaw);
+          language_type = await this.inferLanguageFromPlayPage(slugRaw);
+        }
+        // Brotherhood forced probe if still SUB ITA without slug marker
+        if (language_type === 'SUB ITA' && /fullmetal-alchemist-brotherhood/i.test(slugRaw) && !slugHasSub) {
+          console.log('[AnimeWorld][LangMap] Brotherhood still SUB ITA (no slug marker) -> force re-probe', slugRaw);
+          const forced = await this.inferLanguageFromPlayPage(slugRaw);
+            if (forced === 'ITA') language_type = 'ITA';
+        }
+        if (ALWAYS_ITA_SLUGS.has(slug)) {
+          language_type = 'ITA';
+        }
+        console.log('[AnimeWorld][LangMap][Decision]', {
+          slug: slugRaw,
+          name: nameRaw,
+          baseMatch,
+          nameHasSub,
+          slugHasSub,
+          onlyNameSaysSub,
+          hasIta,
+          isCrIta,
+          final: language_type
         });
-        console.log('[AnimeWorld] search versions sample:', mapped.slice(0,12).map(v => `${v.language_type}:${v.slug}`).join(', '));
-        return mapped;
+        return { ...r, language_type };
+      }));
+      console.log('[AnimeWorld] search versions sample:', mapped.slice(0,12).map(v => `${v.language_type}:${v.slug}`).join(', '));
+      return mapped;
     } catch (e) {
       console.error('[AnimeWorld] search error', e);
       return [];
