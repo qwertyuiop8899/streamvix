@@ -251,6 +251,9 @@ Usa questo metodo se vuoi modificare il codice sorgente, testare nuove funzional
     ```
 
 2.  **Installa le dipendenze:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 3.  
     ```bash
     pnpm install
@@ -294,6 +297,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
