@@ -7,9 +7,10 @@
 import type { StreamForStremio } from '../types/animeunity';
 import { getFullUrl } from '../utils/domains';
 import { extractFromUrl } from '../extractors';
+import * as cheerio from 'cheerio';
 
 // Removed showSizeInfo (always show size & resolution now)
-export interface GuardaHdConfig { enabled:boolean; tmdbApiKey?:string; baseUrl?:string; mfpUrl?:string; mfpPassword?:string; }
+export interface GuardaHdConfig { enabled:boolean; tmdbApiKey?:string; baseUrl?:string; mfpUrl?:string; mfpPassword?:string; fetcher?: any; ctx?: any; cfClearance?: string; }
 interface GHSearchResult { id:string; slug:string; title:string };
 interface GHEpisode { number:number; url:string };
 // Aliases used by the implementation (naming parity with earlier compressed version)
@@ -21,10 +22,30 @@ export class GuardaHdProvider {
   // Fallback mirror (richiesto: se 403 o errore su guardahd prova mostraguarda)
   private altBase = 'https://mostraguarda.stream';
   private hlsInfoCache = new Map<string, { res?: string; size?: string }>();
+  // Minimal in-memory cookie jar kept only for optional manual cf_clearance injection (when no external Fetcher).
+  private cookieStore: Record<string,string> = {};
 
   constructor(private config: GuardaHdConfig) {
     const dom = getFullUrl('guardahd');
     this.base = (config.baseUrl || dom || 'https://www.guardahd.example').replace(/\/$/, '');
+    // Seed manual cf_clearance if provided (for both primary and alt)
+    if (config.cfClearance) {
+      try {
+        const hostPrimary = new URL(this.base).host;
+        this.cookieStore[hostPrimary] = `cf_clearance=${config.cfClearance}`;
+      } catch {}
+      try {
+        const hostAlt = new URL(this.altBase).host;
+        this.cookieStore[hostAlt] = `cf_clearance=${config.cfClearance}`;
+      } catch {}
+    }
+  }
+
+  /** Allow runtime injection/update of cf_clearance cookie */
+  public setCfClearance(token: string) {
+    if (!token) return;
+    try { const hostPrimary = new URL(this.base).host; this.cookieStore[hostPrimary] = `cf_clearance=${token}`; } catch {}
+    try { const hostAlt = new URL(this.altBase).host; this.cookieStore[hostAlt] = `cf_clearance=${token}`; } catch {}
   }
 
   async handleImdbRequest(imdbId: string, season: number | null, episode: number | null, isMovie = false) {
@@ -169,18 +190,19 @@ export class GuardaHdProvider {
       const tmdbTitle = await this.resolveTitle('imdb', r.id, true).catch(()=>null);
       if (tmdbTitle) italianTitle = tmdbTitle;
     } catch {}
-  // Collect all embed links then drop mostraguarda unless it's the only host
+  // Collect all embed links (do NOT drop mostraguarda; will be de-prioritized later)
   let embedLinks = this.collectEmbedLinks(html);
-  const nonMostra = embedLinks.filter(l => !/mostraguarda\.stream/i.test(l));
-  if (nonMostra.length) embedLinks = nonMostra; // enforce "use mostraguarda only if nothing else"
     const seen = new Set<string>();
     const out: StreamForStremio[] = [];
-    for (const eurl of embedLinks) {
+  for (const eurl of embedLinks) {
       const { streams } = await extractFromUrl(eurl, { mfpUrl: this.config.mfpUrl, mfpPassword: this.config.mfpPassword, countryCode: 'IT', titleHint: italianTitle });
       for (const s of streams) {
         if (seen.has(s.url)) continue; seen.add(s.url);
         const parsed = this.parseSecondLineParts(s.title);
-        out.push({ ...s, title: this.formatStreamTitle(italianTitle, null, null, parsed.info, parsed.player) });
+    // Ensure player label for mostraguarda if not present
+    let player = parsed.player;
+    if (!player && /mostraguarda\.stream/i.test(eurl)) player = 'MostraGuarda';
+    out.push({ ...s, title: this.formatStreamTitle(italianTitle, null, null, parsed.info, player) });
       }
     }
     if (!out.length) {
@@ -192,7 +214,7 @@ export class GuardaHdProvider {
       }
     }
     // Ensure Mixdrop last ordering for consistency
-    const order: Record<string,number> = { supervideo:0, dropload:1, dood:2, mixdrop:99 };
+  const order: Record<string,number> = { supervideo:0, dropload:1, dood:2, doodstream:2, mostraguarda:95, mixdrop:99 };
     out.sort((a,b)=>{
       const pa = this.parseSecondLineParts(a.title).player?.toLowerCase() || '';
       const pb = this.parseSecondLineParts(b.title).player?.toLowerCase() || '';
@@ -204,18 +226,18 @@ export class GuardaHdProvider {
   private async fetchEpisodeStreams(r: GHDSearchResult, ep: GHDEpisode, season: number, episode: number): Promise<StreamForStremio[]> {
     const html = await this.get(ep.url);
     if (!html) return [];
-  let embedLinks = this.collectEmbedLinks(html);
-  const nonMostra = embedLinks.filter(l => !/mostraguarda\.stream/i.test(l));
-  if (nonMostra.length) embedLinks = nonMostra;
+  let embedLinks = this.collectEmbedLinks(html); // keep mostraguarda
     const seen = new Set<string>();
     const out: StreamForStremio[] = [];
     // Italian title for episodes (we already have series title r.title, keep it)
-    for (const eurl of embedLinks) {
+  for (const eurl of embedLinks) {
       const { streams } = await extractFromUrl(eurl, { mfpUrl: this.config.mfpUrl, mfpPassword: this.config.mfpPassword, countryCode: 'IT', titleHint: r.title });
       for (const s of streams) {
         if (seen.has(s.url)) continue; seen.add(s.url);
         const parsed = this.parseSecondLineParts(s.title);
-        out.push({ ...s, title: this.formatStreamTitle(r.title, season, episode, parsed.info, parsed.player) });
+    let player = parsed.player;
+    if (!player && /mostraguarda\.stream/i.test(eurl)) player = 'MostraGuarda';
+    out.push({ ...s, title: this.formatStreamTitle(r.title, season, episode, parsed.info, player) });
       }
     }
     if (!out.length) {
@@ -225,7 +247,7 @@ export class GuardaHdProvider {
         out.push({ title: this.formatStreamTitle(r.title, season, episode, info), url: u, behaviorHints:{ notWebReady:true } });
       }
     }
-    const order: Record<string,number> = { supervideo:0, dropload:1, dood:2, mixdrop:99 };
+  const order: Record<string,number> = { supervideo:0, dropload:1, dood:2, doodstream:2, mostraguarda:95, mixdrop:99 };
     out.sort((a,b)=>{
       const pa = this.parseSecondLineParts(a.title).player?.toLowerCase() || '';
       const pb = this.parseSecondLineParts(b.title).player?.toLowerCase() || '';
@@ -237,25 +259,29 @@ export class GuardaHdProvider {
   // ==== Mammamia style flow (GuardaHD movie only) ====
   private async tryDirectImdbMovie(imdbId: string): Promise<StreamForStremio[]> {
     try {
-      const searchUrl = `${this.base}/set-movie-a/${encodeURIComponent(imdbId)}`;
-  console.log('[GH][Direct] search url', searchUrl);
-      const html = await this.get(searchUrl);
-      if (!html) return [];
-  console.log('[GH][Direct] search html length', html.length);
+  const searchUrl = `${this.base}/set-movie-a/${encodeURIComponent(imdbId)}`;
+  const movieUrlPrimary = `${this.base}/movie/${encodeURIComponent(imdbId)}`;
+  console.log('[GH][Direct] urls', searchUrl, movieUrlPrimary);
+  // Fetch set-movie-a and /movie/ in parallel (primary domain)
+  const [html, movieHtml] = await Promise.all([this.get(searchUrl), this.get(movieUrlPrimary)]);
+  if (!html && !movieHtml) return [];
+  console.log('[GH][Direct] page lengths', html?.length || 0, movieHtml?.length || 0);
   // Pre-fetch localized Italian title so every host uses it directly
   let italianTitle = '';
   try { italianTitle = await this.resolveTitle('imdb', imdbId, true); } catch {}
       // Collect ALL embed links (not only the first) so we can try multiple hosts
-  let embedLinks: string[] = [];
-  const g = html.matchAll(/<li[^>]+data-link=\"([^\"]+)\"/g);
-  for (const m of g) { let u = m[1]; if (u.startsWith('//')) u = 'https:' + u; embedLinks.push(u); }
-  // Apply mostraguarda suppression (keep only if it's the sole source)
-  const nonMostra = embedLinks.filter(u => !/mostraguarda\.stream/i.test(u));
-  if (nonMostra.length) embedLinks = nonMostra;
-  console.log('[GH][Direct] embedLinks found', embedLinks);
+      let embedLinks: string[] = [];
+      if (html) {
+        for (const m of html.matchAll(/<li[^>]+data-link=\"([^\"]+)\"/g)) { let u = m[1]; if (u.startsWith('//')) u = 'https:' + u; embedLinks.push(u); }
+      }
+      if (movieHtml) {
+        for (const m of movieHtml.matchAll(/<li[^>]+data-link=\"([^\"]+)\"/g)) { let u = m[1]; if (u.startsWith('//')) u = 'https:' + u; embedLinks.push(u); }
+      }
+      embedLinks = [...new Set(embedLinks)].slice(0,40); // dedupe
+      console.log('[GH][Direct] initial embedLinks found', embedLinks.length);
       // If none found on this special imdb page, try alternate domain and scrape again
       if (!embedLinks.length) {
-        const sv = html.match(/https?:[^"'\s]+serversicuro\.cc[^"'\s]+master\.m3u8/);
+        const sv = html ? html.match(/https?:[^"'\s]+serversicuro\.cc[^"'\s]+master\.m3u8/) : null;
         if (sv) {
           console.log('[GH][Direct] fallback serversicuro master found (no data-link list)');
           const info = await this.getHlsInfoSafe(sv[0]);
@@ -310,6 +336,7 @@ export class GuardaHdProvider {
               /dropload/i.test(eurl)? 'Dropload' :
               /dood/i.test(eurl)? 'Doodstream' :
               /supervideo/i.test(eurl)? 'SuperVideo' :
+              /mostraguarda/i.test(eurl)? 'MostraGuarda' :
               undefined
             );
             playersFound.push({ player: hostName || 'Stream', url: s.url, info: parsed.info });
@@ -353,17 +380,19 @@ export class GuardaHdProvider {
         } catch {}
         // Final deep scan only if still empty
         if (!out.length) {
-          const sv3 = html.match(/https?:[^"'\s]+serversicuro\.cc[^"'\s]+master\.m3u8/);
+          const sv3 = html ? html.match(/https?:[^"'\s]+serversicuro\.cc[^"'\s]+master\.m3u8/) : null;
           if (sv3) {
             const info = await this.getHlsInfoSafe(sv3[0]);
             out.push({ title: this.formatStreamTitle('', null, null, info, 'supervideo'), url: sv3[0], behaviorHints:{ notWebReady:true } });
           }
           if (!out.length) {
-            const deep = await this.extractDeep(html);
-            for (const u of deep) {
-              if (seen.has(u)) continue; seen.add(u);
-              const info = await this.getHlsInfoSafe(u);
-              out.push({ title: this.formatStreamTitle('', null, null, info), url: u, behaviorHints:{ notWebReady:true } });
+            if (html) {
+              const deep = await this.extractDeep(html);
+              for (const u of deep) {
+                if (seen.has(u)) continue; seen.add(u);
+                const info = await this.getHlsInfoSafe(u);
+                out.push({ title: this.formatStreamTitle('', null, null, info), url: u, behaviorHints:{ notWebReady:true } });
+              }
             }
           }
         }
@@ -376,7 +405,7 @@ export class GuardaHdProvider {
             out[i].title = this.formatStreamTitle(italianTitle, null, null, p.info, p.player);
           }
         }
-        const order: Record<string,number> = { supervideo:0, dropload:1, dood:2, doodstream:2, mixdrop:99 };
+  const order: Record<string,number> = { supervideo:0, dropload:1, dood:2, doodstream:2, mostraguarda:95, mixdrop:99 };
         out.sort((a,b)=>{
           const pa = this.parseSecondLineParts(a.title).player?.toLowerCase() || '';
           const pb = this.parseSecondLineParts(b.title).player?.toLowerCase() || '';
@@ -588,14 +617,25 @@ export class GuardaHdProvider {
   }
 
   private collectEmbedLinks(html: string): string[] {
-    const links = new Set<string>();
-    // Lista player dichiarata dall'utente <ul class="_player-mirrors"> li[data-link]
-    const listRe = /<li[^>]+data-link="([^"]+)"/gi; let m: RegExpExecArray | null; while((m=listRe.exec(html))) { let u = m[1]; if (u.startsWith('//')) u = 'https:' + u; links.add(u); }
-    // mirrors generic iframe/data-link fallback
-    const dataLinkRe = /data-link="(https?:[^"\s]+)"/gi; while((m=dataLinkRe.exec(html))) links.add(m[1]);
-    // iframe embed fallback
-    const iframeRe = /<iframe[^>]+src="([^"]+)"/gi; while((m=iframeRe.exec(html))) { let u = m[1]; if (u.startsWith('//')) u='https:'+u; links.add(u); }
-    return Array.from(links).slice(0,10);
+    try {
+      const $ = cheerio.load(html);
+      const set = new Set<string>();
+      // Primary data-link list
+      $('[data-link]')
+        .each((_, el)=>{
+          const v = ($(el).attr('data-link')||'').trim();
+          if (!v) return;
+          let u = v.replace(/^(https?:)?\/\//,'https://');
+          if (!/^https?:/i.test(u)) return;
+          set.add(u);
+        });
+      // Fallback iframes
+      $('iframe[src]')
+        .each((_,el)=>{
+          let u = ($(el).attr('src')||'').trim(); if(!u) return; if (u.startsWith('//')) u='https:'+u; if(/^https?:/i.test(u)) set.add(u);
+        });
+      return Array.from(set).slice(0,10);
+    } catch { return []; }
   }
 
   private extractFlat(html: string): string[] {
@@ -613,57 +653,37 @@ export class GuardaHdProvider {
   }
 
   private async get(url: string): Promise<string | null> {
-    const uaList = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/124.0'
-    ];
-    let lastStatus: number | null = null;
-    // Primo giro: dominio principale (guardahd)
-    for (let attempt = 0; attempt < uaList.length; attempt++) {
-      const attemptUrl = attempt === 0 ? url : url.replace(/^https:/, 'http:');
+    // If a fetcher (webstreamr style) is provided, delegate fully to it (with mirror fallback).
+    if (this.config.fetcher && this.config.ctx) {
+      const ctx = this.config.ctx;
       try {
-        const r = await fetch(attemptUrl, { headers: { 'User-Agent': uaList[attempt], 'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.7', 'Cache-Control': 'no-cache' } });
-        lastStatus = r.status;
-        const isHtml = r.headers.get('content-type')?.includes('text/html');
-        const text = isHtml ? await r.text() : '';
-        console.log(`[GH][NET] primary attempt=${attempt} status=${lastStatus} url=${attemptUrl}`);
-        if (!r.ok) continue; // prova prossimo UA o fallback
-        const block = /(cloudflare|captcha|access denied|blocked)/i.test(text.slice(0, 1200));
-        if (block) {
-          console.log('[GH][NET] possible block (content)');
-          break; // forza il fallback
-        }
-        console.log(`[GH][NET] body length=${text.length}`);
-        return text;
-      } catch (e) {
-        console.log('[GH][NET] fetch error primary attempt', attempt, (e as any)?.message || e);
-      }
-    }
-
-    // Fallback automatico richiesto: se 403 (o qualsiasi errore) e URL appartiene al dominio base => riprova su mostraguarda
-    if (url.startsWith(this.base)) {
-      const rel = url.slice(this.base.length).replace(/^\//, '');
-      const altUrlBase = this.altBase.replace(/\/$/, '');
-      const altUrl = `${altUrlBase}/${rel}`;
-      console.log(`[GH][NET][ALT] trying mirror ${altUrl} (lastStatus=${lastStatus})`);
-      for (let attempt = 0; attempt < uaList.length; attempt++) {
+        const primary = await this.config.fetcher.text(ctx, new URL(url), { noCache: false }).catch(()=>null);
+        if (primary && !/cf-turnstile/i.test(primary)) return primary;
+      } catch { /* ignore primary */ }
+      if (url.startsWith(this.base)) {
         try {
-          const r = await fetch(altUrl, { headers: { 'User-Agent': uaList[attempt], 'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.7', 'Cache-Control':'no-cache' } });
-          const status = r.status;
-            const isHtml = r.headers.get('content-type')?.includes('text/html');
-            const text = isHtml ? await r.text() : '';
-            console.log(`[GH][NET][ALT] attempt=${attempt} status=${status} url=${altUrl}`);
-            if (!r.ok) continue;
-            const block = /(cloudflare|captcha|access denied|blocked)/i.test(text.slice(0, 1200));
-            if (block) { console.log('[GH][NET][ALT] possible block (content)'); continue; }
-            console.log(`[GH][NET][ALT] body length=${text.length}`);
-            return text;
-        } catch (e) {
-          console.log('[GH][NET][ALT] fetch error attempt', attempt, (e as any)?.message || e);
-        }
+          const rel = url.slice(this.base.length).replace(/^\//,'');
+          const altUrl = this.altBase.replace(/\/$/,'') + '/' + rel;
+          const mirror = await this.config.fetcher.text(ctx, new URL(altUrl), { noCache: false }).catch(()=>null);
+          if (mirror && !/cf-turnstile/i.test(mirror)) return mirror;
+        } catch { /* ignore mirror */ }
       }
+      return null; // do not fall back to ad-hoc logic if fetcher present (consistent with webstreamr separation of concerns)
     }
-    return null; // nessun risultato
+    // Legacy fallback (no external fetcher): minimal single fetch + mirror try (no UA rotation/challenge loops now).
+    try {
+      const r = await fetch(url, { headers: { 'User-Agent':'Mozilla/5.0 (LegacyFallback)', 'Accept-Language':'it-IT', 'Cache-Control':'no-cache' } });
+      if (r.ok) return await r.text();
+    } catch {}
+    if (url.startsWith(this.base)) {
+      try {
+        const rel = url.slice(this.base.length).replace(/^\//,'');
+        const altUrl = this.altBase.replace(/\/$/,'') + '/' + rel;
+        const r2 = await fetch(altUrl, { headers: { 'User-Agent':'Mozilla/5.0 (LegacyFallback)', 'Accept-Language':'it-IT' } });
+        if (r2.ok) return await r2.text();
+      } catch {}
+    }
+    return null;
   }
 
   private lev(a: string, b: string): number {
