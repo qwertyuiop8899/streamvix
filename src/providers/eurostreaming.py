@@ -1,3 +1,6 @@
+#Thanks to @urlomythus for the code, 
+#https://github.com/UrloMythus/MammaMia
+#
 #!/usr/bin/env python3
 # Eurostreaming provider (MammaMia-style, 1:1 functions) with curl_cffi + fake_headers
 import re, os, json, base64, time, random, asyncio, sys, unicodedata
