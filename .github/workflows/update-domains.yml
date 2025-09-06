@@ -1,0 +1,40 @@
+name: Update Domains
+
+on:
+  schedule:
+    - cron: '0 22 * * *' # Every day at 22:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run updater
+        id: runupd
+        run: |
+          python3 scripts/update_domains.py || echo "script exited with rc $?"
+
+      - name: Detect changes
+        run: |
+          if git diff --quiet --exit-code config/domains.json config/domains.jsonbk attenzione.check 2>/dev/null; then
+            echo "No changes to commit." > /dev/stderr
+            exit 0
+          fi
+          echo "changes=yes" >> $GITHUB_ENV
+
+      - name: Commit changes
+        if: env.changes == 'yes'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add config/domains.json config/domains.jsonbk attenzione.check || true
+          git commit -m "fix: domains update" || echo "Nothing to commit"
+          git push
