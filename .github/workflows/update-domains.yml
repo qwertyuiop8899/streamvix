@@ -20,7 +20,7 @@ jobs:
       - name: Run updater
         id: runupd
         run: |
-          python3 scripts/update_domains.py || echo "script exited with rc $?"
+          python3 update_domains.py || echo "script exited with rc $?"
 
       - name: Detect changes
         run: |
