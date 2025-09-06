@@ -3,7 +3,6 @@ import os, json, sys, re, datetime, urllib.request
 from pathlib import Path
 
 PASTEBIN_RAW = 'https://pastebin.com/raw/KgQ4jTy6'
-EUROSTREAMING_CHECK_URL = 'https://eurostreaming-nuovo-indirizzo.online/'
 DOMAINS_FILE = Path('config/domains.json')
 BACKUP_FILE = Path('config/domains.jsonbk')
 ATTENTION_FILE = Path('attenzione.check')
@@ -20,7 +19,7 @@ KEY_HINTS = {
     'animeunity': re.compile(r'animeunity\.[a-z]{2,}'),
     'animeworld': re.compile(r'animeworld\.[a-z]{2,}'),
     'guardaserie': re.compile(r'guardaserie[a-z]*\.[a-z]{2,}'),
-    'eurostreaming': re.compile(r'eurostreaming\.[a-z]{2,}'),
+    # eurostreaming handled separately via fixed position (line 4 of pastebin)
 }
 
 def fetch(url: str) -> str:
@@ -58,9 +57,8 @@ def load_json(path: Path):
 
 def main():
     paste_txt = fetch(PASTEBIN_RAW)
-    euro_page = fetch(EUROSTREAMING_CHECK_URL)
     reachable = True
-    if not paste_txt or not euro_page:
+    if not paste_txt:
         reachable = False
 
     current = load_json(DOMAINS_FILE)
@@ -84,8 +82,7 @@ def main():
         return 2  # special code to allow workflow to still commit
 
     paste_hosts = extract_hosts(paste_txt)
-    euro_hosts = extract_hosts(euro_page)
-    all_hosts = paste_hosts | euro_hosts
+    all_hosts = paste_hosts
 
     updated = dict(current)
     changed = {}
@@ -102,15 +99,20 @@ def main():
             updated[key] = new_host
             changed[key] = {'old': old_host, 'new': new_host}
 
-    # eurostreaming explicit extraction from anchor tag if present
-    if 'eurostreaming' in updated:
-        # Try to parse explicit <a href="https://eurostreaming.garden/">
-        m = re.search(r'https?://(www\.)?(eurostreaming\.[a-z]{2,})/?', euro_page, re.I)
-        if m:
-            new_euro = m.group(2).lower()
-            if updated['eurostreaming'] != new_euro:
-                changed['eurostreaming'] = {'old': updated['eurostreaming'], 'new': new_euro}
-                updated['eurostreaming'] = new_euro
+    # eurostreaming: pick host from 4th non-empty line (1-based) of pastebin list if valid
+    try:
+        lines = [ln.strip() for ln in paste_txt.splitlines() if ln.strip()]
+        if len(lines) >= 4:
+            line4 = lines[3]
+            m = re.search(r'https?://(www\.)?(eurostreaming\.[a-z]{2,})', line4, re.I)
+            if m:
+                euro_host = m.group(2).lower()
+                old_host = updated.get('eurostreaming')
+                if euro_host and old_host != euro_host:
+                    updated['eurostreaming'] = euro_host
+                    changed['eurostreaming'] = {'old': old_host, 'new': euro_host}
+    except Exception as e:
+        print('[update_domains] eurostreaming line-4 parse error', e, file=sys.stderr)
 
     if not changed:
         print('No domain changes detected.')
