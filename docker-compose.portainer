@@ -1,0 +1,11 @@
+version: "3.9"
+
+services:
+  streamvix:
+    container_name: streamvix
+    build: .
+    ports:
+      - "8746:7860"
+    env_file:
+      - stack.env
+    restart: unless-stopped
