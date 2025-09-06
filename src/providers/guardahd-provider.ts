@@ -18,6 +18,8 @@ type GHDEpisode = GHEpisode;
 
 export class GuardaHdProvider {
   private base: string;
+  // Fallback mirror (richiesto: se 403 o errore su guardahd prova mostraguarda)
+  private altBase = 'https://mostraguarda.stream';
   private hlsInfoCache = new Map<string, { res?: string; size?: string }>();
 
   constructor(private config: GuardaHdConfig) {
@@ -135,9 +137,7 @@ export class GuardaHdProvider {
         best = r;
       }
     }
-  if (!best) return null;
-  const threshold = Math.max(2, Math.floor(target.length * 0.25));
-  return bestScore <= threshold ? best : null;
+    return best;
   }
 
   private async fetchEpisodes(r: GHDSearchResult): Promise<GHDEpisode[]> {
@@ -617,27 +617,53 @@ export class GuardaHdProvider {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/124.0'
     ];
+    let lastStatus: number | null = null;
+    // Primo giro: dominio principale (guardahd)
     for (let attempt = 0; attempt < uaList.length; attempt++) {
       const attemptUrl = attempt === 0 ? url : url.replace(/^https:/, 'http:');
       try {
-        const r = await fetch(attemptUrl, { headers: { 'User-Agent': uaList[attempt] } });
-        const status = r.status;
+        const r = await fetch(attemptUrl, { headers: { 'User-Agent': uaList[attempt], 'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.7', 'Cache-Control': 'no-cache' } });
+        lastStatus = r.status;
         const isHtml = r.headers.get('content-type')?.includes('text/html');
         const text = isHtml ? await r.text() : '';
-        console.log(`[GH][NET] attempt=${attempt} status=${status} url=${attemptUrl}`);
-        if (!r.ok) continue;
+        console.log(`[GH][NET] primary attempt=${attempt} status=${lastStatus} url=${attemptUrl}`);
+        if (!r.ok) continue; // prova prossimo UA o fallback
         const block = /(cloudflare|captcha|access denied|blocked)/i.test(text.slice(0, 1200));
         if (block) {
-          console.log('[GH][NET] possible block detected');
-          return null;
+          console.log('[GH][NET] possible block (content)');
+          break; // forza il fallback
         }
         console.log(`[GH][NET] body length=${text.length}`);
         return text;
       } catch (e) {
-        console.log('[GH][NET] fetch error attempt', attempt, (e as any)?.message || e);
+        console.log('[GH][NET] fetch error primary attempt', attempt, (e as any)?.message || e);
       }
     }
-    return null;
+
+    // Fallback automatico richiesto: se 403 (o qualsiasi errore) e URL appartiene al dominio base => riprova su mostraguarda
+    if (url.startsWith(this.base)) {
+      const rel = url.slice(this.base.length).replace(/^\//, '');
+      const altUrlBase = this.altBase.replace(/\/$/, '');
+      const altUrl = `${altUrlBase}/${rel}`;
+      console.log(`[GH][NET][ALT] trying mirror ${altUrl} (lastStatus=${lastStatus})`);
+      for (let attempt = 0; attempt < uaList.length; attempt++) {
+        try {
+          const r = await fetch(altUrl, { headers: { 'User-Agent': uaList[attempt], 'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.7', 'Cache-Control':'no-cache' } });
+          const status = r.status;
+            const isHtml = r.headers.get('content-type')?.includes('text/html');
+            const text = isHtml ? await r.text() : '';
+            console.log(`[GH][NET][ALT] attempt=${attempt} status=${status} url=${altUrl}`);
+            if (!r.ok) continue;
+            const block = /(cloudflare|captcha|access denied|blocked)/i.test(text.slice(0, 1200));
+            if (block) { console.log('[GH][NET][ALT] possible block (content)'); continue; }
+            console.log(`[GH][NET][ALT] body length=${text.length}`);
+            return text;
+        } catch (e) {
+          console.log('[GH][NET][ALT] fetch error attempt', attempt, (e as any)?.message || e);
+        }
+      }
+    }
+    return null; // nessun risultato
   }
 
   private lev(a: string, b: string): number {
