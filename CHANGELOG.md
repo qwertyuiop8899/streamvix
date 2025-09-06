@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.28](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.27...v1.0.28) (2025-09-06)
+
+
+### Bug Fixes
+
+* add flaresolver for GH ([c7d1edd](https://github.com/qwertyuiop8899/streamvix/commit/c7d1edd7950c4c3b83a9421361ec320f3e8fd72c))
+
 ## [1.0.27](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.26...v1.0.27) (2025-09-06)
 
 
