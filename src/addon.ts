@@ -992,55 +992,14 @@ try {
         }
     }
 
-    // ============ TVTAP DEPENDENCY MANAGEMENT (GLOBAL SCOPE) ============
-    let tvtapDepsBootstrapped = false;
-    async function ensureTvTapDeps(pythonCmd = 'python3'): Promise<void> {
-        if (tvtapDepsBootstrapped) return;
-        const sentinel = path.join(__dirname, '..', '.tvtap_deps_ok');
-        if (fs.existsSync(sentinel)) {
-            tvtapDepsBootstrapped = true;
-            return;
-        }
-
-        return new Promise((resolve) => {
-            const neededMods = ['pycryptodome', 'pyDes'];
-            const checkCode = `import importlib,sys;mods=${JSON.stringify(neededMods)};missing=[m for m in mods if importlib.util.find_spec(m) is None];print("MISSING="+";".join(missing))`;
-            const chk = spawn(pythonCmd, ['-c', checkCode]);
-            let out = '';
-            chk.stdout.on('data', d => out += d.toString());
-            chk.on('close', () => {
-                const missLine = (out.match(/MISSING=([^\n]+)/) || [])[1] || '';
-                if (!missLine) {
-                    tvtapDepsBootstrapped = true;
-                    try { fs.writeFileSync(sentinel, 'ok'); } catch {}
-                    return resolve();
-                }
-                const missing = missLine.split(';').filter(Boolean);
-                console.log(`[TVTap][Deps] Missing Python packages: ${missing.join(', ')}. Installing...`);
-                const pipArgs = ['-m', 'pip', 'install', '--disable-pip-version-check', '--no-input', '--no-warn-script-location', '--quiet', ...missing];
-                const inst = spawn(pythonCmd, pipArgs);
-                inst.on('close', (code) => {
-                    if (code === 0) {
-                        console.log(`[TVTap][Deps] Successfully installed missing packages.`);
-                        try { fs.writeFileSync(sentinel, 'ok'); } catch {}
-                    } else {
-                        console.error(`[TVTap][Deps] Failed to install Python packages (pip exit code ${code}).`);
-                    }
-                    tvtapDepsBootstrapped = true;
-                    resolve();
-                });
-            });
-        });
-    }
-
     // ============ END TVTAP INTEGRATION ============
     
     // ✅ INIZIALIZZA IL ROUTER GLOBALE SUBITO DOPO IL CARICAMENTO
     console.log('🔧 Initializing global router after loading TV channels...');
-    globalBuilder = createBuilder(configCache, ensureTvTapDeps);
+    globalBuilder = createBuilder(configCache);
     globalAddonInterface = globalBuilder.getInterface();
     globalRouter = getRouter(globalAddonInterface);
-    console.log('✅ Global router initialized successfully');    
+    console.log('✅ Global router initialized successfully');
     
     // Carica la cache Vavoo
     loadVavooCache();
@@ -1182,7 +1141,7 @@ function normalizeProxyUrl(url: string): string {
 }
 
 // Funzione per creare il builder con configurazione dinamica
-function createBuilder(initialConfig: AddonConfig = {}, depsEnsurer?: () => Promise<void>) {
+function createBuilder(initialConfig: AddonConfig = {}) {
     const manifest = loadCustomConfig();
     // Applica un filtro leggero al manifest per nascondere il catalogo TV quando disabilitato
     const effectiveManifest: Manifest = (() => {
@@ -2325,9 +2284,6 @@ function createBuilder(initialConfig: AddonConfig = {}, depsEnsurer?: () => Prom
                     // Prova ogni nome nei vavooNames
                     if (tvTapEnabled) for (const vavooName of vavooNamesArr) {
                         try {
-                            // Ensure dependencies are met before running the script
-                            if (depsEnsurer) await depsEnsurer();
-
                             console.log(`[TVTap] Provo con nome: ${vavooName}`);
                             
                             const tvtapUrl = await new Promise<string | null>((resolve) => {
