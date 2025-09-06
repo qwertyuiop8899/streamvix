@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.21](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.20...v1.0.21) (2025-09-06)
+
+
+### Bug Fixes
+
+* GH cookies ([06a8bfb](https://github.com/qwertyuiop8899/streamvix/commit/06a8bfb67572144520b8b9d53800e810692dd5cb))
+
 ## [1.0.20](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.19...v1.0.20) (2025-09-06)
 
 
