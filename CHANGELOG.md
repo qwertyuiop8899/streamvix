@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.26](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.25...v1.0.26) (2025-09-06)
+
+
+### Bug Fixes
+
+* euro punteggiatura ([7df9dff](https://github.com/qwertyuiop8899/streamvix/commit/7df9dff38b09810d47817488da2466a84594f1a7))
+
 ## [1.0.25](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.24...v1.0.25) (2025-09-06)
 
 
