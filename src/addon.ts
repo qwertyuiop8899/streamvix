@@ -546,7 +546,7 @@ const baseManifest: Manifest = {
     { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
     { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
     { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
-    { key: "eurostreamingEnabled", title: "Eurostreaming ES", type: "checkbox" },
+    { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox" },
     { key: "tvtapProxyEnabled", title: "TvTap NO Proxy", type: "checkbox" },
     
     ]
@@ -2621,7 +2621,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (!euroStreams.length) console.log('[Eurostreaming][Addon] EMPTY result - check PY stderr for [ESDBG] logs');
                             // Log sample
                             euroStreams.slice(0,3).forEach((s,idx)=> console.log('[Eurostreaming][Addon] sample', idx, s.title));
-                            for (const s of euroStreams) allStreams.push({ ...s, name: 'StreamViX ES' });
+                            for (const s of euroStreams) {
+                                // Padlock logic: add 🔓 only if NOT MixDrop (DeltaBit = unlocked)
+                                const isMixdrop = /mixdrop/i.test(s.url) || (s.title ? /mixdrop/i.test(s.title) : false);
+                                allStreams.push({ ...s, name: isMixdrop ? 'StreamViX ES' : 'StreamViX ES 🔓' });
+                            }
                         } catch (e) {
                             console.error('[Eurostreaming] Errore:', e);
                         }
