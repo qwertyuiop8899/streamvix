@@ -5,5 +5,5 @@ services:
     container_name: streamvix
     build: https://github.com/qwertyuiop8899/streamvix
     ports:
-      - "8746:7860"
+      - "7860:7860"
     restart: unless-stopped
