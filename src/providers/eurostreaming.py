@@ -1,6 +1,3 @@
-#Thanks to @urlomythus for the code, 
-#https://github.com/UrloMythus/MammaMia
-#
 #!/usr/bin/env python3
 # Eurostreaming provider (MammaMia-style, 1:1 functions) with curl_cffi + fake_headers
 import re, os, json, base64, time, random, asyncio, sys, unicodedata
@@ -591,7 +588,8 @@ async def search(showname, date, season, episode, MFP, client):
             if not already:
                 rej_reason = 'title_mismatch'
                 if len(imdb_tokens) == 1 and len(p['overlap']) == 1:
-                    rej_reason = f'single_token_low_seq({p['ratio_seq']:.2f})'
+                    # Use double quotes inside f-string to avoid quote collision causing SyntaxError
+                    rej_reason = f"single_token_low_seq({p['ratio_seq']:.2f})"
                 # Extra context: if near substitution with distance <=1 but still not chosen (e.g. year mismatch later), tag
                 if len(imdb_tokens) > 1 and len(p['tokens']) == len(imdb_tokens) and len(p['tokens'] & imdb_tokens) == len(imdb_tokens)-1:
                     diff_tokens = list(p['tokens'] ^ imdb_tokens)
