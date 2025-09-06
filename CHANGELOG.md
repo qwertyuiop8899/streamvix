@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.23](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.22...v1.0.23) (2025-09-06)
+
+
+### Bug Fixes
+
+* ES name on toggle ([79fd603](https://github.com/qwertyuiop8899/streamvix/commit/79fd60305d1557f2865f98a3047666128de18978))
+
 ## [1.0.22](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.21...v1.0.22) (2025-09-06)
 
 
