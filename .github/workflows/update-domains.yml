@@ -20,12 +20,15 @@ jobs:
       - name: Run updater
         id: runupd
         run: |
-          python3 update_domains.py || echo "script exited with rc $?"
+          python3 scripts/update_domains.py || echo "script exited with rc $?"
 
       - name: Detect changes
         run: |
-          if git diff --quiet --exit-code config/domains.json config/domains.jsonbk attenzione.check 2>/dev/null; then
-            echo "No changes to commit." > /dev/stderr
+          files="config/domains.json config/domains.jsonbk"
+          if [ -f attenzione.check ]; then files="$files attenzione.check"; fi
+          # Use -- to terminate pathspecs safely
+          if git diff --quiet --exit-code -- $files; then
+            echo "No changes to commit." >&2
             exit 0
           fi
           echo "changes=yes" >> $GITHUB_ENV
@@ -35,6 +38,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
-          git add config/domains.json config/domains.jsonbk attenzione.check || true
+          git add config/domains.json config/domains.jsonbk || true
+          if [ -f attenzione.check ]; then git add attenzione.check; fi
           git commit -m "fix: domains update" || echo "Nothing to commit"
-          git push
+          git push || echo "Push skipped"
