@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.20](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.19...v1.0.20) (2025-09-06)
+
+
+### Bug Fixes
+
+* credits ([8d7867a](https://github.com/qwertyuiop8899/streamvix/commit/8d7867a9aad254639b2e327e3825c42cbaa5fb27))
+* cretid to webstreamr ([8756465](https://github.com/qwertyuiop8899/streamvix/commit/8756465b05b6b5214d5d66a830ce9a7a9d39f554))
+* GH ([ebf9e29](https://github.com/qwertyuiop8899/streamvix/commit/ebf9e29d2c758c0ea09ca04dfb92dd83c3aee3e9))
+
 ## [1.0.19](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.18...v1.0.19) (2025-09-05)
 
 
