@@ -1,3 +1,7 @@
+//Adapted for use in Streamvix from:
+// webstreamr in https://github.com/webstreamr/webstreamr
+// 
+
 import type { StreamForStremio } from '../types/animeunity';
 
 export interface ExtractorContext {

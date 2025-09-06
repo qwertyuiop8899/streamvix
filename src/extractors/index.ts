@@ -1,3 +1,7 @@
+//Adapted for use in Streamvix from:
+// webstreamr in https://github.com/webstreamr/webstreamr
+// 
+
 import { ExtractResult, ExtractorContext, HostExtractor } from './base';
 import { SuperVideoExtractor } from './supervideo';
 import { DroploadExtractor } from './dropload'; // keep legacy

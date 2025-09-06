@@ -1,3 +1,16 @@
+//Adapted for use in Streavix from:
+//https://github.com/einars/js-beautify/blob/master/python/jsbeautifier/unpackers/packer.py
+// Unpacker for Dean Edward's p.a.c.k.e.r, a part of javascript beautifier
+// by Einar Lielmanis <einar@beautifier.io>
+//
+//     written by Stefano Sanfilippo <a.little.coder@gmail.com>
+//
+// usage:
+//
+//if detect(some_string):
+//    unpacked = unpack(some_string)
+//And from webstreamr in https://github.com/webstreamr/webstreamr
+
 import { unpack } from 'unpacker';
 
 // Exact replica of webstreamr extractUrlFromPacked (throws on failure)

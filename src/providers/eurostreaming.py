@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 # Eurostreaming provider (MammaMia-style, 1:1 functions) with curl_cffi + fake_headers
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*- 
+# thanks to @urlomythus for the code
+#Adapted for use in Streamvix from:
+# Mammamia  in https://github.com/UrloMythus/MammaMia
+# 
+
 import re, os, json, base64, time, random, asyncio, sys
 import difflib
 from typing import Dict, Tuple, Optional
