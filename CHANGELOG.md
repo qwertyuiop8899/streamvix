@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.24](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.23...v1.0.24) (2025-09-06)
+
+
+### Bug Fixes
+
+* eurostreaming prc ([853d156](https://github.com/qwertyuiop8899/streamvix/commit/853d1564f22caaa67a7f28df266a692f22c56943))
+
 ## [1.0.23](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.22...v1.0.23) (2025-09-06)
 
 
