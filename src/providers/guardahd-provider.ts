@@ -18,6 +18,7 @@ import { extractFromUrl } from '../extractors';
 declare function require(name: string): any;
 const cheerio = require('cheerio');
 import { fetchPage, readStreamCache, writeStreamCache, purgeOld } from './flaresolverr';
+import { getTmdbIdFromImdbId } from '../extractor';
 
 export interface GuardaHdConfig { enabled:boolean; mfpUrl?:string; mfpPassword?:string; tmdbApiKey?: string }
 
@@ -38,7 +39,18 @@ export class GuardaHdProvider {
     purgeOld(cache, this.CACHE_TTL);
     const ce: CacheEntry | undefined = cache[imdbOnly];
     if (ce && Date.now() - ce.timestamp < this.CACHE_TTL) {
-      return { streams: ce.streams };
+      let useCache = true;
+      if (this.config.tmdbApiKey) {
+        const isPlaceholder = (t?: string) => {
+          if (!t) return true;
+          const first = t.split('\n')[0].trim();
+            return first === imdbOnly || /^movie\s+tt\d+/i.test(first);
+        };
+        if (ce.streams.length && ce.streams.every(s => isPlaceholder((s as any).title || (s as any).name))) {
+          useCache = false; // forza refresh per ottenere titolo ITA
+        }
+      }
+      if (useCache) return { streams: ce.streams };
     }
     // Fetch page
     let html: string;
@@ -47,10 +59,44 @@ export class GuardaHdProvider {
     } catch {
       return { streams: [] };
     }
-    const streams = await this.extractStreamsFromMoviePage(html, imdbOnly);
-    cache[imdbOnly] = { timestamp: Date.now(), streams };
+    // Estrai titolo reale del film dalla pagina; se è generico o coincide con IMDb, tenta TMDB (IT)
+    let realTitle = imdbOnly;
+    try {
+      const $t = cheerio.load(html);
+      const cand = ($t('h1').first().text().trim() || $t('title').first().text().trim() || '').replace(/Streaming.*$/i,'').trim();
+      if (cand) realTitle = cand;
+    } catch { /* ignore */ }
+    // Se titolo è ancora un placeholder (solo imdb id o pattern tipo "Movie tt1234567") prova TMDB italiano
+    if (this.config.tmdbApiKey && (/^tt\d{7,8}$/i.test(realTitle) || /^movie\s+tt\d+/i.test(realTitle) || realTitle.toLowerCase() === 'movie')) {
+      try {
+        const tmdbId = await getTmdbIdFromImdbId(imdbOnly, this.config.tmdbApiKey);
+        if (tmdbId) {
+          const resp = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${this.config.tmdbApiKey}&language=it`);
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data && (data.title || data.original_title)) {
+              realTitle = (data.title || data.original_title).trim();
+            }
+          }
+        }
+      } catch { /* ignore tmdb fallback */ }
+    }
+    const streams = await this.extractStreamsFromMoviePage(html, realTitle || imdbOnly);
+    // Forza iniettare titolo italiano nella prima linea (se extractor ha generato placeholder)
+  const finalStreams = streams.map(s => {
+      try {
+    const lines = (s.title || '').split('\n');
+        if (!lines[0] || lines[0] === imdbOnly || /^movie\s+tt\d+/i.test(lines[0])) {
+          lines[0] = realTitle || imdbOnly;
+          const joined = lines.filter(Boolean).join('\n');
+          return { ...s, title: joined } as StreamForStremio;
+        }
+        return s;
+      } catch { return s; }
+    });
+    cache[imdbOnly] = { timestamp: Date.now(), streams: finalStreams };
     writeStreamCache(cache);
-    return { streams };
+    return { streams: finalStreams };
   }
 
   async handleTmdbRequest(tmdbId: string, _season: number | null, _episode: number | null, isMovie = false): Promise<{ streams: StreamForStremio[] }> { 
