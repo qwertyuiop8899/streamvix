@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.22](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.21...v1.0.22) (2025-09-06)
+
+
+### Bug Fixes
+
+* fix eurostreaming search - aw search ([4e3ae8f](https://github.com/qwertyuiop8899/streamvix/commit/4e3ae8f50e7b2b84e0b9035d8dd0fe5ba828d707))
+
 ## [1.0.21](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.20...v1.0.21) (2025-09-06)
 
 
