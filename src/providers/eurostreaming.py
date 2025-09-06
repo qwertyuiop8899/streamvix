@@ -1,54 +1,4 @@
 #!/usr/bin/env python3
-"""
-Script adattato a streamvix da https://github.com/UrloMythus/MammaMia/blob/main/Src/API/eurostreaming.py
-grazie @urlomythus
-Eurostreaming provider
-
-Modalità e variabili di configurazione (DEFAULT: metodo avanzato):
-
-1) Metodo di ricerca episodi
-    - ES_SEARCH_MODE=advanced  (default se non impostato)
-         * Matching multi‑fase: exact -> strict -> fallback
-         * Normalizzazione titolo (accenti rimossi, stopwords filtrate)
-         * Confronto token + sequence ratio + controllo sostituzione (Levenshtein distanza <=1)
-         * Più pattern episodio supportati: 1×01, 1x01, 1 x 01, S01E01, S1E1, 1&#215;01 ecc.
-         * Debug dettagliato: candidates, matched, rejected, phase, ratio_seq/token
-    - ES_SEARCH_MODE=legacy
-         * Vecchia logica minimale: singolo pattern "{season}&#215;{episode}" e controllo anno basilare
-         * Nessun ranking avanzato; meno pattern episodio.
-
-2) Recupero metadata titolo/anno da IMDb
-    - TMDB_KEY=<api_key> abilita uso TMDb (endpoint /find) per risolvere (titolo ITA se disponibile + year)
-    - ES_INFO_MODE=tmdb    forza TMDb (se TMDB_KEY presente, altrimenti fallback scrape)
-    - ES_INFO_MODE=scrape  forza scraping diretto pagina IMDb
-    - ES_INFO_MODE (vuoto / altro) AUTO: usa TMDb se disponibile, altrimenti scrape.
-
-3) Debug
-    - ES_DEBUG=1 abilita log verbose su stderr (stdout resta JSON pulito)
-
-4) Parametro MFP (CLI --mfp)
-    - Se =1 per MixDrop ritorna direttamente l'embed senza (eventuale) risoluzione JS aggiuntiva.
-    - Default 0.
-
-5) Esempi CLI
-    - Ricerca avanzata (default):
-         TMDB_KEY=... ES_DEBUG=1 python eurostreaming.py --imdb tt0157246 --season 11 --episode 1 --debug 1
-    - Forzare legacy:
-         ES_SEARCH_MODE=legacy python eurostreaming.py --imdb tt0157246 --season 11 --episode 1
-    - Forzare scraping IMDb ignorando TMDb:
-         ES_INFO_MODE=scrape python eurostreaming.py --imdb tt13443470 --season 1 --episode 1
-
-Output JSON principale:
-    {
-      "streams": [ { url, title, player, lang, match_pct } ],
-      "diag": { reason, title, imdb_tokens, matched_posts, candidates, rejected, ... }
-    }
-
-Note:
- - I film (solo ID IMDb senza season/episode) non sono supportati (reason=is_movie).
- - match_pct deriva dal ratio_seq del post scelto (solo metodo advanced).
- - I log OCR/captcha appaiono solo con ES_DEBUG=1.
-"""
 # Eurostreaming provider (MammaMia-style, 1:1 functions) with curl_cffi + fake_headers
 import re, os, json, base64, time, random, asyncio, sys, unicodedata
 import difflib
@@ -141,75 +91,37 @@ async def is_movie(id_value: str) -> Tuple[int, str, Optional[int], Optional[int
     ismovie = 1 if (season is None or episode is None) else 0
     return ismovie, clean, season, episode
 
-async def get_info_imdb_scrape(clean_id: str, ismovie: int, _type: str, client) -> Tuple[str, int]:
-    """Scrape IMDb page (fallback mode)."""
+async def get_info_imdb(clean_id: str, ismovie: int, _type: str, client) -> Tuple[str, int]:
+    """Fetch IMDb title and year. Fallback to id if fail."""
     title = clean_id
     year = 0
     try:
-        log('imdb(scrape): fetching', clean_id)
+        log('get_info_imdb: fetching', clean_id)
         r = await client.get(f'https://www.imdb.com/title/{clean_id}/')
         if r.status_code == 200:
             m = re.search(r'<title>([^<]+)</title>', r.text, re.I)
             if m:
                 full = m.group(1)
+                # e.g. "Chief of War (2024) - IMDb"
                 t = re.sub(r'\s*-\s*IMDb.*$', '', full).strip()
                 ym = re.search(r'\((\d{4})\)', t)
                 if ym:
                     year = int(ym.group(1))
                     t = re.sub(r'\((\d{4})\)', '', t).strip()
-                title = re.sub(r'\s*\([^)]*\)\s*$', '', t).strip()
-                log('imdb(scrape): title/year ->', title, year)
+                title = t
+                # extra cleanup: drop residual parentheses fragments
+                title = re.sub(r'\s*\([^)]*\)\s*$', '', title).strip()
+                log('get_info_imdb: title/year ->', title, year)
     except Exception:
         pass
+    if year == 0:
+        # best-effort default year
+        year = 0
     return title, year
 
 def get_info_tmdb(clean_id: str, ismovie: int, _type: str):
     # Not used in our flow; return placeholders
     return (clean_id, 0)
-
-# ==== Optional TMDb-based metadata (user provided pattern) ===== #
-TMDB_KEY = os.environ.get('TMDB_KEY')
-
-async def get_info_imdb_tmdb(imdb_id: str, ismovie: int, _type: str, client) -> Tuple[str, int]:
-    """Use TMDb 'find' endpoint to resolve IMDb id to (title, year) if API key present."""
-    if not TMDB_KEY:
-        return await get_info_imdb_scrape(imdb_id, ismovie, _type, client)
-    try:
-        resp = await client.get(f'https://api.themoviedb.org/3/find/{imdb_id}?api_key={TMDB_KEY}&language=it&external_source=imdb_id')
-        data = resp.json()
-        if ismovie == 0:
-            arr = data.get('tv_results') or []
-            if not arr:
-                return await get_info_imdb_scrape(imdb_id, ismovie, _type, client)
-            show = arr[0]
-            name = show.get('name') or imdb_id
-            date_full = (show.get('first_air_date') or '').split('-')[0]
-            year = int(date_full) if date_full.isdigit() else 0
-            return name, year
-        else:
-            arr = data.get('movie_results') or []
-            if not arr:
-                return await get_info_imdb_scrape(imdb_id, ismovie, _type, client)
-            show = arr[0]
-            name = show.get('title') or imdb_id
-            date_full = (show.get('release_date') or '').split('-')[0]
-            year = int(date_full) if date_full.isdigit() else 0
-            return name, year
-    except Exception as e:  # pragma: no cover
-        log('imdb(tmdb): fallback scrape due to', e)
-        return await get_info_imdb_scrape(imdb_id, ismovie, _type, client)
-
-# Environment toggle: ES_INFO_MODE = scrape|tmdb (default auto: tmdb if key else scrape)
-def _choose_imdb_info_func():
-    mode = os.environ.get('ES_INFO_MODE', '').lower()
-    if mode == 'scrape':
-        return get_info_imdb_scrape
-    if mode == 'tmdb':
-        return get_info_imdb_tmdb
-    # auto
-    return get_info_imdb_tmdb if TMDB_KEY else get_info_imdb_scrape
-
-get_info_imdb = _choose_imdb_info_func()  # alias used below (async function chosen)
 
 # ========= Core host resolvers ========= #
 async def mixdrop(url, MFP, client):
@@ -506,11 +418,7 @@ def _levenshtein(a: str, b: str) -> int:
         prev = cur
     return prev[la]
 
-#############################################
-# ADVANCED SEARCH (current default)
-# Can be forced via ES_SEARCH_MODE=advanced
-#############################################
-async def search_advanced(showname, date, season, episode, MFP, client):
+async def search(showname, date, season, episode, MFP, client):
     headers = random_headers.generate()
     log('search: query', showname, 'year', date, 'S', season, 'E', episode)
     reason = None
@@ -751,122 +659,38 @@ async def search_advanced(showname, date, season, episode, MFP, client):
 
     return None, 'no_episode_match', debug
 
-#############################################
-# LEGACY SEARCH (simplified year + single pattern)
-# Activated with ES_SEARCH_MODE=legacy
-# Returns same tuple signature: (urls|None, reason, debug)
-#############################################
-async def search_legacy(showname, date, season, episode, MFP, client):
-    debug = { 'mode': 'legacy', 'year': date }
-    headers = random_headers.generate()
-    try:
-        response = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/search?search={showname}&_fields=id", proxies=proxies, headers=headers)
-    except Exception as e:
-        debug['error'] = str(e)
-        return None, 'search_request_failed', debug
-    results = response.json()
-    if not isinstance(results, list) or not results:
-        return None, 'no_search_results', debug
-    season_s = str(season)
-    episode_s = str(episode).zfill(2)
-    pattern_primary = rf'{season_s}&#215;{episode_s}\s*(.*?)(?=<br\s*/?>)'
-    year_pattern = re.compile(r'(?<!/)(19|20)\d{2}(?!/)')
-    for i in results:
-        try:
-            r = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/posts/{i['id']}?_fields=content", proxies=proxies, headers=headers)
-        except Exception:
-            continue
-        if 'ID articolo non valido' in r.text:
-            continue
-        try:
-            desc = r.json().get('content', {}).get('rendered', '')
-        except Exception:
-            continue
-        # Year extraction
-        match_year = year_pattern.search(desc)
-        post_year = None
-        if match_year:
-            post_year = match_year.group(0)
-        else:
-            more = re.search(r'<a\s+href="([^\"]+)"[^>]*>Continua a leggere</a>', desc)
-            if more:
-                try:
-                    r2 = await client.get(ForwardProxy + more.group(1), proxies=proxies, headers=headers)
-                    match2 = year_pattern.search(r2.text)
-                    if match2:
-                        post_year = match2.group(0)
-                except Exception:
-                    pass
-        if date and post_year and str(post_year) != str(date):
-            continue
-        matches = re.findall(pattern_primary, desc)
-        if not matches:
-            continue
-        urls = {}
-        for ep_details in matches:
-            if 'href' not in ep_details:
-                continue
-            part = ep_details
-            if ' – ' in part:
-                part = part.split(' – ', 1)[1]
-            full_url, name = await scraping_links(part, MFP, client)
-            if full_url:
-                urls[full_url] = name
-        if urls:
-            debug['used_pattern'] = 'primary'
-            return urls, None, debug
-    return None, 'no_episode_match', debug
-
-# Dispatcher
-def _choose_search_fn():
-    mode = os.environ.get('ES_SEARCH_MODE', '').lower()
-    if mode == 'legacy':
-        return search_legacy
-    if mode == 'advanced':
-        return search_advanced
-    return search_advanced  # default
-
-search = _choose_search_fn()
-
 async def eurostreaming(id_value, client, MFP):
-    """Main Eurostreaming orchestrator returning (urls|None, reason, debug)."""
     debug: Dict[str, object] = {}
-    # Parse id and ensure it's a series (movies unsupported)
     try:
+        # Parse id and ensure it's a series
         ismovie, clean_id, season_i, episode_i = await is_movie(id_value)
-    except Exception as e:  # pragma: no cover
-        return None, 'parse_error', { 'error': str(e) }
-    if ismovie == 1 or season_i is None or episode_i is None:
-        return None, 'is_movie', { 'note': 'movies not supported' }
-    season = str(season_i)
-    episode = str(episode_i)
-    # Metadata fetch (IMDb via tmdb API or scrape depending on env)
-    try:
+        if ismovie == 1 or season_i is None or episode_i is None:
+            return None, 'is_movie', { 'note': 'movies not supported' }
+        season = str(season_i)
+        episode = str(episode_i)
+        # Fetch canonical title/year
         if "tmdb" in id_value:
             showname, date = get_info_tmdb(clean_id, 0, "Eurostreaming")
         else:
             showname, date = await get_info_imdb(clean_id, 0, "Eurostreaming", client)
-    except Exception as e:  # pragma: no cover
-        debug['meta_error'] = str(e)
-        showname, date = (clean_id, 0)
-    # Normalize title for searching
-    showname = re.sub(r'\s+', ' ', showname).strip()
-    showname = re.sub(r'[^\w\s]', ' ', showname)
-    showname = re.sub(r'\s+', ' ', showname).strip()
-    debug['imdb_title'] = showname
-    debug['imdb_year'] = date
-    log('eurostreaming: title/date', showname, date)
-    showname_q = showname.replace(' ', '+')
-    try:
+        # Normalize whitespace first
+        showname = re.sub(r'\s+', ' ', showname).strip()
+        # Remove punctuation/symbols (simple ASCII fallback) to improve search (e.g. remove colon)
+        showname = re.sub(r'[^\w\s]', ' ', showname)
+        showname = re.sub(r'\s+', ' ', showname).strip()
+        debug['imdb_title'] = showname
+        debug['imdb_year'] = date
+        log('eurostreaming: title/date', showname, date)
+        showname_q = showname.replace(' ', '+')
         urls, reason, search_debug = await search(showname_q, date, season, episode, MFP, client)
+        if isinstance(search_debug, dict):
+            debug.update(search_debug)
+        log('eurostreaming: urls_found', 0 if not urls else len(urls), 'reason', reason)
+        return urls, reason, debug
     except Exception as e:  # pragma: no cover
-        log('eurostreaming: search exception', e)
-        debug['search_error'] = str(e)
-        return None, 'search_exception', debug
-    if isinstance(search_debug, dict):
-        debug.update(search_debug)
-    log('eurostreaming: urls_found', 0 if not urls else len(urls), 'reason', reason)
-    return urls, reason, debug
+        log('eurostreaming: exception', e)
+        debug['error'] = str(e)
+        return None, 'exception', debug
 
 # ======== Test helpers ======== #
 async def test_euro():
