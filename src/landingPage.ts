@@ -295,14 +295,14 @@ function landingTemplate(manifest: any) {
 
 	if ((manifest.config || []).length) {
 		let options = ''
-		const tvProviderKeys = new Set(['dtvEnabled', 'plutoEnabled', 'plutoMfpEnabled', 'tvtapProxyEnabled', 'tvtapMfpEnabled', 'daddyEnabled', 'vavooNoProxyEnabled', 'vavooMfpEnabled']);
+		const tvProviderKeys = new Set(['freeTvProvidersEnabled', 'mfpTvProvidersEnabled']);
 		let inTvProviderGroup = false;
 
 
 		manifest.config.forEach((elem: any) => {
 			const key = elem.key
 			if (["text", "number", "password"].includes(elem.type)) {
-				const isRequired = elem.required ? ' required' : ''
+				const isRequired = elem.required ? ' required' : '';
 				const defaultHTML = elem.default ? ` value="${elem.default}"` : ''
 				const inputType = elem.type
 				options += `
@@ -325,18 +325,12 @@ function landingTemplate(manifest: any) {
 					}
 					// Custom pretty toggle for known keys
 					const toggleMap: any = {
-						'disableVixsrc': { title: 'VixSrc 🍿 - 🔒', invert: true, requiresMfp: true },
+						'disableVixsrc': { title: 'VixSrc 🍿 - 🔒', invert: true, requiresMfp: true }, // Mantenuto per coerenza
 						'disableLiveTv': { title: 'LiveTV 📺', invert: true },
-						'dtvEnabled': { title: '📺 dTV 🌍 - 🔓', invert: false },
-						'plutoEnabled': { title: '📺 Pluto TV 🪐 - 🔓', invert: false },
-						'plutoMfpEnabled': { title: '📺 Pluto TV 🪐 - 🔒', invert: false, requiresMfp: true },
-						'tvtapProxyEnabled': { title: '📺 TvTap 🔓', invert: false },
-						'tvtapMfpEnabled': { title: '📺 TvTap 🔒', invert: false, requiresMfp: true },
-						'daddyEnabled': { title: '📺 Daddy Live 🔴 - 🔒', invert: false, requiresMfp: true },
-						'vavooNoProxyEnabled': { title: '📺 Vavoo 🔓', invert: false },
-						'vavooMfpEnabled': { title: '📺 Vavoo 🔒', invert: false, requiresMfp: true },
+						'freeTvProvidersEnabled': { title: '📺 Provider Gratuiti 🔓', invert: false },
+						'mfpTvProvidersEnabled': { title: '📺 Provider con MFP 🔒', invert: false, requiresMfp: true },
 						'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔒', invert: false, requiresMfp: true },
-						'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔒', invert: false, requiresMfp: true },
+						'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔒', invert: false, requiresMfp: true }, // Mantenuto
 						'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
 						'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
 						'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
@@ -414,18 +408,25 @@ function landingTemplate(manifest: any) {
 			if (installLink && mainForm) {
 				installLink.onclick = function () { return (mainForm && typeof mainForm.reportValidity === 'function') ? mainForm.reportValidity() : true; };
 				var buildConfigFromForm = function() {
-					// Inizia con una configurazione pulita, resettando tutti i provider TV a false.
-					// Questo previene che valori precedenti "sporchi" vengano mantenuti.
-					var config = {
-						tvtapProxyEnabled: false,
-						dtvEnabled: false,
-						plutoEnabled: false,
-						plutoMfpEnabled: false,
-						tvtapMfpEnabled: false,
-						daddyEnabled: false,
-						vavooNoProxyEnabled: false,
-						vavooMfpEnabled: false
-					};
+					var config = {}; // Inizializza un oggetto di configurazione vuoto
+
+					// Gestione dei provider TV raggruppati
+					var freeTvEnabled = !!document.getElementById('freeTvProvidersEnabled')?.checked;
+					var mfpTvEnabled = !!document.getElementById('mfpTvProvidersEnabled')?.checked;
+
+					// Abilita dTV se uno dei due gruppi è attivo
+					config.dtvEnabled = freeTvEnabled || mfpTvEnabled; 
+
+					// Provider gratuiti (escluso dTV già gestito)
+					config.plutoEnabled = freeTvEnabled;
+					config.tvtapProxyEnabled = freeTvEnabled;
+					config.vavooNoProxyEnabled = freeTvEnabled;
+
+					// Provider con MFP
+					config.plutoMfpEnabled = mfpTvEnabled;
+					config.tvtapMfpEnabled = mfpTvEnabled;
+					config.daddyEnabled = mfpTvEnabled;
+					config.vavooMfpEnabled = mfpTvEnabled;
 
 					var elements = (mainForm).querySelectorAll('input, select, textarea');
 					elements.forEach(function(el) {
@@ -433,7 +434,11 @@ function landingTemplate(manifest: any) {
 						if (!key) return;
 
 						// Salta gli input disabilitati, specialmente quelli dei provider TV nascosti.
-						if (el.disabled) return;
+						if (el.disabled) {
+							// Per i checkbox, assicurati che il valore sia false se disabilitato
+							if (el.type === 'checkbox') config[key] = false;
+							return;
+						}
 
 						if (el.type === 'checkbox') {
 							var cfgKey = el.getAttribute('data-config-key') || key;
@@ -471,28 +476,20 @@ function landingTemplate(manifest: any) {
 						var isLiveTvDisabled = liveTvToggle ? liveTvToggle.checked : false; // direct logic
 						var tvGrid = document.querySelector('.tv-provider-grid');
 						
-						// Find all Live TV-dependent toggles
-						var liveTvDependentKeys = ['dtvEnabled', 'plutoEnabled', 'plutoMfpEnabled', 'tvtapProxyEnabled', 'tvtapMfpEnabled', 'daddyEnabled', 'vavooNoProxyEnabled', 'vavooMfpEnabled'];
+						var liveTvDependentKeys = ['freeTvProvidersEnabled', 'mfpTvProvidersEnabled'];
 
 						if (tvGrid) {
 							if (!isLiveTvDisabled) {
-								// Nascondi l'intero riquadro dei provider TV
 								liveTvDependentKeys.forEach(function(key) {
 									var input = document.getElementById(key);
-									if (input) {
-										input.disabled = true; // Disabilita l'input quando nascosto
-									}
+									if (input) input.disabled = true;
 								});
 								tvGrid.style.display = 'none';
 							} else {
-								// Mostra il riquadro
 								tvGrid.style.display = 'grid';
-								// Riabilita gli input quando il riquadro è visibile
 								liveTvDependentKeys.forEach(function(key) {
 									var input = document.getElementById(key);
-									if (input) {
-										input.disabled = false;
-									}
+									if (input) input.disabled = false;
 								});
 							}
 						}
@@ -504,46 +501,6 @@ function landingTemplate(manifest: any) {
 						updateLink();
 					};
 
-					/*
-					// Funzione per gestire l'esclusività dei provider TV (DISABILITATA)
-					// var handleTvProviderExclusivity = function(changedKey) {
-					// 	// Mappa dei provider e dei loro toggle
-					// 	var providerGroups = {
-					// 		dtv: ['dtvEnabled'],
-					// 		pluto: ['plutoEnabled', 'plutoMfpEnabled'],
-					// 		tvtap: ['tvtapProxyEnabled', 'tvtapMfpEnabled'],
-					// 		daddy: ['daddyEnabled'],
-					// 		vavoo: ['vavooNoProxyEnabled', 'vavooMfpEnabled']
-					// 	};
-
-					// 	// Trova il gruppo del provider modificato
-					// 	var changedGroup = null;
-					// 	for (var groupName in providerGroups) {
-					// 		if (providerGroups[groupName].indexOf(changedKey) !== -1) {
-					// 			changedGroup = groupName;
-					// 			break;
-					// 		}
-					// 	}
-					// 	if (!changedGroup) return;
-
-					// 	var liveTvToggle = document.getElementById('disableLiveTv');
-					// 	var changedInput = document.getElementById(changedKey);
-
-					// 	// Se il toggle LiveTV è attivo (provider visibili) e l'input è stato attivato
-					// 	if (liveTvToggle && liveTvToggle.checked && changedInput && changedInput.checked) {
-					// 		// Disattiva tutti i toggle degli ALTRI gruppi
-					// 		for (var groupName in providerGroups) {
-					// 			if (groupName !== changedGroup) {
-					// 				providerGroups[groupName].forEach(function(keyToDisable) {
-					// 					var otherInput = document.getElementById(keyToDisable);
-					// 					if (otherInput) otherInput.checked = false;
-					// 				});
-					// 			}
-					// 		}
-					// 	}
-					// };
-					*/
-
 					// MFP dependency logic
 					var checkMfpDependencies = function() {
 						var mfpUrlInput = document.getElementById('mediaFlowProxyUrl');
@@ -551,7 +508,7 @@ function landingTemplate(manifest: any) {
 						var hasMfpConfig = mfpUrlInput && mfpPasswordInput && mfpUrlInput.value.trim() && mfpPasswordInput.value.trim();						
 						
 						// Definisci i gruppi di provider
-						var mfpDependentKeys = ['disableVixsrc', 'plutoMfpEnabled', 'tvtapMfpEnabled', 'vavooMfpEnabled', 'daddyEnabled', 'animeunityEnabled', 'animesaturnEnabled'];
+						var mfpDependentKeys = ['disableVixsrc', 'mfpTvProvidersEnabled', 'animeunityEnabled', 'animesaturnEnabled'];
 
 						mfpDependentKeys.forEach(function(key) {
 							var input = document.getElementById(key);
@@ -584,30 +541,6 @@ function landingTemplate(manifest: any) {
 					// Monitor Live TV toggle for changes
 					var liveTvToggle = document.getElementById('disableLiveTv');
 					if (liveTvToggle) liveTvToggle.addEventListener('change', checkLiveTvDependencies);
-
-					// DaddyLive dependency logic
-					var daddyLiveToggle = document.getElementById('daddyEnabled');
-					if (daddyLiveToggle && liveTvToggle) {
-						daddyLiveToggle.addEventListener('change', function() {
-							if (daddyLiveToggle.checked && liveTvToggle.checked) {
-								liveTvToggle.checked = false; // Per abilitare la TV, il toggle "disable" deve essere OFF
-								// Aggiorna lo stato visivo del toggle LiveTV
-								var liveTvRow = document.querySelector('[data-toggle-row="disableLiveTv"]');
-								setRowState(liveTvRow);
-								checkLiveTvDependencies(); // Esegui per mostrare la griglia dei provider TV
-							}
-						});
-					}
-					
-					/*
-					// Aggiungi listener per l'esclusività dei provider TV (DISABILITATO)
-					// var liveTvDependentKeys = ['dtvEnabled', 'plutoEnabled', 'plutoMfpEnabled', 'tvtapProxyEnabled', 'tvtapMfpEnabled', 'daddyEnabled', 'vavooNoProxyEnabled', 'vavooMfpEnabled'];
-					// liveTvDependentKeys.forEach(function(key) {
-					// 	var input = document.getElementById(key);
-					// 	if (input) input.addEventListener('change', function() { handleTvProviderExclusivity(key); });
-					// });
-					*/
-
 
 					// Monitor MFP fields for changes
 					var mfpUrl = document.getElementById('mediaFlowProxyUrl');

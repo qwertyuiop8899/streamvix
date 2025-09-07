@@ -544,17 +544,12 @@ const baseManifest: Manifest = {
     config: [
         { key: "mediaFlowProxyUrl", title: "MediaFlow Proxy URL", type: "text" },
         { key: "mediaFlowProxyPassword", title: "MediaFlow Proxy Password", type: "text" },
-        // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
         { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox", default: true },
         { key: "disableLiveTv", title: "Disable Live TV", type: "checkbox" },
-        { key: "dtvEnabled", title: "dTV", type: "checkbox", default: true },
-        { key: "plutoEnabled", title: "Pluto TV", type: "checkbox", default: true },
-        { key: "plutoMfpEnabled", title: "Pluto TV con MFP", type: "checkbox", default: false },
-        { key: "tvtapProxyEnabled", title: "TvTap NO Proxy", type: "checkbox", default: true },
-        { key: "tvtapMfpEnabled", title: "TvTap con MFP", type: "checkbox", default: false },
-        { key: "daddyEnabled", title: "Daddy Live", type: "checkbox", default: false },
-        { key: "vavooNoProxyEnabled", title: "Vavoo NO Proxy", type: "checkbox", default: true },
-        { key: "vavooMfpEnabled", title: "Vavoo con MFP", type: "checkbox", default: false },
+        // Pulsanti raggruppati per i provider TV
+        { key: "freeTvProvidersEnabled", title: "Provider TV Gratuiti 🔓", type: "checkbox", default: true },
+        { key: "mfpTvProvidersEnabled", title: "Provider TV con MFP 🔒", type: "checkbox", default: false },
+        // Le configurazioni individuali sottostanti sono gestite dallo script della landing page
         { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox", default: false },
         { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox", default: false },
         { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox", default: true },
