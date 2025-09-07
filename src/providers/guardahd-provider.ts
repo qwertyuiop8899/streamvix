@@ -1,5 +1,5 @@
 // SEMPLIFICAZIONE: Provider ora usa SOLO mostraguarda.stream e replica la logica webstreamr MostraGuarda (data-link extraction + embed resolving)
-// Mantiene label / naming invariati .
+// Mantiene label / naming invariati.
 
 /*
  * This provider adapts the behavior of the "MostraGuarda" source logic from the MIT licensed
@@ -34,6 +34,7 @@ export class GuardaHdProvider {
     if (!this.config.enabled) return { streams: [] };
     if (!isMovie) return { streams: [] }; // MostraGuarda in webstreamr gestisce solo movie
     const imdbOnly = imdbId.split(':')[0];
+    console.log('[GH][FLOW] handleImdbRequest imdb=', imdbOnly);
     // CACHE lookup
     const cache = readStreamCache();
     purgeOld(cache, this.CACHE_TTL);
@@ -48,6 +49,7 @@ export class GuardaHdProvider {
         };
         if (ce.streams.length && ce.streams.every(s => isPlaceholder((s as any).title || (s as any).name))) {
           useCache = false; // forza refresh per ottenere titolo ITA
+          console.log('[GH][CACHE] forcing refresh due to placeholder titles');
         }
       }
       if (useCache) return { streams: ce.streams };
@@ -56,7 +58,9 @@ export class GuardaHdProvider {
     let html: string;
     try {
       html = await fetchPage(`${this.base}/movie/${encodeURIComponent(imdbOnly)}`);
+      console.log('[GH][NET] fetched movie page len=', html.length);
     } catch {
+      console.log('[GH][ERR] fetch movie page failed');
       return { streams: [] };
     }
     // Estrai titolo reale del film dalla pagina; se è generico o coincide con IMDb, tenta TMDB (IT)
@@ -65,23 +69,30 @@ export class GuardaHdProvider {
       const $t = cheerio.load(html);
       const cand = ($t('h1').first().text().trim() || $t('title').first().text().trim() || '').replace(/Streaming.*$/i,'').trim();
       if (cand) realTitle = cand;
+      console.log('[GH][TITLE] extracted page title=', realTitle);
     } catch { /* ignore */ }
     // Se titolo è ancora un placeholder (solo imdb id o pattern tipo "Movie tt1234567") prova TMDB italiano
     if (this.config.tmdbApiKey && (/^tt\d{7,8}$/i.test(realTitle) || /^movie\s+tt\d+/i.test(realTitle) || realTitle.toLowerCase() === 'movie')) {
       try {
+        console.log('[GH][TMDB] trying italian title lookup for', imdbOnly);
         const tmdbId = await getTmdbIdFromImdbId(imdbOnly, this.config.tmdbApiKey);
+        console.log('[GH][TMDB] tmdbId=', tmdbId);
         if (tmdbId) {
           const resp = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${this.config.tmdbApiKey}&language=it`);
           if (resp.ok) {
             const data = await resp.json();
             if (data && (data.title || data.original_title)) {
               realTitle = (data.title || data.original_title).trim();
+              console.log('[GH][TMDB] resolved italian title=', realTitle);
             }
+          } else {
+            console.log('[GH][TMDB] movie details resp status', resp.status);
           }
         }
       } catch { /* ignore tmdb fallback */ }
     }
     const streams = await this.extractStreamsFromMoviePage(html, realTitle || imdbOnly);
+    console.log('[GH][STREAMS] extracted embed streams count=', streams.length);
     // Forza iniettare titolo italiano nella prima linea (se extractor ha generato placeholder)
   const finalStreams = streams.map(s => {
       try {
@@ -94,6 +105,7 @@ export class GuardaHdProvider {
         return s;
       } catch { return s; }
     });
+    console.log('[GH][STREAMS] final streams count=', finalStreams.length);
     cache[imdbOnly] = { timestamp: Date.now(), streams: finalStreams };
     writeStreamCache(cache);
     return { streams: finalStreams };
@@ -122,7 +134,9 @@ export class GuardaHdProvider {
     const seen = new Set<string>();
     for (const eurl of dedup) {
       try {
+    console.log('[GH][EMBED] resolving', eurl);
         const { streams } = await extractFromUrl(eurl, { mfpUrl: this.config.mfpUrl, mfpPassword: this.config.mfpPassword, countryCode: 'IT', titleHint });
+    console.log('[GH][EMBED] got', streams.length, 'streams from', eurl);
         for (const s of streams) {
           if (seen.has(s.url)) continue; seen.add(s.url);
           // Mantiene titolo così come fornito dall'extractor (come webstreamr non rietichetta qui la Source) – opzionale potremmo aggiungere country marker
@@ -130,6 +144,7 @@ export class GuardaHdProvider {
         }
       } catch { /* ignore single embed */ }
     }
+  console.log('[GH][EMBED] total after dedup', out.length);
     return out;
   }
 }
