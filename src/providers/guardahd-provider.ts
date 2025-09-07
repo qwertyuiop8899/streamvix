@@ -59,8 +59,8 @@ export class GuardaHdProvider {
     try {
       html = await fetchPage(`${this.base}/movie/${encodeURIComponent(imdbOnly)}`);
       console.log('[GH][NET] fetched movie page len=', html.length);
-    } catch {
-      console.log('[GH][ERR] fetch movie page failed');
+    } catch (e:any) {
+      console.log('[GH][ERR] fetch movie page failed', e?.message || e);
       return { streams: [] };
     }
     // Estrai titolo reale del film dalla pagina; se è generico o coincide con IMDb, tenta TMDB (IT)
@@ -86,7 +86,7 @@ export class GuardaHdProvider {
               console.log('[GH][TMDB] resolved italian title=', realTitle);
             }
           } else {
-            console.log('[GH][TMDB] movie details response status', resp.status);
+            console.log('[GH][TMDB] movie details resp status', resp.status);
           }
         }
       } catch { /* ignore tmdb fallback */ }
