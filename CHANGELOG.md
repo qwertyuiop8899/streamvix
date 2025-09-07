@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.29](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.28...v1.0.29) (2025-09-07)
+
+
+### Bug Fixes
+
+* nome guardahd ([d3a86fb](https://github.com/qwertyuiop8899/streamvix/commit/d3a86fbe666a95ff7c4d4d0a3caf7611319e1404))
+* update gh ([1c1bef0](https://github.com/qwertyuiop8899/streamvix/commit/1c1bef0b9bfb1fe98facb379345e976ad7fa938d))
+
 ## [1.0.28](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.27...v1.0.28) (2025-09-06)
 
 
