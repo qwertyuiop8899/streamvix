@@ -184,7 +184,14 @@ const HARD_CODED_PROXIES: string[] = [
   'http://fabiorealdebrid-rotate:MammamiaHF1@p.webshare.io:80/',
   'http://proxoooo-rotate:proxoooo@p.webshare.io:80/',
   'http://teststremio-rotate:teststremio@p.webshare.io:80/',
-  'http://mammapro-rotate:mammapro@p.webshare.io:80/'
+  'http://mammapro-rotate:mammapro@p.webshare.io:80/',
+  'http://zmjoluhu-rotate:ej6ddw3ily90@p.webshare.io:80/',
+  'http://kkuafwyh-rotate:kl6esmu21js3@p.webshare.io:80/',
+  'http://stzaxffz-rotate:ax92ravj1pmm@p.webshare.io:80/',
+  'http://nfokjhhu-rotate:ez248bgee4z9@p.webshare.io:80/',
+  'http://fiupzkjx-rotate:0zlrd2in3mrh@p.webshare.io:80/',
+  'http://tpnvndgp-rotate:xjp0ux1wwc7n@p.webshare.io:80/',
+  'http://tmglotxc-rotate:stlrhx17nhqj@p.webshare.io:80/'
 ];
 function pickProxy(): string | undefined { if (!HARD_CODED_PROXIES.length) return undefined; return HARD_CODED_PROXIES[Math.floor(Math.random()*HARD_CODED_PROXIES.length)]; }
 
