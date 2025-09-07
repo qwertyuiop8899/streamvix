@@ -1,5 +1,5 @@
 // SEMPLIFICAZIONE: Provider ora usa SOLO mostraguarda.stream e replica la logica webstreamr MostraGuarda (data-link extraction + embed resolving)
-// Mantiene label / naming invariati.
+// Mantiene label / naming invariati .
 
 /*
  * This provider adapts the behavior of the "MostraGuarda" source logic from the MIT licensed
