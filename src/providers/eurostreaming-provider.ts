@@ -1,4 +1,4 @@
-// thanks @urlomithus for the code https://github.com/UrloMythus/MammaMia
+// thanks @urlomithus for the code https://github.com/UrloMythus/MammaMia !
 import { spawn } from 'child_process';
 import * as path from 'path';
 import type { StreamForStremio } from '../types/animeunity';
