@@ -8,10 +8,9 @@ RUN echo "Cache bust: $CACHE_BUST"
 USER root 
 RUN apt-get update && apt-get install -y \
     git \
-    python3 python3-pip python3-dev python3-venv \
+    python3 python3-pip python3-dev \
     build-essential ca-certificates \
     tesseract-ocr tesseract-ocr-ita tesseract-ocr-eng \
-    curl wget \
     --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 # Imposta la directory di lavoro nell'immagine
@@ -20,15 +19,16 @@ WORKDIR /usr/src/app
 # Copia il codice sorgente dell'applicazione nella directory di lavoro
 COPY . .
 
-# Installa le dipendenze Python necessarie (inclusi OCR e curl_cffi)
+# Installa SOLO le dipendenze Python necessarie ed esistenti
 RUN pip3 install --no-cache-dir --break-system-packages \
     requests beautifulsoup4 pycryptodome pyDes \
-    pillow pytesseract curl_cffi fake-headers lxml \
-    asyncio-compat unicodedata2
+    pillow pytesseract curl_cffi fake-headers lxml
 
-# Verifica installazione Python e dipendenze
-RUN python3 --version && \
-    python3 -c "import curl_cffi, fake_headers, pytesseract, difflib, unicodedata, html; print('All Python dependencies OK')" && \
+# Verifica che le dipendenze della libreria standard siano disponibili
+RUN python3 -c "import asyncio, difflib, unicodedata, html; print('Standard library modules OK')"
+
+# Verifica installazione dipendenze esterne
+RUN python3 -c "import curl_cffi, fake_headers, pytesseract; print('External dependencies OK')" && \
     tesseract --version
 
 # Installa una versione specifica di pnpm per evitare problemi di compatibilità della piattaforma
@@ -36,9 +36,6 @@ RUN npm install -g pnpm@8.15.5
 
 # Assicura che l'utente node sia proprietario della directory dell'app e del suo contenuto
 RUN chown -R node:node /usr/src/app
-
-# Rendi eseguibili gli script Python
-RUN chmod +x /usr/src/app/dist/providers/eurostreaming.py 2>/dev/null || true
 
 # Torna all'utente node per le operazioni di pnpm e l'esecuzione dell'app
 USER node
@@ -60,7 +57,7 @@ USER root
 RUN chmod +x /usr/src/app/dist/providers/eurostreaming.py 2>/dev/null || true
 RUN chown node:node /usr/src/app/dist/providers/eurostreaming.py 2>/dev/null || true
 
-# Wrapper: alcune piattaforme avviano forzatamente `node /start`
+# Wrapper
 COPY start /start
 RUN chown node:node /start
 USER node
