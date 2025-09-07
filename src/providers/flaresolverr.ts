@@ -177,7 +177,7 @@ async function solveChallenge(url: URL): Promise<string | null> {
   return null;
 }
 
-// Proxy support hard-coded: aggiungi fino a 20 proxy in questo array (formato http://user:pass@host:port/)
+// Proxy support hard-coded: aggiungi fino a 20 proxy in questo array ROTATE(formato http://user:pass@host:port/)
 const HARD_CODED_PROXIES: string[] = [
   'http://emaschipx-rotate:emaschipx@p.webshare.io:80/',
   'http://proxooo4-rotate:proxooo4@p.webshare.io:80/',
