@@ -177,49 +177,123 @@ async function solveChallenge(url: URL): Promise<string | null> {
   return null;
 }
 
+// Proxy support hard-coded: aggiungi fino a 20 proxy in questo array (formato http://user:pass@host:port/)
+const HARD_CODED_PROXIES: string[] = [
+  'http://emaschipx-rotate:emaschipx@p.webshare.io:80/',
+  'http://proxooo4-rotate:proxooo4@p.webshare.io:80/',
+  'http://fabiorealdebrid-rotate:MammamiaHF1@p.webshare.io:80/',
+  'http://proxoooo-rotate:proxoooo@p.webshare.io:80/',
+  'http://teststremio-rotate:teststremio@p.webshare.io:80/',
+  'http://mammapro-rotate:mammapro@p.webshare.io:80/'
+];
+function pickProxy(): string | undefined { if (!HARD_CODED_PROXIES.length) return undefined; return HARD_CODED_PROXIES[Math.floor(Math.random()*HARD_CODED_PROXIES.length)]; }
+
+async function proxyAttempt(url: URL): Promise<string | null> {
+  const proxies = HARD_CODED_PROXIES.filter(Boolean);
+  if (!proxies.length) return null;
+  const tried = new Set<number>();
+  const attempts = Math.min(2, proxies.length); // try max 2 distinct proxies
+  for (let i = 0; i < attempts; i++) {
+    let idx: number; let guard = 0;
+    do { idx = Math.floor(Math.random()*proxies.length); guard++; } while(tried.has(idx) && guard < 10);
+    if (tried.has(idx)) break;
+    tried.add(idx);
+    const proxy = proxies[idx];
+    try {
+      const masked = proxy.replace(/:\w+@/, ':***@');
+      console.log('[FS][PROXY][TRY]', masked, 'attempt', i+1, 'of', attempts);
+      const controller = new AbortController();
+      const to = setTimeout(()=>controller.abort(), 5000);
+      const r = await fetch(url, { headers: { 'User-Agent': hostUA.get(url.host)||DEFAULT_UA, 'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8','Accept-Language':'en','Priority':'u=0' },
+        // @ts-ignore dispatcher support
+        dispatcher: new (require('undici').ProxyAgent)(proxy), signal: controller.signal });
+      clearTimeout(to);
+      const txt = await r.text();
+      console.log('[FS][PROXY][RESP]', r.status, 'len', txt.length, 'attempt', i+1);
+      if (r.status >=200 && r.status <=399 && txt.length>0) return txt;
+    } catch(e:any){ console.log('[FS][PROXY][ERR]', (e && e.message) || e, 'attempt', i+1); }
+  }
+  return null;
+}
+
+// Estensione heuristics Cloudflare: aggiunti pattern ("Just a moment", __cf_chl_, enable javascript, challenge-platform)
+// con bypass immediato se pagina 200 contiene marker stream (data-link=)
 async function fetchHtml(url: URL, opts?: { noCache?: boolean }): Promise<string> {
   if (!opts?.noCache) {
     const c = getCache(url);
     if (c) {
-      const challenge = c.headers['cf-mitigated'] === 'challenge' || c.body.includes('cf-turnstile');
-      if (!challenge && c.status >= 200 && c.status <= 399) return c.body;
+      const isChallengeCache = c.headers['cf-mitigated'] === 'challenge' || c.body.includes('cf-turnstile');
+      if (!isChallengeCache && c.status >= 200 && c.status <= 399) return c.body;
     }
   }
   console.log('[FS][FETCH]', url.href);
   const resp = await fetchWithRetry(url);
-  const headers: Record<string,string> = {};
-  resp.headers.forEach((v,k)=>{ headers[k]=v; });
-  // Estrae Set-Cookie in header:value flatten (node fetch li unisce; non sempre accessibile qui - placeholder)
+  const headers: Record<string,string> = {}; resp.headers.forEach((v,k)=>{ headers[k]=v; });
   let body = await resp.text();
-  const isCfChallenge = (html:string, hdrs:Record<string,string>) => {
-    if (hdrs['cf-mitigated'] === 'challenge') return true;
-    return /cf-turnstile|__cf_chl_|just a moment|enable javascript and cookies to continue|challenge-platform\//i.test(html);
-  };
-  let challenge = isCfChallenge(body, headers);
-  if (challenge) console.log('[FS][CHALLENGE] detected', url.href);
+
+  const headerChallenge = headers['cf-mitigated'] === 'challenge';
+  const bodyTurnstile = body.includes('cf-turnstile');
+  // Broad heuristics richieste
+  const broadPatterns = [ /__cf_chl_/i, /Just a moment/i, /enable javascript and cookies to continue/i, /challenge-platform\//i ];
+  const bodyBroad = broadPatterns.some(r=>r.test(body));
+  // Marker pagina valida MostraGuarda (contiene data-link per gli embed)
+  const hasStreamMarkers = resp.status === 200 && /data-link\s*=\s*"[^"]+"/i.test(body);
+  const isChallenge = headerChallenge || bodyTurnstile || bodyBroad;
+
   if (resp.status === 404) { setCache(url, resp.status, headers, body); throw new Error('not_found'); }
-  if (challenge) {
-    const solved = await solveChallenge(url);
-    if (!solved) { console.log('[FS][CHALLENGE][FAIL]', url.href); throw new Error('cloudflare_challenge'); }
-    body = solved; challenge = false;
-  }
+
+  // 403: always attempt solver, then proxy fallback
   if (resp.status === 403) {
-    const looksCloudflare = isCfChallenge(body, headers) || /cloudflare|attention required|verify you are human/i.test(body);
-    console.log('[FS][HTTP][403]', url.href, 'cloudflareLike=', looksCloudflare, 'snippet=', body.slice(0,160).replace(/[\n\r]+/g,' '));
-    if (!looksCloudflare) throw new Error('blocked_403');
+    console.log('[FS][HTTP][403]', url.href, 'attempt solver');
     const solved = await solveChallenge(url);
-    if (!solved) { console.log('[FS][SOLVER][403][FAIL]', url.href); throw new Error('cloudflare_challenge'); }
-    console.log('[FS][SOLVER][403][OK]', url.href, 'len', solved.length);
+    if (!solved) {
+      console.log('[FS][SOLVER][403][FAIL]', url.href);
+      const viaProxy = await proxyAttempt(url);
+      if (viaProxy) return viaProxy;
+      throw new Error('cloudflare_challenge');
+    }
     body = solved;
     setCache(url, 200, headers, body);
+    console.log('[FS][SOLVER][403][OK]', url.href, 'len', body.length);
     return body;
   }
+
+  // Bypass: se la pagina ha già marker stream e status 200 ignoriamo heuristics anche se broad patterns matchano
+  if (hasStreamMarkers && resp.status >=200 && resp.status <=399) {
+    setCache(url, resp.status, headers, body);
+    console.log('[FS][STREAMPAGE][BYPASS]', url.href, 'len', body.length, 'broadMatch=', bodyBroad, 'turnstile=', bodyTurnstile, 'hdrChal=', headerChallenge);
+    return body;
+  }
+
+  // Challenge path (any status) when explicit signals present
+  if (isChallenge) {
+    console.log('[FS][CHALLENGE] detected', url.href, 'hdr=', headerChallenge, 'turnstile=', bodyTurnstile, 'broad=', bodyBroad);
+    const solved = await solveChallenge(url);
+    if (!solved) {
+      console.log('[FS][CHALLENGE][FAIL]', url.href);
+      const viaProxy = await proxyAttempt(url);
+      if (viaProxy) return viaProxy;
+      throw new Error('cloudflare_challenge');
+    }
+    body = solved;
+    setCache(url, 200, headers, body);
+    console.log('[FS][CHALLENGE][SOLVED]', url.href, 'len', body.length);
+    return body;
+  }
+
   if (resp.status === 451) throw new Error('cloudflare_censor');
   if (resp.status === 429) throw new Error('too_many_requests');
+
+  // Normal successful response (no challenge signals)
+  if (resp.status >= 200 && resp.status <= 399) {
+    setCache(url, resp.status, headers, body);
+    console.log('[FS][FETCH][OK]', url.href, 'status', resp.status, 'len', body.length);
+    return body;
+  }
+
+  // Other non-success
   setCache(url, resp.status, headers, body);
-  console.log('[FS][FETCH][OK]', url.href, 'status', resp.status, 'len', body.length);
-  if (resp.status < 200 || resp.status > 399) throw new Error(`http_${resp.status}`);
-  return body;
+  throw new Error(`http_${resp.status}`);
 }
 
 // API pubblica analoga al precedente helper semplificato
