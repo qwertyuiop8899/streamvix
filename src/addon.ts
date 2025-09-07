@@ -503,21 +503,17 @@ const baseManifest: Manifest = {
                     name: "genre",
                     options: [
                         "RAI",
-                        "Mediaset", 
                         "Sky",
                         "Sport",
                         "Cinema",
-                        "Movies",
                         "Documentari",
                         "Discovery",
                         "News",
                         "Generali",
-                        "General",
                         "Bambini",
-                        "Kids",
                         "Pluto",
                         "Serie A",
-                        "Serie B", 
+                        "Serie B",
                         "Serie C",
                         "Coppe",
                         "Soccer",
@@ -529,34 +525,13 @@ const baseManifest: Manifest = {
                         "F1",
                         "MotoGp",
                         "Basket",
-                        "Basketball",
                         "Volleyball",
                         "Ice Hockey",
                         "Wrestling",
                         "Boxing",
                         "Darts",
                         "Baseball",
-                        "NFL",
-                        "MMA",
-                        "Motorsports",
-                        "Rugby",
-                        "Cricket",
-                        "Golf",
-                        "Handball",
-                        "Cycling",
-                        "Snooker",
-                        "Horse Racing",
-                        "Water Sports",
-                        "Climbing",
-                        "Equestrian",
-                        "Futsal",
-                        "Beach Soccer",
-                        "Biathlon",
-                        "Sailing",
-                        "Squash",
-                        "TV Shows",
-                        "PPV Events",
-                        "Am Football"
+                        "NFL"
                     ]
                 },
                 { name: "genre", isRequired: false },
@@ -1383,7 +1358,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         .replace(/[ìíîï]/g,'i').replace(/[òóôõö]/g,'o')
                         .replace(/[ùúûü]/g,'u');
                     const genreMap: { [key: string]: string } = {
-                        'rai':'rai','mediaset':'mediaset','sky':'sky','bambini':'kids','kids':'kids','news':'news','sport':'sport','cinema':'movies','movies':'movies','generali':'general','general':'general','documentari':'documentari','discovery':'discovery','pluto':'pluto','serie a':'seriea','serie b':'serieb','serie c':'seriec','coppe':'coppe','soccer':'soccer','tennis':'tennis','f1':'f1','motogp':'motogp','basket':'basket','basketball':'basket','volleyball':'volleyball','ice hockey':'icehockey','wrestling':'wrestling','boxing':'boxing','darts':'darts','baseball':'baseball','nfl':'nfl'
+                        'rai':'rai','mediaset':'mediaset','sky':'sky','bambini':'kids','news':'news','sport':'sport','cinema':'movies','generali':'general','documentari':'documentari','discovery':'discovery','pluto':'pluto','serie a':'seriea','serie b':'serieb','serie c':'seriec','coppe':'coppe','soccer':'soccer','tennis':'tennis','f1':'f1','motogp':'motogp','basket':'basket','volleyball':'volleyball','ice hockey':'icehockey','wrestling':'wrestling','boxing':'boxing','darts':'darts','baseball':'baseball','nfl':'nfl'
                     };
                     // Aggiungi mapping per nuove leghe e sport
                     genreMap['premier league'] = 'premierleague';
