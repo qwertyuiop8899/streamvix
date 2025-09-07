@@ -80,8 +80,11 @@ export class EurostreamingProvider {
 
   private formatStreams(list: PyResult['streams']): StreamForStremio[] {
     if (!list) return [];
+  // Priority: if any delta(deltabit) URL present, drop mixdrop entries
+  const hasDelta = list.some(s => s.url && /deltabit|\/delta\//i.test(s.url));
+  const filtered = hasDelta ? list.filter(s => s.url && /deltabit|\/delta\//i.test(s.url)) : list;
   const out: StreamForStremio[] = [];
-  for (const s of list) {
+  for (const s of filtered) {
       if (!s.url) continue;
       let line1: string;
       if (s.title) line1 = s.title.split('\n')[0]; else line1 = 'Eurostreaming';
@@ -95,10 +98,28 @@ export class EurostreamingProvider {
       const langTag = lang === 'sub' ? '[SUB ITA]' : '[ITA]';
       const pct = (typeof s.match_pct === 'number' && s.match_pct >=0) ? ` • (${s.match_pct}%)` : '';
       // Second line format: [LANG] • Player • (percentuale)
-      const playerName = s.player ? s.player : 'Deltabit';
+      // Regola: se l'URL contiene dominio mixdrop -> mostra "Mixdrop" altrimenti mantieni player originale (default Deltabit)
+      let playerName = s.player ? s.player : 'Deltabit';
+      let finalUrl = s.url;
+      try {
+        const uObj = new URL(s.url);
+        const h = uObj.host.toLowerCase();
+        if (h.includes('mixdrop')) {
+          playerName = 'Mixdrop';
+          // Se configurato MFP, wrappiamo l'URL mixdrop nell'extractor
+          if (this.config.mfpUrl && this.config.mfpPassword) {
+            const base = this.config.mfpUrl.replace(/\/$/, '');
+            const encoded = encodeURIComponent(s.url);
+            const pass = encodeURIComponent(this.config.mfpPassword);
+            finalUrl = `${base}/extractor/video?host=Mixdrop&api_password=${pass}&d=${encoded}&redirect_stream=true`;
+          }
+        } else if (/deltabit|\/delta\//i.test(s.url)) {
+          playerName = 'Deltabit';
+        }
+      } catch { /* ignore parse */ }
       const second = `${langTag} • ${playerName}${pct}`;
       const title = `${line1}\n${second}`;
-      out.push({ url: s.url, title, behaviorHints: { notWebReady: true } });
+      out.push({ url: finalUrl, title, behaviorHints: { notWebReady: true } });
     }
     return out;
   }
