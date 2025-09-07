@@ -29,13 +29,14 @@ interface SolverResultCookie { name:string; value:string; domain:string; expires
 interface SolverResult { status:string; message?:string; solution?: { url:string; status:number; response:string; userAgent:string; headers:Record<string,string>; cookies:SolverResultCookie[] } }
 
 // Cookie e UA per host
-const hostCookies = new Map<string, Map<string,string>>();
+const hostCookies = new Map<string, Map<string,string>>(); // name->value per host
 const hostUA = new Map<string,string>();
 
 function getCookieHeader(host: string): string | undefined {
   const jar = hostCookies.get(host);
   if (!jar) return undefined;
   if (jar.size === 0) return undefined;
+  console.log('[FS][CK][OUT]', host, 'cookies', Array.from(jar.keys()).join(','));
   return Array.from(jar.entries()).map(([k,v])=>`${k}=${v}`).join('; ');
 }
 
@@ -44,9 +45,11 @@ function storeSolver(solution: NonNullable<SolverResult['solution']>) {
   let jar = hostCookies.get(u.host);
   if (!jar) { jar = new Map(); hostCookies.set(u.host, jar); }
   for (const c of solution.cookies) {
-    if (c.name === 'cf_clearance') jar.set(c.name, c.value);
+    // Mantieni tutti i cookie solver (webstreamr salva cf_clearance filtrando, qui li teniamo tutti utili al flusso)
+    jar.set(c.name, c.value);
   }
   hostUA.set(u.host, solution.userAgent);
+  console.log('[FS][SOLVER] stored cf_clearance + UA for', u.host);
 }
 
 // Simple caches
@@ -70,6 +73,10 @@ function pruneTimeout(host: string) {
 
 async function sleep(ms: number){ return new Promise(r=>setTimeout(r, ms)); }
 
+function randomChromeUA() {
+  return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+}
+
 async function baseFetch(url: URL, init?: RequestInit & { timeout?: number }): Promise<Response> {
   const controller = new AbortController();
   const to = setTimeout(()=>controller.abort(), init?.timeout ?? 5000);
@@ -77,12 +84,21 @@ async function baseFetch(url: URL, init?: RequestInit & { timeout?: number }): P
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'en',
     'Priority': 'u=0',
-    'User-Agent': hostUA.get(url.host) || 'node',
+    'User-Agent': hostUA.get(url.host) || randomChromeUA(),
     ...(init?.headers as any || {}),
   };
   const ck = getCookieHeader(url.host); if (ck) headers['Cookie'] = ck;
+  // Aggiunge forwarded headers simil Fetcher (quando non li ha già init)
+  if (!headers['X-Forwarded-For']) {
+    headers['X-Forwarded-For'] = '1.1.1.1';
+    headers['X-Real-IP'] = '1.1.1.1';
+    headers['X-Forwarded-Proto'] = url.protocol.replace(':','');
+  }
   try {
-    return await fetch(url, { ...init, headers, signal: controller.signal, keepalive: true });
+  console.log('[FS][HTTP][REQ]', url.href, 'ua=', headers['User-Agent'], 'hasCookie=', !!headers['Cookie']);
+  const r = await fetch(url, { ...init, headers, signal: controller.signal, keepalive: true });
+  console.log('[FS][HTTP][RESP]', url.href, 'status', r.status);
+  return r;
   } finally { clearTimeout(to); }
 }
 
@@ -140,26 +156,31 @@ function setCache(url: URL, status:number, headers:Record<string,string>, body:s
   const ttl = (status === 200 || status === 404) ? MIN_CACHE_TTL : 0;
   const expiry = ttl ? now() + ttl : 0;
   if (ttl) httpCache.set(cacheKey(url), { body, status, headers, expiry });
+  if (ttl) console.log('[FS][CACHE][SET]', url.href, 'status', status, 'ttlMs', ttl);
 }
 
 function getCache(url: URL): HttpCacheItem | undefined {
   const it = httpCache.get(cacheKey(url));
   if (!it) return undefined;
   if (it.expiry && it.expiry < now()) { httpCache.delete(cacheKey(url)); return undefined; }
+  console.log('[FS][CACHE][HIT]', url.href, 'status', it.status, 'exp', it.expiry - now());
   return it;
 }
 
 async function solveChallenge(url: URL): Promise<string | null> {
   const SOLVER_URL = getSolverUrl();
-  if (!SOLVER_URL) return null;
+  if (!SOLVER_URL) { console.log('[FS][SOLVER][MISS] SOLVER_URL not set'); return null; }
   try {
+    console.log('[FS][SOLVER][REQ]', url.href);
     const body = JSON.stringify({ cmd: 'request.get', url: url.href, session: 'default' });
     const resp = await fetch(SOLVER_URL, { method: 'POST', headers: { 'Content-Type':'application/json' }, body });
     const json = await resp.json() as SolverResult;
     if (json.status === 'ok' && json.solution) {
       storeSolver(json.solution);
+      console.log('[FS][SOLVER][OK]', url.href, 'len', json.solution.response.length);
       return json.solution.response;
     }
+    console.log('[FS][SOLVER][FAIL]', url.href, json.status, json.message);
   } catch { /* ignore */ }
   return null;
 }
@@ -172,21 +193,40 @@ async function fetchHtml(url: URL, opts?: { noCache?: boolean }): Promise<string
       if (!challenge && c.status >= 200 && c.status <= 399) return c.body;
     }
   }
+  console.log('[FS][FETCH]', url.href);
   const resp = await fetchWithRetry(url);
   const headers: Record<string,string> = {};
   resp.headers.forEach((v,k)=>{ headers[k]=v; });
+  // Estrae Set-Cookie in header:value flatten (node fetch li unisce; non sempre accessibile qui - placeholder)
   let body = await resp.text();
   const challenge = headers['cf-mitigated'] === 'challenge' || body.includes('cf-turnstile');
+  if (challenge) console.log('[FS][CHALLENGE] detected', url.href);
   if (resp.status === 404) { setCache(url, resp.status, headers, body); throw new Error('not_found'); }
   if (challenge) {
     const solved = await solveChallenge(url);
-    if (!solved) throw new Error('cloudflare_challenge');
+  if (!solved) { console.log('[FS][CHALLENGE][FAIL]', url.href); throw new Error('cloudflare_challenge'); }
     body = solved;
   }
-  if (resp.status === 403) throw new Error('blocked_403');
+  if (resp.status === 403) {
+    const looksCloudflare = /cloudflare|attention required|just a moment|verify you are human/i.test(body);
+    console.log('[FS][HTTP][403]', url.href, 'cloudflareLike=', looksCloudflare, 'snippet=', body.slice(0,160).replace(/[\n\r]+/g,' '));
+    if (looksCloudflare) {
+      const solved = await solveChallenge(url);
+      if (solved) {
+        console.log('[FS][SOLVER][403][OK]', url.href, 'len', solved.length);
+        body = solved;
+        setCache(url, 200, headers, body);
+        return body;
+      }
+      console.log('[FS][SOLVER][403][FAIL]', url.href);
+      throw new Error('cloudflare_challenge');
+    }
+    throw new Error('blocked_403');
+  }
   if (resp.status === 451) throw new Error('cloudflare_censor');
   if (resp.status === 429) throw new Error('too_many_requests');
   setCache(url, resp.status, headers, body);
+  console.log('[FS][FETCH][OK]', url.href, 'status', resp.status, 'len', body.length);
   if (resp.status < 200 || resp.status > 399) throw new Error(`http_${resp.status}`);
   return body;
 }
