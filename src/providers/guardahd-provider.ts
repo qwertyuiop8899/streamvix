@@ -86,7 +86,7 @@ export class GuardaHdProvider {
               console.log('[GH][TMDB] resolved italian title=', realTitle);
             }
           } else {
-            console.log('[GH][TMDB] movie details resp status', resp.status);
+            console.log('[GH][TMDB] movie details response status', resp.status);
           }
         }
       } catch { /* ignore tmdb fallback */ }
