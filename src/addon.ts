@@ -40,9 +40,16 @@ interface AddonConfig {
     guardaserieEnabled?: boolean;
     guardahdEnabled?: boolean;
     eurostreamingEnabled?: boolean;
+    plutoEnabled?: boolean;
+    plutoMfpEnabled?: boolean;
+    dtvEnabled?: boolean;
     disableLiveTv?: boolean;
     disableVixsrc?: boolean;
     tvtapProxyEnabled?: boolean; // true = NO proxy (link diretto TvTap), false = usa proxy se disponibile
+    tvtapMfpEnabled?: boolean; // true = usa TvTap con MFP, false = usa TvTap normale
+    daddyEnabled?: boolean; // true = abilita Daddy, false = disabilita Daddy
+    vavooNoProxyEnabled?: boolean; // true = usa Vavoo senza proxy, false = usa Vavoo normale
+    vavooMfpEnabled?: boolean; // true = usa Vavoo con MFP, false = usa Vavoo normale
 }
 
 function debugLog(...args: any[]) {
@@ -496,17 +503,21 @@ const baseManifest: Manifest = {
                     name: "genre",
                     options: [
                         "RAI",
+                        "Mediaset", 
                         "Sky",
                         "Sport",
                         "Cinema",
+                        "Movies",
                         "Documentari",
                         "Discovery",
                         "News",
                         "Generali",
+                        "General",
                         "Bambini",
+                        "Kids",
                         "Pluto",
                         "Serie A",
-                        "Serie B",
+                        "Serie B", 
                         "Serie C",
                         "Coppe",
                         "Soccer",
@@ -518,13 +529,34 @@ const baseManifest: Manifest = {
                         "F1",
                         "MotoGp",
                         "Basket",
+                        "Basketball",
                         "Volleyball",
                         "Ice Hockey",
                         "Wrestling",
                         "Boxing",
                         "Darts",
                         "Baseball",
-                        "NFL"
+                        "NFL",
+                        "MMA",
+                        "Motorsports",
+                        "Rugby",
+                        "Cricket",
+                        "Golf",
+                        "Handball",
+                        "Cycling",
+                        "Snooker",
+                        "Horse Racing",
+                        "Water Sports",
+                        "Climbing",
+                        "Equestrian",
+                        "Futsal",
+                        "Beach Soccer",
+                        "Biathlon",
+                        "Sailing",
+                        "Squash",
+                        "TV Shows",
+                        "PPV Events",
+                        "Am Football"
                     ]
                 },
                 { name: "genre", isRequired: false },
@@ -535,19 +567,25 @@ const baseManifest: Manifest = {
     resources: ["stream", "catalog", "meta"],
     behaviorHints: { configurable: true },
     config: [
-        { key: "tmdbApiKey", title: "TMDB API Key", type: "text" },
         { key: "mediaFlowProxyUrl", title: "MediaFlow Proxy URL", type: "text" },
         { key: "mediaFlowProxyPassword", title: "MediaFlow Proxy Password", type: "text" },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
-    { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox" },
-    { key: "disableLiveTv", title: "Disable Live TV", type: "checkbox" },
-    { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
-    { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
-    { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
-    { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
-    { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
-    { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox" },
-    { key: "tvtapProxyEnabled", title: "TvTap NO Proxy", type: "checkbox" },
+        { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox", default: true },
+        { key: "disableLiveTv", title: "Disable Live TV", type: "checkbox" },
+        { key: "dtvEnabled", title: "dTV", type: "checkbox", default: true },
+        { key: "plutoEnabled", title: "Pluto TV", type: "checkbox", default: true },
+        { key: "plutoMfpEnabled", title: "Pluto TV con MFP", type: "checkbox", default: false },
+        { key: "tvtapProxyEnabled", title: "TvTap NO Proxy", type: "checkbox", default: true },
+        { key: "tvtapMfpEnabled", title: "TvTap con MFP", type: "checkbox", default: false },
+        { key: "daddyEnabled", title: "Daddy Live", type: "checkbox", default: false },
+        { key: "vavooNoProxyEnabled", title: "Vavoo NO Proxy", type: "checkbox", default: true },
+        { key: "vavooMfpEnabled", title: "Vavoo con MFP", type: "checkbox", default: false },
+        { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox", default: false },
+        { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox", default: false },
+        { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox", default: true },
+        { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox", default: true },
+        { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox", default: true },
+        { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox", default: true },
     
     ]
 };
@@ -898,6 +936,19 @@ function resolveFirstVavooUrlForAlias(alias: string): string | null {
     return null;
 }
 
+// Funzione per assicurarsi che le directory di cache esistano
+function ensureCacheDirectories(): void {
+    try {
+        const cacheDir = path.join(__dirname, '../cache');
+        if (!fs.existsSync(cacheDir)) {
+            fs.mkdirSync(cacheDir, { recursive: true });
+            console.log('✅ Cache directory created');
+        }
+    } catch (error) {
+        console.error('❌ Error creating cache directories:', error);
+    }
+}
+
 try {
     // Assicurati che le directory di cache esistano
     ensureCacheDirectories();
@@ -1133,6 +1184,7 @@ function normalizeProxyUrl(url: string): string {
     return url.endsWith('/') ? url.slice(0, -1) : url;
 }
 
+
 // Funzione per creare il builder con configurazione dinamica
 function createBuilder(initialConfig: AddonConfig = {}) {
     const manifest = loadCustomConfig();
@@ -1146,6 +1198,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 return filtered;
             }
         } catch {}
+        
+                
         return manifest;
     })();
     
@@ -1329,13 +1383,39 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         .replace(/[ìíîï]/g,'i').replace(/[òóôõö]/g,'o')
                         .replace(/[ùúûü]/g,'u');
                     const genreMap: { [key: string]: string } = {
-                        'rai':'rai','mediaset':'mediaset','sky':'sky','bambini':'kids','news':'news','sport':'sport','cinema':'movies','generali':'general','documentari':'documentari','discovery':'discovery','pluto':'pluto','serie a':'seriea','serie b':'serieb','serie c':'seriec','coppe':'coppe','soccer':'soccer','tennis':'tennis','f1':'f1','motogp':'motogp','basket':'basket','volleyball':'volleyball','ice hockey':'icehockey','wrestling':'wrestling','boxing':'boxing','darts':'darts','baseball':'baseball','nfl':'nfl'
+                        'rai':'rai','mediaset':'mediaset','sky':'sky','bambini':'kids','kids':'kids','news':'news','sport':'sport','cinema':'movies','movies':'movies','generali':'general','general':'general','documentari':'documentari','discovery':'discovery','pluto':'pluto','serie a':'seriea','serie b':'serieb','serie c':'seriec','coppe':'coppe','soccer':'soccer','tennis':'tennis','f1':'f1','motogp':'motogp','basket':'basket','basketball':'basket','volleyball':'volleyball','ice hockey':'icehockey','wrestling':'wrestling','boxing':'boxing','darts':'darts','baseball':'baseball','nfl':'nfl'
                     };
-                    // Aggiungi mapping per nuove leghe
+                    // Aggiungi mapping per nuove leghe e sport
                     genreMap['premier league'] = 'premierleague';
                     genreMap['liga'] = 'liga';
                     genreMap['bundesliga'] = 'bundesliga';
                     genreMap['ligue 1'] = 'ligue1';
+                    // Mapping per eventi dinamici
+                    genreMap['mma'] = 'mma';
+                    genreMap['motorsports'] = 'motorsports';
+                    genreMap['rugby'] = 'rugby';
+                    genreMap['rugby league'] = 'rugby';
+                    genreMap['rugby union'] = 'rugby';
+                    genreMap['cricket'] = 'cricket';
+                    genreMap['golf'] = 'golf';
+                    genreMap['handball'] = 'handball';
+                    genreMap['cycling'] = 'cycling';
+                    genreMap['snooker'] = 'snooker';
+                    genreMap['horse racing'] = 'horseracing';
+                    genreMap['water sports'] = 'watersports';
+                    genreMap['climbing'] = 'climbing';
+                    genreMap['equestrian'] = 'equestrian';
+                    genreMap['futsal'] = 'futsal';
+                    genreMap['beach soccer'] = 'beachsoccer';
+                    genreMap['biathlon'] = 'biathlon';
+                    genreMap['sailing'] = 'sailing';
+                    genreMap['sailing / boating'] = 'sailing';
+                    genreMap['squash'] = 'squash';
+                    genreMap['tv shows'] = 'tvshows';
+                    genreMap['ppv events'] = 'ppvevents';
+                    genreMap['am football'] = 'amfootball';
+                    genreMap['am. football'] = 'amfootball';
+                    genreMap['aussie rules'] = 'aussierules';
                     const target = genreMap[norm] || norm;
                     requestedSlug = target;
                     filteredChannels = tvChannels.filter(ch => getChannelCategories(ch).includes(target));
@@ -1643,63 +1723,121 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                 // === LOGICA TV ===
                 if (type === "tv") {
-                    // Runtime disable live TV
-                    try {
-                        const cfg2 = { ...configCache } as AddonConfig;
-                        if (cfg2.disableLiveTv) {
-                            console.log('📴 TV streams disabled by config.disableLiveTv');
-                            return { streams: [] };
-                        }
-                    } catch {}
-                    // Assicura che i canali dinamici siano presenti anche se la prima richiesta è uno stream (senza passare dal catalog)
-                    try {
-                        loadDynamicChannels(false);
-                        tvChannels = mergeDynamic([...staticBaseChannels]);
-                    } catch (e) {
-                        console.error('❌ Stream handler: mergeDynamic failed:', e);
-                    }
-                    // Improved channel ID parsing to handle different formats from Stremio
-                    let cleanId = id;
-                    
-                    // Gestisci tutti i possibili formati di ID che Stremio può inviare
-                    if (id.startsWith('tv:')) {
-                        cleanId = id.replace('tv:', '');
-                    } else if (id.startsWith('tv%3A')) {
-                        cleanId = id.replace('tv%3A', '');
-                    } else if (id.includes('%3A')) {
-                        // Decodifica URL-encoded (:)
-                        cleanId = decodeURIComponent(id);
-                        if (cleanId.startsWith('tv:')) {
-                            cleanId = cleanId.replace('tv:', '');
-                        }
-                    }
-                    
-                    debugLog(`Looking for channel with ID: ${cleanId} (original ID: ${id})`);
-                    const channel = tvChannels.find((c: any) => c.id === cleanId);
-                    
-                    if (!channel) {
-                        // Gestione placeholder non presente in tvChannels
-                        if (cleanId.startsWith('placeholder-')) {
-                            const PLACEHOLDER_LOGO_BASE = 'https://raw.githubusercontent.com/qwertyuiop8899/logo/main';
-                            const placeholderVideo = `${PLACEHOLDER_LOGO_BASE}/nostream.mp4`;
-                            console.log(`🧩 Placeholder channel requested (ephemeral): ${cleanId}`);
-                            return { streams: [ { url: placeholderVideo, title: 'Nessuno Stream' } ] };
-                        }
-                        console.log(`❌ Channel ${id} not found`);
-                        debugLog(`❌ Channel not found in the TV channels list. Original ID: ${id}, Clean ID: ${cleanId}`);
-                        return { streams: [] };
-                    }
+                // Runtime disable live TV
+                try {
+                const cfg2 = { ...configCache } as AddonConfig;
+                if (cfg2.disableLiveTv) {
+                console.log('📴 TV streams disabled by config.disableLiveTv');
+                return { streams: [] };
+                }
+                } catch {}
+                // Assicura che i canali dinamici siano presenti anche se la prima richiesta è uno stream (senza passare dal catalog)
+                try {
+                loadDynamicChannels(false);
+                tvChannels = mergeDynamic([...staticBaseChannels]);
+                } catch (e) {
+                console.error('❌ Stream handler: mergeDynamic failed:', e);
+                }
+                // Improved channel ID parsing to handle different formats from Stremio
+                let cleanId = id;
+                
+                // Gestisci tutti i possibili formati di ID che Stremio può inviare
+                if (id.startsWith('tv:')) {
+                cleanId = id.replace('tv:', '');
+                } else if (id.startsWith('tv%3A')) {
+                cleanId = id.replace('tv%3A', '');
+                } else if (id.includes('%3A')) {
+                // Decodifica URL-encoded (:)
+                cleanId = decodeURIComponent(id);
+                if (cleanId.startsWith('tv:')) {
+                cleanId = cleanId.replace('tv:', '');
+                }
+                }
+                
+                debugLog(`Looking for channel with ID: ${cleanId} (original ID: ${id})`);
+                const channel = tvChannels.find((c: any) => c.id === cleanId);
+                
+                if (!channel) {
+                // Gestione placeholder non presente in tvChannels
+                if (cleanId.startsWith('placeholder-')) {
+                const PLACEHOLDER_LOGO_BASE = 'https://raw.githubusercontent.com/qwertyuiop8899/logo/main';
+                const placeholderVideo = `${PLACEHOLDER_LOGO_BASE}/nostream.mp4`;
+                console.log(`🧩 Placeholder channel requested (ephemeral): ${cleanId}`);
+                return { streams: [ { url: placeholderVideo, title: 'Nessuno Stream' } ] };
+                }
+                console.log(`❌ Channel ${id} not found`);
+                debugLog(`❌ Channel not found in the TV channels list. Original ID: ${id}, Clean ID: ${cleanId}`);
+                return { streams: [] };
+                }
+                
+                // Gestione placeholder: ritorna un singolo "stream" fittizio (immagine)
+                if ((channel as any)._placeholder) {
+                const vid = (channel as any).placeholderVideo || (channel as any).logo || (channel as any).poster || '';
+                return { streams: [ {
+                url: vid,
+                title: 'Nessuno Stream'
+                } ] };
+                }
+                
+                console.log(`✅ Found channel: ${channel.name}`);
+                
+                // ✅ FILTRO PROVIDER: Controlla se questo canale ha provider compatibili abilitati
+                const hasEnabledProvider = (() => {
+                try {
+                // Controlla provider abilitati
+                const dtvEnabled = config.dtvEnabled;
+                const plutoEnabled = config.plutoEnabled;
+                const tvtapEnabled = config.tvtapProxyEnabled || config.tvtapMfpEnabled;
+                const daddyEnabled = config.daddyEnabled;
+                const vavooEnabled = config.vavooNoProxyEnabled || config.vavooMfpEnabled;
+                
+                // Logica di filtraggio provider per stream
+                const isDtvChannel = !!channel.staticUrlF;
+                const isPlutoChannel = !!channel.staticUrlP;
+                const isDaddyChannel = !!channel.staticUrlD || (channel as any)._dynamic;
+                const isVavooOrTvTapChannel = Array.isArray(channel.vavooNames) && channel.vavooNames.length > 0;
 
-                    // Gestione placeholder: ritorna un singolo "stream" fittizio (immagine)
-                    if ((channel as any)._placeholder) {
-                        const vid = (channel as any).placeholderVideo || (channel as any).logo || (channel as any).poster || '';
-                        return { streams: [ {
-                            url: vid,
-                            title: 'Nessuno Stream'
-                        } ] };
-                    }
-                    
-                    console.log(`✅ Found channel: ${channel.name}`);
+
+                // Per canali dinamici: permessi solo se Daddy è abilitato
+                if ((channel as any)._dynamic) {
+                if (daddyEnabled) {
+                console.log(`✅ [STREAM] Dynamic event ${channel.name} allowed (Daddy enabled)`);
+                return true;
+                } else {
+                console.log(`🚫 [STREAM] Dynamic event ${channel.name} blocked (Daddy not enabled)`);
+                return false;
+                }
+                }
+                
+                // Se nessun provider TV è abilitato, blocca tutti i canali statici
+                const hasCompatibleProvider = 
+                    (dtvEnabled && isDtvChannel) ||
+                    (plutoEnabled && isPlutoChannel) ||
+                    (daddyEnabled && isDaddyChannel) ||
+                    (vavooEnabled && isVavooOrTvTapChannel) ||
+                    (tvtapEnabled && isVavooOrTvTapChannel);
+
+                if (hasCompatibleProvider) {
+                    console.log(`✅ [STREAM] Channel ${channel.name} has a compatible provider enabled.`);
+                    return true;
+                } else {
+                    console.log(`🚫 [STREAM] Channel ${channel.name} has no compatible providers enabled.`);
+                    return false;
+                }
+                } catch (e) {
+                console.error('❌ [STREAM] Provider filter error:', e);
+                return true; // In caso di errore, permetti il canale
+                }
+                })();
+                
+                if (!hasEnabledProvider) {
+                console.log(`🚫 [STREAM] Channel blocked - no compatible providers: ${channel.name}`);
+                // Aggiungi un controllo per i canali MPD che potrebbero non avere un provider TV standard
+                if (!((channel as any).staticUrl || (channel as any).staticUrl2 || (channel as any).staticUrlMpd)) {
+                return { streams: [] };
+                }
+                console.log(`[STREAM] Channel ${channel.name} has no standard TV provider, but might have MPD streams. Proceeding...`);
+                }
                     
                     // Debug della configurazione proxy
                     debugLog(`Config DEBUG - mediaFlowProxyUrl: ${config.mediaFlowProxyUrl}`);
@@ -1713,9 +1851,17 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const vavooFoundUrls: string[] = [];
                     // Stato toggle MPD (solo da config checkbox, niente override da env per evitare comportamento inatteso)
                     const mpdEnabled = !!config.enableMpd;
+                    
+                    // Controlla i provider abilitati per decidere quale logica eseguire
+                    const dtvEnabled = config.dtvEnabled;
+                    const plutoEnabled = config.plutoEnabled;
+                    const tvtapEnabled = config.tvtapProxyEnabled || config.tvtapMfpEnabled;
+                    const daddyEnabled = config.daddyEnabled;
+                    const vavooEnabled = config.vavooNoProxyEnabled || config.vavooMfpEnabled;
+
 
                     // Dynamic event channels: dynamicDUrls -> usa stessa logica avanzata di staticUrlD per estrarre link finale
-                    if ((channel as any)._dynamic) {
+                    if (daddyEnabled && (channel as any)._dynamic) {
                         const dArr = Array.isArray((channel as any).dynamicDUrls) ? (channel as any).dynamicDUrls : [];
                         console.log(`[DynamicStreams] Channel ${channel.id} dynamicDUrls count=${dArr.length}`);
                         if (dArr.length === 0) {
@@ -1740,7 +1886,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         if (clean && clean.url) {
                                             vavooCleanResolved = clean;
                                             vdbg('Alias clean resolved', { alias, url: clean.url.substring(0, 140) });
-                                            const title2 = `🏠 ${alias} (Vavoo🔓) [ITA]`;
+                                            const title2 = `🏠 ${alias} (Vavoo 🔓) [ITA]`;
                                             // stash headers via behaviorHints when pushing later
                                             streams.unshift({ url: clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64'), title: title2 });
                                         }
@@ -1753,7 +1899,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     try {
                                         if (mfpUrl && mfpPsw) {
                                             const finalUrl2 = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(vUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
-                                            const title3 = `🌐 ${alias} (Vavoo/MFP) [ITA]`;
+                                            const title3 = `🌐 ${alias} (Vavoo/MFP 🔒) [ITA]`;
                                             let insertAt = 0;
                                             try { if (streams.length && /(\(Vavoo\))/i.test(streams[0].title)) insertAt = 1; } catch {}
                                             try { streams.splice(insertAt, 0, { url: finalUrl2, title: title3 }); } catch { streams.push({ url: finalUrl2, title: title3 }); }
@@ -1922,8 +2068,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         streams.push({ url: (channel as any).placeholderVideo || (channel as any).logo || (channel as any).poster || '', title: 'Nessuno Stream' });
                         dynamicHandled = true;
                     } else {
-                        // staticUrlF: Direct for non-dynamic
-                        if ((channel as any).staticUrlF) {
+                        // staticUrlF: Direct for non-dynamic (ora associato a dTV)
+                        if (dtvEnabled && (channel as any).staticUrlF) {
                             const originalF = (channel as any).staticUrlF;
                             const nameLower = (channel.name || '').toLowerCase().trim();
                             const raiMpdSet = new Set(['rai 1','rai 2','rai 3']); // Solo questi devono passare da proxy MPD
@@ -1936,9 +2082,35 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                             streams.push({
                                 url: finalFUrl,
-                                title: `[🌍dTV] ${channel.name} [ITA]`
+                                title: `[🌍dTV 🔓] ${channel.name} [ITA]`
                             });
                             debugLog(`Aggiunto staticUrlF ${finalFUrl === originalF ? 'Direct' : 'Proxy(MPD)' }: ${finalFUrl}`);
+                        }
+                    }
+                    // Logica per Pluto TV che ora usa staticUrlP
+                    if ((config.plutoEnabled || config.plutoMfpEnabled) && (channel as any).staticUrlP) {
+                        const originalP = (channel as any).staticUrlP;
+                        
+                        // Gestisci lo stream con MFP se abilitato
+                        if (config.plutoMfpEnabled && mfpUrl && mfpPsw) {
+                            const finalFUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(originalP)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                            const title = `[🪐 Pluto Tv 🔒] ${channel.name} [ITA]`;
+                            debugLog(`Aggiunto staticUrlP per Pluto TV con MFP: ${finalFUrl}`);
+                            streams.push({
+                                url: finalFUrl,
+                                title: title
+                            });
+                        }
+                        
+                        // Gestisci lo stream NO Proxy se abilitato (indipendentemente da MFP)
+                        if (config.plutoEnabled) {
+                            const finalFUrl = originalP; // URL diretto
+                            const title = `[🪐 Pluto Tv 🔓] ${channel.name} [ITA]`;
+                            debugLog(`Aggiunto staticUrlP per Pluto TV NO Proxy: ${finalFUrl}`);
+                            streams.push({
+                                url: finalFUrl,
+                                title: title
+                            });
                         }
                     }
 
@@ -2056,7 +2228,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     
                     // staticUrlD
-                    if ((channel as any).staticUrlD) {
+                    if (daddyEnabled && (channel as any).staticUrlD) {
                         if (mfpUrl && mfpPsw) {
                             // Nuova logica: chiama extractor/video con redirect_stream=false, poi costruisci il link proxy/hls/manifest.m3u8
                             const daddyApiBase = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
@@ -2091,7 +2263,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     }
                                     streams.push({
                                         url: finalUrl,
-                                        title: `[🌐D] ${channel.name} [ITA]`
+                                        title: `[🌐D 🔒] ${channel.name} [ITA]`
                                     });
                                     debugLog(`Aggiunto staticUrlD Proxy (MFP, nuova logica): ${finalUrl}`);
                                 } else {
@@ -2103,13 +2275,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         } else {
                             streams.push({
                                 url: (channel as any).staticUrlD,
-                                title: `[❌Proxy][🌐D] ${channel.name} [ITA]`
+                                title: `[❌Proxy][🌐D 🔒] ${channel.name} [ITA]`
                             });
                             debugLog(`Aggiunto staticUrlD Direct: ${(channel as any).staticUrlD}`);
                         }
                     }
                     // Vavoo
-                    if (!dynamicHandled && (channel as any).name) {
+                    if (vavooEnabled && !dynamicHandled && (channel as any).name) {
                         // DEBUG LOGS
                         console.log('🔧 [VAVOO] DEBUG - channel.name:', (channel as any).name);
                         const baseName = (channel as any).name.replace(/\s*(\(\d+\)|\d+)$/, '').trim();
@@ -2161,59 +2333,21 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         // Se trovi almeno un link, aggiungi tutti come stream separati numerati
             if (foundVavooLinks.length > 0) {
                             foundVavooLinks.forEach(({ url, key }, idx) => {
-                                const streamTitle = `[✌️ V-${idx + 1}] ${channel.name} [ITA]`;
-                                if (mfpUrl && mfpPsw) {
+                                // Logica MFP vs NO Proxy
+                                if (config.vavooMfpEnabled && mfpUrl && mfpPsw) {
+                                    const streamTitle = `[🔒 V-${idx + 1}] ${channel.name} [ITA]`;
                                     const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
                                     streams.push({
                                         title: streamTitle,
                                         url: vavooProxyUrl
                                     });
-                                } else {
-                                    streams.push({
-                                        title: `[❌Proxy]${streamTitle}`,
-                                        url
-                                    });
+                                } else if (config.vavooNoProxyEnabled) {
+                                    // Aggiungi solo se NO Proxy è esplicitamente abilitato
+                                    // (non mostrare link diretti se l'utente ha scelto solo MFP)
                                 }
                 vavooFoundUrls.push(url);
-                                // For each found link, also prepare a clean variant labeled per index (➡️ V-1, V-2, ...)
-                                const reqObj: any = (global as any).lastExpressRequest;
-                                const clientIp = getClientIpFromReq(reqObj);
-                                vavooCleanPromises.push((async () => {
-                                    vdbg('Variant clean resolve attempt', { index: idx + 1, url: url.substring(0, 140) });
-                                    try {
-                                        const clean = await resolveVavooCleanUrl(url, clientIp);
-                                        if (clean && clean.url) {
-                                            const title = `[🏠 V-${idx + 1}] ${channel.name} [ITA]`;
-                                            const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
-                                            vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
-                                        }
-                                    } catch (err) {
-                                        vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
-                                    }
-                                })());
-                            });
-                            console.log(`[VAVOO] RISULTATO: trovati ${foundVavooLinks.length} link, stream generati:`, streams.map(s => s.title));
-                        } else {
-                            // fallback: chiave esatta
-                            const exact = vavooCache.links.get(channel.name);
-                            if (exact) {
-                                const links = Array.isArray(exact) ? exact : [exact];
-                                links.forEach((url, idx) => {
-                                    const streamTitle = `[✌️ V-${idx + 1}] ${channel.name} [ITA]`;
-                                    if (mfpUrl && mfpPsw) {
-                                        const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
-                                        streams.push({
-                                            title: streamTitle,
-                                            url: vavooProxyUrl
-                                        });
-                                    } else {
-                                        streams.push({
-                                            title: `[❌Proxy]${streamTitle}`,
-                                            url
-                                        });
-                                    }
-                                    vavooFoundUrls.push(url);
-                                    // Prepare clean variant per index as well
+                                // Prepara la variante "clean" (NO Proxy) solo se l'opzione è abilitata
+                                if (config.vavooNoProxyEnabled) {
                                     const reqObj: any = (global as any).lastExpressRequest;
                                     const clientIp = getClientIpFromReq(reqObj);
                                     vavooCleanPromises.push((async () => {
@@ -2229,6 +2363,45 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
                                         }
                                     })());
+                                }
+                            });
+                            console.log(`[VAVOO] RISULTATO: trovati ${foundVavooLinks.length} link, stream generati:`, streams.map(s => s.title));
+                        } else {
+                            // fallback: chiave esatta
+                            const exact = vavooCache.links.get(channel.name);
+                            if (exact) {
+                                const links = Array.isArray(exact) ? exact : [exact];
+                                links.forEach((url: string, idx: number) => {
+                                    // Logica MFP vs NO Proxy
+                                    if (config.vavooMfpEnabled && mfpUrl && mfpPsw) {
+                                        const streamTitle = `[🔒 V-${idx + 1}] ${channel.name} [ITA]`;
+                                        const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                        streams.push({
+                                            title: streamTitle,
+                                            url: vavooProxyUrl
+                                        });
+                                    } else if (config.vavooNoProxyEnabled) {
+                                        // Aggiungi solo se NO Proxy è esplicitamente abilitato
+                                    }
+                                    vavooFoundUrls.push(url);
+                                    // Prepara la variante "clean" (NO Proxy) solo se l'opzione è abilitata
+                                    if (config.vavooNoProxyEnabled) {
+                                        const reqObj: any = (global as any).lastExpressRequest;
+                                        const clientIp = getClientIpFromReq(reqObj);
+                                        vavooCleanPromises.push((async () => {
+                                            vdbg('Variant clean resolve attempt', { index: idx + 1, url: url.substring(0, 140) });
+                                            try {
+                                                const clean = await resolveVavooCleanUrl(url, clientIp);
+                                                if (clean && clean.url) {
+                                                    const title = `[🏠 V-${idx + 1}] ${channel.name} [ITA]`;
+                                                    const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
+                                                    vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
+                                                }
+                                            } catch (err) {
+                                                vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
+                                            }
+                                        })());
+                                    }
                                 });
                                 console.log(`[VAVOO] RISULTATO: fallback chiave esatta, trovati ${links.length} link, stream generati:`, streams.map(s => s.title));
                             } else {
@@ -2269,86 +2442,75 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         return { streams: allStreams };
                     }
                     // --- TVTAP: cerca usando vavooNames ---
-                    const vavooNamesArr = (channel as any).vavooNames || [channel.name];
-                    console.log(`[TVTap] Cerco canale con vavooNames:`, vavooNamesArr);
-                    // tvtapProxyEnabled: TRUE = NO PROXY (mostra 🔓), FALSE = usa proxy se possibile
-                    const tvtapNoProxy = !!config.tvtapProxyEnabled;
-                    
-                    // Prova ogni nome nei vavooNames
-                    for (const vavooName of vavooNamesArr) {
-                        try {
-                            console.log(`[TVTap] Provo con nome: ${vavooName}`);
-                            
-                            const tvtapUrl = await new Promise<string | null>((resolve) => {
-                                const timeout = setTimeout(() => {
-                                    console.log(`[TVTap] Timeout per canale: ${vavooName}`);
-                                    resolve(null);
-                                }, 5000);
-
-                                const options = {
-                                    timeout: 5000,
-                                    env: {
-                                        ...process.env,
-                                        PYTHONPATH: '/usr/local/lib/python3.9/site-packages'
-                                    }
-                                };
-                                
-                                execFile('python3', [path.join(__dirname, '../tvtap_resolver.py'), vavooName], options, (error: Error | null, stdout: string, stderr: string) => {
-                                    clearTimeout(timeout);
-                                    
-                                    if (error) {
-                                        console.error(`[TVTap] Error for ${vavooName}:`, error.message);
-                                        return resolve(null);
-                                    }
-                                    
-                                    if (!stdout || stdout.trim() === '') {
-                                        console.log(`[TVTap] No output for ${vavooName}`);
-                                        return resolve(null);
-                                    }
-                                    
-                                    const result = stdout.trim();
-                                    if (result === 'NOT_FOUND' || result === 'NO_CHANNELS' || result === 'NO_ID' || result === 'STREAM_FAIL') {
-                                        console.log(`[TVTap] Channel not found: ${vavooName} (${result})`);
-                                        return resolve(null);
-                                    }
-                                    
-                                    if (result.startsWith('http')) {
-                                        console.log(`[TVTap] Trovato stream per ${vavooName}: ${result}`);
-                                        resolve(result);
-                                    } else {
-                                        console.log(`[TVTap] Output non valido per ${vavooName}: ${result}`);
-                                        resolve(null);
-                                    }
-                                });
-                            });
-                            
-                            if (tvtapUrl) {
-                                const baseTitle = `[📺 TvTap SD] ${channel.name} [ITA]`;
-                                if (tvtapNoProxy || !(mfpUrl && mfpPsw)) {
-                                    // NO Proxy mode scelto (checkbox ON) oppure mancano credenziali -> link diretto con icona 🔓 senza [❌Proxy]
-                                    streams.push({
-                                        title: `🔓 ${baseTitle}`,
-                                        url: tvtapUrl
-                                    });
-                                    console.log(`[TVTap] DIRECT (NO PROXY mode=${tvtapNoProxy}) per ${channel.name} tramite ${vavooName}`);
-                                } else {
-                                    // Checkbox OFF e credenziali presenti -> usa proxy
-                                    const tvtapProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(tvtapUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
-                                    streams.push({
-                                        title: baseTitle,
-                                        url: tvtapProxyUrl
-                                    });
-                                    console.log(`[TVTap] PROXY stream per ${channel.name} tramite ${vavooName}`);
+                    const resolveTvTapStream = async (vavooName: string): Promise<string | null> => {
+                        return new Promise<string | null>((resolve) => {
+                            const timeout = setTimeout(() => {
+                                console.log(`[TVTap] Timeout per canale: ${vavooName}`);
+                                resolve(null);
+                            }, 5000);
+                            const options = {
+                                timeout: 5000,
+                                env: { ...process.env, PYTHONPATH: '/usr/local/lib/python3.9/site-packages' }
+                            };
+                            execFile('python3', [path.join(__dirname, '../tvtap_resolver.py'), vavooName], options, (error: Error | null, stdout: string, stderr: string) => {
+                                clearTimeout(timeout);
+                                if (error) {
+                                    console.error(`[TVTap] Error for ${vavooName}:`, error.message);
+                                    return resolve(null);
                                 }
-                                break; // Esci dal loop se trovi un risultato
+                                if (!stdout || stdout.trim() === '') {
+                                    console.log(`[TVTap] No output for ${vavooName}`);
+                                    return resolve(null);
+                                }
+                                const result = stdout.trim();
+                                if (['NOT_FOUND', 'NO_CHANNELS', 'NO_ID', 'STREAM_FAIL'].includes(result)) {
+                                    console.log(`[TVTap] Channel not found: ${vavooName} (${result})`);
+                                    return resolve(null);
+                                }
+                                if (result.startsWith('http')) {
+                                    console.log(`[TVTap] Trovato stream per ${vavooName}: ${result}`);
+                                    resolve(result);
+                                } else {
+                                    console.log(`[TVTap] Output non valido per ${vavooName}: ${result}`);
+                                    resolve(null);
+                                }
+                            });
+                        });
+                    };
+
+                    const vavooNamesArr = (channel as any).vavooNames || [channel.name];
+                    let tvtapUrlFound = false;
+
+                    // Logica per TVTap con MFP
+                    if (config.tvtapMfpEnabled) {
+                        console.log(`[TVTap] Modalità MFP attiva per: ${channel.name}`);
+                        for (const vavooName of vavooNamesArr) {
+                            if (tvtapUrlFound) break;
+                            const tvtapUrl = await resolveTvTapStream(vavooName);
+                            if (tvtapUrl) {
+                                tvtapUrlFound = true;
+                                if (mfpUrl && mfpPsw) {
+                                    const proxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(tvtapUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                    streams.push({ title: `[🔧 TvTap MFP] ${channel.name} [ITA]`, url: proxyUrl });
+                                    console.log(`[TVTap] Aggiunto stream con MFP: ${proxyUrl}`);
+                                } else {
+                                    console.log(`[TVTap] Modalità MFP attiva ma credenziali mancanti. Stream non aggiunto.`);
+                                }
                             }
-                        } catch (error) {
-                            console.error(`[TVTap] Errore per vavooName ${vavooName}:`, error);
                         }
                     }
-                    
-                    if (streams.length === 0) {
-                        console.log(`[TVTap] RISULTATO: nessun stream trovato per ${channel.name}`);
+                    // Logica per TVTap NO Proxy (eseguita solo se MFP non è attivo)
+                    else if (config.tvtapProxyEnabled) {
+                        console.log(`[TVTap] Modalità NO Proxy attiva per: ${channel.name}`);
+                        for (const vavooName of vavooNamesArr) {
+                            if (tvtapUrlFound) break;
+                            const tvtapUrl = await resolveTvTapStream(vavooName);
+                            if (tvtapUrl) {
+                                tvtapUrlFound = true;
+                                streams.push({ title: `[TvTap 🔓] ${channel.name} [ITA]`, url: tvtapUrl });
+                                console.log(`[TVTap] Aggiunto stream NO Proxy: ${tvtapUrl}`);
+                            }
+                        }
                     }
 
                     // ============ END INTEGRATION SECTIONS ============
@@ -2392,7 +2554,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const variantTitle = /^\s*\[?\s*(➡️|🏠|✌️)\s*V/i.test(s.title);
                             if (variantTitle && looksVavoo) {
                                 const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
-                                allStreams.push({ name: 'Vavoo🔓', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
+                                allStreams.push({ name: 'Vavoo 🔓', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
                             } else {
                                 allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
                             }
@@ -2793,6 +2955,20 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
                 return c;
             });
         }
+
+        // Filtra dinamicamente i generi del catalogo TV in base ai provider abilitati
+        const tvCatalog = manifestWithDefaults.catalogs.find((c: any) => c.id === 'streamvix_tv');
+        if (tvCatalog) {
+            // FIX: Non filtrare più i generi in base ai provider abilitati.
+            // Mostra sempre tutti i generi disponibili dal manifest di base.
+            // Il filtraggio dei canali *all'interno* di un genere avverrà comunque correttamente.
+            const baseGenreOptions = (baseManifest.catalogs?.find(c => c.id === 'streamvix_tv') as any)?.extra.find((e: any) => e.name === 'genre')?.options || [];
+            const sortedActiveGenres = [...baseGenreOptions]; // Usa una copia di tutti i generi
+            const genreExtra = tvCatalog.extra.find((e: any) => e.name === 'genre' && e.options);
+            if (genreExtra) {
+                genreExtra.options = sortedActiveGenres.length > 0 ? sortedActiveGenres : [];
+            }
+        }
         const effectiveDisable = (cfgFromUrl as any)?.disableLiveTv ?? (configCache as any)?.disableLiveTv;
         const filtered: Manifest = { ...manifestWithDefaults } as Manifest;
         if (!Array.isArray((filtered as any).catalogs)) (filtered as any).catalogs = [];
@@ -3058,20 +3234,6 @@ function startServer(basePort: number, attempts = 0) {
 }
 const basePort = parseInt(process.env.PORT || '7860', 10);
 startServer(basePort);
-
-// Funzione per assicurarsi che le directory di cache esistano
-function ensureCacheDirectories(): void {
-    try {
-        // Directory per la cache Vavoo
-        const cacheDir = path.join(__dirname, '../cache');
-        if (!fs.existsSync(cacheDir)) {
-            fs.mkdirSync(cacheDir, { recursive: true });
-            console.log(`📁 Directory cache creata: ${cacheDir}`);
-        }
-    } catch (error) {
-        console.error('❌ Errore nella creazione delle directory di cache:', error);
-    }
-}
 
 // Assicurati che le directory di cache esistano all'avvio
 ensureCacheDirectories();

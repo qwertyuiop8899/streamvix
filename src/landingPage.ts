@@ -253,6 +253,29 @@ button:active {
 	70% { box-shadow: 0 0 0 16px rgba(140, 82, 255, 0); }
 	100% { box-shadow: 0 0 0 0 rgba(140, 82, 255, 0); }
 }
+
+/* Stili per la griglia dei provider TV */
+.tv-provider-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 0.5rem;
+	padding: 0.5rem;
+	background: rgba(0,0,0,0.2);
+	border-radius: 10px;
+	margin-bottom: 2vh;
+}
+.tv-provider-item .toggle-row {
+	padding: 0.2rem 0.1rem; /* Padding ridotto */
+}
+.tv-provider-item .toggle-title {
+	font-size: 0.9rem; /* Font più piccolo */
+}
+.tv-provider-item .switch {
+	transform: scale(0.85); /* Switch più piccolo */
+}
+.tv-provider-item .toggle-off, .tv-provider-item .toggle-on {
+	display: none; /* Nasconde testo ON/OFF per compattezza */
+}
 `
 
 function landingTemplate(manifest: any) {
@@ -272,6 +295,10 @@ function landingTemplate(manifest: any) {
 
 	if ((manifest.config || []).length) {
 		let options = ''
+		const tvProviderKeys = new Set(['dtvEnabled', 'plutoEnabled', 'plutoMfpEnabled', 'tvtapProxyEnabled', 'tvtapMfpEnabled', 'daddyEnabled', 'vavooNoProxyEnabled', 'vavooMfpEnabled']);
+		let inTvProviderGroup = false;
+
+
 		manifest.config.forEach((elem: any) => {
 			const key = elem.key
 			if (["text", "number", "password"].includes(elem.type)) {
@@ -285,17 +312,35 @@ function landingTemplate(manifest: any) {
 				</div>
 				`
 				} else if (elem.type === 'checkbox') {
+					const isTvProvider = tvProviderKeys.has(key);
+
+					// Gestione del gruppo di provider TV
+					if (isTvProvider && !inTvProviderGroup) {
+						options += '<div class="tv-provider-grid">';
+						inTvProviderGroup = true;
+					}
+					if (!isTvProvider && inTvProviderGroup) {
+						options += '</div>';
+						inTvProviderGroup = false;
+					}
 					// Custom pretty toggle for known keys
 					const toggleMap: any = {
-						'disableVixsrc': { title: 'VixSrc 🍿', invert: true },
+						'disableVixsrc': { title: 'VixSrc 🍿 - 🔒', invert: true, requiresMfp: true },
 						'disableLiveTv': { title: 'LiveTV 📺', invert: true },
-						'animeunityEnabled': { title: 'Anime Unity ⛩️', invert: false },
-						'animesaturnEnabled': { title: 'Anime Saturn 🪐', invert: false },
+						'dtvEnabled': { title: '📺 dTV 🌍 - 🔓', invert: false },
+						'plutoEnabled': { title: '📺 Pluto TV 🪐 - 🔓', invert: false },
+						'plutoMfpEnabled': { title: '📺 Pluto TV 🪐 - 🔒', invert: false, requiresMfp: true },
+						'tvtapProxyEnabled': { title: '📺 TvTap 🔓', invert: false },
+						'tvtapMfpEnabled': { title: '📺 TvTap 🔒', invert: false, requiresMfp: true },
+						'daddyEnabled': { title: '📺 Daddy Live 🔴 - 🔒', invert: false, requiresMfp: true },
+						'vavooNoProxyEnabled': { title: '📺 Vavoo 🔓', invert: false },
+						'vavooMfpEnabled': { title: '📺 Vavoo 🔒', invert: false, requiresMfp: true },
+						'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔒', invert: false, requiresMfp: true },
+						'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔒', invert: false, requiresMfp: true },
 						'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
 						'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
 						'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
 						'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓', invert: false },
-						'tvtapProxyEnabled': { title: 'TvTap NO Proxy 🔓', invert: false },
 					}
 					if (toggleMap[key]) {
 						const t = toggleMap[key];
@@ -304,8 +349,9 @@ function landingTemplate(manifest: any) {
 						// For inverted toggles (disable*), show ON when default=false (i.e., feature enabled)
 						const isChecked = hasDefault ? (t.invert ? !((elem as any).default as boolean) : !!(elem as any).default) : true;
 						const checkedAttr = isChecked ? ' checked' : '';
+						const itemClass = isTvProvider ? 'tv-provider-item' : 'form-element';
 						options += `
-						<div class="form-element">
+						<div class="${itemClass}">
 							<div class="toggle-row" data-toggle-row="${key}">
 								<span class="toggle-title">${t.title}</span>
 								<div class="toggle-right">
@@ -348,6 +394,12 @@ function landingTemplate(manifest: any) {
                `
 			}
 		})
+
+		// Chiudi il gruppo dei provider TV se era l'ultimo elemento
+		if (inTvProviderGroup) {
+			options += '</div>';
+		}
+
 		if (options.length) {
 			formHTML = `
 			<form class="pure-form" id="mainForm">
@@ -362,18 +414,34 @@ function landingTemplate(manifest: any) {
 			if (installLink && mainForm) {
 				installLink.onclick = function () { return (mainForm && typeof mainForm.reportValidity === 'function') ? mainForm.reportValidity() : true; };
 				var buildConfigFromForm = function() {
-					var config = {};
+					// Inizia con una configurazione pulita, resettando tutti i provider TV a false.
+					// Questo previene che valori precedenti "sporchi" vengano mantenuti.
+					var config = {
+						tvtapProxyEnabled: false,
+						dtvEnabled: false,
+						plutoEnabled: false,
+						plutoMfpEnabled: false,
+						tvtapMfpEnabled: false,
+						daddyEnabled: false,
+						vavooNoProxyEnabled: false,
+						vavooMfpEnabled: false
+					};
+
 					var elements = (mainForm).querySelectorAll('input, select, textarea');
 					elements.forEach(function(el) {
 						var key = el.id || el.getAttribute('name') || '';
 						if (!key) return;
+
+						// Salta gli input disabilitati, specialmente quelli dei provider TV nascosti.
+						if (el.disabled) return;
+
 						if (el.type === 'checkbox') {
 							var cfgKey = el.getAttribute('data-config-key') || key;
 							var invert = el.getAttribute('data-invert') === 'true';
 							var val = !!el.checked;
 							config[cfgKey] = invert ? !val : val;
 						} else {
-							config[key] = el.value;
+							config[key] = el.value; // Gestisce text, select, etc.
 						}
 					});
 					return config;
@@ -397,6 +465,159 @@ function landingTemplate(manifest: any) {
 						if (input) input.addEventListener('change', function(){ setRowState(row); });
 					});
 
+					// Live TV dependency logic
+					var checkLiveTvDependencies = function() {
+						var liveTvToggle = document.getElementById('disableLiveTv');
+						var isLiveTvDisabled = liveTvToggle ? liveTvToggle.checked : false; // direct logic
+						var tvGrid = document.querySelector('.tv-provider-grid');
+						
+						// Find all Live TV-dependent toggles
+						var liveTvDependentKeys = ['dtvEnabled', 'plutoEnabled', 'plutoMfpEnabled', 'tvtapProxyEnabled', 'tvtapMfpEnabled', 'daddyEnabled', 'vavooNoProxyEnabled', 'vavooMfpEnabled'];
+
+						if (tvGrid) {
+							if (!isLiveTvDisabled) {
+								// Nascondi l'intero riquadro dei provider TV
+								liveTvDependentKeys.forEach(function(key) {
+									var input = document.getElementById(key);
+									if (input) {
+										input.disabled = true; // Disabilita l'input quando nascosto
+									}
+								});
+								tvGrid.style.display = 'none';
+							} else {
+								// Mostra il riquadro
+								tvGrid.style.display = 'grid';
+								// Riabilita gli input quando il riquadro è visibile
+								liveTvDependentKeys.forEach(function(key) {
+									var input = document.getElementById(key);
+									if (input) {
+										input.disabled = false;
+									}
+								});
+							}
+						}
+						
+						// After showing/hiding Live TV options, check MFP dependencies
+						checkMfpDependencies();
+						
+						// Update the link after changing Live TV dependencies
+						updateLink();
+					};
+
+					/*
+					// Funzione per gestire l'esclusività dei provider TV (DISABILITATA)
+					// var handleTvProviderExclusivity = function(changedKey) {
+					// 	// Mappa dei provider e dei loro toggle
+					// 	var providerGroups = {
+					// 		dtv: ['dtvEnabled'],
+					// 		pluto: ['plutoEnabled', 'plutoMfpEnabled'],
+					// 		tvtap: ['tvtapProxyEnabled', 'tvtapMfpEnabled'],
+					// 		daddy: ['daddyEnabled'],
+					// 		vavoo: ['vavooNoProxyEnabled', 'vavooMfpEnabled']
+					// 	};
+
+					// 	// Trova il gruppo del provider modificato
+					// 	var changedGroup = null;
+					// 	for (var groupName in providerGroups) {
+					// 		if (providerGroups[groupName].indexOf(changedKey) !== -1) {
+					// 			changedGroup = groupName;
+					// 			break;
+					// 		}
+					// 	}
+					// 	if (!changedGroup) return;
+
+					// 	var liveTvToggle = document.getElementById('disableLiveTv');
+					// 	var changedInput = document.getElementById(changedKey);
+
+					// 	// Se il toggle LiveTV è attivo (provider visibili) e l'input è stato attivato
+					// 	if (liveTvToggle && liveTvToggle.checked && changedInput && changedInput.checked) {
+					// 		// Disattiva tutti i toggle degli ALTRI gruppi
+					// 		for (var groupName in providerGroups) {
+					// 			if (groupName !== changedGroup) {
+					// 				providerGroups[groupName].forEach(function(keyToDisable) {
+					// 					var otherInput = document.getElementById(keyToDisable);
+					// 					if (otherInput) otherInput.checked = false;
+					// 				});
+					// 			}
+					// 		}
+					// 	}
+					// };
+					*/
+
+					// MFP dependency logic
+					var checkMfpDependencies = function() {
+						var mfpUrlInput = document.getElementById('mediaFlowProxyUrl');
+						var mfpPasswordInput = document.getElementById('mediaFlowProxyPassword');						
+						var hasMfpConfig = mfpUrlInput && mfpPasswordInput && mfpUrlInput.value.trim() && mfpPasswordInput.value.trim();						
+						
+						// Definisci i gruppi di provider
+						var mfpDependentKeys = ['disableVixsrc', 'plutoMfpEnabled', 'tvtapMfpEnabled', 'vavooMfpEnabled', 'daddyEnabled', 'animeunityEnabled', 'animesaturnEnabled'];
+
+						mfpDependentKeys.forEach(function(key) {
+							var input = document.getElementById(key);
+							var row = document.querySelector('[data-toggle-row="' + key + '"]');
+							if (input && row && row.style.display !== 'none') { // Only process visible rows
+								if (!hasMfpConfig) {
+									// Se MFP non è configurato, disabilita e deseleziona le opzioni dipendenti.
+									input.checked = false;
+									input.disabled = true;
+									row.style.opacity = '0.5';
+									row.style.pointerEvents = 'none';
+								} else {
+									// Se MFP è configurato, abilita E SELEZIONA le opzioni dipendenti.
+									if (input.disabled) { // Applica solo la prima volta che vengono abilitati
+										input.checked = true;
+									}
+									input.disabled = false;
+									row.style.opacity = '1';
+									row.style.pointerEvents = 'auto';
+								}
+								setRowState(row);
+							}
+						});
+						updateLink(); // Aggiorna il link di installazione dopo aver modificato i toggle
+					};
+					
+					// Check Live TV dependencies on page load
+					checkLiveTvDependencies();
+					
+					// Monitor Live TV toggle for changes
+					var liveTvToggle = document.getElementById('disableLiveTv');
+					if (liveTvToggle) liveTvToggle.addEventListener('change', checkLiveTvDependencies);
+
+					// DaddyLive dependency logic
+					var daddyLiveToggle = document.getElementById('daddyEnabled');
+					if (daddyLiveToggle && liveTvToggle) {
+						daddyLiveToggle.addEventListener('change', function() {
+							if (daddyLiveToggle.checked && liveTvToggle.checked) {
+								liveTvToggle.checked = false; // Per abilitare la TV, il toggle "disable" deve essere OFF
+								// Aggiorna lo stato visivo del toggle LiveTV
+								var liveTvRow = document.querySelector('[data-toggle-row="disableLiveTv"]');
+								setRowState(liveTvRow);
+								checkLiveTvDependencies(); // Esegui per mostrare la griglia dei provider TV
+							}
+						});
+					}
+					
+					/*
+					// Aggiungi listener per l'esclusività dei provider TV (DISABILITATO)
+					// var liveTvDependentKeys = ['dtvEnabled', 'plutoEnabled', 'plutoMfpEnabled', 'tvtapProxyEnabled', 'tvtapMfpEnabled', 'daddyEnabled', 'vavooNoProxyEnabled', 'vavooMfpEnabled'];
+					// liveTvDependentKeys.forEach(function(key) {
+					// 	var input = document.getElementById(key);
+					// 	if (input) input.addEventListener('change', function() { handleTvProviderExclusivity(key); });
+					// });
+					*/
+
+
+					// Monitor MFP fields for changes
+					var mfpUrl = document.getElementById('mediaFlowProxyUrl');
+					var mfpPassword = document.getElementById('mediaFlowProxyPassword');
+					if (mfpUrl) mfpUrl.addEventListener('input', checkMfpDependencies);
+					if (mfpPassword) mfpPassword.addEventListener('input', checkMfpDependencies);
+
+					// Update link immediately after initialization
+					updateLink();
+
 				// expose globally for bottom script
 					window.updateLink = updateLink;
 			}
@@ -413,18 +634,7 @@ function landingTemplate(manifest: any) {
 				var manifestUrl;
 				var mainForm = document.getElementById('mainForm');
 				if (mainForm) {
-					var config = {};
-					var elements = (mainForm).querySelectorAll('input, select, textarea');
-					elements.forEach(function(el) {
-						var key = el.id || el.getAttribute('name') || '';
-						if (!key) return;
-						if (el.type === 'checkbox') {
-							var cfgKey = el.getAttribute('data-config-key') || key;
-							var invert = el.getAttribute('data-invert') === 'true';
-							var val = !!el.checked;
-							config[cfgKey] = invert ? !val : val;
-						} else { config[key] = el.value; }
-					});
+					var config = buildConfigFromForm(); // Use the same function with Live TV logic
 					manifestUrl = window.location.protocol + '//' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json';
 				} else {
 					manifestUrl = window.location.protocol + '//' + window.location.host + '/manifest.json';
@@ -547,6 +757,13 @@ function landingTemplate(manifest: any) {
 
 			<div class="separator"></div>
 
+			<!-- INFO Icone -->
+			<div style="text-align: center; margin-bottom: 2vh; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 8px;">
+				<p style="font-size: 1rem; margin: 0.2rem 0;">INFO: </p>
+				<p style="font-size: 0.9rem; margin: 0.2rem 0;">🔓 = Utilizzabile senza MediaFlow Proxy (MFP)</p>
+				<p style="font-size: 0.9rem; margin: 0.2rem 0;">🔒 = Richiede MediaFlow Proxy (MFP)</p>
+			</div>
+
 			<h3 class="gives">In Questo Addon puoi trovare :</h3>
 			<ul>
 			${stylizedTypes.map((t: string) => `<li>${t}</li>`).join('')}
@@ -581,5 +798,3 @@ function landingTemplate(manifest: any) {
 }
 
 export { landingTemplate };
-
-
