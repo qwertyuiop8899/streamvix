@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.31](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.30...v1.0.31) (2025-09-07)
+
+
+### Bug Fixes
+
+* gh backup file ([9591982](https://github.com/qwertyuiop8899/streamvix/commit/959198220c640d5a2f2aaad49c88ba9c4525059c))
+
 ## [1.0.30](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.29...v1.0.30) (2025-09-07)
 
 
