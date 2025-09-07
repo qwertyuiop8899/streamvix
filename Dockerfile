@@ -15,23 +15,9 @@ RUN apt-get update && apt-get install -y \
 # Imposta la directory di lavoro nell'immagine
 WORKDIR /usr/src/app
 
-
-# Clona il repository Git
-# Sostituisci con l'URL del tuo repository e opzionalmente un branch o tag
-
-ARG GIT_REPO_URL="https://github.com/qwertyuiop8899/streamvix.git"
-ARG GIT_BRANCH="main"
-
-ARG CACHE_BUST2=233
-RUN echo "Cache bust: $CACHE_BUST"
-
-# Forza git a non usare cache aggiungendo timestamp
-RUN rm -rf ./* ./.* 2>/dev/null || true && \
-    echo "Cloning fresh at $(date +%s)" && \
-    git -c http.sslVerify=false clone --branch ${GIT_BRANCH} --depth 1 --no-single-branch ${GIT_REPO_URL} . && \
-    echo "Clone completed at $(date +%s)"
-#RUN git -c http.sslVerify=false clone --branch ${GIT_BRANCH} --depth 1 ${GIT_REPO_URL} .
-# Il "." alla fine clona il contenuto della repo direttamente in /usr/src/app
+# Copia il codice sorgente dell'applicazione nella directory di lavoro
+# Questo sostituisce il git clone per usare i file locali
+COPY . .
 
 
 
@@ -87,33 +73,3 @@ ENTRYPOINT ["node", "/start"]
 
 # Definisci il comando per avviare l'applicazione
 #CMD [ "pnpm", "start" ]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

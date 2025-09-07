@@ -250,22 +250,25 @@ Usa questo metodo se vuoi modificare il codice sorgente, testare nuove funzional
     cd StreamViX # Entra nella directory del progetto appena clonata
     ```
 
-2.  **Installa le dipendenze:**
-3.  
+2.  **Installa le dipendenze:**  
+
     ```bash
+	pip install -r requirements.txt
     pnpm install
     ```
-4.  **Setup:**
 
+3.  **Compila il progetto:**
 
-5.  **Compila il progetto:**
     ```
     pnpm run build
     ```
-6.  **Avvia l'addon:**
+	
+4.  **Avvia l'addon:**
+
     ```
     pnpm start
     ```
+	
 L'addon sarà disponibile localmente all'indirizzo `http://localhost:7860`.
 
 ---

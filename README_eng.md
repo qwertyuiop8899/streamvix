@@ -250,21 +250,24 @@ Use this method if you want to modify the source code, test new features or cont
     ```
 
 2.  **Install dependencies:**
-3.  
+
     ```bash
+	pip install -r requirements.txt
     pnpm install
     ```
-4.  **Setup:**
 
+3.  **Build the project:**
 
-5.  **Build the project:**
     ```
     pnpm run build
     ```
-6.  **Start the addon:**
+	
+4.  **Start the addon:**
+
     ```
     pnpm start
     ```
+	
 The addon will be available locally at `http://localhost:7860`.
 
 ---
