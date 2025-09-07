@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.35](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.34...v1.0.35) (2025-09-07)
+
+
+### Bug Fixes
+
+* add webshare ([b29b652](https://github.com/qwertyuiop8899/streamvix/commit/b29b65293d5be1deabd801aff126a292dac647e1))
+* cookies flare ([5adcc60](https://github.com/qwertyuiop8899/streamvix/commit/5adcc6088fbf769e897fb9bda22058beb7268abc))
+
 ## [1.0.34](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.33...v1.0.34) (2025-09-07)
 
 
