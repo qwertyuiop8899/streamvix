@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.33](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.32...v1.0.33) (2025-09-07)
+
+
+### Bug Fixes
+
+* enhance gh logs ([1349148](https://github.com/qwertyuiop8899/streamvix/commit/1349148ef883a224b0592594f13b72920bcbc145))
+
 ## [1.0.32](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.31...v1.0.32) (2025-09-07)
 
 
