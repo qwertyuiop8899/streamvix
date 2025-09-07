@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.0.34](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.33...v1.0.34) (2025-09-07)
+
+
+### Bug Fixes
+
+* flare challenge ([5788a33](https://github.com/qwertyuiop8899/streamvix/commit/5788a33a4007d9d19a3a4579f7cfa9cc789eef29))
+
+## [1.0.33](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.32...v1.0.33) (2025-09-07)
+
+
+### Bug Fixes
+
+* enhance gh logs ([1349148](https://github.com/qwertyuiop8899/streamvix/commit/1349148ef883a224b0592594f13b72920bcbc145))
+
+## [1.0.32](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.31...v1.0.32) (2025-09-07)
+
+
+### Bug Fixes
+
+* log gh ([916809f](https://github.com/qwertyuiop8899/streamvix/commit/916809fe136d22fffe3d848490baa3d63e63fdbe))
+
+## [1.0.31](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.30...v1.0.31) (2025-09-07)
+
+
+### Bug Fixes
+
+* gh backup file ([9591982](https://github.com/qwertyuiop8899/streamvix/commit/959198220c640d5a2f2aaad49c88ba9c4525059c))
+
+## [1.0.30](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.29...v1.0.30) (2025-09-07)
+
+
+### Bug Fixes
+
+* bump version ([69a83af](https://github.com/qwertyuiop8899/streamvix/commit/69a83af0688e47d0879fb9ecf9004f8c529f05ee))
+
+## [1.0.29](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.28...v1.0.29) (2025-09-07)
+
+
+### Bug Fixes
+
+* nome guardahd ([d3a86fb](https://github.com/qwertyuiop8899/streamvix/commit/d3a86fbe666a95ff7c4d4d0a3caf7611319e1404))
+* update gh ([1c1bef0](https://github.com/qwertyuiop8899/streamvix/commit/1c1bef0b9bfb1fe98facb379345e976ad7fa938d))
+
 ## [1.0.28](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.27...v1.0.28) (2025-09-06)
 
 
