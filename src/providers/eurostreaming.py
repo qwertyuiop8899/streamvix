@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 
 """
 Script adattato a streamvix da https://github.com/UrloMythus/MammaMia/blob/main/Src/API/eurostreaming.py
 grazie @urlomythus
