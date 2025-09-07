@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.37](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.36...v1.0.37) (2025-09-07)
+
+
+### Bug Fixes
+
+* deltabit priority ([179283c](https://github.com/qwertyuiop8899/streamvix/commit/179283c8a4aded3451e1e29dad8fbf4065ef172b))
+
 ## [1.0.36](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.35...v1.0.36) (2025-09-07)
 
 
