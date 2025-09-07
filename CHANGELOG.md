@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.34](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.33...v1.0.34) (2025-09-07)
+
+
+### Bug Fixes
+
+* flare challenge ([5788a33](https://github.com/qwertyuiop8899/streamvix/commit/5788a33a4007d9d19a3a4579f7cfa9cc789eef29))
+
 ## [1.0.33](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.32...v1.0.33) (2025-09-07)
 
 
