@@ -219,12 +219,12 @@ async def mixdrop(url, MFP, client):
         url = url.replace("club", "cv").split("/2")[0]
     if "cfd" in url:
         url = url.replace("cfd", "cv").replace("emb","e").split("/2")[0]
-    # In MFP mode, just return the embed/direct URL as-is
+    # Se MFP=1 restituiamo l'URL base (lo wrapperemo più avanti nel build finale in formato extractor)
     if str(MFP) == "1":
-        log('mixdrop: MFP=1 passthrough ->', url)
+        log('mixdrop: MFP=1 base url ->', url)
         return url, ""
-    # Fallback: return the URL (no eval_solver here)
-    log('mixdrop: returning (no solver) ->', url)
+    # Senza MFP: ritorna diretto (nessun wrapping)
+    log('mixdrop: returning direct (no MFP) ->', url)
     return url, ""
 
 async def deltabit(page_url, client):
@@ -233,9 +233,14 @@ async def deltabit(page_url, client):
     Evita ricorsione e blocking sleep: usa loop + asyncio.sleep.
     Ritorna (url|None, filename).
     """
-    max_attempts = 4
+    max_attempts = 5
     attempt = 0
     fname = ''
+    # Allow overriding wait via env (seconds)
+    try:
+        _wait_base = float(os.environ.get('ES_DELTABIT_WAIT', '2.5'))
+    except Exception:
+        _wait_base = 2.5
     while attempt < max_attempts:
         attempt += 1
         headers = random_headers.generate()
@@ -262,14 +267,37 @@ async def deltabit(page_url, client):
                 data[name] = value
             data['imhuman'] = ''
             data['referer'] = page_url
-            log('deltabit: waiting 1.8s before POST (async)')
-            await asyncio.sleep(1.8)
+            wait_time = _wait_base + (0.15 * (attempt-1))  # small incremental backoff
+            log(f'deltabit: waiting {wait_time:.2f}s before POST (async)')
+            await asyncio.sleep(wait_time)
             fname = data.get('fname', '')
             response = await client.post(ForwardProxy + page_url, data=data, headers=headers, proxies=proxies)
-            link = re.findall(r'sources:\s*\["([^"]+)"', response.text, re.DOTALL)
-            if link:
-                log('deltabit: got source', link[0])
-                return link[0], fname
+            # Support multiple possible player markup patterns (site can change)
+            patterns = [
+                r'sources:\s*\["([^"\\]+)"',    # sources:["URL"]
+                r'file:\s*"([^"\\]+)"',          # file:"URL"
+                r'src:\s*"([^"\\]+)"',           # src:"URL"
+                r'<source[^>]+src="([^"\\]+)"'    # <source src="URL">
+            ]
+            found_url = None
+            for pat in patterns:
+                m = re.search(pat, response.text, re.DOTALL | re.IGNORECASE)
+                if m and m.group(1).startswith('http'):
+                    found_url = m.group(1)
+                    break
+            if not found_url:
+                # One quick second-chance re-POST after extra 0.9s (sometimes server timer)
+                log('deltabit: no source first POST, retrying once after short wait')
+                await asyncio.sleep(0.9)
+                response2 = await client.post(ForwardProxy + page_url, data=data, headers=headers, proxies=proxies)
+                for pat in patterns:
+                    m2 = re.search(pat, response2.text, re.DOTALL | re.IGNORECASE)
+                    if m2 and m2.group(1).startswith('http'):
+                        found_url = m2.group(1)
+                        break
+            if found_url:
+                log('deltabit: got source', found_url)
+                return found_url, fname
             log('deltabit: no sources found (attempt)', attempt)
         except Exception as e:
             log('deltabit: exception', e)
@@ -401,72 +429,60 @@ async def resolve_clicka_to_host(href_value, client):
     return href
 
 async def scraping_links(atag, MFP, client):
-    # Check available hosts; prefer DeltaBit; fallback MixDrop
+    """Raccoglie TUTTI i DeltaBit (priorità). Se nessuno funziona, fallback MixDrop.
+
+    Return:
+      list[ (url, name, hostType) ]  hostType in {'deltabit','mixdrop'}
+      oppure lista vuota se nulla.
+    (Compat: i chiamanti gestiscono ancora tuple singole? Aggiornati più sotto per lista.)
+    """
     log('scraping_links: in', ('...' if len(atag)>120 else atag))
-    if "MixDrop" in atag and "DeltaBit" in atag:
-        soup = BeautifulSoup(atag, _PARSER, parse_only=SoupStrainer('a'))
-        delta_href = None
-        mix_href = None
-        if soup:
-            for a in soup:
-                text = (a.get_text(strip=True) or '').lower()
-                href = a.get('href')
-                if not href:
-                    continue
-                if 'deltabit' in text and delta_href is None:
-                    delta_href = href
-                if 'mixdrop' in text and mix_href is None:
-                    mix_href = href
-        href = await resolve_clicka_to_host(delta_href, client) if delta_href else None
+    soup = BeautifulSoup(atag, _PARSER, parse_only=SoupStrainer('a'))
+    if not soup:
+        return []
+    delta_raw = []
+    mix_raw = []
+    for a in soup:
+        text = (a.get_text(strip=True) or '').lower()
+        href = a.get('href')
+        if not href:
+            continue
+        combo = f"{text} {href.lower()}"
+        if 'deltabit' in combo:
+            delta_raw.append(href)
+        elif 'mixdrop' in combo:
+            mix_raw.append(href)
+    results = []
+    # Prova ogni DeltaBit
+    seen = set()
+    for raw in delta_raw:
+        if raw in seen: continue
+        seen.add(raw)
         try:
-            if not href:
-                raise ValueError('no_delta_href')
-            full_url, name = await deltabit(href, client)
-            if not full_url:
-                raise ValueError('no_deltabit_mp4')
-        except Exception:
-            href = await resolve_clicka_to_host(mix_href, client) if mix_href else None
-            if not href:
-                log('scraping_links: no MixDrop href either')
-                return None, ""
-            full_url, name = await mixdrop(href, MFP, client)
-        log('scraping_links: chosen ->', full_url)
-        return full_url, name
-    if "MixDrop" in atag and  "DeltaBit" not in atag:
-        soup = BeautifulSoup(atag, _PARSER, parse_only=SoupStrainer('a'))
-        mix_href = None
-        if soup:
-            for a in soup:
-                text = (a.get_text(strip=True) or '').lower()
-                if 'mixdrop' in text:
-                    mix_href = a.get('href')
-                    break
-        href = await resolve_clicka_to_host(mix_href, client) if mix_href else None
-        if not href:
-            log('scraping_links: MixDrop pattern not found')
-            return None, ""
-        full_url, name = await mixdrop(href, MFP, client)
-        log('scraping_links: chosen MixDrop ->', full_url)
-        return full_url, name
-    if 'DeltaBit' in atag and "MixDrop" not in atag:
-        soup = BeautifulSoup(atag, _PARSER, parse_only=SoupStrainer('a'))
-        delta_href = None
-        if soup:
-            for a in soup:
-                text = (a.get_text(strip=True) or '').lower()
-                if 'deltabit' in text:
-                    delta_href = a.get('href')
-                    break
-        href = await resolve_clicka_to_host(delta_href, client) if delta_href else None
-        if not href:
-            log('scraping_links: DeltaBit pattern not found')
-            return None, ""
-        full_url, name = await deltabit(href, client)
-        log('scraping_links: chosen DeltaBit ->', full_url)
-        return full_url, name
-    if 'DeltaBit' not in atag and 'MixDrop' not in atag:
-        log('scraping_links: no supported hosts found')
-        return None, ""
+            resolved = await resolve_clicka_to_host(raw, client)
+            if not resolved:
+                continue
+            url, name = await deltabit(resolved, client)
+            if url:
+                results.append((url, name, 'deltabit'))
+        except Exception as e:
+            log('scraping_links: delta error', e)
+    if results:
+        log('scraping_links: collected deltabit count', len(results))
+        return results
+    # Nessun DeltaBit valido, prova MixDrop (solo primo per evitare duplicati inutili)
+    if mix_raw:
+        try:
+            resolved = await resolve_clicka_to_host(mix_raw[0], client)
+            if resolved:
+                url, name = await mixdrop(resolved, MFP, client)
+                if url:
+                    log('scraping_links: fallback mixdrop')
+                    return [(url, name, 'mixdrop')]
+        except Exception as e:
+            log('scraping_links: mixdrop error', e)
+    log('scraping_links: no supported hosts found')
+    return []
 
 STOPWORDS = {
     'the','la','le','lo','gli','i','il','di','da','a','in','of','and','or','serie','series','season','show','tv','la','una','un','uno','del','della','degli','delle','de','el',
@@ -752,16 +768,20 @@ async def search_advanced(showname, date, season, episode, MFP, client):
         urls = {}
         log('search: episode rows found (post', p['id'], ')', len(matches))
         for episode_details in matches:
-            if 'href' in episode_details:
-                part = episode_details
-                if ' – ' in part:
-                    part = part.split(' – ', 1)[1]
-                full_url, name = await scraping_links(part, MFP, client)
+            if 'href' not in episode_details:
+                continue
+            part = episode_details
+            if ' – ' in part:
+                part = part.split(' – ', 1)[1]
+            host_list = await scraping_links(part, MFP, client)
+            for item in host_list:
+                if not item or not isinstance(item, tuple):
+                    continue
+                full_url, name, _host_type = item
                 if full_url:
                     urls[full_url] = name
         if urls:
             log('search: urls collected', len(urls))
-            # Remember match ratio for downstream (percentage display)
             debug['used_match_ratio_seq'] = round(p['ratio_seq'],4)
             return urls, None, debug
 
@@ -825,9 +845,13 @@ async def search_legacy(showname, date, season, episode, MFP, client):
             part = ep_details
             if ' – ' in part:
                 part = part.split(' – ', 1)[1]
-            full_url, name = await scraping_links(part, MFP, client)
-            if full_url:
-                urls[full_url] = name
+            host_list = await scraping_links(part, MFP, client)
+            for item in host_list:
+                if not item or not isinstance(item, tuple):
+                    continue
+                full_url, name, _host_type = item
+                if full_url:
+                    urls[full_url] = name
         if urls:
             debug['used_pattern'] = 'primary'
             return urls, None, debug
