@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.36](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.35...v1.0.36) (2025-09-07)
+
+
+### Bug Fixes
+
+* add proxywebsh ([f5b2c59](https://github.com/qwertyuiop8899/streamvix/commit/f5b2c5996c7c4b148a66f9b25d442602a78b9bb3))
+
 ## [1.0.35](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.34...v1.0.35) (2025-09-07)
 
 
