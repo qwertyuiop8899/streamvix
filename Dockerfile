@@ -16,28 +16,27 @@ RUN apt-get update && apt-get install -y \
 # Imposta la directory di lavoro nell'immagine
 WORKDIR /usr/src/app
 
-# Copia il codice sorgente dell'applicazione nella directory di lavoro
-COPY . .
+# Copia requirements.txt prima per sfruttare la cache Docker
+COPY requirements.txt .
 
-# Installa SOLO le dipendenze Python necessarie ed esistenti
-RUN pip3 install --no-cache-dir --break-system-packages \
-    requests beautifulsoup4 pycryptodome pyDes \
-    pillow pytesseract curl_cffi fake-headers lxml
+# Installa dipendenze Python da requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
-# Verifica che le dipendenze della libreria standard siano disponibili
-RUN python3 -c "import asyncio, difflib, unicodedata, html; print('Standard library modules OK')"
-
-# Verifica installazione dipendenze esterne
-RUN python3 -c "import curl_cffi, fake_headers, pytesseract; print('External dependencies OK')" && \
+# Verifica installazione
+RUN python3 -c "import asyncio, difflib, unicodedata, html; print('Standard library OK')" && \
+    python3 -c "import curl_cffi, fake_headers, pytesseract, requests, bs4; print('External dependencies OK')" && \
     tesseract --version
 
-# Installa una versione specifica di pnpm per evitare problemi di compatibilità della piattaforma
+# Copia il resto del codice sorgente
+COPY . .
+
+# Installa una versione specifica di pnpm
 RUN npm install -g pnpm@8.15.5
 
-# Assicura che l'utente node sia proprietario della directory dell'app e del suo contenuto
+# Assicura che l'utente node sia proprietario della directory dell'app
 RUN chown -R node:node /usr/src/app
 
-# Torna all'utente node per le operazioni di pnpm e l'esecuzione dell'app
+# Torna all'utente node per le operazioni di pnpm
 USER node
 
 ARG BUILD_CACHE_BUST=233
