@@ -65,10 +65,18 @@ async function fetchVixCloudSiteVersion(siteOrigin: string): Promise<string> {
   }
 }
 
+// Supports both legacy imdb based ids (imdbId:season:episode) and tmdb based ids (tmdb:tmdbId:season:episode)
 function getObject(id: string) {
   const arr = id.split(':');
+  if (arr[0] === 'tmdb') {
+    return {
+      id: arr[1], // actual TMDB id
+      season: arr[2],
+      episode: arr[3]
+    };
+  }
   return {
-    id: arr[0],
+    id: arr[0], // imdb id
     season: arr[1],
     episode: arr[2]
   };
@@ -157,42 +165,58 @@ async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: num
 
 // 2. Modifica la funzione getUrl per rimuovere ?lang=it e aggiungere la verifica
 export async function getUrl(id: string, type: ContentType, config: ExtractorConfig): Promise<string | null> {
-  if (type == "movie") {
-    const imdbIdForMovie = id; // L'ID passato è l'IMDB ID per i film
-    const tmdbId = await getTmdbIdFromImdbId(imdbIdForMovie, config.tmdbApiKey);
+  // Support direct TMDB id format for movies: tmdb:<tmdbId>
+  if (type === 'movie') {
+    let tmdbId: string | null = null;
+    if (id.startsWith('tmdb:')) {
+      // direct TMDB format
+      tmdbId = id.split(':')[1] || null;
+    } else {
+      const imdbIdForMovie = id; // legacy imdb id
+      tmdbId = await getTmdbIdFromImdbId(imdbIdForMovie, config.tmdbApiKey);
+      if (!tmdbId) return null;
+    }
     if (!tmdbId) return null;
-    
-    // Verifica se l'ID TMDB del film esiste su VixSrc
     const existsOnVixSrc = await checkTmdbIdOnVixSrc(tmdbId, type);
     if (!existsOnVixSrc) {
-      console.log(`TMDB ID ${tmdbId} (from IMDB ${imdbIdForMovie}) for movie not found in VixSrc list. Skipping.`);
+      console.log(`TMDB ID ${tmdbId} for movie not found in VixSrc list. Skipping.`);
       return null;
     }
-    
-    return `${VIXCLOUD_SITE_ORIGIN}/movie/${tmdbId}/`; // Rimosso ?lang=it
-  } else {
-    // Series: https://vixsrc.to/tv/tmdbkey/season/episode/
-    const obj = getObject(id);
-    const tmdbSeriesId = await getTmdbIdFromImdbId(obj.id, config.tmdbApiKey);
-    if (!tmdbSeriesId) return null;
-    
-    // Verifica se l'ID TMDB della serie esiste su VixSrc
-    const existsOnVixSrc = await checkTmdbIdOnVixSrc(tmdbSeriesId, type);
-    if (!existsOnVixSrc) {
-      console.log(`TMDB ID ${tmdbSeriesId} (from IMDB ${obj.id}) for series not found in VixSrc list. Skipping.`);
-      return null;
-    }
-    // Verifica anche che la specifica Stagione/Episodio esista
-    const seasonNum = Number(obj.season);
-    const episodeNum = Number(obj.episode);
-    const epExists = await checkEpisodeOnVixSrc(tmdbSeriesId, seasonNum, episodeNum);
-    if (!epExists) {
-      console.log(`VIX_EP_CHECK: Episode not found on VixSrc for TMDB ${tmdbSeriesId} S${seasonNum}E${episodeNum}. Skipping.`);
-      return null;
-    }
-    
-    return `${VIXCLOUD_SITE_ORIGIN}/tv/${tmdbSeriesId}/${obj.season}/${obj.episode}/`; // Rimosso ?lang=it
+    return `${VIXCLOUD_SITE_ORIGIN}/movie/${tmdbId}/`;
   }
+  // Series: support tmdb:tmdbId:season:episode or legacy imdbId:season:episode
+  const rawParts = id.split(':');
+  let tmdbSeriesId: string | null = null;
+  let seasonStr: string | undefined;
+  let episodeStr: string | undefined;
+  if (rawParts[0] === 'tmdb') {
+    tmdbSeriesId = rawParts[1] || null;
+    seasonStr = rawParts[2];
+    episodeStr = rawParts[3];
+  } else {
+    const obj = getObject(id); // interprets legacy imdb format
+    tmdbSeriesId = await getTmdbIdFromImdbId(obj.id, config.tmdbApiKey);
+    seasonStr = obj.season;
+    episodeStr = obj.episode;
+  }
+  if (!tmdbSeriesId) return null;
+  const seasonNum = Number(seasonStr);
+  const episodeNum = Number(episodeStr);
+  if (isNaN(seasonNum) || isNaN(episodeNum)) {
+    console.warn(`Invalid season/episode in id ${id}`);
+    return null;
+  }
+  const existsOnVixSrc = await checkTmdbIdOnVixSrc(tmdbSeriesId, type);
+  if (!existsOnVixSrc) {
+    console.log(`TMDB ID ${tmdbSeriesId} for series not found in VixSrc list. Skipping.`);
+    return null;
+  }
+  const epExists = await checkEpisodeOnVixSrc(tmdbSeriesId, seasonNum, episodeNum);
+  if (!epExists) {
+    console.log(`VIX_EP_CHECK: Episode not found on VixSrc for TMDB ${tmdbSeriesId} S${seasonNum}E${episodeNum}. Skipping.`);
+    return null;
+  }
+  return `${VIXCLOUD_SITE_ORIGIN}/tv/${tmdbSeriesId}/${seasonNum}/${episodeNum}/`;
 }
 
 export async function getStreamContent(id: string, type: ContentType, config: ExtractorConfig): Promise<VixCloudStreamInfo[] | null> {
@@ -207,8 +231,13 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   }
 
   // Helper function to fetch movie title from TMDB
-  async function getMovieTitle(imdbId: string, tmdbApiKey?: string): Promise<string | null> {
-    const tmdbId = await getTmdbIdFromImdbId(imdbId, tmdbApiKey);
+  async function getMovieTitle(imdbOrTmdbId: string, tmdbApiKey?: string): Promise<string | null> {
+    let tmdbId: string | null = null;
+    if (imdbOrTmdbId.startsWith('tmdb:')) {
+      tmdbId = imdbOrTmdbId.split(':')[1] || null;
+    } else {
+      tmdbId = await getTmdbIdFromImdbId(imdbOrTmdbId, tmdbApiKey);
+    }
     if (!tmdbId) return null;
     const movieDetailsUrl = `${TMDB_API_BASE_URL}/movie/${tmdbId}?api_key=${tmdbApiKey}&language=it`;
     try {
@@ -226,8 +255,14 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   }
 
   // Helper function to fetch series title from TMDB
-  async function getSeriesTitle(imdbId: string, tmdbApiKey?: string): Promise<string | null> {
-    const tmdbId = await getTmdbIdFromImdbId(imdbId.split(':')[0], tmdbApiKey); // Use base IMDB ID for series
+  async function getSeriesTitle(imdbOrTmdbComposite: string, tmdbApiKey?: string): Promise<string | null> {
+    let tmdbId: string | null = null;
+    if (imdbOrTmdbComposite.startsWith('tmdb:')) {
+      const parts = imdbOrTmdbComposite.split(':');
+      tmdbId = parts[1] || null; // tmdb:tmdbId:season:episode
+    } else {
+      tmdbId = await getTmdbIdFromImdbId(imdbOrTmdbComposite.split(':')[0], tmdbApiKey);
+    }
     if (!tmdbId) return null;
     const seriesDetailsUrl = `${TMDB_API_BASE_URL}/tv/${tmdbId}?api_key=${tmdbApiKey}&language=it`;
     try {
