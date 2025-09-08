@@ -549,12 +549,11 @@ const baseManifest: Manifest = {
     { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
     { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
     { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox" },
-    { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: false },
-    { key: "vavooNoMfpEnabled", title: "Vavoo NO MFP 🔓", type: "checkbox", default: false },
+    { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: true },
+    { key: "vavooNoMfpEnabled", title: "Vavoo NO MFP 🔓", type: "checkbox", default: true },
     // UI helper toggles (not used directly server-side but drive dynamic form logic)
     { key: "personalTmdbKey", title: "TMDB API KEY Personale", type: "checkbox" },
-    { key: "mediaflowMaster", title: "MediaflowProxy", type: "checkbox", default: true },
-    { key: "localMode", title: "LOCAL", type: "checkbox", default: false },
+    { key: "mediaflowMaster", title: "MediaflowProxy", type: "checkbox", default: false },
     
     ]
 };
