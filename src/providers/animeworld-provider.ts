@@ -80,21 +80,32 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
     tmdbId = id;
     try { const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json(); malId = haglundResp[0]?.myanimelist?.toString() || null; } catch {}
   } else if (type === 'kitsu') {
+    // 1. Prova a ottenere MAL mapping per poter usare Jikan (English ufficiale)
     try {
       const mappingsResp = await (await fetch(`https://kitsu.io/api/edge/anime/${id}/mappings`)).json();
       const malMapping = mappingsResp.data?.find((m: any) => m.attributes.externalSite === 'myanimelist/anime');
       malId = malMapping?.attributes?.externalId?.toString() || null;
+      console.log('[AnimeWorld][UTitle][Kitsu] primary mappings malId=', malId);
     } catch {}
-    // Fallback immediato: prendi canonicalTitle da risorsa anime se disponibile
-    if (!fallbackTitle) {
+    // 2. Precarica candidato canonico ma NON restituire ancora (lasciamo chance a Jikan)
+    try {
+      const animeResp = await (await fetch(`https://kitsu.io/api/edge/anime/${id}`)).json();
+      const attr = animeResp.data?.attributes || {};
+      const canonical = attr.titles?.en || attr.title_en || attr.titles?.en_jp || attr.canonicalTitle || attr.slug || null;
+      if (canonical) fallbackTitle = canonical;
+      console.log('[AnimeWorld][UTitle][Kitsu] canonical fallback candidate=', fallbackTitle);
+    } catch {}
+    // 3. Se ancora nessun malId prova endpoint include=mappings (alcuni casi differiscono)
+    if (!malId) {
       try {
-        const animeResp = await (await fetch(`https://kitsu.io/api/edge/anime/${id}`)).json();
-        const attr = animeResp.data?.attributes || {};
-        // Chain di preferenze: titles.en -> title_en -> titles.en_jp -> canonicalTitle -> slug
-        fallbackTitle = attr.titles?.en || attr.title_en || attr.titles?.en_jp || attr.canonicalTitle || attr.slug || null;
-        if (fallbackTitle) {
-          englishTitleCache.set(cacheKey, fallbackTitle);
-          return fallbackTitle;
+        const incResp = await (await fetch(`https://kitsu.io/api/edge/anime/${id}?include=mappings`)).json();
+        const included = incResp.included || [];
+        for (const inc of included) {
+          if (inc.type === 'mappings' && inc.attributes?.externalSite === 'myanimelist/anime') {
+            malId = inc.attributes.externalId?.toString() || null;
+            console.log('[AnimeWorld][UTitle][Kitsu] include=mappings malId=', malId);
+            break;
+          }
         }
       } catch {}
     }
@@ -112,7 +123,12 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
       if (!englishTitle && jikanResp.data) {
         englishTitle = jikanResp.data.title_english || jikanResp.data.title || jikanResp.data.title_japanese || '';
       }
-      if (englishTitle) return englishTitle;
+      if (englishTitle) {
+        englishTitleCache.set(cacheKey, englishTitle);
+        console.log('[AnimeWorld][UTitle] resolved via Jikan', { type, id, malId, englishTitle });
+        return englishTitle;
+      }
+      console.log('[AnimeWorld][UTitle] Jikan no EnglishTitle, will fallback', { type, id, malId });
     } catch {}
   }
   if (tmdbId && tmdbKey) {
@@ -129,6 +145,7 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
   // Ultimo fallback: se abbiamo un fallbackTitle derivato da TMDB o Kitsu lo usiamo; altrimenti prova a usare id stesso (non ideale ma evita crash)
   if (fallbackTitle) {
     englishTitleCache.set(cacheKey, fallbackTitle);
+    console.log('[AnimeWorld][UTitle] using fallbackTitle', { type, id, fallbackTitle });
     return fallbackTitle;
   }
   // Se variabile env indica di non interrompere, ritorna un placeholder
@@ -346,7 +363,13 @@ export class AnimeWorldProvider {
     if (!this.config.enabled) return { streams: [] };
     try {
       const { kitsuId, seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(kitsuIdString);
-      const englishTitle = await getEnglishTitleFromAnyId(kitsuId, 'kitsu', this.config.tmdbApiKey);
+  // NOTE (Approach 2 active): We now resolve a universal EN title via MAL/Kitsu mappings (getEnglishTitleFromAnyId)
+  // Old approach (commented) used the raw Kitsu canonical title directly, e.g.:
+  //   const kitsuRaw = await this.kitsuProvider.fetchTitle(kitsuId)  <-- NON PIU' USATO
+  //   return this.handleTitleRequest(kitsuRaw, seasonNumber, episodeNumber, isMovie);
+  // This produced verbose strings like "Devil May Cry: The Animated Series".
+  // The new approach normalizes across providers, giving just "Devil May Cry" when available.
+  const englishTitle = await getEnglishTitleFromAnyId(kitsuId, 'kitsu', this.config.tmdbApiKey);
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
     } catch (e) {
       console.error('[AnimeWorld] kitsu handler error', e);
