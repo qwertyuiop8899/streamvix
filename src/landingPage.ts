@@ -327,7 +327,7 @@ function landingTemplate(manifest: any) {
 					const toggleMap: any = {
 						'disableVixsrc': { title: 'VixSrc 🍿 - 🔒', invert: true, requiresMfp: true }, // Mantenuto per coerenza
 						'disableLiveTv': { title: 'LiveTV 📺', invert: true },
-						'freeTvProvidersEnabled': { title: '📺 Provider Gratuiti 🔓', invert: false },
+						'freeTvProvidersEnabled': { title: '📺 Provider senza MFP 🔓', invert: false },
 						'mfpTvProvidersEnabled': { title: '📺 Provider con MFP 🔒', invert: false, requiresMfp: true },
 						'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔒', invert: false, requiresMfp: true },
 						'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔒', invert: false, requiresMfp: true }, // Mantenuto
