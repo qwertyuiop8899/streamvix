@@ -62,28 +62,14 @@ export class GuardaHdProvider {
     } catch (e:any) {
       const msg = (e?.message||'').toString();
       console.log('[GH][ERR] fetch movie page failed', msg);
-      // Retry path: force bypass cache + attempt solver/proxy again
-      if (/^cloudflare_challenge$/.test(msg) || /^http_403$/.test(msg) || /^blocked/.test(msg)) {
-        console.log('[GH][RETRY] second attempt with noCache + solver/proxy', imdbOnly);
+      if (/^(cloudflare_challenge|http_403|blocked)/.test(msg)) {
         try {
-          html = await fetchPage(`${this.base}/movie/${encodeURIComponent(imdbOnly)}`, { noCache: true });
-          console.log('[GH][NET] fetched movie page (retry) len=', html.length);
+          console.log('[GH][PROXY] proxy attempts (max 2)');
+          html = await fetchPageWithProxies(`${this.base}/movie/${encodeURIComponent(imdbOnly)}`);
+          console.log('[GH][PROXY][OK] len=', html.length);
         } catch (e2:any) {
-          const msg2 = (e2?.message||'').toString();
-          console.log('[GH][ERR] retry failed', msg2);
-          if (/^cloudflare_challenge$/.test(msg2) || /^http_403$/.test(msg2) || /^blocked/.test(msg2)) {
-            // Forced proxy sweep third level
-            try {
-              console.log('[GH][PROXYFORCE] forcing full proxy sweep', imdbOnly);
-              html = await fetchPageWithProxies(`${this.base}/movie/${encodeURIComponent(imdbOnly)}`);
-              console.log('[GH][PROXYFORCE][OK] len=', html.length);
-            } catch (e3:any) {
-              console.log('[GH][PROXYFORCE][FAIL]', e3?.message || e3);
-              return { streams: [] };
-            }
-          } else {
-            return { streams: [] };
-          }
+          console.log('[GH][PROXY][FAIL]', e2?.message || e2);
+          return { streams: [] };
         }
       } else {
         return { streams: [] };
