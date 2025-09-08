@@ -1,7 +1,7 @@
 {
   "name": "streamvix",
   "version": "6.4.23",
-  "description": "StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming(local), TV ed Eventi Live",
+  "description": "StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
   "main": "dist/addon.js",
   "packageManager": "pnpm@8.15.5",
   "scripts": {
@@ -27,7 +27,8 @@
     "tough-cookie": "^4.1.4",
     "unpacker": "^1.0.1",
     "winston": "^3.17.0",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "undici": "^6.19.8"
   },
   "devDependencies": {
     "@types/axios": "^0.14.4",
@@ -41,7 +42,4 @@
     "typescript": "^5.0.0"
   }
 }
-
-
-
 
