@@ -7,12 +7,28 @@ import type { StreamForStremio } from '../types/animeunity';
 // NOTE: Unlike Mixdrop we DO NOT wrap Doodstream with MediaFlow proxy to match webstreamr behavior.
 // NOTE thanks to webstreamr for the logic
 interface FetchResult { text: string | null; setCookie?: string[] }
+// UA rotation (simple) cached for 30m
+const UA_POOL = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
+];
+let UA_SELECTED = { ua: UA_POOL[0], ts: 0 };
+function pickUA(){
+  const now = Date.now();
+  if (now - UA_SELECTED.ts > 30*60*1000) { // 30m rotation
+    UA_SELECTED = { ua: UA_POOL[Math.floor(Math.random()*UA_POOL.length)], ts: now };
+  }
+  return UA_SELECTED.ua;
+}
 async function fetchText(url: string, referer?: string, cookieJar: string[] = [], extraHeaders: Record<string,string> = {}): Promise<FetchResult> {
   try {
     const headers: any = {
-      'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-      'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-      'Accept-Language':'it-IT,it;q=0.9,en-US;q=0.7,en;q=0.6',
+      'User-Agent': pickUA(),
+      'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language':'en',
       'Cache-Control':'no-cache',
       'Pragma':'no-cache',
       'Upgrade-Insecure-Requests':'1',
@@ -53,6 +69,11 @@ const DOOD_FALLBACKS = [ 'http://dood.to', 'https://dood.to', 'https://doodstrea
 // Simple in-memory cache (videoId -> html) to reduce repeated challenges
 const doodHtmlCache: Map<string, { html: string; ts: number }> = new Map();
 const DOOD_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+// Host priming + cooldown maps
+const doodHostPrime: { ts: number } = { ts: 0 }; // single host dood.to prime timestamp
+const doodVideoCooldown: Map<string, number> = new Map(); // videoId -> until timestamp
+const DOOD_PRIME_TTL = 10 * 60 * 1000; // 10 minutes
+const DOOD_VIDEO_COOLDOWN = 90 * 1000; // 90 seconds
 
 export class DoodStreamExtractor implements HostExtractor {
   id='doodstream';
@@ -66,12 +87,26 @@ export class DoodStreamExtractor implements HostExtractor {
     let html: string | null = null; let originUsed = '';
   // keep a reference cookieJar for later pass fetch even if loaded from cache
   const cookieJar: string[] = [];
-  if (cached && (Date.now() - cached.ts) < DOOD_CACHE_TTL) {
+    const now = Date.now();
+    const cooldownUntil = doodVideoCooldown.get(videoId) || 0;
+    if (now < cooldownUntil) {
+      console.log('[DoodExtractor] video cooldown active skip', videoId);
+      return { streams: [] };
+    }
+    if (cached && (Date.now() - cached.ts) < DOOD_CACHE_TTL) {
       html = cached.html;
       originUsed = DOOD_PRIMARY_HTTP;
     } else {
       function sleep(ms:number){ return new Promise(r=>setTimeout(r, ms)); }
       // Primary single attempt HTTP
+      // Priming root + favicon every 10m
+      if (now - doodHostPrime.ts > DOOD_PRIME_TTL) {
+        console.log('[DoodExtractor] priming host root & favicon');
+        try { await fetchText(DOOD_PRIMARY_HTTP + '/', DOOD_PRIMARY_HTTP, cookieJar, { 'Accept-Language':'en' }); } catch {}
+        try { await fetchText(DOOD_PRIMARY_HTTP + '/favicon.ico', DOOD_PRIMARY_HTTP, cookieJar, { 'Accept-Language':'en' }); } catch {}
+        doodHostPrime.ts = Date.now();
+        await sleep(600 + Math.floor(Math.random()*400));
+      }
       const primaryEmbed = `${DOOD_PRIMARY_HTTP.replace(/\/$/,'')}/e/${videoId}`;
       console.log('[DoodExtractor] primary http attempt', primaryEmbed);
       let res = await fetchText(primaryEmbed, DOOD_PRIMARY_HTTP, cookieJar, { 'Accept-Language':'en' });
@@ -89,7 +124,7 @@ export class DoodStreamExtractor implements HostExtractor {
         }
       }
       // Fallback domains only if still no html (network fail or persistent challenge)
-      if (!html) {
+  if (!html) {
         for (const dom of DOOD_FALLBACKS) {
           if (dom === DOOD_PRIMARY_HTTP) continue; // already tried
             const embed = `${dom.replace(/\/$/,'')}/e/${videoId}`;
@@ -102,7 +137,10 @@ export class DoodStreamExtractor implements HostExtractor {
           }
         }
       }
-      if (!html) return { streams: [] };
+      if (!html) {
+        doodVideoCooldown.set(videoId, Date.now() + DOOD_VIDEO_COOLDOWN);
+        return { streams: [] };
+      }
       doodHtmlCache.set(videoId, { html, ts: Date.now() });
     }
     const domains = [DOOD_PRIMARY_HTTP, ...DOOD_FALLBACKS];
