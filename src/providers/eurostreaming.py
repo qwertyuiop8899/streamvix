@@ -233,7 +233,7 @@ async def deltabit(page_url, client):
     Evita ricorsione e blocking sleep: usa loop + asyncio.sleep.
     Ritorna (url|None, filename).
     """
-    max_attempts = 2
+    max_attempts = 0
     attempt = 0
     fname = ''
     # Allow overriding wait via env (seconds)
