@@ -2459,12 +2459,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                     };
-                    let animeUnityStreams: Stream[] = [];
-                    let animeSaturnStreams: Stream[] = [];
-                    let animeWorldStreams: Stream[] = [];
-                    let guardaSerieStreams: Stream[] = [];
-                    let guardaHdStreams: Stream[] = [];
-                    let euroStreams: Stream[] = [];
                     // Parsing stagione/episodio per IMDB/TMDB
                     let seasonNumber: number | null = null;
                     let episodeNumber: number | null = null;
@@ -2481,145 +2475,95 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             episodeNumber = parseInt(parts[2]);
                         }
                     }
+                    const providerPromises = [];
+
+                    const runProvider = async (name: string, enabled: boolean, handler: () => Promise<{ streams: Stream[] }>, streamName: string, isMixdropSensitive = false) => {
+                        if (enabled) {
+                            try {
+                                const result = await handler();
+                                if (result && result.streams) {
+                                    for (const s of result.streams) {
+                                        if (isMixdropSensitive) {
+                                            const isMixdrop = s.title ? /\bmixdrop\b/i.test(s.title) : false;
+                                            allStreams.push({ ...s, name: isMixdrop ? streamName.replace(' 🔓', '') : streamName });
+                                        } else {
+                                            allStreams.push({ ...s, name: streamName });
+                                        }
+                                    }
+                                }
+                            } catch (error) {
+                                console.error(`🚨 ${name} error:`, error);
+                            }
+                        }
+                    };
+
                     // AnimeUnity
-                    if (animeUnityEnabled) {
-                        try {
-                            const animeUnityProvider = new AnimeUnityProvider(animeUnityConfig);
-                            let animeUnityResult;
-                            if (id.startsWith('kitsu:')) {
-                                console.log(`[AnimeUnity] Processing Kitsu ID: ${id}`);
-                                animeUnityResult = await animeUnityProvider.handleKitsuRequest(id);
-                            } else if (id.startsWith('mal:')) {
-                                console.log(`[AnimeUnity] Processing MAL ID: ${id}`);
-                                animeUnityResult = await animeUnityProvider.handleMalRequest(id);
-                            } else if (id.startsWith('tt')) {
-                                console.log(`[AnimeUnity] Processing IMDB ID: ${id}`);
-                                animeUnityResult = await animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                            } else if (id.startsWith('tmdb:')) {
-                                console.log(`[AnimeUnity] Processing TMDB ID: ${id}`);
-                                animeUnityResult = await animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
-                            }
-                            if (animeUnityResult && animeUnityResult.streams) {
-                                animeUnityStreams = animeUnityResult.streams;
-                                for (const s of animeUnityResult.streams) {
-                                    allStreams.push({ ...s, name: 'StreamViX AU' });
-                                }
-                            }
-                        } catch (error) {
-                            console.error('🚨 AnimeUnity error:', error);
-                        }
-                    }
+                    providerPromises.push(runProvider('AnimeUnity', animeUnityEnabled, async () => {
+                        const animeUnityProvider = new AnimeUnityProvider(animeUnityConfig);
+                        if (id.startsWith('kitsu:')) return animeUnityProvider.handleKitsuRequest(id);
+                        if (id.startsWith('mal:')) return animeUnityProvider.handleMalRequest(id);
+                        if (id.startsWith('tt')) return animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        if (id.startsWith('tmdb:')) return animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                        return { streams: [] };
+                    }, 'StreamViX AU'));
+
                     // AnimeSaturn
-                    if (animeSaturnEnabled) {
-                        try {
-                            const { AnimeSaturnProvider } = await import('./providers/animesaturn-provider');
-                            const animeSaturnProvider = new AnimeSaturnProvider(animeSaturnConfig);
-                            let animeSaturnResult;
-                            if (id.startsWith('kitsu:')) {
-                                console.log(`[AnimeSaturn] Processing Kitsu ID: ${id}`);
-                                animeSaturnResult = await animeSaturnProvider.handleKitsuRequest(id);
-                            } else if (id.startsWith('mal:')) {
-                                console.log(`[AnimeSaturn] Processing MAL ID: ${id}`);
-                                animeSaturnResult = await animeSaturnProvider.handleMalRequest(id);
-                            } else if (id.startsWith('tt')) {
-                                console.log(`[AnimeSaturn] Processing IMDB ID: ${id}`);
-                                animeSaturnResult = await animeSaturnProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                            } else if (id.startsWith('tmdb:')) {
-                                console.log(`[AnimeSaturn] Processing TMDB ID: ${id}`);
-                                animeSaturnResult = await animeSaturnProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
-                            }
-                            if (animeSaturnResult && animeSaturnResult.streams) {
-                                animeSaturnStreams = animeSaturnResult.streams;
-                                for (const s of animeSaturnResult.streams) {
-                                    allStreams.push({ ...s, name: 'StreamViX AS' });
-                                }
-                            }
-                        } catch (error) {
-                            console.error('[AnimeSaturn] Errore:', error);
-                        }
-                    }
-                    // AnimeWorld (always attempt if enabled, even if others produced streams)
-                    if (animeWorldEnabled) {
-                        try {
-                            const { AnimeWorldProvider } = await import('./providers/animeworld-provider');
-                            const animeWorldProvider = new AnimeWorldProvider(animeWorldConfig);
-                            let animeWorldResult;
-                            if (id.startsWith('kitsu:')) {
-                                console.log(`[AnimeWorld] Processing Kitsu ID: ${id}`);
-                                animeWorldResult = await animeWorldProvider.handleKitsuRequest(id);
-                            } else if (id.startsWith('mal:')) {
-                                console.log(`[AnimeWorld] Processing MAL ID: ${id}`);
-                                animeWorldResult = await animeWorldProvider.handleMalRequest(id);
-                            } else if (id.startsWith('tt')) {
-                                console.log(`[AnimeWorld] Processing IMDB ID: ${id}`);
-                                animeWorldResult = await animeWorldProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                            } else if (id.startsWith('tmdb:')) {
-                                console.log(`[AnimeWorld] Processing TMDB ID: ${id}`);
-                                animeWorldResult = await animeWorldProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
-                            }
-                            if (animeWorldResult && animeWorldResult.streams) {
-                                animeWorldStreams = animeWorldResult.streams;
-                                for (const s of animeWorldStreams) {
-                                    allStreams.push({ ...s, name: 'StreamViX AW' });
-                                }
-                            }
-                        } catch (error) {
-                            console.error('[AnimeWorld] Errore:', error);
-                        }
-                    }
+                    providerPromises.push(runProvider('AnimeSaturn', animeSaturnEnabled, async () => {
+                        const { AnimeSaturnProvider } = await import('./providers/animesaturn-provider');
+                        const animeSaturnProvider = new AnimeSaturnProvider(animeSaturnConfig);
+                        if (id.startsWith('kitsu:')) return animeSaturnProvider.handleKitsuRequest(id);
+                        if (id.startsWith('mal:')) return animeSaturnProvider.handleMalRequest(id);
+                        if (id.startsWith('tt')) return animeSaturnProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        if (id.startsWith('tmdb:')) return animeSaturnProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                        return { streams: [] };
+                    }, 'StreamViX AS'));
+
+                    // AnimeWorld
+                    providerPromises.push(runProvider('AnimeWorld', animeWorldEnabled, async () => {
+                        const { AnimeWorldProvider } = await import('./providers/animeworld-provider');
+                        const animeWorldProvider = new AnimeWorldProvider(animeWorldConfig);
+                        if (id.startsWith('kitsu:')) return animeWorldProvider.handleKitsuRequest(id);
+                        if (id.startsWith('mal:')) return animeWorldProvider.handleMalRequest(id);
+                        if (id.startsWith('tt')) return animeWorldProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        if (id.startsWith('tmdb:')) return animeWorldProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                        return { streams: [] };
+                    }, 'StreamViX AW'));
 
                     // GuardaSerie
                     if (guardaSerieEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
-                        try {
+                        providerPromises.push(runProvider('GuardaSerie', true, async () => {
                             const { GuardaSerieProvider } = await import('./providers/guardaserie-provider');
                             const gsProvider = new GuardaSerieProvider({
-                                enabled: guardaSerieEnabled,
+                                enabled: true,
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                                 mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
                                 mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || ''
                             });
-                            let result;
-                            if (id.startsWith('tt')) result = await gsProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                            else if (id.startsWith('tmdb:')) result = await gsProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
-                            if (result?.streams) {
-                                guardaSerieStreams = result.streams;
-                                for (const s of guardaSerieStreams) allStreams.push({ ...s, name: 'StreamViX GS 🔓' });
-                            }
-                        } catch (e) {
-                            console.error('[GuardaSerie] Errore:', e);
-                        }
+                            if (id.startsWith('tt')) return gsProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            if (id.startsWith('tmdb:')) return gsProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            return { streams: [] };
+                        }, 'StreamViX GS 🔓'));
                     }
 
                     // GuardaHD
                     if (guardaHdEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
-                        try {
+                        providerPromises.push(runProvider('GuardaHD', true, async () => {
                             const { GuardaHdProvider } = await import('./providers/guardahd-provider');
                             const ghProvider = new GuardaHdProvider({
-                                enabled: guardaHdEnabled,
+                                enabled: true,
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                                 mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
                                 mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || ''
                             });
-                            let result;
-                            if (id.startsWith('tt')) result = await ghProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                            else if (id.startsWith('tmdb:')) result = await ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
-                            if (result?.streams) {
-                                guardaHdStreams = result.streams;
-                                // Mixdrop: niente lucchetto; altri host mantengono 🔓
-                                for (const s of guardaHdStreams) {
-                                    const isMixdrop = s.title ? /\bmixdrop\b/i.test(s.title) : false;
-                                    allStreams.push({ ...s, name: isMixdrop ? 'StreamViX GH' : 'StreamViX GH 🔓' });
-                                }
-                            }
-                        } catch (e) {
-                            console.error('[GuardaHD] Errore:', e);
-                        }
+                            if (id.startsWith('tt')) return ghProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            if (id.startsWith('tmdb:')) return ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            return { streams: [] };
+                        }, 'StreamViX GH 🔓', true));
                     }
-                    // Eurostreaming (IMDB only for now) - force run for series episodes even if others disabled
-                    if (id.startsWith('tt') && seasonNumber != null && episodeNumber != null && eurostreamingEnabled) {
-                        const esStart = Date.now();
-                        console.log('[Eurostreaming][Addon] START imdbId=', id, 'season=', seasonNumber, 'episode=', episodeNumber, 'isMovie=', isMovie);
-                        try {
+
+                    // Eurostreaming
+                    if (eurostreamingEnabled && id.startsWith('tt') && seasonNumber != null && episodeNumber != null) {
+                        providerPromises.push(runProvider('Eurostreaming', true, async () => {
                             const { EurostreamingProvider } = await import('./providers/eurostreaming-provider');
                             const esProvider = new EurostreamingProvider({
                                 enabled: true,
@@ -2627,21 +2571,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
-                            const esResult = await esProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                            euroStreams = esResult.streams;
-                            console.log('[Eurostreaming][Addon] provider returned', euroStreams.length, 'streams in', (Date.now()-esStart)+'ms');
-                            if (!euroStreams.length) console.log('[Eurostreaming][Addon] EMPTY result - check PY stderr for [ESDBG] logs');
-                            // Log sample
-                            euroStreams.slice(0,3).forEach((s,idx)=> console.log('[Eurostreaming][Addon] sample', idx, s.title));
-                            for (const s of euroStreams) {
-                                // Nessuna modifica al titolo: già formattato dal provider (Mixdrop rename applicato lì se necessario)
-                                const mix = /mixdrop/i.test(s.url);
-                                allStreams.push({ ...s, name: mix ? 'StreamViX ES' : 'StreamViX ES 🔓' });
-                            }
-                        } catch (e) {
-                            console.error('[Eurostreaming] Errore:', e);
-                        }
+                            return esProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        }, 'StreamViX ES 🔓', true));
                     }
+
+                    await Promise.all(providerPromises);
                 }
                 
                 // Mantieni logica VixSrc per tutti gli altri ID
