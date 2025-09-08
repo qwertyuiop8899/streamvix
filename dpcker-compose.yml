@@ -1,0 +1,8 @@
+version: "3.9"
+
+services:
+  streamvix:
+    container_name: StreamVix
+    build: .
+    ports:
+      - "7860:7860"
