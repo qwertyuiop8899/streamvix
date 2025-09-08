@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { landingTemplate } from './landingPage';
 import * as path from 'path';
 import express, { Request, Response, NextFunction } from 'express'; // ✅ CORRETTO: Import tipizzato
+import { fetchPage } from './src/providers/flaresolverr';
 import { AnimeUnityProvider } from './providers/animeunity-provider';
 import { AnimeWorldProvider } from './providers/animeworld-provider';
 import { KitsuProvider } from './providers/kitsu'; 
@@ -1147,6 +1148,50 @@ try {
 } catch (error) {
     console.error('❌ Errore nel caricamento dei file di configurazione TV:', error);
 }
+
+// ================= /live IP Health Probe (MostraGuarda parity) =================
+// State for IP probe (throttled to at most once per 60s unless forceIpCheck=1)
+let liveProbeLastTs = 0;
+let liveProbeBlocked = false; // true if last probe clearly blocked
+let liveProbeErrors = 0; // consecutive technical errors (network/etc)
+const LIVE_PROBE_INTERVAL_MS = 60_000;
+
+async function runIpProbe(force = false) {
+    const now = Date.now();
+    if (!force && (now - liveProbeLastTs) < LIVE_PROBE_INTERVAL_MS && liveProbeLastTs !== 0) return;
+    liveProbeLastTs = now;
+    liveProbeBlocked = false;
+    const domainsPath = path.join(__dirname, '../config/domains.json');
+    let mgDomain = 'mostraguarda.stream';
+    try {
+        if (fs.existsSync(domainsPath)) {
+            const d = JSON.parse(fs.readFileSync(domainsPath, 'utf-8'));
+            if (d && d.guardahd && typeof d.guardahd.domain === 'string') mgDomain = d.guardahd.domain;
+        }
+    } catch {}
+    const testUrl = `https://${mgDomain}/`; // lightweight homepage fetch
+    try {
+    const html = await fetchPage(testUrl, { noCache: true });
+        // Consider blocked if typical Cloudflare challenge markers or 403/Just a moment
+        const challengeLike = /cf-turnstile|__cf_chl|Just a moment|challenge-platform\//i.test(html);
+        // Mark blocked only if we didn't get a plausible page content (e.g. no <html) or challenge markers
+        liveProbeBlocked = challengeLike || !/<html/i.test(html);
+        liveProbeErrors = 0; // reset error streak
+    } catch (e) {
+        liveProbeErrors++;
+        // If we exceed 3 consecutive errors treat as blocked to surface problem
+        liveProbeBlocked = liveProbeErrors >= 3;
+    }
+}
+
+// GET /live[?forceIpCheck=1]
+// Returns addon base status plus ipStatus derived from MostraGuarda probe
+// ipStatus values: ok | blocked | error
+// blocked => challenge/403 like content; error => transport issues (unless many then flagged blocked above)
+// NOTE: We only probe MostraGuarda to keep it lightweight.
+//       forceIpCheck=1 triggers immediate probe ignoring throttle.
+// (Minimal parity with src/addon.ts logic.)
+// We'll inject this route after express app creation later; we rely on variable 'app' defined below.
 
 // Funzione per determinare le categorie di un canale
 
@@ -2836,6 +2881,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
 // Server Express
 const app = express();
+
+// Inject /live endpoint (added parity with src/addon.ts simplified health)
+app.get('/live', async (req: Request, res: Response) => {
+    const force = req.query.forceIpCheck === '1' || req.query.forceIpCheck === 'true';
+    try { await runIpProbe(force); } catch {}
+    let ipStatus: 'ok' | 'blocked' | 'error' = 'ok';
+    if (liveProbeBlocked) ipStatus = 'blocked';
+    else if (liveProbeErrors > 0) ipStatus = 'error';
+    res.json({ status: 'ok', ipStatus, lastProbe: liveProbeLastTs || null, errors: liveProbeErrors });
+});
 // Trust proxy chain so req.ip / req.ips use X-Forwarded-For correctly when behind a proxy/CDN
 try { (app as any).set('trust proxy', true); } catch {}
 
