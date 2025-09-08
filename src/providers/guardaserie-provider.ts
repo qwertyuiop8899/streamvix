@@ -180,6 +180,9 @@ export class GuardaSerieProvider {
         // Previous approach tried to isolate each <div class="mlnew"> block with a reluctant .*? ending at the first </div>, truncating nested content and missing the <h2><a> link.
         // New approach: directly scan the whole HTML for mlnew items (excluding the heading row) and capture the first <h2><a> inside.
         const itemRe = /<div[^>]+class="mlnew(?![^"']*heading)[^"]*"[\s\S]*?<h2>\s*<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gi;
+        // Cache for detail page years to avoid refetching same slug
+        const detailYearCache = new Map<string,string|null>();
+        let detailFetches = 0;
         let m: RegExpExecArray | null; let count = 0;
         while ((m = itemRe.exec(storyHtml)) && count < 40) {
           count++;
@@ -187,24 +190,51 @@ export class GuardaSerieProvider {
           const rawTitle = m[2];
           const title = rawTitle.trim();
           const slug = href.split('/').filter(Boolean).pop() || href;
-          // Year handling: if we have an expected year, we only discard candidates that contain a DIFFERENT concrete year.
-          let hasYear = false; let yearMismatch = false;
+          // Extract year from the surrounding mlnew block (search limited forward slice) because the year is in a sibling div like <div class="mlnh-3 hdn">2022 - ...</div>
+          let extractedYear: string | null = null;
           if (year) {
-            const yearInTitle = title.match(/(19\d{2}|20\d{2})/);
-            if (yearInTitle) {
-              hasYear = yearInTitle[0] === year;
-              if (!hasYear) yearMismatch = true;
+            const slice = storyHtml.slice(m.index, Math.min(storyHtml.length, m.index + 800));
+            const yMatch = slice.match(/<div[^>]+class="[^"']*mlnh-3[^"']*hdn[^"']*"[^>]*>\s*(19\d{2}|20\d{2})/i);
+            if (yMatch) extractedYear = yMatch[1];
+          }
+          let extractionPhase: 'block' | 'detail' | 'fallback-block-scan' | 'none' = extractedYear ? 'block' : 'none';
+          // If not found yet and year expected, fetch detail page and look for the Anno list pattern
+          if (year && !extractedYear && detailFetches < 6) {
+            if (!detailYearCache.has(slug)) {
+              const detailUrl = href.startsWith('http') ? href : `${this.base}${href.startsWith('/') ? '' : '/'}${href}`;
+              const detailHtml = await this.get(detailUrl);
+              let dy: string | null = null;
+              if (detailHtml) {
+                const dMatch = detailHtml.match(/<li>\s*<b>\s*Anno\s*:<\/b>\s*<\/li>\s*<li>\s*((19|20)\d{2})/i);
+                if (dMatch) dy = dMatch[1];
+                else {
+                  // some pages repeat the Anno block differently; broader scan for first year inside a list preceded by Anno label
+                  const alt = detailHtml.match(/Anno[^\n]{0,120}?((19|20)\d{2})/i);
+                  if (alt) dy = alt[1];
+                }
+              }
+              detailYearCache.set(slug, dy);
+              detailFetches++;
             }
+            const dyCached = detailYearCache.get(slug) || null;
+            if (dyCached) { extractedYear = dyCached; extractionPhase = 'detail'; }
           }
-          console.log('[GS][search] candidate', { variant, title, slug, yearPref: !!year, hasYear, yearMismatch });
-          if (yearMismatch) continue; // skip explicit different year
+          // Fallback: scan the local mlnew block slice for any year token if still missing
+          if (year && !extractedYear) {
+            const slice = storyHtml.slice(m.index, Math.min(storyHtml.length, m.index + 2000));
+            const anyY = slice.match(/(19|20)\d{2}/);
+            if (anyY) { extractedYear = anyY[0]; extractionPhase = 'fallback-block-scan'; }
+          }
+          let accept = true;
           if (year) {
-            if (hasYear) collectedPreferred.push({ id: slug, slug, title }); else collectedOthers.push({ id: slug, slug, title });
-          } else {
-            collectedPreferred.push({ id: slug, slug, title });
+            // Strict: accept only if extractedYear matches expected year exactly
+            if (!extractedYear || extractedYear !== year) accept = false;
           }
+          console.log('[GS][search] candidate', { variant, title, slug, expectedYear: year || null, extractedYear, phase: extractionPhase, accept });
+          if (!accept) continue;
+          if (year) collectedPreferred.push({ id: slug, slug, title }); else collectedPreferred.push({ id: slug, slug, title });
           if (!year && collectedPreferred.length >= 10) break;
-          if (year && (collectedPreferred.length + collectedOthers.length) >= 15) break;
+          if (year && collectedPreferred.length >= 15) break;
         }
         if (collectedPreferred.length || collectedOthers.length) {
           const finalList = collectedPreferred.length ? collectedPreferred : collectedOthers;
@@ -227,18 +257,18 @@ export class GuardaSerieProvider {
         const href = m[1];
         const title = m[2];
         const slug = href.split('/').filter(Boolean).pop() || href;
-        let hasYear = false; let yearMismatch = false;
+        let extractedYear: string | null = null;
         if (year) {
           const yearInTitle = title.match(/(19\d{2}|20\d{2})/);
-          if (yearInTitle) {
-            hasYear = yearInTitle[0] === year;
-            if (!hasYear) yearMismatch = true;
-          }
+          if (yearInTitle) extractedYear = yearInTitle[0];
         }
-        console.log('[GS][search] fallback candidate', { title, slug, hasYear, yearMismatch });
-        if (yearMismatch) continue;
-        if (year) { if (hasYear) fbPreferred.push({ id: slug, slug, title }); else fbOthers.push({ id: slug, slug, title }); }
-        else fbPreferred.push({ id: slug, slug, title });
+        let accept = true;
+        if (year) {
+          if (!extractedYear || extractedYear !== year) accept = false;
+        }
+        console.log('[GS][search] fallback candidate', { title, slug, expectedYear: year || null, extractedYear, accept });
+        if (!accept) continue;
+        if (year) fbPreferred.push({ id: slug, slug, title }); else fbPreferred.push({ id: slug, slug, title });
         if (!year && fbPreferred.length >= 10) break;
       }
       const finalFb = fbPreferred.length ? fbPreferred : fbOthers;
