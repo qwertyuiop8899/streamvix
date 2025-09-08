@@ -61,14 +61,39 @@ export class DoodStreamExtractor implements HostExtractor {
     const domains = [DOOD_PRIMARY, ...DOOD_FALLBACKS];
     let html: string | null = null; let originUsed = '';
     const cookieJar: string[] = [];
+    // Step 2: handshake + delayed embed attempt with challenge detection
+    function sleep(ms:number){ return new Promise(r=>setTimeout(r, ms)); }
     for (const dom of domains) {
-      const test = `${dom.replace(/\/$/,'')}/e/${videoId}`;
-      console.log('[DoodExtractor] try', test);
-      const res = await fetchText(test, ctx.referer || dom, cookieJar);
-      if (res.setCookie?.length) {
-        for (const c of res.setCookie) cookieJar.push(c.split(';')[0]);
-      }
-      if (res.text) { html = res.text; originUsed = dom; break; }
+      try {
+        const rootUrl = dom.replace(/\/$/,'') + '/';
+        console.log('[DoodExtractor] handshake root', rootUrl);
+        const rootRes = await fetchText(rootUrl, dom, cookieJar, { 'Accept-Language':'en' });
+        if (rootRes.setCookie?.length) for (const c of rootRes.setCookie) cookieJar.push(c.split(';')[0]);
+        // random small delay 420-760ms
+        await sleep(420 + Math.floor(Math.random()*340));
+        const embedUrl = `${dom.replace(/\/$/,'')}/e/${videoId}`;
+        console.log('[DoodExtractor] try', embedUrl);
+        let attempt = 0; let lastRes: FetchResult | null = null;
+        while (attempt < 2) { // up to 2 attempts if challenge markers detected
+          const res = await fetchText(embedUrl, dom, cookieJar, { 'Accept-Language':'en' });
+          lastRes = res;
+            if (res.setCookie?.length) for (const c of res.setCookie) cookieJar.push(c.split(';')[0]);
+          if (res.text) {
+            const isChallenge = /cf-|turnstile|captcha|ddos|cloudflare/i.test(res.text) && !/pass_md5/.test(res.text);
+            if (!isChallenge) { html = res.text; originUsed = dom; break; }
+            console.log('[DoodExtractor] challenge variant detected attempt', attempt, 'len', res.text.length);
+            await sleep(350 + Math.floor(Math.random()*250));
+            attempt++;
+            continue;
+          }
+          break;
+        }
+        if (html) break;
+        // if after retries no usable html, continue to next domain
+        if (lastRes && lastRes.text) {
+          console.log('[DoodExtractor] giving up domain after challenge loop', dom);
+        }
+      } catch (e) { console.log('[DoodExtractor] domain loop error', dom, e); }
     }
     if (!html) return { streams: [] };
     // --- Enhanced pass_md5 extraction with diagnostics (Step 1) ---
