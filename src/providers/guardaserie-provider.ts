@@ -10,11 +10,12 @@ import { extractFromUrl } from '../extractors';
 // Removed showSizeInfo (always include size/res with ruler icon when available)
 export interface GuardaSerieConfig { enabled: boolean; tmdbApiKey?: string; baseUrl?: string; mfpUrl?: string; mfpPassword?: string; }
 interface GSSearchResult { id: string; slug: string; title: string };
-interface GSEpisode { number: number; url: string };
+interface GSEpisode { number: number; url: string; embeds?: string[] };
 
 export class GuardaSerieProvider {
   private base: string;
   private hlsInfoCache = new Map<string, { res?: string; size?: string }>();
+  private lastSeriesYear: string | null = null; // anno serie estratto da TMDB per filtrare i risultati (non appeso al titolo)
 
   constructor(private config: GuardaSerieConfig) {
     const dom = getFullUrl('guardaserie');
@@ -24,15 +25,29 @@ export class GuardaSerieProvider {
   async handleImdbRequest(imdbId: string, season: number | null, episode: number | null, isMovie = false) {
     if (!this.config.enabled) return { streams: [] };
     try {
-      // New path: use mammamia-style direct IMDb search & supervideo resolution first
+      if (isMovie) { // richiesto: non cercare film su Guardaserie
+        console.log('[GS][handleImdbRequest] isMovie true -> skip');
+        return { streams: [] };
+      }
+      console.log('[GS][handleImdbRequest] start', { imdbId, season, episode, isMovie });
       const imdbOnly = imdbId.split(':')[0];
-      if (!isMovie) {
-        const direct = await this.tryDirectImdbFlow(imdbOnly, season || 1, episode || 1);
+      // Resolve title first so direct flow can validate results
+      let resolvedTitle: string | null = null;
+      try {
+        resolvedTitle = await this.resolveTitle('imdb', imdbOnly, false);
+      } catch (e) {
+        console.log('[GS][handleImdbRequest] resolveTitle error (non‑fatal)', (e as any)?.message || e);
+      }
+      if (resolvedTitle) {
+        const direct = await this.tryDirectImdbFlow(imdbOnly, season || 1, episode || 1, resolvedTitle);
+        console.log('[GS][handleImdbRequest] direct result count', direct.length);
         if (direct.length) return { streams: direct };
       }
-      const t = await this.resolveTitle('imdb', imdbId, isMovie);
-      return this.core(t, season, episode, isMovie);
+      const finalTitle = resolvedTitle || (await this.resolveTitle('imdb', imdbOnly, false));
+      console.log('[GS][handleImdbRequest] resolved title', finalTitle);
+      return this.core(finalTitle, season, episode, isMovie);
     } catch {
+      console.log('[GS][handleImdbRequest] error fallback empty');
       return { streams: [] };
     }
   }
@@ -40,29 +55,45 @@ export class GuardaSerieProvider {
   async handleTmdbRequest(tmdbId: string, season: number | null, episode: number | null, isMovie = false) {
     if (!this.config.enabled) return { streams: [] };
     try {
+  if (isMovie) { // richiesto: non cercare film su Guardaserie
+    console.log('[GS][handleTmdbRequest] isMovie true -> skip');
+    return { streams: [] };
+  }
+  console.log('[GS][handleTmdbRequest] start', { tmdbId, season, episode, isMovie });
       const t = await this.resolveTitle('tmdb', tmdbId, isMovie);
+  console.log('[GS][handleTmdbRequest] resolved title', t);
       return this.core(t, season, episode, isMovie);
     } catch {
+  console.log('[GS][handleTmdbRequest] error fallback empty');
       return { streams: [] };
     }
   }
 
   private async core(title: string, season: number | null, episode: number | null, isMovie: boolean): Promise<{ streams: StreamForStremio[] }> {
-    let results = await this.search(title);
+  console.log('[GS][core] start', { title, season, episode, isMovie });
+    if (isMovie) { // difensivo: anche qui evitare elaborazione film
+      return { streams: [] };
+    }
+  let results = await this.search(title, this.lastSeriesYear);
+  console.log('[GS][core] initial results', results.length);
 
     if (!results.length) {
       const np = title.replace(/[:\-_.]/g, ' ').replace(/\s{2,}/g, ' ').trim();
-      if (np && np !== title) results = await this.search(np);
+  console.log('[GS][core] normalized attempt', np);
+  if (np && np !== title) results = await this.search(np, this.lastSeriesYear);
+  console.log('[GS][core] normalized results', results.length);
     }
 
     if (!results.length) {
       const w = title.split(/\s+/);
-      if (w.length > 3) results = await this.search(w.slice(0, 3).join(' '));
+  if (w.length > 3) results = await this.search(w.slice(0, 3).join(' '), this.lastSeriesYear);
+  console.log('[GS][core] first3 results', results.length);
     }
 
     if (!results.length) return { streams: [] };
 
     const picked = this.pickBest(results, title);
+  console.log('[GS][core] picked', picked);
     if (!picked) return { streams: [] };
 
     if (isMovie) {
@@ -70,8 +101,10 @@ export class GuardaSerieProvider {
     }
 
     const eps = await this.fetchEpisodes(picked);
+  console.log('[GS][core] episodes found', eps.length);
     if (!eps.length) return { streams: [] };
     const target = this.selectEpisode(eps, episode);
+  console.log('[GS][core] target episode', target);
     if (!target) return { streams: [] };
 
     return { streams: await this.fetchEpisodeStreams(picked, target, season || 1, episode || target.number) };
@@ -104,28 +137,114 @@ export class GuardaSerieProvider {
         if (rDef.ok) j = await rDef.json();
       } catch {}
     }
-    return (j?.title || j?.name || j?.original_title || j?.original_name || 'Unknown');
+    const raw = (j?.title || j?.name || j?.original_title || j?.original_name || 'Unknown');
+    if (!isMovie) {
+      const year = (j?.first_air_date || j?.release_date || '').slice(0,4);
+      this.lastSeriesYear = /^(19|20)\d{2}$/.test(year) ? year : null;
+    } else {
+      this.lastSeriesYear = null;
+    }
+    return raw;
   }
 
-  private async search(q: string): Promise<GSSearchResult[]> {
+  private async search(q: string, expectedYear?: string | null): Promise<GSSearchResult[]> {
+    /* Python parity search logic:
+       1. Build query variants (original, without year, sanitized, first 3 words)
+       2. For each variant perform story search (?story=...&do=search&subaction=search)
+       3. Parse first valid result block (class mlnew -> mlnh-2 h2 a)
+       4. (Optional) If original query contained a year, prefer matches containing that year; else accept first.
+       5. If all story variants fail, fallback once to legacy /?s= search as last resort.
+       Return at most a small list (first few) but picking logic upstream now permissive.
+    */
     try {
-      const url = `${this.base}/?s=${encodeURIComponent(q.replace(/\s+/g, '+'))}`;
-      const html = await this.get(url);
-      if (!html) return [];
-      const out: GSSearchResult[] = [];
-      const re = /<a[^>]+href=\"([^\"]+)\"[^>]*class=\"[^\">]*post-thumb[^>]*>\s*<img[^>]+alt=\"([^\"]+)\"/gi;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(html))) {
-  const href = m[1];
-  const title = m[2];
-  const slug = href.split('/').filter(Boolean).pop() || href;
-  out.push({ id: slug, slug, title });
-  if (out.length > 40) break;
+      console.log('[GS][search] start', q);
+      const original = q.trim();
+  // Se passato expectedYear (dal TMDB) usalo come anno preferito, altrimenti tenta di estrarre dall query.
+  const yearMatch = original.match(/(19\d{2}|20\d{2})/);
+  const year = (expectedYear && /^(19|20)\d{2}$/.test(expectedYear)) ? expectedYear : (yearMatch ? yearMatch[1] : null);
+      const noYear = original.replace(/(19\d{2}|20\d{2})/g, '').replace(/\(\s*\)/g,'').trim();
+      const simple = noYear.replace(/[^A-Za-z0-9]+/g,' ').trim();
+      const first3 = simple.split(/\s+/).slice(0,3).join(' ');
+      const variants = Array.from(new Set([original, noYear, simple, first3].filter(v => v && v.length > 1)));
+      console.log('[GS][search] variants', variants);
+
+      // We keep two buckets: preferred (contains year when year is requested) and others.
+      for (const variant of variants) {
+        const collectedPreferred: GSSearchResult[] = [];
+        const collectedOthers: GSSearchResult[] = [];
+        const storyUrl = `${this.base}/?story=${encodeURIComponent(variant)}&do=search&subaction=search`;
+        console.log('[GS][search] story url', storyUrl);
+        const storyHtml = await this.get(storyUrl);
+        console.log('[GS][search] story html length', storyHtml ? storyHtml.length : 0);
+        if (!storyHtml) continue;
+        // Previous approach tried to isolate each <div class="mlnew"> block with a reluctant .*? ending at the first </div>, truncating nested content and missing the <h2><a> link.
+        // New approach: directly scan the whole HTML for mlnew items (excluding the heading row) and capture the first <h2><a> inside.
+        const itemRe = /<div[^>]+class="mlnew(?![^"']*heading)[^"]*"[\s\S]*?<h2>\s*<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gi;
+        let m: RegExpExecArray | null; let count = 0;
+        while ((m = itemRe.exec(storyHtml)) && count < 40) {
+          count++;
+          const href = m[1];
+          const rawTitle = m[2];
+          const title = rawTitle.trim();
+          const slug = href.split('/').filter(Boolean).pop() || href;
+          // Year handling: if we have an expected year, we only discard candidates that contain a DIFFERENT concrete year.
+          let hasYear = false; let yearMismatch = false;
+          if (year) {
+            const yearInTitle = title.match(/(19\d{2}|20\d{2})/);
+            if (yearInTitle) {
+              hasYear = yearInTitle[0] === year;
+              if (!hasYear) yearMismatch = true;
+            }
+          }
+          console.log('[GS][search] candidate', { variant, title, slug, yearPref: !!year, hasYear, yearMismatch });
+          if (yearMismatch) continue; // skip explicit different year
+          if (year) {
+            if (hasYear) collectedPreferred.push({ id: slug, slug, title }); else collectedOthers.push({ id: slug, slug, title });
+          } else {
+            collectedPreferred.push({ id: slug, slug, title });
+          }
+          if (!year && collectedPreferred.length >= 10) break;
+          if (year && (collectedPreferred.length + collectedOthers.length) >= 15) break;
+        }
+        if (collectedPreferred.length || collectedOthers.length) {
+          const finalList = collectedPreferred.length ? collectedPreferred : collectedOthers;
+          console.log('[GS][search] collected (story)', finalList.length, 'preferred', collectedPreferred.length, 'others', collectedOthers.length);
+          return finalList.slice(0, 10);
+        }
       }
-      return out;
-    } catch {
-      return [];
-    }
+      // Legacy fallback single pass /?s= only if story searches failed entirely
+      const fallbackUrl = `${this.base}/?s=${encodeURIComponent(simple.replace(/\s+/g,'+'))}`;
+  console.log('[GS][search] fallback url', fallbackUrl);
+      const html = await this.get(fallbackUrl);
+  console.log('[GS][search] fallback html length', html ? html.length : 0);
+      if (!html) return [];
+      const re = /<a[^>]+href=\"([^\"]+)\"[^>]*class=\"[^\">]*post-thumb[^>]*>\s*<img[^>]+alt=\"([^\"]+)\"/gi;
+      let m: RegExpExecArray | null; let count = 0;
+      const fbPreferred: GSSearchResult[] = [];
+      const fbOthers: GSSearchResult[] = [];
+      while ((m = re.exec(html)) && count < 25) {
+        count++;
+        const href = m[1];
+        const title = m[2];
+        const slug = href.split('/').filter(Boolean).pop() || href;
+        let hasYear = false; let yearMismatch = false;
+        if (year) {
+          const yearInTitle = title.match(/(19\d{2}|20\d{2})/);
+          if (yearInTitle) {
+            hasYear = yearInTitle[0] === year;
+            if (!hasYear) yearMismatch = true;
+          }
+        }
+        console.log('[GS][search] fallback candidate', { title, slug, hasYear, yearMismatch });
+        if (yearMismatch) continue;
+        if (year) { if (hasYear) fbPreferred.push({ id: slug, slug, title }); else fbOthers.push({ id: slug, slug, title }); }
+        else fbPreferred.push({ id: slug, slug, title });
+        if (!year && fbPreferred.length >= 10) break;
+      }
+      const finalFb = fbPreferred.length ? fbPreferred : fbOthers;
+      console.log('[GS][search] fallback total', finalFb.length, 'preferred', fbPreferred.length, 'others', fbOthers.length);
+      return finalFb.slice(0, 10);
+    } catch { return []; }
   }
 
   private pickBest(results: GSSearchResult[], wanted: string): GSSearchResult | null {
@@ -143,21 +262,53 @@ export class GuardaSerieProvider {
   // Apply a minimum similarity threshold to prevent false positives
   if (!best) return null;
   const threshold = Math.max(2, Math.floor(target.length * 0.25));
-  return bestScore <= threshold ? best : null;
+  if (bestScore <= threshold) return best;
+  // Permissive fallback (match Python script behavior: pick first available result even if fuzzy score high)
+  return results[0] || best;
   }
 
   private async fetchEpisodes(r: GSSearchResult): Promise<GSEpisode[]> {
-    const html = await this.get(`${this.base}/${r.slug}/`);
+    const seriesUrl = `${this.base}/${r.slug}/`;
+    const html = await this.get(seriesUrl);
+    console.log('[GS][fetchEpisodes] url', seriesUrl, 'len', html ? html.length : 0);
     if (!html) return [];
     const eps: GSEpisode[] = [];
-    const rx = /data-episode=\"(\d+)\"[^>]*data-url=\"([^\"]+)\"/gi;
-    let m: RegExpExecArray | null;
-    while ((m = rx.exec(html))) {
-      const n = parseInt(m[1]);
-      if (!isNaN(n)) eps.push({ number: n, url: m[2] });
-      if (eps.length > 400) break;
+    // 1. Old pattern (data-episode / data-url) support kept for backwards compatibility
+    const legacyRx = /data-episode=\"(\d+)\"[^>]*data-url=\"([^\"]+)\"/gi;
+    let lm: RegExpExecArray | null; let legacyCount = 0;
+    while ((lm = legacyRx.exec(html)) && legacyCount < 600) {
+      legacyCount++;
+      const n = parseInt(lm[1]);
+      if (!isNaN(n)) eps.push({ number: n, url: lm[2] });
     }
-    return eps.sort((a, b) => a.number - b.number);
+    if (eps.length) {
+      console.log('[GS][fetchEpisodes] legacy parsed', eps.length);
+      return eps.sort((a,b)=>a.number-b.number);
+    }
+    // 2. New pattern: anchors with id="serie-<season>_<ep>" and data-link plus inline mirrors
+    // We'll parse each <li> containing that anchor and collect all data-link values in its mirrors div.
+    const liBlockRe = /<li[^>]*>([\s\S]*?<a[^>]+id=\"serie-(\d+)_(\d+)\"[\s\S]*?)<\/li>/gi;
+    let m: RegExpExecArray | null; let count = 0;
+    while ((m = liBlockRe.exec(html)) && count < 800) {
+      count++;
+      const block = m[1];
+      const epNumStr = m[3];
+      const epNum = parseInt(epNumStr);
+      if (isNaN(epNum)) continue;
+      // main anchor data-link
+      const mainLinkMatch = block.match(/id=\"serie-\d+_\d+\"[^>]*data-link=\"([^\"]+)\"/i);
+      const links = new Set<string>();
+      if (mainLinkMatch) {
+        let u = mainLinkMatch[1]; if (u.startsWith('//')) u = 'https:' + u; links.add(u);
+      }
+      // mirrors inside this block
+      for (const mm of block.matchAll(/data-link=\"([^\"]+)\"/g)) { let u = mm[1]; if (u.startsWith('//')) u='https:'+u; links.add(u); }
+      if (!links.size) continue;
+      eps.push({ number: epNum, url: seriesUrl, embeds: Array.from(links).filter(l=>/supervideo|dropload|mixdrop|dood/i.test(l)) });
+      if (eps.length > 500) break;
+    }
+    console.log('[GS][fetchEpisodes] new-pattern parsed', eps.length);
+    return eps.sort((a,b)=>a.number-b.number);
   }
 
   private selectEpisode(eps: GSEpisode[], wanted: number | null): GSEpisode | null {
@@ -187,22 +338,47 @@ export class GuardaSerieProvider {
   }
 
   private async fetchEpisodeStreams(r: GSSearchResult, ep: GSEpisode, season: number, episode: number): Promise<StreamForStremio[]> {
+    // If we already extracted embeds from the episode list (new pattern), use them directly.
+    if (ep.embeds && ep.embeds.length) {
+      console.log('[GS][fetchEpisodeStreams] using pre-parsed embeds', ep.embeds.length);
+      const seen = new Set<string>();
+      const out: StreamForStremio[] = [];
+      for (const raw of ep.embeds.slice(0,10)) {
+        let eurl = raw.startsWith('//') ? 'https:' + raw : raw;
+        try {
+          const { streams } = await extractFromUrl(eurl, { mfpUrl: this.config.mfpUrl, mfpPassword: this.config.mfpPassword, countryCode: 'IT' });
+          for (const s of streams) {
+            if (seen.has(s.url)) continue; seen.add(s.url);
+            const parsed = this.parseSecondLineParts(s.title);
+            out.push({ ...s, title: this.formatStreamTitle(r.title, season, episode, parsed.info, parsed.player) });
+          }
+        } catch (e) { console.log('[GS][fetchEpisodeStreams] pre-embed error', (e as any)?.message || e); }
+      }
+      console.log('[GS][fetchEpisodeStreams] total streams (pre-parsed)', out.length);
+      return out;
+    }
+    // Legacy path: need to fetch the per-episode URL page and scrape
     const html = await this.get(ep.url);
+    console.log('[GS][fetchEpisodeStreams] ep url', ep.url, 'len', html ? html.length : 0);
     if (!html) return [];
     const embedLinks = this.collectEmbedLinks(html, false);
+    console.log('[GS][fetchEpisodeStreams] embed links', embedLinks.length);
     const seen = new Set<string>();
     const out: StreamForStremio[] = [];
     for (const eurl of embedLinks) {
+      console.log('[GS][fetchEpisodeStreams] extracting', eurl);
       const { streams } = await extractFromUrl(eurl, { mfpUrl: this.config.mfpUrl, mfpPassword: this.config.mfpPassword, countryCode: 'IT' });
       for (const s of streams) { if (seen.has(s.url)) continue; seen.add(s.url); const parsed = this.parseSecondLineParts(s.title); out.push({ ...s, title: this.formatStreamTitle(r.title, season, episode, parsed.info, parsed.player) }); }
     }
     if (!out.length) {
       const urls = await this.extractDeep(html);
+      console.log('[GS][fetchEpisodeStreams] deep urls', urls.length);
       for (const u of urls) {
         const info = await this.getHlsInfoSafe(u);
         out.push({ title: this.formatStreamTitle(r.title, season, episode, info), url: u, behaviorHints:{ notWebReady:true } });
       }
     }
+    console.log('[GS][fetchEpisodeStreams] total streams', out.length);
     // Post-processing: remove Dropload size if no SuperVideo present
     try {
       const superSize = (() => {
@@ -227,14 +403,13 @@ export class GuardaSerieProvider {
   }
 
   // ==== Mammamia style flow (Guardaserie) ====
-  private async tryDirectImdbFlow(imdbId: string, season: number, episode: number): Promise<StreamForStremio[]> {
+  private async tryDirectImdbFlow(imdbId: string, season: number, episode: number, expectedTitle?: string): Promise<StreamForStremio[]> {
     try {
       const searchUrl = `${this.base}/?story=${encodeURIComponent(imdbId)}&do=search&subaction=search`;
       console.log('[GS][Direct] search url', searchUrl);
       const html = await this.get(searchUrl);
       if (!html) return [];
       console.log('[GS][Direct] search html length', html.length);
-      // collect possible detail page links
       const hrefs: string[] = [];
       const reHref = /<div[^>]+class="mlnh-2"[\s\S]*?<h2>\s*<a[^>]+href="([^"]+)"/gi;
       let m: RegExpExecArray | null; let count=0;
@@ -244,41 +419,58 @@ export class GuardaSerieProvider {
         while((m=reA.exec(html)) && count<5){ const u=m[1]; if(/\/\d/.test(u)){ hrefs.push(u); count++; } }
       }
       if (!hrefs.length) return [];
-      // Strictly validate candidate pages: must contain the exact IMDb id; otherwise skip
-      let pageUrl: string | null = null;
-      let detailHtml: string | null = null;
-      for (const href of hrefs.slice(0, 5)) {
+      interface CandidatePage { url: string; html: string; score: number; title: string; }
+      const candidates: CandidatePage[] = [];
+      const norm = (s:string)=> s.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+      const lev = (a:string,b:string)=>{ if(a===b) return 0; const al=a.length, bl=b.length; const dp=Array.from({length:al+1},()=>Array(bl+1).fill(0)); for(let i=0;i<=al;i++) dp[i][0]=i; for(let j=0;j<=bl;j++) dp[0][j]=j; for(let i=1;i<=al;i++){ for(let j=1;j<=bl;j++){ const c=a[i-1]===b[j-1]?0:1; dp[i][j]=Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+c); } } return dp[al][bl]; };
+      const expectedNorm = expectedTitle? norm(expectedTitle): null;
+      for (const href of hrefs.slice(0,5)) {
         const u = href.startsWith('http') ? href : `${this.base}${href.startsWith('/') ? '' : '/'}${href}`;
         const h = await this.get(u);
         if (!h) continue;
-        // Accept only if the target imdb id is present verbatim in the page
-        if (h.includes(imdbId)) { pageUrl = u; detailHtml = h; break; }
+        const titleMatch = h.match(/<title>([^<]+)<\/title>/i);
+        let pageTitle = titleMatch ? titleMatch[1].replace(/-\s*GuardaSerie.*$/i,'').trim() : '';
+        pageTitle = pageTitle.replace(/Streaming .*$/i,'').trim();
+        let score = 9999;
+        if (expectedNorm) score = lev(norm(pageTitle), expectedNorm);
+        candidates.push({ url: u, html: h, score, title: pageTitle });
       }
-      if (!pageUrl || !detailHtml) {
-        // No verified page -> no results (avoid false positive)
-        return [];
+      if (expectedNorm) {
+        candidates.sort((a,b)=> a.score - b.score);
+        // threshold: allow at most 40% of expected length distance
+        const best = candidates[0];
+        if (!best || best.score > Math.max(2, Math.floor(expectedNorm.length * 0.4))) {
+          console.log('[GS][Direct] no sufficiently similar page (best score)', best? best.score : 'n/a');
+          return [];
+        }
+        console.log('[GS][Direct] chosen page', best.url, 'score', best.score, 'title', best.title);
+        return await this.extractDirect(best.html, best.url, imdbId, season, episode, expectedTitle || '');
       }
-      console.log('[GS][Direct] chosen page', pageUrl);
+      // fallback old behaviour (no expected title)
+      const first = candidates[0];
+      if (!first) return [];
+      console.log('[GS][Direct] chosen page', first.url, 'no expected title');
+      return await this.extractDirect(first.html, first.url, imdbId, season, episode, expectedTitle || '');
+    } catch { return []; }
+  }
+
+
+  private async extractDirect(detailHtml: string, pageUrl: string, imdbId: string, season: number, episode: number, resolvedTitle: string): Promise<StreamForStremio[]> {
+    try {
       console.log('[GS][Direct] detail html length', detailHtml.length);
-      // Locate the <li> for the requested episode id="serie-season_episode" and gather its mirrors
       const epId = `serie-${season}_${episode}`;
-      const liRegex = new RegExp(`<li[^>]*>[^<]*\n?\s*<a[^>]+id="${epId}"[\\s\\S]*?<\/li>`,'i');
+      const liRegex = new RegExp(`<li[^>]*>[^<]*\n?\s*<a[^>]+id="${epId}"[\\s\\S]*?</li>`,'i');
       const embedLinks: string[] = [];
       const liMatch = detailHtml.match(liRegex);
       if (liMatch) {
         const block = liMatch[0];
-        // Mirrors inside this li (class mr)
         for (const mm of block.matchAll(/class=\"mr[^\"]*\"[^>]+data-link=\"([^\"]+)\"/g)) { let u = mm[1]; if(u.startsWith('//')) u='https:'+u; embedLinks.push(u); }
-        // Also accept "me" (other players) if needed later
         for (const mm of block.matchAll(/class=\"me[^\"]*\"[^>]+data-link=\"([^\"]+)\"/g)) { let u = mm[1]; if(u.startsWith('//')) u='https:'+u; if(!embedLinks.includes(u)) embedLinks.push(u); }
-        // Fallback any generic data-link in block
         for (const mm of block.matchAll(/data-link=\"([^\"]+)\"/g)) { let u=mm[1]; if(u.startsWith('//')) u='https:'+u; if(!embedLinks.includes(u)) embedLinks.push(u); }
       }
-      // If nothing found inside li, some pages repeat a global mirrors block after tt_holder; capture active mirrors referencing this episode id
       if (!embedLinks.length) {
         const globalMirrors = detailHtml.match(/<div class=\"mirrors\"[\s\S]*?<\/div>/gi) || [];
         for (const gm of globalMirrors) {
-          // only take if it contains at least one data-link with supervideo/dropload AND near the target episode id present earlier
           if (!new RegExp(`id=\"${epId}\"`).test(detailHtml)) continue;
           for (const mm of gm.matchAll(/data-link=\"([^\"]+)\"/g)) { let u=mm[1]; if(u.startsWith('//')) u='https:'+u; if(/supervideo|dropload|mixdrop|dood/i.test(u)) { if(!embedLinks.includes(u)) embedLinks.push(u); } }
         }
@@ -297,7 +489,7 @@ export class GuardaSerieProvider {
             }
             if (finalUrl) {
               const info = await this.getHlsInfoSafe(finalUrl);
-              if (!seen.has(finalUrl)) { seen.add(finalUrl); out.push({ title: this.formatStreamTitle('', season, episode, info, 'supervideo'), url: finalUrl, behaviorHints:{ notWebReady:true } }); }
+              if (!seen.has(finalUrl)) { seen.add(finalUrl); out.push({ title: this.formatStreamTitle(resolvedTitle || '', season, episode, info, 'supervideo'), url: finalUrl, behaviorHints:{ notWebReady:true } }); }
               continue;
             }
           }
@@ -309,78 +501,36 @@ export class GuardaSerieProvider {
             if (!player) {
               player = /dropload/i.test(eurl)? 'dropload': /mixdrop/i.test(eurl)? 'mixdrop': /dood/i.test(eurl)? 'doodstream': undefined as any;
             }
-            out.push({ ...s, title: this.formatStreamTitle('', season, episode, parsed.info, player) });
+            out.push({ ...s, title: this.formatStreamTitle(resolvedTitle || '', season, episode, parsed.info, player) });
           }
         } catch (e) { console.log('[GS][Direct] embed error', (e as any)?.message || e); }
       }
-      if (out.length) {
-        // enrich with real title from TMDB
-        try {
-          const realTitle = await this.resolveTitle('imdb', imdbId, false);
-          if (realTitle) {
-            for (let i=0;i<out.length;i++) {
-              const p = this.parseSecondLineParts(out[i].title);
-              out[i].title = this.formatStreamTitle(realTitle, season, episode, p.info, p.player);
+      if (!out.length) return [];
+      try {
+        const superSize = (() => {
+          for (const s of out) {
+            if (/supervideo/i.test(s.title)) {
+              const p = this.parseSecondLineParts(s.title);
+              if (p.info?.size) return p.info.size;
             }
           }
-        } catch {}
-        // Apply Dropload size adoption: use SuperVideo size if present else none
-        try {
-          // capture resolved title from previous block (may be blank if resolution failed earlier)
-          let resolvedTitle = '';
-          try { resolvedTitle = await this.resolveTitle('imdb', imdbId, false); } catch {}
-          const superSize = (() => {
-            for (const s of out) {
-              if (/supervideo/i.test(s.title)) {
-                const p = this.parseSecondLineParts(s.title);
-                if (p.info?.size) return p.info.size;
-              }
-            }
-            return undefined;
-          })();
-          if (out.some(s => /dropload/i.test(s.title))) {
-            for (let i=0;i<out.length;i++) {
-              const parsed = this.parseSecondLineParts(out[i].title);
-              if (parsed.player?.toLowerCase() === 'dropload') {
-                const newInfo = { res: parsed.info?.res, size: superSize || undefined };
-                if (!superSize) delete (newInfo as any).size;
-                out[i].title = this.formatStreamTitle(resolvedTitle || '', season, episode, newInfo, parsed.player);
-              }
+          return undefined;
+        })();
+        if (out.some(s => /dropload/i.test(s.title))) {
+          for (let i=0;i<out.length;i++) {
+            const parsed = this.parseSecondLineParts(out[i].title);
+            if (parsed.player?.toLowerCase() === 'dropload') {
+              const newInfo = { res: parsed.info?.res, size: superSize || undefined };
+              if (!superSize) delete (newInfo as any).size;
+              out[i].title = this.formatStreamTitle(resolvedTitle || '', season, episode, newInfo, parsed.player);
             }
           }
-        } catch {}
-        return out;
-      }
-      // Fallback legacy pattern detection for supervideo
-      const patterns: RegExp[] = [
-        new RegExp(`id=\\"serie-${season}_${episode}\\"[^>]*data-link=\\"([^\\"]+)\\"`, 'i'),
-        new RegExp(`data-link=\\"([^\\"]+)\\"[^>]*id=\\"serie-${season}_${episode}\\"`, 'i'),
-        new RegExp(`id=\\"serie-${season}_${episode}\\"[^>]*href=\\"([^\\"]+)\\"`, 'i'),
-        new RegExp(`data-ep=[\\"']${season}_${episode}[\\"'][^>]*data-link=\\"([^\\"]+)\\"`, 'i'),
-      ];
-      for (const p of patterns) {
-        const mm = detailHtml.match(p);
-        if (mm) {
-          const svLink = mm[1];
-          const finalUrl = await this.resolveSupervideoWithHeaders(svLink, pageReferer, 0) || await this.resolveSupervideo(svLink);
-          if (finalUrl) {
-            const info = await this.getHlsInfoSafe(finalUrl);
-            let realTitle=''; try { realTitle = await this.resolveTitle('imdb', imdbId, false);} catch{}
-            return [{ title: this.formatStreamTitle(realTitle || '', season, episode, info, 'supervideo'), url: finalUrl, behaviorHints:{ notWebReady:true } }];
-          }
-          break;
         }
-      }
-      // Last resort: search any serversicuro master
-      const sv = detailHtml.match(/https?:[^"'\s]+serversicuro\.cc[^"'\s]+master\.m3u8/);
-      if (sv) {
-        const info = await this.getHlsInfoSafe(sv[0]);
-        let realTitle=''; try { realTitle = await this.resolveTitle('imdb', imdbId, false);} catch{}
-        return [{ title: this.formatStreamTitle(realTitle || '', season, episode, info, 'supervideo'), url: sv[0], behaviorHints:{ notWebReady:true } }];
-      }
-      return [];
+      } catch {}
+      return out;
     } catch { return []; }
   }
+
   /**
    * Format stream title according to spec:
    * Line 1: Movie: "<Title> • [ITA]"  | Episode: "<Title> S<season>E<episode> • [ITA]"
