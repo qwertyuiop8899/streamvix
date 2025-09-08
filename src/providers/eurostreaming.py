@@ -752,39 +752,101 @@ async def search_advanced(showname, date, season, episode, MFP, client):
         # SxEx (un/padded)
         rf'S{int(season)}E0?{int(episode)}\s*(.*?)(?=<br\s*/?>)',
     ]
-    for p in chosen:
-        # Year check per post
-        if p['year'] and str(p['year']) != str(date) and date != 0:
-            continue
-        description = p['description']
-        matches = []
-        for pat in patterns:
-            m = re.findall(pat, description)
-            if m:
-                matches = m
-                break
-        if not matches:
-            continue
-        urls = {}
-        log('search: episode rows found (post', p['id'], ')', len(matches))
-        for episode_details in matches:
-            if 'href' not in episode_details:
-                continue
-            part = episode_details
-            if ' – ' in part:
-                part = part.split(' – ', 1)[1]
-            host_list = await scraping_links(part, MFP, client)
-            for item in host_list:
-                if not item or not isinstance(item, tuple):
-                    continue
-                full_url, name, _host_type = item
-                if full_url:
-                    urls[full_url] = name
-        if urls:
-            log('search: urls collected', len(urls))
-            debug['used_match_ratio_seq'] = round(p['ratio_seq'],4)
-            return urls, None, debug
+    # --- Robust episode extraction with year tolerance & dual pass ---
+    # 1) First pass: prefer exact year (if site year present) OR no year present.
+    # 2) Second pass (fallback): allow slight year drift (<=1) or any year if still nothing.
+    #    This addresses cases like Chicago Fire (site year 2013 vs IMDb 2012) while avoiding gross mismatches.
 
+    def _year_distance(site_year: Optional[str], imdb_year: int) -> Optional[int]:
+        try:
+            if not site_year or not imdb_year:
+                return None
+            return abs(int(site_year) - int(imdb_year))
+        except Exception:
+            return None
+
+    primary_candidates = []  # posts passing strict year (equal) OR missing year
+    secondary_candidates = []  # posts with small drift (dist<=1)
+    drift_rejected = []  # posts with large drift
+
+    for p in chosen:
+        dist = _year_distance(p.get('year'), date)
+        if date and p.get('year'):
+            if dist == 0:
+                primary_candidates.append(p)
+            elif dist is not None and dist <= 1:
+                secondary_candidates.append(p)
+            else:
+                drift_rejected.append({'post_id': p['id'], 'post_year': p.get('year'), 'imdb_year': date, 'dist': dist})
+        else:
+            # No year on site or no imdb year -> treat as primary to keep behavior permissive
+            primary_candidates.append(p)
+
+    if drift_rejected:
+        debug['year_drift_rejected'] = drift_rejected
+
+    passes = [
+        ('primary', primary_candidates),
+        ('secondary_year_tolerant', secondary_candidates)
+    ]
+
+    # Extend episode patterns with variants that terminate at </div>|</p> if <br> missing (last line of block)
+    extra_suffix = r'(?=(?:<br\s*/?>|</div>|</p>))'
+    extended_patterns = []
+    for base in patterns:
+        if base.endswith(')') and base.rfind('(?=') == -1:
+            # Insert alternative lookahead if not already present
+            extended_patterns.append(base.replace('(?=<br', extra_suffix))
+        extended_patterns.append(base)
+    # De-duplicate while preserving order
+    seen_pat = set()
+    final_patterns = []
+    for pat in extended_patterns:
+        if pat in seen_pat:
+            continue
+        seen_pat.add(pat)
+        final_patterns.append(pat)
+
+    for pass_name, candidate_list in passes:
+        for p in candidate_list:
+            description = p['description']
+            matches = []
+            for pat in final_patterns:
+                m = re.findall(pat, description)
+                if m:
+                    matches = m
+                    break
+            if not matches:
+                continue
+            urls = {}
+            log(f'search: episode rows found (post {p["id"]}) pass={pass_name} count={len(matches)}')
+            for episode_details in matches:
+                if 'href' not in episode_details:
+                    continue
+                part = episode_details
+                # Normalize dash variants (EN dash / hyphen) and split only on first occurrence
+                if ' – ' in part:
+                    part = part.split(' – ', 1)[1]
+                elif ' - ' in part:
+                    part = part.split(' - ', 1)[1]
+                host_list = await scraping_links(part, MFP, client)
+                for item in host_list:
+                    if not item or not isinstance(item, tuple):
+                        continue
+                    full_url, name, _host_type = item
+                    if full_url:
+                        urls[full_url] = name
+            if urls:
+                log('search: urls collected', len(urls), 'pass', pass_name)
+                debug['used_match_ratio_seq'] = round(p['ratio_seq'],4)
+                debug['year_pass'] = pass_name
+                return urls, None, debug
+
+    # If we reach here, nothing matched even after tolerant pass
+    debug['episode_search_passes'] = {
+        'primary_candidates': len(primary_candidates),
+        'secondary_candidates': len(secondary_candidates)
+    }
     return None, 'no_episode_match', debug
 
 #############################################
