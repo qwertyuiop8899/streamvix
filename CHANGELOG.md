@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.39](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.38...v1.0.39) (2025-09-08)
+
+
+### Bug Fixes
+
+* general search fix ([05614f3](https://github.com/qwertyuiop8899/streamvix/commit/05614f3750934c18485cb4fa92dd075cab600aac))
+* webshare prx ([66783bd](https://github.com/qwertyuiop8899/streamvix/commit/66783bd70fdbbffdd696d767ea2bd3348dde376b))
+
 ## [1.0.38](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.37...v1.0.38) (2025-09-07)
 
 
