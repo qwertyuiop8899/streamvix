@@ -6,7 +6,7 @@ import { HostExtractor, ExtractResult, ExtractorContext, normalizeUrl } from './
 import type { StreamForStremio } from '../types/animeunity';
 // NOTE: Unlike Mixdrop we DO NOT wrap Doodstream with MediaFlow proxy to match webstreamr behavior.
 // NOTE thanks to webstreamr for the logic
-interface FetchResult { text: string | null; setCookie?: string[] }
+interface FetchResult { text: string | null }
 // UA rotation (simple) cached for 30m
 const UA_POOL = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
@@ -23,57 +23,21 @@ function pickUA(){
   }
   return UA_SELECTED.ua;
 }
-async function fetchText(url: string, referer?: string, cookieJar: string[] = [], extraHeaders: Record<string,string> = {}): Promise<FetchResult> {
+async function fetchText(url: string, referer?: string): Promise<FetchResult> {
   try {
-    const headers: any = {
-      'User-Agent': pickUA(),
-      'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language':'en',
-      'Cache-Control':'no-cache',
-      'Pragma':'no-cache',
-      'Upgrade-Insecure-Requests':'1',
-      'DNT':'1',
-      'Connection':'keep-alive',
-      ...extraHeaders
-    };
-    if (cookieJar.length) headers['Cookie'] = cookieJar.join('; ');
-    if (referer) headers.Referer = referer;
-    const r = await fetch(url, { headers, redirect: 'manual' as any });
-    const setCookie = r.headers?.get?.('set-cookie');
-    const allCookies: string[] = [];
-    if (setCookie) allCookies.push(setCookie);
-    // Cloudflare / ddos-guard sometimes splits multiple Set-Cookie; attempt common header names
-    // (Fetch in some runtimes merges; if multiple, we rely on comma splitting heuristically)
-    if (setCookie && setCookie.includes(',')) {
-      // naive split only for key=value; expires attribute contains comma so keep simple tokens with =
-      for (const part of setCookie.split(/,(?=[^;]+=[^;]+)/)) allCookies.push(part.trim());
-    }
-    if (!r.ok && (r.status === 301 || r.status === 302) ) {
-      const loc = r.headers.get('location');
-      if (loc) {
-        // accumulate cookies and follow once
-        const jar = cookieJar.concat(allCookies.map(c=>c.split(';')[0]));
-        return fetchText(new URL(loc, url).toString(), referer, jar, extraHeaders);
-      }
-    }
-    if(!r.ok) return { text: null, setCookie: allCookies };
-    const txt = await r.text();
-    return { text: txt, setCookie: allCookies };
+  const headers: any = { 'User-Agent': pickUA() };
+  if (referer) headers.Referer = referer;
+  const r = await fetch(url, { headers });
+  if(!r.ok) return { text: null };
+  const txt = await r.text();
+  return { text: txt };
   } catch { return { text: null }; }
 }
 
 function randomToken(len=10){ const chars='abcdefghijklmnopqrstuvwxyz0123456789'; let o=''; for(let i=0;i<len;i++) o+=chars[Math.floor(Math.random()*chars.length)]; return o; }
 
 const DOOD_PRIMARY_HTTP = 'http://dood.to'; // mimic webstreamr (HTTP)
-const DOOD_FALLBACKS = [ 'http://dood.to', 'https://dood.to', 'https://doodstream.co', 'https://dood.watch', 'https://d000d.com' ];
-// Simple in-memory cache (videoId -> html) to reduce repeated challenges
-const doodHtmlCache: Map<string, { html: string; ts: number }> = new Map();
-const DOOD_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
-// Host priming + cooldown maps
-const doodHostPrime: { ts: number } = { ts: 0 }; // single host dood.to prime timestamp
-const doodVideoCooldown: Map<string, number> = new Map(); // videoId -> until timestamp
-const DOOD_PRIME_TTL = 10 * 60 * 1000; // 10 minutes
-const DOOD_VIDEO_COOLDOWN = 90 * 1000; // 90 seconds
+const DOOD_FALLBACKS = [ 'http://dood.to', 'https://dood.to', 'https://doodstream.co' ];
 
 export class DoodStreamExtractor implements HostExtractor {
   id='doodstream';
@@ -82,67 +46,20 @@ export class DoodStreamExtractor implements HostExtractor {
   const normU = new URL(normalizeUrl(rawUrl));
   const videoId = normU.pathname.split('/').pop();
     if (!videoId) return { streams: [] };
-    // Check cache
-    const cached = doodHtmlCache.get(videoId);
-    let html: string | null = null; let originUsed = '';
-  // keep a reference cookieJar for later pass fetch even if loaded from cache
-  const cookieJar: string[] = [];
-    const now = Date.now();
-    const cooldownUntil = doodVideoCooldown.get(videoId) || 0;
-    if (now < cooldownUntil) {
-      console.log('[DoodExtractor] video cooldown active skip', videoId);
-      return { streams: [] };
+    let html: string | null = null; let originUsed = DOOD_PRIMARY_HTTP;
+    const embedUrl = `${DOOD_PRIMARY_HTTP.replace(/\/$/,'')}/e/${videoId}`;
+    console.log('[DoodExtractor] embed attempt', embedUrl);
+    let res = await fetchText(embedUrl, DOOD_PRIMARY_HTTP);
+    if (res.text && /pass_md5/.test(res.text)) html = res.text; else {
+      for (const dom of DOOD_FALLBACKS) {
+        if (dom === DOOD_PRIMARY_HTTP) continue;
+        const e2 = `${dom.replace(/\/$/,'')}/e/${videoId}`;
+        console.log('[DoodExtractor] fallback attempt', e2);
+        const fres = await fetchText(e2, dom);
+        if (fres.text && /pass_md5/.test(fres.text)) { html = fres.text; originUsed = dom; break; }
+      }
     }
-    if (cached && (Date.now() - cached.ts) < DOOD_CACHE_TTL) {
-      html = cached.html;
-      originUsed = DOOD_PRIMARY_HTTP;
-    } else {
-      function sleep(ms:number){ return new Promise(r=>setTimeout(r, ms)); }
-      // Primary single attempt HTTP
-      // Priming root + favicon every 10m
-      if (now - doodHostPrime.ts > DOOD_PRIME_TTL) {
-        console.log('[DoodExtractor] priming host root & favicon');
-        try { await fetchText(DOOD_PRIMARY_HTTP + '/', DOOD_PRIMARY_HTTP, cookieJar, { 'Accept-Language':'en' }); } catch {}
-        try { await fetchText(DOOD_PRIMARY_HTTP + '/favicon.ico', DOOD_PRIMARY_HTTP, cookieJar, { 'Accept-Language':'en' }); } catch {}
-        doodHostPrime.ts = Date.now();
-        await sleep(600 + Math.floor(Math.random()*400));
-      }
-      const primaryEmbed = `${DOOD_PRIMARY_HTTP.replace(/\/$/,'')}/e/${videoId}`;
-      console.log('[DoodExtractor] primary http attempt', primaryEmbed);
-      let res = await fetchText(primaryEmbed, DOOD_PRIMARY_HTTP, cookieJar, { 'Accept-Language':'en' });
-      if (res.setCookie?.length) for (const c of res.setCookie) cookieJar.push(c.split(';')[0]);
-      if (res.text) {
-        const isChallenge = /cf-|turnstile|captcha|ddos|cloudflare/i.test(res.text) && !/pass_md5/.test(res.text);
-        if (!isChallenge) { html = res.text; originUsed = DOOD_PRIMARY_HTTP; }
-        else {
-          console.log('[DoodExtractor] challenge short html len', res.text.length, 'retrying once after delay');
-          await sleep(1200 + Math.floor(Math.random()*400));
-          res = await fetchText(primaryEmbed, DOOD_PRIMARY_HTTP, cookieJar, { 'Accept-Language':'en' });
-          if (res.text && !(/cf-|turnstile|captcha|ddos|cloudflare/i.test(res.text) && !/pass_md5/.test(res.text))) {
-            html = res.text; originUsed = DOOD_PRIMARY_HTTP;
-          }
-        }
-      }
-      // Fallback domains only if still no html (network fail or persistent challenge)
-  if (!html) {
-        for (const dom of DOOD_FALLBACKS) {
-          if (dom === DOOD_PRIMARY_HTTP) continue; // already tried
-            const embed = `${dom.replace(/\/$/,'')}/e/${videoId}`;
-          console.log('[DoodExtractor] fallback attempt', embed);
-          let fres = await fetchText(embed, dom, cookieJar, { 'Accept-Language':'en' });
-          if (fres.setCookie?.length) for (const c of fres.setCookie) cookieJar.push(c.split(';')[0]);
-          if (fres.text) {
-            const isChallenge = /cf-|turnstile|captcha|ddos|cloudflare/i.test(fres.text) && !/pass_md5/.test(fres.text);
-            if (!isChallenge) { html = fres.text; originUsed = dom; break; }
-          }
-        }
-      }
-      if (!html) {
-        doodVideoCooldown.set(videoId, Date.now() + DOOD_VIDEO_COOLDOWN);
-        return { streams: [] };
-      }
-      doodHtmlCache.set(videoId, { html, ts: Date.now() });
-    }
+    if (!html) return { streams: [] };
     const domains = [DOOD_PRIMARY_HTTP, ...DOOD_FALLBACKS];
     // --- Enhanced pass_md5 extraction with diagnostics (Step 1) ---
     let pass = html.match(/\/pass_md5\/[\w-]+\/[\w-]+/); // broader first capture (full segment)
@@ -176,16 +93,14 @@ export class DoodStreamExtractor implements HostExtractor {
   const token = tokenVal as string;
     let passUrl = new URL(pass[0], originUsed).toString();
     const passHeaders = { 'Accept':'*/*', 'X-Requested-With':'XMLHttpRequest' };
-    const passRes = await fetchText(passUrl, originUsed, cookieJar, passHeaders);
-    if (passRes.setCookie?.length) for (const c of passRes.setCookie) cookieJar.push(c.split(';')[0]);
+  const passRes = await fetchText(passUrl, originUsed);
     let baseUrl = passRes.text;
-    console.log('[DoodExtractor] passUrl primary', passUrl, 'len', baseUrl?.length, 'cookies', cookieJar.length);
+  console.log('[DoodExtractor] passUrl primary', passUrl, 'len', baseUrl?.length);
     if (!baseUrl) {
       // replicate fallback chain
       for (const altDom of domains) {
         passUrl = new URL(pass[0], altDom).toString();
-        const altRes = await fetchText(passUrl, altDom, cookieJar, passHeaders);
-        if (altRes.setCookie?.length) for (const c of altRes.setCookie) cookieJar.push(c.split(';')[0]);
+    const altRes = await fetchText(passUrl, altDom);
         if (altRes.text) { baseUrl = altRes.text; originUsed = altDom; break; }
       }
     }
@@ -224,13 +139,16 @@ export class DoodStreamExtractor implements HostExtractor {
       }
     } catch {}
 
+    // Normalize Italian suffix like other extractors
+    if (!/\[ITA\]$/i.test(baseTitle)) {
+      if (!/•\s*\[ITA\]$/i.test(baseTitle)) baseTitle = `${baseTitle} • [ITA]`;
+    }
     const secondSegs: string[] = [];
     if (sizePart) secondSegs.push(sizePart);
     if (resPart) secondSegs.push(resPart);
     secondSegs.push('doodstream');
-    const line1 = `${baseTitle} • [ITA]`;
-    const title = `${line1}\n💾 ${secondSegs.join(' • ')}`;
-    const stream: StreamForStremio = { title, url: mp4, behaviorHints:{ notWebReady:true } };
+    const fullTitle = `${baseTitle}\n💾 ${secondSegs.join(' • ')}`;
+    const stream: StreamForStremio = { title: fullTitle, url: mp4, behaviorHints:{ notWebReady:true } };
     return { streams: [stream] };
   }
 }
