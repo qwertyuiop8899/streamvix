@@ -3,7 +3,7 @@
 Script adattato a streamvix da https://github.com/UrloMythus/MammaMia/blob/main/Src/API/eurostreaming.py
 grazie @urlomythus
 Eurostreaming provider
-
+ 
 Modalità e variabili di configurazione (DEFAULT: metodo avanzato):
 
 1) Metodo di ricerca episodi
