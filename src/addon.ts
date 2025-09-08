@@ -27,6 +27,7 @@ import { EPGManager } from './utils/epg';
 import { execFile, spawn } from 'child_process';
 import * as crypto from 'crypto';
 import * as util from 'util';
+import { fetchPage } from './providers/flaresolverr';
 
 // ================= TYPES & INTERFACES =================
 interface AddonConfig {
@@ -480,7 +481,7 @@ function decodeStaticUrl(url: string): string {
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "6.4.23",
+    version: "6.2.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -2622,9 +2623,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             // Log sample
                             euroStreams.slice(0,3).forEach((s,idx)=> console.log('[Eurostreaming][Addon] sample', idx, s.title));
                             for (const s of euroStreams) {
-                                // Padlock logic: add 🔓 only if NOT MixDrop (DeltaBit = unlocked)
-                                const isMixdrop = /mixdrop/i.test(s.url) || (s.title ? /mixdrop/i.test(s.title) : false);
-                                allStreams.push({ ...s, name: isMixdrop ? 'StreamViX ES' : 'StreamViX ES 🔓' });
+                                // Nessuna modifica al titolo: già formattato dal provider (Mixdrop rename applicato lì se necessario)
+                                const mix = /mixdrop/i.test(s.url);
+                                allStreams.push({ ...s, name: mix ? 'StreamViX ES' : 'StreamViX ES 🔓' });
                             }
                         } catch (e) {
                             console.error('[Eurostreaming] Errore:', e);
@@ -2943,6 +2944,38 @@ app.get('/tvtap-resolve/:channelId', async (req: Request, res: Response) => {
         console.error(`[TVTap] Exception resolving channel ${channelId}:`, error);
         res.status(500).json({ error: 'TVTap resolution exception' });
     }
+});
+
+// ================= SIMPLE IP HEALTH CHECK =================
+// Parity with upstream webstreamr /live ipStatus logic but limited to MostraGuarda only.
+let liveProbeLastTs = 0;
+let liveProbeBlocked = 0;
+let liveProbeErrors = 0;
+async function runIpProbe(force = false) {
+    if (!force && Date.now() - liveProbeLastTs < 60000) return; // throttle 60s
+    liveProbeBlocked = 0;
+    liveProbeErrors = 0;
+    try {
+        await fetchPage('https://mostraguarda.stream', { noCache: true });
+    } catch (e: any) {
+        const msg = (e?.message || '').toString();
+        if (/cloudflare_challenge/i.test(msg) || /http_403/.test(msg) || /(^|[^0-9])403([^0-9]|$)/.test(msg)) liveProbeBlocked++;
+        else liveProbeErrors++;
+    }
+    liveProbeLastTs = Date.now();
+}
+
+// GET /live[?forceIpCheck]
+app.get('/live', async (req: Request, res: Response) => {
+    const force = 'forceIpCheck' in req.query;
+    await runIpProbe(force);
+    if (liveProbeBlocked > 0) {
+        return res.json({ status: 'ok', ipStatus: 'error' });
+    }
+    if (liveProbeErrors > 0) {
+        return res.status(503).json({ status: 'error' });
+    }
+    return res.json({ status: 'ok', ipStatus: 'ok' });
 });
 
 // ================= MANUAL LIVE UPDATE ENDPOINT =================
