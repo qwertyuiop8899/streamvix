@@ -1,6 +1,6 @@
 {
   "name": "streamvix",
-  "version": "6.5.23",
+  "version": "6.6.23",
   "description": "StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
   "main": "dist/addon.js",
   "packageManager": "pnpm@8.15.5",
@@ -43,5 +43,6 @@
     "typescript": "^5.0.0"
   }
 }
+
 
 
