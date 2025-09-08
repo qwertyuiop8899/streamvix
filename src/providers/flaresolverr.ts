@@ -177,48 +177,40 @@ async function solveChallenge(url: URL): Promise<string | null> {
   return null;
 }
 
-// Proxy support hard-coded: aggiungi fino a 20 proxy in questo array ROTATE(formato http://user:pass@host:port/)
+// Proxy support hard-coded: aggiungi fino a 20 proxy in questo array (formato http://user:pass@host:port/)
 const HARD_CODED_PROXIES: string[] = [
   'http://emaschipx-rotate:emaschipx@p.webshare.io:80/',
   'http://proxooo4-rotate:proxooo4@p.webshare.io:80/',
   'http://fabiorealdebrid-rotate:MammamiaHF1@p.webshare.io:80/',
   'http://proxoooo-rotate:proxoooo@p.webshare.io:80/',
   'http://teststremio-rotate:teststremio@p.webshare.io:80/',
-  'http://mammapro-rotate:mammapro@p.webshare.io:80/',
-  'http://zmjoluhu-rotate:ej6ddw3ily90@p.webshare.io:80/',
-  'http://kkuafwyh-rotate:kl6esmu21js3@p.webshare.io:80/',
-  'http://stzaxffz-rotate:ax92ravj1pmm@p.webshare.io:80/',
-  'http://nfokjhhu-rotate:ez248bgee4z9@p.webshare.io:80/',
-  'http://fiupzkjx-rotate:0zlrd2in3mrh@p.webshare.io:80/',
-  'http://tpnvndgp-rotate:xjp0ux1wwc7n@p.webshare.io:80/',
-  'http://tmglotxc-rotate:stlrhx17nhqj@p.webshare.io:80/'
+  'http://mammapro-rotate:mammapro@p.webshare.io:80/'
 ];
 function pickProxy(): string | undefined { if (!HARD_CODED_PROXIES.length) return undefined; return HARD_CODED_PROXIES[Math.floor(Math.random()*HARD_CODED_PROXIES.length)]; }
 
+let rrIndex = 0; // round-robin pointer
 async function proxyAttempt(url: URL): Promise<string | null> {
   const proxies = HARD_CODED_PROXIES.filter(Boolean);
   if (!proxies.length) return null;
-  const tried = new Set<number>();
-  const attempts = Math.min(2, proxies.length); // try max 2 distinct proxies
-  for (let i = 0; i < attempts; i++) {
-    let idx: number; let guard = 0;
-    do { idx = Math.floor(Math.random()*proxies.length); guard++; } while(tried.has(idx) && guard < 10);
-    if (tried.has(idx)) break;
-    tried.add(idx);
-    const proxy = proxies[idx];
+  const first = rrIndex % proxies.length; rrIndex++;
+  const order = [first];
+  if (proxies.length > 1) order.push((first+1) % proxies.length); // al massimo il successivo
+  for (let i=0;i<order.length;i++) {
+    const proxy = proxies[order[i]];
+    const masked = proxy.replace(/:\w+@/, ':***@');
     try {
-      const masked = proxy.replace(/:\w+@/, ':***@');
-      console.log('[FS][PROXY][TRY]', masked, 'attempt', i+1, 'of', attempts);
+      console.log('[FS][PROXY][TRY]', masked, 'slot', i+1,'of', order.length, 'rrIndexStart', first);
       const controller = new AbortController();
       const to = setTimeout(()=>controller.abort(), 5000);
-      const r = await fetch(url, { headers: { 'User-Agent': hostUA.get(url.host)||DEFAULT_UA, 'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8','Accept-Language':'en','Priority':'u=0' },
-        // @ts-ignore dispatcher support
-        dispatcher: new (require('undici').ProxyAgent)(proxy), signal: controller.signal });
+      // @ts-ignore
+      const agent = new (require('undici').ProxyAgent)(proxy);
+  // @ts-ignore undici ProxyAgent custom field
+  const r = await fetch(url, { headers: { 'User-Agent': hostUA.get(url.host)||DEFAULT_UA, 'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8','Accept-Language':'en','Priority':'u=0' }, dispatcher: agent, signal: controller.signal });
       clearTimeout(to);
       const txt = await r.text();
-      console.log('[FS][PROXY][RESP]', r.status, 'len', txt.length, 'attempt', i+1);
+      console.log('[FS][PROXY][RESP]', masked, 'status', r.status, 'len', txt.length);
       if (r.status >=200 && r.status <=399 && txt.length>0) return txt;
-    } catch(e:any){ console.log('[FS][PROXY][ERR]', (e && e.message) || e, 'attempt', i+1); }
+    } catch(e:any) { console.log('[FS][PROXY][ERR]', masked, e?.message || e); }
   }
   return null;
 }
@@ -306,6 +298,52 @@ async function fetchHtml(url: URL, opts?: { noCache?: boolean }): Promise<string
 // API pubblica analoga al precedente helper semplificato
 export async function fetchPage(url: string, opts?: { noCache?: boolean }) {
   return fetchHtml(new URL(url), opts);
+}
+
+// Forza tentativi su TUTTI i proxy hard-coded ignorando cache/solver: usato come ultima risorsa
+export async function fetchPageWithProxies(url: string): Promise<string> {
+  const u = new URL(url);
+  // Usa la stessa logica di proxyAttempt ma forzando partenza round-robin attuale + prossimo
+  const proxies = HARD_CODED_PROXIES.filter(Boolean);
+  if (!proxies.length) throw new Error('no_proxies');
+  const start = rrIndex % proxies.length; rrIndex++;
+  const order = [start];
+  if (proxies.length > 1) order.push((start+1)%proxies.length);
+  console.log('[FS][PROXYFORCE][START]', u.href, 'order', order.map(i=>i+1).join(','),'of',proxies.length);
+  const broadPatterns = [ /__cf_chl_/i, /Just a moment/i, /enable javascript and cookies to continue/i, /challenge-platform\//i ];
+  for (let i=0;i<order.length;i++) {
+    const proxy = proxies[order[i]];
+    const masked = proxy.replace(/:\w+@/, ':***@');
+    try {
+      console.log('[FS][PROXYFORCE][TRY]', masked, 'slot', i+1, 'of', order.length);
+      const controller = new AbortController();
+      const to = setTimeout(()=>controller.abort(), 7000);
+      // @ts-ignore
+      const agent = new (require('undici').ProxyAgent)(proxy);
+      const headers: Record<string,string> = { 'User-Agent': hostUA.get(u.host) || DEFAULT_UA,'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8','Accept-Language':'en','Priority':'u=0' };
+      const ck = getCookieHeader(u.host); if (ck) headers['Cookie'] = ck;
+  // @ts-ignore undici ProxyAgent custom field
+  const resp: Response = await fetch(u, { headers, dispatcher: agent, signal: controller.signal });
+      clearTimeout(to);
+      const txt = await resp.text();
+      const headerChallenge = resp.headers.get('cf-mitigated') === 'challenge';
+      const bodyBroad = broadPatterns.some(r=>r.test(txt));
+      const bodyTurnstile = /cf-turnstile/.test(txt);
+      const hasStreamMarkers = resp.status === 200 && /data-link\s*=\s*"[^\"]+"/i.test(txt);
+      const isChallenge = headerChallenge || bodyBroad || bodyTurnstile;
+      console.log('[FS][PROXYFORCE][RESP]', masked, 'status', resp.status, 'len', txt.length, 'chal=', isChallenge, 'streamMarkers=', hasStreamMarkers);
+      if (resp.status >=200 && resp.status <=399 && txt.length>0) {
+        if (hasStreamMarkers || !isChallenge) {
+          console.log('[FS][PROXYFORCE][OK]', masked);
+          return txt;
+        }
+      }
+    } catch(e:any) {
+      console.log('[FS][PROXYFORCE][ERR]', masked, e?.message || e);
+    }
+  }
+  console.log('[FS][PROXYFORCE][FAIL]', u.href);
+  throw new Error('cloudflare_challenge');
 }
 
 // Cache streams (immutata dalla versione precedente)
