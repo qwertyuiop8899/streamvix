@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.40](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.39...v1.0.40) (2025-09-08)
+
+
+### Bug Fixes
+
+* install page ([35fff7c](https://github.com/qwertyuiop8899/streamvix/commit/35fff7cfcf531db11ba46ae88b784b697233baf4))
+
 ## [1.0.39](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.38...v1.0.39) (2025-09-08)
 
 
