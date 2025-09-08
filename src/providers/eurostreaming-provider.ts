@@ -7,7 +7,7 @@ export interface EurostreamingConfig { enabled: boolean; mfpUrl?: string; mfpPas
 
 interface PyResult { streams?: Array<{ url: string; title?: string; player?: string; size?: string; res?: string; lang?: string; match_pct?: number|null }>; error?: string }
 
-function runPythonEuro(argsObj: { imdb?: string; tmdb?: string; season?: number|null; episode?: number|null; mfp: boolean; isMovie: boolean; tmdbKey?: string }, timeoutMs = 35000): Promise<PyResult> {
+function runPythonEuro(argsObj: { imdb?: string; tmdb?: string; season?: number|null; episode?: number|null; mfp: boolean; isMovie: boolean; tmdbKey?: string }, timeoutMs = 60000): Promise<PyResult> {
   const script = path.join(__dirname, 'eurostreaming.py');
   return new Promise((resolve) => {
     let finished = false; let stdout = ''; let stderr = '';
@@ -23,10 +23,12 @@ function runPythonEuro(argsObj: { imdb?: string; tmdb?: string; season?: number|
     if ((process.env.ES_DEBUG || '').match(/^(1|true|on)$/i)) args.push('--debug','1');
     console.log('[Eurostreaming][PY] spawn', script, args.join(' '));
     const start = Date.now();
-    // Prefer project virtualenv python if present
-    const venvPy = path.join(__dirname, '..', '..', '.venv', 'bin', 'python');
-    const pythonCmd = require('fs').existsSync(venvPy) ? venvPy : 'python3';
-    if (pythonCmd !== 'python3') console.log('[Eurostreaming][PY] using venv python', pythonCmd);
+    // Prefer project virtualenv python if present (cross-platform)
+    const venvPyPosix = path.join(__dirname, '..', '..', '.venv', 'bin', 'python');
+    const venvPyWin = path.join(__dirname, '..', '..', '.venv', 'Scripts', 'python.exe');
+    const fs = require('fs');
+    let pythonCmd = fs.existsSync(venvPyPosix) ? venvPyPosix : (fs.existsSync(venvPyWin) ? venvPyWin : (process.platform === 'win32' ? 'python' : 'python3'));
+    if (pythonCmd !== 'python3' && pythonCmd !== 'python') console.log('[Eurostreaming][PY] using venv python', pythonCmd); else console.log('[Eurostreaming][PY] using system python', pythonCmd);
     // Ensure dependencies first
     ensurePyDeps(pythonCmd).then(()=> {
       const py = spawn(pythonCmd, [script, ...args]);

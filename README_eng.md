@@ -250,18 +250,16 @@ Use this method if you want to modify the source code, test new features or cont
     ```
 
 2.  **Install dependencies:**
-3.  
     ```bash
+	pip install -r requirements.txt
     pnpm install
     ```
-4.  **Setup:**
 
-
-5.  **Build the project:**
+3.  **Build the project:**
     ```
     pnpm run build
     ```
-6.  **Start the addon:**
+4.  **Start the addon:**
     ```
     pnpm start
     ```

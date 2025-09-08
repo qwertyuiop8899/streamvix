@@ -251,18 +251,16 @@ Usa questo metodo se vuoi modificare il codice sorgente, testare nuove funzional
     ```
 
 2.  **Installa le dipendenze:**
-3.  
     ```bash
+	pip install -r requirements.txt
     pnpm install
     ```
-4.  **Setup:**
-
-
-5.  **Compila il progetto:**
+	
+3.  **Compila il progetto:**
     ```
     pnpm run build
     ```
-6.  **Avvia l'addon:**
+4.  **Avvia l'addon:**
     ```
     pnpm start
     ```

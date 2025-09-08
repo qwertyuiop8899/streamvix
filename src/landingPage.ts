@@ -111,10 +111,16 @@ button:active {
 	border-radius: 10px;
 }
 .toggle-row.dimmed {
-	background: rgba(30,30,38,0.55);
-	box-shadow: inset 0 0 0 1px rgba(0,0,0,0.6);
+	/* Non oscura più l'intera riga, ma solo il selettore a destra */
+}
+.toggle-row.dimmed .toggle-right {
 	filter: grayscale(100%);
 	opacity: 0.55;
+	transition: opacity 0.2s ease, filter 0.2s ease;
+}
+/* Forza il colore rosso quando il toggle è spento e oscurato */
+.toggle-row.dimmed .switch input:not(:checked) + .slider {
+	background-color: #b31b1b !important;
 }
 .toggle-title {
 	font-size: 1.1rem;
@@ -301,18 +307,17 @@ function landingTemplate(manifest: any) {
 					if (key === 'personalTmdbKey') return;
 					// Custom pretty toggle for known keys
 					const toggleMap: any = {
-						'disableVixsrc': { title: 'VixSrc 🍿', invert: true },
+						'disableVixsrc': { title: 'VixSrc 🍿 - 🔒', invert: true },
 						'disableLiveTv': { title: 'Live TV 📺 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Molti canali hanno bisogno di MFP)</span>', invert: true },
-						'animeunityEnabled': { title: 'Anime Unity ⛩️', invert: false },
-						'animesaturnEnabled': { title: 'Anime Saturn 🪐 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
+						'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔒', invert: false },
+						'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
 						'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
 						'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
 						'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
-						'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓', invert: false },
+						'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(non sempre funzionante)</span>', invert: false },
 							'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false },
 							'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
 							'mediaflowMaster': { title: 'MediaflowProxy', invert: false },
-							'localMode': { title: 'Local (Eurostreaming ▶️ - 🔓)', invert: false },
 					}
 					if (toggleMap[key]) {
 						const t = toggleMap[key];
@@ -322,10 +327,9 @@ function landingTemplate(manifest: any) {
 						const isChecked = hasDefault ? (t.invert ? !((elem as any).default as boolean) : !!(elem as any).default) : true;
 						const checkedAttr = isChecked ? ' checked' : '';
 						const extraAttr = key==='mediaflowMaster' ? ' data-master-mfp="1"' : '';
-						const extraAttrLocal = key==='localMode' ? ' data-local-mode="1"' : '';
 						const extraAttrTmdb = key==='personalTmdbKey' ? ' data-personal-tmdb="1"' : '';
 						options += `
-						<div class="form-element"${extraAttr}${extraAttrLocal}${extraAttrTmdb}>
+						<div class="form-element"${extraAttr}${extraAttrTmdb}>
 							<div class="toggle-row" data-toggle-row="${key}">
 								<span class="toggle-title">${t.title}</span>
 								<div class="toggle-right">
@@ -384,7 +388,6 @@ function landingTemplate(manifest: any) {
 				</div>
 				<!-- Manual placement containers for MediaflowProxy and Local (Eurostreaming) -->
 				<div id="mediaflowManualSlot"></div>
-				<div id="localManualSlot"></div>
 
 				<!-- Centered MediaflowProxy toggle (custom) will be auto-generated below; we move its element after generation via script if needed -->
 				${options}
@@ -407,7 +410,7 @@ function landingTemplate(manifest: any) {
 					elements.forEach(function(el) {
 						var key = el.id || el.getAttribute('name') || '';
 						if (!key) return;
-						if (['personalTmdbKey','mediaflowMaster','localMode'].includes(key)) return; // UI only controls
+						if (['personalTmdbKey','mediaflowMaster'].includes(key)) return; // UI only controls
 						if (el.type === 'checkbox') {
 							var cfgKey = el.getAttribute('data-config-key') || key;
 							var invert = el.getAttribute('data-invert') === 'true';
@@ -450,98 +453,76 @@ function landingTemplate(manifest: any) {
 
 				// Reposition MediaflowProxy & Local toggles into manual slots
 				var mediaflowWrapper = document.getElementById('mediaflowMaster') ? document.getElementById('mediaflowMaster').closest('.form-element'): null;
-				var localWrapper = document.getElementById('localMode') ? document.getElementById('localMode').closest('.form-element'): null;
 				var mediaSlot = document.getElementById('mediaflowManualSlot');
-				var localSlot = document.getElementById('localManualSlot');
 				if (mediaflowWrapper && mediaSlot){ mediaSlot.appendChild(mediaflowWrapper); }
-				if (localWrapper && localSlot){ localSlot.appendChild(localWrapper); }
-				[mediaflowWrapper, localWrapper].forEach(function(w){ if (w){ w.style.maxWidth='480px'; w.style.margin='0 auto 0.5rem auto'; w.style.textAlign='center'; }});
-				// Rename LOCAL label
-					if (localWrapper){
-						var localTitle = localWrapper.querySelector('.toggle-title');
-						if (localTitle && !/Eurostreaming/.test(localTitle.innerHTML)){
-							localTitle.innerHTML = 'Local <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Eurostreaming ▶️ - 🔓)</span>';
-						}
-					}
-					// Mediaflow master toggle hides/shows URL + Password fields & disables Anime Unity + VixSrc (Saturn only note)
+				if (mediaflowWrapper){ mediaflowWrapper.style.maxWidth='480px'; mediaflowWrapper.style.margin='0 auto 0.5rem auto'; mediaflowWrapper.style.textAlign='center'; }
+
+				// Mediaflow master toggle hides/shows URL + Password fields & disables Anime Unity + VixSrc (Saturn only note)
 				var mfpMaster = document.querySelector('[data-master-mfp] input[type="checkbox"]') || document.getElementById('mediaflowMaster');
-				var mfpUrlEl = document.getElementById('mediaFlowProxyUrl')?.closest('.form-element');
-				var mfpPwdEl = document.getElementById('mediaFlowProxyPassword')?.closest('.form-element');
+				var mfpUrlInput = document.getElementById('mediaFlowProxyUrl');
+				var mfpPwdInput = document.getElementById('mediaFlowProxyPassword');
+				var mfpUrlEl = mfpUrlInput?.closest('.form-element');
+				var mfpPwdEl = mfpPwdInput?.closest('.form-element');
 				var animeUnityEl = document.getElementById('animeunityEnabled');
 				var animeSaturnEl = document.getElementById('animesaturnEnabled');
 				var animeSaturnRow = animeSaturnEl ? animeSaturnEl.closest('[data-toggle-row]') : null;
 				var animeSaturnTitleSpan = animeSaturnRow ? animeSaturnRow.querySelector('.toggle-title') : null;
 				var originalSaturnTitle = animeSaturnTitleSpan ? animeSaturnTitleSpan.innerHTML : '';
 				var vixsrcCb = document.getElementById('disableVixsrc');
-					var vixsrcRow = vixsrcCb ? vixsrcCb.closest('[data-toggle-row]') : null;
-					var animeUnityRow = animeUnityEl ? animeUnityEl.closest('[data-toggle-row]') : null;
+				var vixsrcRow = vixsrcCb ? vixsrcCb.closest('[data-toggle-row]') : null;
+				var animeUnityRow = animeUnityEl ? animeUnityEl.closest('[data-toggle-row]') : null;
 				var storedVixsrcState = null; // remember previous user choice
 				function syncMfp(){
-					var on = mfpMaster ? mfpMaster.checked : true; // default ON
+					var on = mfpMaster ? mfpMaster.checked : false; // default OFF
+					var inputsFilled = mfpUrlInput && mfpPwdInput && mfpUrlInput.value.trim() !== '' && mfpPwdInput.value.trim() !== '';
+					var canEnableChildren = on && inputsFilled;
+
 					if (mfpUrlEl) mfpUrlEl.style.display = on ? 'block':'none';
 					if (mfpPwdEl) mfpPwdEl.style.display = on ? 'block':'none';
 					if (animeUnityEl){
-							if (!on){
-								animeUnityEl.checked = false;
-								animeUnityEl.disabled = true;
-								if (animeUnityRow) animeUnityRow.classList.add('dimmed');
-							} else {
-								animeUnityEl.disabled = false;
-								animeUnityEl.checked = true; // Auto ON when Mediaflow riattivato
-								if (animeUnityRow) animeUnityRow.classList.remove('dimmed');
-							}
-							if (animeUnityRow) setRowState(animeUnityRow);
+						if (!on) { // Master toggle is OFF
+							animeUnityEl.checked = false;
+							animeUnityEl.disabled = true;
+							if (animeUnityRow) animeUnityRow.classList.add('dimmed');
+						} else { // Master toggle is ON
+							if (animeUnityRow) animeUnityRow.classList.remove('dimmed');
+							animeUnityEl.disabled = !canEnableChildren;
+							// Auto-enable only if it was not manually disabled before
+							if (canEnableChildren && !animeUnityEl.checked) animeUnityEl.checked = true;
+							if (!canEnableChildren) animeUnityEl.checked = false;
+						}
+						if (animeUnityRow) setRowState(animeUnityRow);
 					}
 					if (animeSaturnEl){
 						// Keep usable but add note when off
 						if (animeSaturnTitleSpan){
-							if (!on){
-								if (!animeSaturnTitleSpan.innerHTML.includes('Alcuni flussi')){
-									animeSaturnTitleSpan.innerHTML = originalSaturnTitle + ' <span style="font-size:0.65rem; opacity:0.75;">(Alcuni flussi hanno bisogno di MFP)</span>';
-								}
-							} else {
-								animeSaturnTitleSpan.innerHTML = originalSaturnTitle;
-							}
+							animeSaturnTitleSpan.innerHTML = originalSaturnTitle; // Reset
 						}
 					}
 					if (vixsrcCb){
-						if (!on){
+						if (!on) { // Master toggle is OFF
 							if (storedVixsrcState === null) storedVixsrcState = vixsrcCb.checked;
-								vixsrcCb.checked = false; // slider OFF => feature disabled (config invert handles value)
+							vixsrcCb.checked = false; // slider OFF => feature disabled (config invert handles value)
 							vixsrcCb.disabled = true;
-								if (vixsrcRow) vixsrcRow.classList.add('dimmed');
-						} else {
-							if (storedVixsrcState !== null) vixsrcCb.checked = storedVixsrcState;
-							vixsrcCb.disabled = false;
-							storedVixsrcState = null;
-								if (vixsrcRow) vixsrcRow.classList.remove('dimmed');
+							if (vixsrcRow) vixsrcRow.classList.add('dimmed');
+						} else { // Master toggle is ON
+							if (vixsrcRow) vixsrcRow.classList.remove('dimmed');
+							vixsrcCb.disabled = !canEnableChildren;
+							if (canEnableChildren && storedVixsrcState !== null) {
+								vixsrcCb.checked = storedVixsrcState;
+								storedVixsrcState = null;
+							} else if (!canEnableChildren) {
+								if (storedVixsrcState === null) storedVixsrcState = vixsrcCb.checked;
+								vixsrcCb.checked = false;
+							}
 						}
-							if (vixsrcRow) setRowState(vixsrcRow);
+						if (vixsrcRow) setRowState(vixsrcRow);
 					}
 				}
 				if (mfpMaster){ mfpMaster.addEventListener('change', function(){ syncMfp(); updateLink(); }); syncMfp(); }
-				// LOCAL toggle hides Eurostreaming if OFF (now directly by id)
-				var localModeCb = document.getElementById('localMode');
-				var euroEl = (function(){ var e = document.getElementById('eurostreamingEnabled'); return e? e.closest('.form-element'): null; })();
-				function syncLocal(){
-					var on = localModeCb ? localModeCb.checked : false; // default OFF
-					if (euroEl) euroEl.style.display = on ? 'block':'none';
-					var euroCb = euroEl ? euroEl.querySelector('input[type="checkbox"]') : null;
-					if (!on) {
-						// When Local disabled, hide & force Eurostreaming OFF
-						if (euroCb) euroCb.checked = false;
-					} else {
-						// When Local enabled, auto-enable Eurostreaming (user can still toggle it off afterward)
-						if (euroCb && !euroCb.checked) {
-							euroCb.checked = true;
-							// Update visual ON state if using pretty toggle style
-							var euroRow = euroCb.closest('[data-toggle-row]');
-							if (euroRow) { if (euroCb.checked) euroRow.classList.add('is-on'); else euroRow.classList.remove('is-on'); }
-						}
-					}
-				}
-				if (localModeCb){ localModeCb.addEventListener('change', function(){ syncLocal(); updateLink(); }); syncLocal(); }
-					// Live TV subgroup: show TvTap & Vavoo toggles only if Live TV enabled
+				if (mfpUrlInput) { mfpUrlInput.addEventListener('input', function(){ syncMfp(); updateLink(); }); }
+				if (mfpPwdInput) { mfpPwdInput.addEventListener('input', function(){ syncMfp(); updateLink(); }); }
+				// Live TV subgroup: show TvTap & Vavoo toggles only if Live TV enabled
 				var liveTvToggle = document.getElementById('disableLiveTv'); // invert semantics
 				var liveSub = document.getElementById('liveTvSubToggles');
 					// Reorder: ensure Live TV appears above VixSrc
@@ -623,7 +604,7 @@ function landingTemplate(manifest: any) {
 					elements.forEach(function(el) {
 						var key = el.id || el.getAttribute('name') || '';
 						if (!key) return;
-						if (['personalTmdbKey','mediaflowMaster','localMode'].includes(key)) return;
+						if (['personalTmdbKey','mediaflowMaster'].includes(key)) return;
 						if (el.type === 'checkbox') {
 							var cfgKey = el.getAttribute('data-config-key') || key;
 							var invert = el.getAttribute('data-invert') === 'true';
@@ -789,6 +770,4 @@ function landingTemplate(manifest: any) {
 }
 
 export { landingTemplate };
-
-
 
