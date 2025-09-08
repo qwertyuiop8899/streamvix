@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.42](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.41...v1.0.42) (2025-09-08)
+
+
+### Bug Fixes
+
+* add concurrency ([dbcbb0b](https://github.com/qwertyuiop8899/streamvix/commit/dbcbb0b988600332963c171c54ff893cd603ac77))
+
 ## [1.0.41](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.40...v1.0.41) (2025-09-08)
 
 
