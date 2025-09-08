@@ -17,7 +17,7 @@ import { extractFromUrl } from '../extractors';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare function require(name: string): any;
 const cheerio = require('cheerio');
-import { fetchPage, readStreamCache, writeStreamCache, purgeOld } from './flaresolverr';
+import { fetchPage, fetchPageWithProxies, readStreamCache, writeStreamCache, purgeOld } from './flaresolverr';
 import { getTmdbIdFromImdbId } from '../extractor';
 
 export interface GuardaHdConfig { enabled:boolean; mfpUrl?:string; mfpPassword?:string; tmdbApiKey?: string }
@@ -60,8 +60,34 @@ export class GuardaHdProvider {
       html = await fetchPage(`${this.base}/movie/${encodeURIComponent(imdbOnly)}`);
       console.log('[GH][NET] fetched movie page len=', html.length);
     } catch (e:any) {
-      console.log('[GH][ERR] fetch movie page failed', e?.message || e);
-      return { streams: [] };
+      const msg = (e?.message||'').toString();
+      console.log('[GH][ERR] fetch movie page failed', msg);
+      // Retry path: force bypass cache + attempt solver/proxy again
+      if (/^cloudflare_challenge$/.test(msg) || /^http_403$/.test(msg) || /^blocked/.test(msg)) {
+        console.log('[GH][RETRY] second attempt with noCache + solver/proxy', imdbOnly);
+        try {
+          html = await fetchPage(`${this.base}/movie/${encodeURIComponent(imdbOnly)}`, { noCache: true });
+          console.log('[GH][NET] fetched movie page (retry) len=', html.length);
+        } catch (e2:any) {
+          const msg2 = (e2?.message||'').toString();
+          console.log('[GH][ERR] retry failed', msg2);
+          if (/^cloudflare_challenge$/.test(msg2) || /^http_403$/.test(msg2) || /^blocked/.test(msg2)) {
+            // Forced proxy sweep third level
+            try {
+              console.log('[GH][PROXYFORCE] forcing full proxy sweep', imdbOnly);
+              html = await fetchPageWithProxies(`${this.base}/movie/${encodeURIComponent(imdbOnly)}`);
+              console.log('[GH][PROXYFORCE][OK] len=', html.length);
+            } catch (e3:any) {
+              console.log('[GH][PROXYFORCE][FAIL]', e3?.message || e3);
+              return { streams: [] };
+            }
+          } else {
+            return { streams: [] };
+          }
+        }
+      } else {
+        return { streams: [] };
+      }
     }
     // Estrai titolo reale del film dalla pagina; se è generico o coincide con IMDb, tenta TMDB (IT)
     let realTitle = imdbOnly;
