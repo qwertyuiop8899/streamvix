@@ -17,7 +17,7 @@ import { extractFromUrl } from '../extractors';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare function require(name: string): any;
 const cheerio = require('cheerio');
-import { fetchPage, readStreamCache, writeStreamCache, purgeOld } from './flaresolverr';
+import { fetchPage, fetchPageWithProxies, readStreamCache, writeStreamCache, purgeOld } from './flaresolverr';
 import { getTmdbIdFromImdbId } from '../extractor';
 
 export interface GuardaHdConfig { enabled:boolean; mfpUrl?:string; mfpPassword?:string; tmdbApiKey?: string }
@@ -60,8 +60,20 @@ export class GuardaHdProvider {
       html = await fetchPage(`${this.base}/movie/${encodeURIComponent(imdbOnly)}`);
       console.log('[GH][NET] fetched movie page len=', html.length);
     } catch (e:any) {
-      console.log('[GH][ERR] fetch movie page failed', e?.message || e);
-      return { streams: [] };
+      const msg = (e?.message||'').toString();
+      console.log('[GH][ERR] fetch movie page failed', msg);
+      if (/^(cloudflare_challenge|http_403|blocked)/.test(msg)) {
+        try {
+          console.log('[GH][PROXY] proxy attempts (max 2)');
+          html = await fetchPageWithProxies(`${this.base}/movie/${encodeURIComponent(imdbOnly)}`);
+          console.log('[GH][PROXY][OK] len=', html.length);
+        } catch (e2:any) {
+          console.log('[GH][PROXY][FAIL]', e2?.message || e2);
+          return { streams: [] };
+        }
+      } else {
+        return { streams: [] };
+      }
     }
     // Estrai titolo reale del film dalla pagina; se è generico o coincide con IMDb, tenta TMDB (IT)
     let realTitle = imdbOnly;
