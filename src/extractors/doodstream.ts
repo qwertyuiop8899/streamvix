@@ -48,54 +48,64 @@ async function fetchText(url: string, referer?: string, cookieJar: string[] = []
 
 function randomToken(len=10){ const chars='abcdefghijklmnopqrstuvwxyz0123456789'; let o=''; for(let i=0;i<len;i++) o+=chars[Math.floor(Math.random()*chars.length)]; return o; }
 
-const DOOD_PRIMARY = 'https://dood.to';
-const DOOD_FALLBACKS = [ 'https://doodstream.co', 'https://dood.watch', 'https://d000d.com' ];
+const DOOD_PRIMARY_HTTP = 'http://dood.to'; // mimic webstreamr (HTTP)
+const DOOD_FALLBACKS = [ 'http://dood.to', 'https://dood.to', 'https://doodstream.co', 'https://dood.watch', 'https://d000d.com' ];
+// Simple in-memory cache (videoId -> html) to reduce repeated challenges
+const doodHtmlCache: Map<string, { html: string; ts: number }> = new Map();
+const DOOD_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 export class DoodStreamExtractor implements HostExtractor {
   id='doodstream';
   supports(url: string){ return /dood|do[0-9]go|doood|dooood|ds2play|ds2video|d0o0d|do0od|d0000d|d000d|vidply|all3do|doply|vide0|vvide0|d-s/i.test(url); }
   async extract(rawUrl: string, ctx: ExtractorContext): Promise<ExtractResult> {
-    const normU = new URL(normalizeUrl(rawUrl));
-    const videoId = normU.pathname.split('/').pop();
+  const normU = new URL(normalizeUrl(rawUrl));
+  const videoId = normU.pathname.split('/').pop();
     if (!videoId) return { streams: [] };
-    const domains = [DOOD_PRIMARY, ...DOOD_FALLBACKS];
+    // Check cache
+    const cached = doodHtmlCache.get(videoId);
     let html: string | null = null; let originUsed = '';
-    const cookieJar: string[] = [];
-    // Step 2: handshake + delayed embed attempt with challenge detection
-    function sleep(ms:number){ return new Promise(r=>setTimeout(r, ms)); }
-    for (const dom of domains) {
-      try {
-        const rootUrl = dom.replace(/\/$/,'') + '/';
-        console.log('[DoodExtractor] handshake root', rootUrl);
-        const rootRes = await fetchText(rootUrl, dom, cookieJar, { 'Accept-Language':'en' });
-        if (rootRes.setCookie?.length) for (const c of rootRes.setCookie) cookieJar.push(c.split(';')[0]);
-        // random small delay 420-760ms
-        await sleep(420 + Math.floor(Math.random()*340));
-        const embedUrl = `${dom.replace(/\/$/,'')}/e/${videoId}`;
-        console.log('[DoodExtractor] try', embedUrl);
-        let attempt = 0; let lastRes: FetchResult | null = null;
-        while (attempt < 2) { // up to 2 attempts if challenge markers detected
-          const res = await fetchText(embedUrl, dom, cookieJar, { 'Accept-Language':'en' });
-          lastRes = res;
-            if (res.setCookie?.length) for (const c of res.setCookie) cookieJar.push(c.split(';')[0]);
-          if (res.text) {
-            const isChallenge = /cf-|turnstile|captcha|ddos|cloudflare/i.test(res.text) && !/pass_md5/.test(res.text);
-            if (!isChallenge) { html = res.text; originUsed = dom; break; }
-            console.log('[DoodExtractor] challenge variant detected attempt', attempt, 'len', res.text.length);
-            await sleep(350 + Math.floor(Math.random()*250));
-            attempt++;
-            continue;
+  // keep a reference cookieJar for later pass fetch even if loaded from cache
+  const cookieJar: string[] = [];
+  if (cached && (Date.now() - cached.ts) < DOOD_CACHE_TTL) {
+      html = cached.html;
+      originUsed = DOOD_PRIMARY_HTTP;
+    } else {
+      function sleep(ms:number){ return new Promise(r=>setTimeout(r, ms)); }
+      // Primary single attempt HTTP
+      const primaryEmbed = `${DOOD_PRIMARY_HTTP.replace(/\/$/,'')}/e/${videoId}`;
+      console.log('[DoodExtractor] primary http attempt', primaryEmbed);
+      let res = await fetchText(primaryEmbed, DOOD_PRIMARY_HTTP, cookieJar, { 'Accept-Language':'en' });
+      if (res.setCookie?.length) for (const c of res.setCookie) cookieJar.push(c.split(';')[0]);
+      if (res.text) {
+        const isChallenge = /cf-|turnstile|captcha|ddos|cloudflare/i.test(res.text) && !/pass_md5/.test(res.text);
+        if (!isChallenge) { html = res.text; originUsed = DOOD_PRIMARY_HTTP; }
+        else {
+          console.log('[DoodExtractor] challenge short html len', res.text.length, 'retrying once after delay');
+          await sleep(1200 + Math.floor(Math.random()*400));
+          res = await fetchText(primaryEmbed, DOOD_PRIMARY_HTTP, cookieJar, { 'Accept-Language':'en' });
+          if (res.text && !(/cf-|turnstile|captcha|ddos|cloudflare/i.test(res.text) && !/pass_md5/.test(res.text))) {
+            html = res.text; originUsed = DOOD_PRIMARY_HTTP;
           }
-          break;
         }
-        if (html) break;
-        // if after retries no usable html, continue to next domain
-        if (lastRes && lastRes.text) {
-          console.log('[DoodExtractor] giving up domain after challenge loop', dom);
+      }
+      // Fallback domains only if still no html (network fail or persistent challenge)
+      if (!html) {
+        for (const dom of DOOD_FALLBACKS) {
+          if (dom === DOOD_PRIMARY_HTTP) continue; // already tried
+            const embed = `${dom.replace(/\/$/,'')}/e/${videoId}`;
+          console.log('[DoodExtractor] fallback attempt', embed);
+          let fres = await fetchText(embed, dom, cookieJar, { 'Accept-Language':'en' });
+          if (fres.setCookie?.length) for (const c of fres.setCookie) cookieJar.push(c.split(';')[0]);
+          if (fres.text) {
+            const isChallenge = /cf-|turnstile|captcha|ddos|cloudflare/i.test(fres.text) && !/pass_md5/.test(fres.text);
+            if (!isChallenge) { html = fres.text; originUsed = dom; break; }
+          }
         }
-      } catch (e) { console.log('[DoodExtractor] domain loop error', dom, e); }
+      }
+      if (!html) return { streams: [] };
+      doodHtmlCache.set(videoId, { html, ts: Date.now() });
     }
-    if (!html) return { streams: [] };
+    const domains = [DOOD_PRIMARY_HTTP, ...DOOD_FALLBACKS];
     // --- Enhanced pass_md5 extraction with diagnostics (Step 1) ---
     let pass = html.match(/\/pass_md5\/[\w-]+\/[\w-]+/); // broader first capture (full segment)
     let tokenVal: string | null = null;
