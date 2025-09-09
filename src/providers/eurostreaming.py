@@ -233,7 +233,8 @@ async def deltabit(page_url, client):
     Evita ricorsione e blocking sleep: usa loop + asyncio.sleep.
     Ritorna (url|None, filename).
     """
-    max_attempts = 0
+    # Perform exactly one attempt (user request: try DeltaBit first once, then fallback to MixDrop)
+    max_attempts = 1
     attempt = 0
     fname = ''
     # Allow overriding wait via env (seconds)
@@ -835,7 +836,11 @@ async def search_advanced(showname, date, season, episode, MFP, client):
                         continue
                     full_url, name, _host_type = item
                     if full_url:
-                        urls[full_url] = name
+                        # Preserve host type by embedding a sentinel prefix in the stored name so we can recover it later in CLI output.
+                        # Format: "__HT__{host}__::{original_name}". This avoids changing the downstream structure mid-search.
+                        host_tag = f"__HT__{_host_type}__::"
+                        stored_name = name or ''
+                        urls[full_url] = host_tag + stored_name
             if urls:
                 log('search: urls collected', len(urls), 'pass', pass_name)
                 debug['used_match_ratio_seq'] = round(p['ratio_seq'],4)
@@ -913,7 +918,9 @@ async def search_legacy(showname, date, season, episode, MFP, client):
                     continue
                 full_url, name, _host_type = item
                 if full_url:
-                    urls[full_url] = name
+                    host_tag = f"__HT__{_host_type}__::"
+                    stored_name = name or ''
+                    urls[full_url] = host_tag + stored_name
         if urls:
             debug['used_pattern'] = 'primary'
             return urls, None, debug
@@ -1073,16 +1080,23 @@ if __name__ == "__main__":
                 for u, fname in urls.items():
                     if not u:
                         continue
-                    fn = (fname or '')
-                    low = fn.lower()
-                    # Language detection patterns (inspired by MammaMia)
+                    raw_name = (fname or '')
+                    host_type = 'deltabit'
+                    original_name = raw_name
+                    # Recover host type if sentinel present
+                    m_ht = re.match(r'^__HT__(deltabit|mixdrop)__::(.*)$', raw_name, re.IGNORECASE)
+                    if m_ht:
+                        host_type = m_ht.group(1).lower()
+                        original_name = m_ht.group(2)
+                    low = original_name.lower()
                     sub_patterns = [r'\bsub\b', r'subbed', r'subs', r'ita[-_. ]?sub', r'sub[-_. ]?ita']
                     lang = 'ita'
                     for pat in sub_patterns:
                         if re.search(pat, low, re.I):
                             lang = 'sub'
                             break
-                    streams.append({ 'url': u, 'title': fn or None, 'player': 'Deltabit', 'lang': lang, 'match_pct': match_pct })
+                    player_label = 'Deltabit' if host_type == 'deltabit' else 'Mixdrop'
+                    streams.append({ 'url': u, 'title': (original_name or None), 'player': player_label, 'lang': lang, 'match_pct': match_pct })
             out = { 'streams': streams }
             # Attach diagnostics to aid Node integration debugging
             out['diag'] = {
