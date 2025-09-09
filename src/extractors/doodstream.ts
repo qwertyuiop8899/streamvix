@@ -49,8 +49,13 @@ async function fetchText(url: string, referer?: string, cookieJar: string[] = []
 
 function randomToken(len=10){ const chars='abcdefghijklmnopqrstuvwxyz0123456789'; let o=''; for(let i=0;i<len;i++) o+=chars[Math.floor(Math.random()*chars.length)]; return o; }
 
-// Canonical host come in webstreamr (usa dood.to)
+// Canonical host (webstreamr) + fallback mirrors
 const CANONICAL = 'https://dood.to';
+const FALLBACK_MIRRORS = [
+  'https://dood.stream','https://dood.la','https://dood.ws','https://dood.watch','https://d-s.io',
+  'https://dood.pm','https://dood.re','https://dood.sh','https://dood.cx','https://d000d.com',
+  'https://d0000d.com','https://dooodster.com','https://vidply.com','https://all3do.com'
+];
 const PASS_MD5_RE = /\/pass_md5\/[\w-]+\/([\w-]+)/;
 const HOTKEYS_RE = /dsplayer\.hotkeys[^']+'([^']+).+?function\s*makePlay.+?return[^?]+([^"]+)/is;
 
@@ -82,7 +87,7 @@ export class DoodStreamExtractor implements HostExtractor {
     if (!videoId) return { streams: [] };
   const cookieJar: string[] = [];
   const originalOrigin = `${normU.protocol}//${normU.host}`;
-  const hosts = Array.from(new Set([originalOrigin, CANONICAL]));
+  const hosts = Array.from(new Set([originalOrigin, CANONICAL, ...FALLBACK_MIRRORS]));
   let originUsed = originalOrigin;
   let html: string | null = null;
   let pass: RegExpMatchArray | null = null;
@@ -114,6 +119,13 @@ export class DoodStreamExtractor implements HostExtractor {
       const resD = await fetchText(directUrl, host, cookieJar);
       if (resD.setCookie?.length) for (const c of resD.setCookie) cookieJar.push(c.split(';')[0]);
       if (resD.text) { body = resD.text; console.log('[DoodExtractor] recovered via /d/ path host', host); }
+    }
+    if (body) {
+      const isChallenge = /challenges.cloudflare.com|cf-turnstile|Just a moment/i.test(body);
+      if (isChallenge) {
+        console.log('[DoodExtractor] challenge page detected host', host);
+        body = null as any; // force fallback to next host
+      }
     }
     if (body) {
       const m = tryDecodeForPass(body);
