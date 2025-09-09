@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.45](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.44...v1.0.45) (2025-09-09)
+
+
+### Bug Fixes
+
+* AW files ([a7b7b91](https://github.com/qwertyuiop8899/streamvix/commit/a7b7b918b8bf1cbe2625be75fc42c6b0f742fc04))
+
 ## [1.0.44](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.43...v1.0.44) (2025-09-09)
 
 
