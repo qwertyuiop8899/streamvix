@@ -1,7 +1,7 @@
 # Scegli un'immagine Node.js di base
 FROM node:20-slim
 
-ARG CACHE_BUST=233
+ARG CACHE_BUST=23
 RUN echo "Cache bust: $CACHE_BUST"
 
 # Installa python3, pip e dipendenze per compilazione
@@ -33,7 +33,7 @@ RUN chown -R node:node /usr/src/app
 USER node
 
 # Pulisci cache precedenti e installa dipendenze
-ARG BUILD_CACHE_BUST=233
+ARG BUILD_CACHE_BUST=23
 RUN echo "Build cache bust: $BUILD_CACHE_BUST"
 
 RUN rm -rf node_modules .pnpm-store dist 2>/dev/null || true
@@ -52,3 +52,4 @@ RUN chown node:node /start
 USER node
 
 ENTRYPOINT ["node", "/start"]
+
