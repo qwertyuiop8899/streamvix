@@ -6,7 +6,7 @@ import { HostExtractor, ExtractResult, ExtractorContext, normalizeUrl } from './
 import type { StreamForStremio } from '../types/animeunity';
 // NOTE: Unlike Mixdrop we DO NOT wrap Doodstream with MediaFlow proxy to match webstreamr behavior.
 // NOTE thanks to webstreamr for the logic
-interface FetchResult { text: string | null; setCookie?: string[] }
+interface FetchResult { text: string | null; setCookie?: string[]; status?: number; location?: string | null }
 async function fetchText(url: string, referer?: string, cookieJar: string[] = [], extraHeaders: Record<string,string> = {}): Promise<FetchResult> {
   try {
     const headers: any = {
@@ -18,6 +18,7 @@ async function fetchText(url: string, referer?: string, cookieJar: string[] = []
       'Upgrade-Insecure-Requests':'1',
       'DNT':'1',
       'Connection':'keep-alive',
+  'Accept-Encoding':'gzip, deflate, br',
       ...extraHeaders
     };
     if (cookieJar.length) headers['Cookie'] = cookieJar.join('; ');
@@ -40,10 +41,10 @@ async function fetchText(url: string, referer?: string, cookieJar: string[] = []
         return fetchText(new URL(loc, url).toString(), referer, jar, extraHeaders);
       }
     }
-    if(!r.ok) return { text: null, setCookie: allCookies };
+    if(!r.ok) return { text: null, setCookie: allCookies, status: r.status, location: r.headers.get('location') };
     const txt = await r.text();
-    return { text: txt, setCookie: allCookies };
-  } catch { return { text: null }; }
+    return { text: txt, setCookie: allCookies, status: r.status };
+  } catch { return { text: null, status: -1 }; }
 }
 
 function randomToken(len=10){ const chars='abcdefghijklmnopqrstuvwxyz0123456789'; let o=''; for(let i=0;i<len;i++) o+=chars[Math.floor(Math.random()*chars.length)]; return o; }
@@ -64,8 +65,32 @@ export class DoodStreamExtractor implements HostExtractor {
   const embedUrl = `${originUsed}/e/${videoId}`;
   const res = await fetchText(embedUrl, originUsed, cookieJar);
   if (res.setCookie?.length) for (const c of res.setCookie) cookieJar.push(c.split(';')[0]);
-  const html = res.text;
-  if (!html) { console.log('[DoodExtractor] empty embed html'); return { streams: [] }; }
+  let html = res.text;
+  if (!html) {
+    console.log('[DoodExtractor] empty embed html status', res.status, 'loc', res.location || '');
+    // Fallback A: provare HTTP (alcuni mirror rispondono diverso)
+    if (embedUrl.startsWith('https://')) {
+      const httpUrl = embedUrl.replace('https://','http://');
+      const resHttp = await fetchText(httpUrl, CANONICAL, cookieJar, { 'Upgrade-Insecure-Requests':'1' });
+      if (resHttp.setCookie?.length) for (const c of resHttp.setCookie) cookieJar.push(c.split(';')[0]);
+      if (resHttp.text) { html = resHttp.text; console.log('[DoodExtractor] recovered via http'); }
+    }
+  }
+  if (!html) {
+    // Fallback B: warm-up homepage per cookie e riprovare
+    const home = await fetchText(CANONICAL+'/', CANONICAL, cookieJar);
+    if (home.setCookie?.length) for (const c of home.setCookie) cookieJar.push(c.split(';')[0]);
+    const res2 = await fetchText(embedUrl, CANONICAL, cookieJar);
+    if (res2.text) { html = res2.text; console.log('[DoodExtractor] recovered after homepage warmup'); }
+  }
+  if (!html) {
+    // Fallback C: path /d/
+    const directUrl = `${originUsed}/d/${videoId}`;
+    const resD = await fetchText(directUrl, originUsed, cookieJar);
+    if (resD.setCookie?.length) for (const c of resD.setCookie) cookieJar.push(c.split(';')[0]);
+    if (resD.text) { html = resD.text; console.log('[DoodExtractor] recovered via /d/ path'); }
+  }
+  if (!html) { console.log('[DoodExtractor] still empty after fallbacks'); return { streams: [] }; }
     const pass = html.match(PASS_MD5_RE);
   if (!pass) { console.log('[DoodExtractor] pass_md5 not found'); return { streams: [] }; }
     const token = pass[1];
