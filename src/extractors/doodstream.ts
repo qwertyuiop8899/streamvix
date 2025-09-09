@@ -124,7 +124,34 @@ export class DoodStreamExtractor implements HostExtractor {
       const isChallenge = /challenges.cloudflare.com|cf-turnstile|Just a moment/i.test(body);
       if (isChallenge) {
         console.log('[DoodExtractor] challenge page detected host', host);
-        body = null as any; // force fallback to next host
+        // Attempt meta-refresh or JS redirect parsing, then wait ~3.5s and retry once before abandoning this host.
+        let retryUrl: string | null = null;
+        // meta refresh
+        const meta = body.match(/<meta[^>]+http-equiv=["']refresh["'][^>]+content=["']\d+;url=([^"']+)/i);
+        if (meta) {
+          retryUrl = new URL(meta[1], host).toString();
+          console.log('[DoodExtractor] meta refresh found ->', retryUrl);
+        }
+        // simple location.href or window.location assignment
+        if (!retryUrl) {
+          const jsLoc = body.match(/(?:location\.href|window\.location)\s*=\s*['"]([^'"]+)['"]/i);
+          if (jsLoc) {
+            retryUrl = new URL(jsLoc[1], host).toString();
+            console.log('[DoodExtractor] js redirect found ->', retryUrl);
+          }
+        }
+        // Wait logic (fixed 3500ms) – emulate human wait for challenge; avoid blocking event loop elsewhere by simple delay
+        await new Promise(r=>setTimeout(r,3500));
+        const secondTarget = retryUrl || embedUrl;
+        console.log('[DoodExtractor] re-fetch after wait', secondTarget);
+        const retryRes = await fetchText(secondTarget, host, cookieJar);
+        if (retryRes.setCookie?.length) for (const c of retryRes.setCookie) cookieJar.push(c.split(';')[0]);
+        if (retryRes.text && !/challenges.cloudflare.com|cf-turnstile|Just a moment/i.test(retryRes.text)) {
+          body = retryRes.text; // treat as solved
+          console.log('[DoodExtractor] challenge cleared after wait host', host);
+        } else {
+          body = null as any; // still challenge -> next host
+        }
       }
     }
     if (body) {
