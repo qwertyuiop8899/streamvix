@@ -10,7 +10,7 @@ import { extractFromUrl } from '../extractors';
 // Removed showSizeInfo (always include size/res with ruler icon when available)
 export interface GuardaSerieConfig { enabled: boolean; tmdbApiKey?: string; baseUrl?: string; mfpUrl?: string; mfpPassword?: string; }
 interface GSSearchResult { id: string; slug: string; title: string };
-interface GSEpisode { number: number; url: string; embeds?: string[] };
+interface GSEpisode { season: number; number: number; url: string; embeds?: string[] };
 
 export class GuardaSerieProvider {
   private base: string;
@@ -101,13 +101,22 @@ export class GuardaSerieProvider {
     }
 
     const eps = await this.fetchEpisodes(picked);
-  console.log('[GS][core] episodes found', eps.length);
+    console.log('[GS][core] episodes found', eps.length);
     if (!eps.length) return { streams: [] };
-    const target = this.selectEpisode(eps, episode);
-  console.log('[GS][core] target episode', target);
+    // If a specific season was requested, verify it exists; otherwise return none (avoid mapping to another season)
+    if (season != null) {
+      const seasonExists = eps.some(e => e.season === season);
+      if (!seasonExists) {
+        console.log('[GS][core] requested season missing -> no streams', season);
+        return { streams: [] };
+      }
+    }
+    const target = this.selectEpisode(eps, season, episode);
+    console.log('[GS][core] target episode', target);
     if (!target) return { streams: [] };
-
-    return { streams: await this.fetchEpisodeStreams(picked, target, season || 1, episode || target.number) };
+    const effSeason = season ?? target.season;
+    const effEpisode = episode ?? target.number;
+    return { streams: await this.fetchEpisodeStreams(picked, target, effSeason, effEpisode) };
   }
 
   private async resolveTitle(kind: 'imdb' | 'tmdb', id: string, isMovie: boolean): Promise<string> {
@@ -302,14 +311,14 @@ export class GuardaSerieProvider {
     const html = await this.get(seriesUrl);
     console.log('[GS][fetchEpisodes] url', seriesUrl, 'len', html ? html.length : 0);
     if (!html) return [];
-    const eps: GSEpisode[] = [];
+  const eps: GSEpisode[] = [];
     // 1. Old pattern (data-episode / data-url) support kept for backwards compatibility
     const legacyRx = /data-episode=\"(\d+)\"[^>]*data-url=\"([^\"]+)\"/gi;
     let lm: RegExpExecArray | null; let legacyCount = 0;
     while ((lm = legacyRx.exec(html)) && legacyCount < 600) {
       legacyCount++;
       const n = parseInt(lm[1]);
-      if (!isNaN(n)) eps.push({ number: n, url: lm[2] });
+      if (!isNaN(n)) eps.push({ season: 1, number: n, url: lm[2] });
     }
     if (eps.length) {
       console.log('[GS][fetchEpisodes] legacy parsed', eps.length);
@@ -317,13 +326,15 @@ export class GuardaSerieProvider {
     }
     // 2. New pattern: anchors with id="serie-<season>_<ep>" and data-link plus inline mirrors
     // We'll parse each <li> containing that anchor and collect all data-link values in its mirrors div.
-    const liBlockRe = /<li[^>]*>([\s\S]*?<a[^>]+id=\"serie-(\d+)_(\d+)\"[\s\S]*?)<\/li>/gi;
+  const liBlockRe = /<li[^>]*>([\s\S]*?<a[^>]+id=\"serie-(\d+)_(\d+)\"[\s\S]*?)<\/li>/gi;
     let m: RegExpExecArray | null; let count = 0;
     while ((m = liBlockRe.exec(html)) && count < 800) {
       count++;
       const block = m[1];
-      const epNumStr = m[3];
+  const seasonStr = m[2];
+  const epNumStr = m[3];
       const epNum = parseInt(epNumStr);
+  const seasonNum = parseInt(seasonStr);
       if (isNaN(epNum)) continue;
       // main anchor data-link
       const mainLinkMatch = block.match(/id=\"serie-\d+_\d+\"[^>]*data-link=\"([^\"]+)\"/i);
@@ -334,16 +345,22 @@ export class GuardaSerieProvider {
       // mirrors inside this block
       for (const mm of block.matchAll(/data-link=\"([^\"]+)\"/g)) { let u = mm[1]; if (u.startsWith('//')) u='https:'+u; links.add(u); }
       if (!links.size) continue;
-      eps.push({ number: epNum, url: seriesUrl, embeds: Array.from(links).filter(l=>/supervideo|dropload|mixdrop|dood/i.test(l)) });
+  eps.push({ season: isNaN(seasonNum)? 1 : seasonNum, number: epNum, url: seriesUrl, embeds: Array.from(links).filter(l=>/supervideo|dropload|mixdrop|dood/i.test(l)) });
       if (eps.length > 500) break;
     }
     console.log('[GS][fetchEpisodes] new-pattern parsed', eps.length);
     return eps.sort((a,b)=>a.number-b.number);
   }
 
-  private selectEpisode(eps: GSEpisode[], wanted: number | null): GSEpisode | null {
-    if (wanted == null) return eps[0] || null;
-    return eps.find(e => e.number === wanted) || null;
+  private selectEpisode(eps: GSEpisode[], seasonWanted: number | null, episodeWanted: number | null): GSEpisode | null {
+    if (seasonWanted != null) {
+      const seasonEpisodes = eps.filter(e => e.season === seasonWanted);
+      if (!seasonEpisodes.length) return null;
+      if (episodeWanted == null) return seasonEpisodes.sort((a,b)=>a.number-b.number)[0] || null;
+      return seasonEpisodes.find(e => e.number === episodeWanted) || null;
+    }
+    if (episodeWanted == null) return eps[0] || null;
+    return eps.find(e => e.number === episodeWanted) || null;
   }
 
   private async fetchMovieStreams(r: GSSearchResult): Promise<StreamForStremio[]> {
