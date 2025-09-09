@@ -52,6 +52,26 @@ function randomToken(len=10){ const chars='abcdefghijklmnopqrstuvwxyz0123456789'
 // Canonical host come in webstreamr (usa dood.to)
 const CANONICAL = 'https://dood.to';
 const PASS_MD5_RE = /\/pass_md5\/[\w-]+\/([\w-]+)/;
+const HOTKEYS_RE = /dsplayer\.hotkeys[^']+'([^']+).+?function\s*makePlay.+?return[^?]+([^"]+)/is;
+
+function tryDecodeForPass(html: string): RegExpMatchArray | null {
+  // direct
+  let m = html.match(PASS_MD5_RE);
+  if (m) return m;
+  // unescape common \x2f sequences
+  const replaced = html.replace(/\\x2f/g,'/');
+  if (replaced !== html) {
+    m = replaced.match(PASS_MD5_RE);
+    if (m) return m;
+  }
+  // unicode escapes \u002f etc
+  const unicode = replaced.replace(/\\u002f/g,'/');
+  if (unicode !== replaced) {
+    m = unicode.match(PASS_MD5_RE);
+    if (m) return m;
+  }
+  return null;
+}
 
 export class DoodStreamExtractor implements HostExtractor {
   id='doodstream';
@@ -96,17 +116,55 @@ export class DoodStreamExtractor implements HostExtractor {
       if (resD.text) { body = resD.text; console.log('[DoodExtractor] recovered via /d/ path host', host); }
     }
     if (body) {
-      const m = body.match(PASS_MD5_RE);
+      const m = tryDecodeForPass(body);
       if (m) { html = body; pass = m; originUsed = host; break; }
-      // keep best body for debug if none have pass
-      if (!html) html = body;
+      if (!html) html = body; // store first non-empty attempt
     } else {
       console.log('[DoodExtractor] still empty for host', host);
     }
   }
 
   if (!html) { console.log('[DoodExtractor] all hosts failed to fetch html'); return { streams: [] }; }
-  if (!pass) { console.log('[DoodExtractor] pass_md5 not found after host iterations'); return { streams: [] }; }
+  if (!pass) {
+    // Attempt hotkeys fallback only if we captured some html
+    if (html) {
+      const hk = html.match(HOTKEYS_RE);
+      if (hk) {
+        try {
+          const pathPart = hk[1];
+          const tokenPart = hk[2];
+          const altPlayUrl = new URL(pathPart, originUsed).toString();
+          console.log('[DoodExtractor] hotkeys attempt', altPlayUrl);
+          const altRes = await fetchText(altPlayUrl, originUsed, cookieJar, { 'Accept':'*/*' });
+          if (altRes.text) {
+            // If contains cloudflarestorage -> direct; otherwise synthesize like legacy
+            if (altRes.text.includes('cloudflarestorage.')) {
+              const tMatch = html.match(/<title>([^<]+)<\/title>/i); let baseTitle = tMatch? tMatch[1]: 'Doodstream';
+              baseTitle = baseTitle.replace(/ - DoodStream/i,'').trim();
+              if (ctx.titleHint) baseTitle = ctx.titleHint;
+              const mp4 = altRes.text.trim();
+              console.log('[DoodExtractor] hotkeys direct mp4', mp4.slice(0,120));
+              const stream: StreamForStremio = { title: baseTitle, url: mp4, behaviorHints:{ notWebReady:true, referer: originUsed } } as StreamForStremio;
+              return { streams: [stream] };
+            } else {
+              const decoded = altRes.text + randomToken(10);
+              const mp4 = decoded + tokenPart + Date.now();
+              const tMatch = html.match(/<title>([^<]+)<\/title>/i); let baseTitle = tMatch? tMatch[1]: 'Doodstream';
+              baseTitle = baseTitle.replace(/ - DoodStream/i,'').trim();
+              if (ctx.titleHint) baseTitle = ctx.titleHint;
+              console.log('[DoodExtractor] hotkeys synthesized mp4', mp4.slice(0,120));
+              const stream: StreamForStremio = { title: baseTitle, url: mp4, behaviorHints:{ notWebReady:true, referer: originUsed } } as StreamForStremio;
+              return { streams: [stream] };
+            }
+          }
+        } catch (e) { console.log('[DoodExtractor] hotkeys fallback error',(e as Error).message); }
+      }
+      // dump longer snippet for debugging (capped)
+      console.log('[DoodExtractor][debug] first 400 chars:', html.slice(0,400).replace(/\n+/g,' '));
+    }
+    console.log('[DoodExtractor] pass_md5 not found after host iterations');
+    return { streams: [] };
+  }
 
   const token = pass[1];
   let passUrl = new URL(pass[0], originUsed).toString();
