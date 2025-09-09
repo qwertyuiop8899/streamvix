@@ -6,7 +6,7 @@ import { HostExtractor, ExtractResult, ExtractorContext, normalizeUrl } from './
 import type { StreamForStremio } from '../types/animeunity';
 // NOTE: Unlike Mixdrop we DO NOT wrap Doodstream with MediaFlow proxy to match webstreamr behavior.
 // NOTE thanks to webstreamr for the logic
-interface FetchResult { text: string | null; setCookie?: string[]; status?: number; location?: string | null }
+interface FetchResult { text: string | null; setCookie?: string[]; status?: number; location?: string | null; error?: string }
 async function fetchText(url: string, referer?: string, cookieJar: string[] = [], extraHeaders: Record<string,string> = {}): Promise<FetchResult> {
   try {
     const headers: any = {
@@ -44,7 +44,7 @@ async function fetchText(url: string, referer?: string, cookieJar: string[] = []
     if(!r.ok) return { text: null, setCookie: allCookies, status: r.status, location: r.headers.get('location') };
     const txt = await r.text();
     return { text: txt, setCookie: allCookies, status: r.status };
-  } catch { return { text: null, status: -1 }; }
+  } catch (e: any) { return { text: null, status: -1, error: e?.message }; }
 }
 
 function randomToken(len=10){ const chars='abcdefghijklmnopqrstuvwxyz0123456789'; let o=''; for(let i=0;i<len;i++) o+=chars[Math.floor(Math.random()*chars.length)]; return o; }
@@ -61,40 +61,55 @@ export class DoodStreamExtractor implements HostExtractor {
     const videoId = normU.pathname.split('/').pop();
     if (!videoId) return { streams: [] };
   const cookieJar: string[] = [];
-  const originUsed = CANONICAL;
-  const embedUrl = `${originUsed}/e/${videoId}`;
-  const res = await fetchText(embedUrl, originUsed, cookieJar);
-  if (res.setCookie?.length) for (const c of res.setCookie) cookieJar.push(c.split(';')[0]);
-  let html = res.text;
-  if (!html) {
-    console.log('[DoodExtractor] empty embed html status', res.status, 'loc', res.location || '');
-    // Fallback A: provare HTTP (alcuni mirror rispondono diverso)
-    if (embedUrl.startsWith('https://')) {
+  const originalOrigin = `${normU.protocol}//${normU.host}`;
+  const hosts = Array.from(new Set([originalOrigin, CANONICAL]));
+  let originUsed = originalOrigin;
+  let html: string | null = null;
+  let pass: RegExpMatchArray | null = null;
+
+  for (const host of hosts) {
+    const embedUrl = `${host}/e/${videoId}`;
+    console.log('[DoodExtractor] try host', host, 'embed');
+    const res = await fetchText(embedUrl, host, cookieJar);
+    if (res.setCookie?.length) for (const c of res.setCookie) cookieJar.push(c.split(';')[0]);
+    let body = res.text;
+    if (!body && embedUrl.startsWith('https://')) {
+      // HTTP downgrade attempt if network error
       const httpUrl = embedUrl.replace('https://','http://');
-      const resHttp = await fetchText(httpUrl, CANONICAL, cookieJar, { 'Upgrade-Insecure-Requests':'1' });
+      const resHttp = await fetchText(httpUrl, host, cookieJar);
       if (resHttp.setCookie?.length) for (const c of resHttp.setCookie) cookieJar.push(c.split(';')[0]);
-      if (resHttp.text) { html = resHttp.text; console.log('[DoodExtractor] recovered via http'); }
+      if (resHttp.text) { body = resHttp.text; console.log('[DoodExtractor] recovered via http for host', host); }
+      else if (res.error) { console.log('[DoodExtractor] http downgrade still empty err', resHttp.error); }
+    }
+    if (!body) {
+      // Warm homepage
+      const home = await fetchText(host + '/', host, cookieJar);
+      if (home.setCookie?.length) for (const c of home.setCookie) cookieJar.push(c.split(';')[0]);
+      const res2 = await fetchText(embedUrl, host, cookieJar);
+      if (res2.text) { body = res2.text; console.log('[DoodExtractor] recovered after homepage warmup host', host); }
+    }
+    if (!body) {
+      // /d/ path
+      const directUrl = `${host}/d/${videoId}`;
+      const resD = await fetchText(directUrl, host, cookieJar);
+      if (resD.setCookie?.length) for (const c of resD.setCookie) cookieJar.push(c.split(';')[0]);
+      if (resD.text) { body = resD.text; console.log('[DoodExtractor] recovered via /d/ path host', host); }
+    }
+    if (body) {
+      const m = body.match(PASS_MD5_RE);
+      if (m) { html = body; pass = m; originUsed = host; break; }
+      // keep best body for debug if none have pass
+      if (!html) html = body;
+    } else {
+      console.log('[DoodExtractor] still empty for host', host);
     }
   }
-  if (!html) {
-    // Fallback B: warm-up homepage per cookie e riprovare
-    const home = await fetchText(CANONICAL+'/', CANONICAL, cookieJar);
-    if (home.setCookie?.length) for (const c of home.setCookie) cookieJar.push(c.split(';')[0]);
-    const res2 = await fetchText(embedUrl, CANONICAL, cookieJar);
-    if (res2.text) { html = res2.text; console.log('[DoodExtractor] recovered after homepage warmup'); }
-  }
-  if (!html) {
-    // Fallback C: path /d/
-    const directUrl = `${originUsed}/d/${videoId}`;
-    const resD = await fetchText(directUrl, originUsed, cookieJar);
-    if (resD.setCookie?.length) for (const c of resD.setCookie) cookieJar.push(c.split(';')[0]);
-    if (resD.text) { html = resD.text; console.log('[DoodExtractor] recovered via /d/ path'); }
-  }
-  if (!html) { console.log('[DoodExtractor] still empty after fallbacks'); return { streams: [] }; }
-    const pass = html.match(PASS_MD5_RE);
-  if (!pass) { console.log('[DoodExtractor] pass_md5 not found'); return { streams: [] }; }
-    const token = pass[1];
-    let passUrl = new URL(pass[0], originUsed).toString();
+
+  if (!html) { console.log('[DoodExtractor] all hosts failed to fetch html'); return { streams: [] }; }
+  if (!pass) { console.log('[DoodExtractor] pass_md5 not found after host iterations'); return { streams: [] }; }
+
+  const token = pass[1];
+  let passUrl = new URL(pass[0], originUsed).toString();
     const passHeaders = { 'Accept':'*/*', 'X-Requested-With':'XMLHttpRequest' };
     const passRes = await fetchText(passUrl, originUsed, cookieJar, passHeaders);
     if (passRes.setCookie?.length) for (const c of passRes.setCookie) cookieJar.push(c.split(';')[0]);
