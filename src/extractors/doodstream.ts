@@ -136,18 +136,61 @@ export class DoodStreamExtractor implements HostExtractor {
     const passHeaders = { 'Accept':'*/*', 'X-Requested-With':'XMLHttpRequest' };
     const passRes = await fetchText(passUrl, originUsed, cookieJar, passHeaders);
     if (passRes.setCookie?.length) for (const c of passRes.setCookie) cookieJar.push(c.split(';')[0]);
-    let baseUrl = passRes.text;
-    console.log('[DoodExtractor] passUrl primary', passUrl, 'len', baseUrl?.length, 'cookies', cookieJar.length);
+    let baseUrl = (passRes.text || '').trim();
+    console.log('[DoodExtractor] passUrl primary', passUrl, 'len', baseUrl.length, 'cookies', cookieJar.length);
+
+    // Retry same pass endpoint a couple of times with small delay if empty (some mirrors lazy-generate link)
     if (!baseUrl) {
-      // replicate fallback chain for pass endpoint using alternative domains (mirrors sometimes differ)
+      for (let attempt=1; attempt<=2 && !baseUrl; attempt++) {
+        await new Promise(r=>setTimeout(r, 200 * attempt));
+        const retry = await fetchText(passUrl, originUsed, cookieJar, passHeaders);
+        if (retry.setCookie?.length) for (const c of retry.setCookie) cookieJar.push(c.split(';')[0]);
+        baseUrl = (retry.text || '').trim();
+        console.log('[DoodExtractor] retry pass attempt', attempt, 'len', baseUrl.length);
+      }
+    }
+
+    // Fallback: try alternative domains for the pass endpoint
+    if (!baseUrl) {
       for (const altDom of domains) {
         passUrl = new URL(pass[0], altDom).toString();
         const altRes = await fetchText(passUrl, altDom, cookieJar, passHeaders);
         if (altRes.setCookie?.length) for (const c of altRes.setCookie) cookieJar.push(c.split(';')[0]);
-        if (altRes.text) { baseUrl = altRes.text; originUsed = altDom; break; }
+        if (altRes.text) { baseUrl = (altRes.text || '').trim(); originUsed = altDom; console.log('[DoodExtractor] pass fallback domain success', altDom); break; }
       }
     }
-    if (!baseUrl) { console.log('[DoodExtractor] baseUrl fetch empty after pass fallbacks'); return { streams: [] }; }
+
+    // Ultimate fallback: parse hotkeys/makePlay JS sequence (pattern from legacy resolver)
+    if (!baseUrl) {
+      const hotkeysMatch = html.match(/dsplayer\.hotkeys[^']+'([^']+).+?function\s*makePlay.+?return[^?]+([^"]+)/is);
+      if (hotkeysMatch) {
+        try {
+          const pathPart = hotkeysMatch[1];
+          const tokenPart = hotkeysMatch[2];
+          const altPlayUrl = new URL(pathPart, originUsed).toString();
+          console.log('[DoodExtractor] hotkeys fallback requesting', altPlayUrl);
+          const altPlayRes = await fetchText(altPlayUrl, originUsed, cookieJar, passHeaders);
+          let altBody = (altPlayRes.text || '').trim();
+          if (altBody) {
+            if (altBody.includes('cloudflarestorage.')) {
+              baseUrl = altBody; // direct
+              console.log('[DoodExtractor] hotkeys fallback produced cloudflare direct');
+            } else {
+              // replicate dood_decode (add 10 random chars) then append tokenPart and timestamp
+              const decoded = altBody + randomToken(10);
+              baseUrl = decoded + tokenPart + Date.now();
+              console.log('[DoodExtractor] hotkeys fallback constructed baseUrl len', baseUrl.length);
+            }
+          }
+        } catch (e) {
+          console.log('[DoodExtractor] hotkeys fallback error', (e as Error).message);
+        }
+      } else {
+        console.log('[DoodExtractor] hotkeys pattern not found');
+      }
+    }
+
+    if (!baseUrl) { console.log('[DoodExtractor] baseUrl fetch empty after all fallbacks'); return { streams: [] }; }
     const tMatch = html.match(/<title>([^<]+)<\/title>/i); let baseTitle = tMatch? tMatch[1]: 'Doodstream';
     baseTitle = baseTitle.replace(/ - DoodStream/i,'').trim();
     // Prefer external localized title if provided
