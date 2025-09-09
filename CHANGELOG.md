@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.43](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.42...v1.0.43) (2025-09-09)
+
+
+### Bug Fixes
+
+* es with 0 retry ([fbb526a](https://github.com/qwertyuiop8899/streamvix/commit/fbb526a4bab605a4459f2eab136a0c7d163129e5))
+* GS and ES fix ([55dd33a](https://github.com/qwertyuiop8899/streamvix/commit/55dd33aa7ced7dcc21bbe2c0394394a834070bdf))
+
 ## [1.0.42](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.41...v1.0.42) (2025-09-08)
 
 
