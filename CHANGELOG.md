@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.44](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.43...v1.0.44) (2025-09-09)
+
+
+### Bug Fixes
+
+* aw sub e ita ([6880b8c](https://github.com/qwertyuiop8899/streamvix/commit/6880b8c33873a6f5af05d9a7c2cd444a365144d6))
+
 ## [1.0.43](https://github.com/qwertyuiop8899/streamvix/compare/v1.0.42...v1.0.43) (2025-09-09)
 
 
