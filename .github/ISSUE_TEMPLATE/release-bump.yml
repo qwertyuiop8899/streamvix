@@ -1,0 +1,30 @@
+name: Release bump
+description: Inserisci il numero versione (X.Y.Z) per pubblicare una nuova release
+title: "release: X.Y.Z"
+labels: [release]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Compila la versione semantic (maior.minor.patch) che vuoi impostare.
+        Il workflow aggiornerà automaticamente:
+        - package.json
+        - package-lock.json
+        - src/addon.ts (baseManifest.version)
+        e farà commit con message: `fix: bump version`.
+  - type: input
+    id: version
+    attributes:
+      label: Versione
+      description: Inserisci la nuova versione (formato X.Y.Z)
+      placeholder: 6.7.23
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Conferma
+      description: Conferma che la versione è corretta.
+      options:
+        - label: Ho verificato che la versione sia corretta e non esiste già su main
+          required: true
