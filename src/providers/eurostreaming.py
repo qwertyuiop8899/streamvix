@@ -430,34 +430,36 @@ async def resolve_clicka_to_host(href_value, client):
     return href
 
 async def scraping_links(atag, MFP, client):
-    """Raccoglie TUTTI i DeltaBit (priorità). Se nessuno funziona, fallback MixDrop.
+    """Raccoglie TUTTI i link DeltaBit e MixDrop (entrambi).
 
     Return:
-      list[ (url, name, hostType) ]  hostType in {'deltabit','mixdrop'}
-      oppure lista vuota se nulla.
-    (Compat: i chiamanti gestiscono ancora tuple singole? Aggiornati più sotto per lista.)
+        list[ (url, name, hostType) ]  hostType in {'deltabit','mixdrop'}.
+        Mantiene l'ordine: prima tutti i DeltaBit risolti nell'ordine trovato, poi i MixDrop.
     """
     log('scraping_links: in', ('...' if len(atag)>120 else atag))
     soup = BeautifulSoup(atag, _PARSER, parse_only=SoupStrainer('a'))
     if not soup:
         return []
+    # Store tuples (href, anchor_text_original)
     delta_raw = []
     mix_raw = []
     for a in soup:
-        text = (a.get_text(strip=True) or '').lower()
+        original_text = a.get_text(strip=True) or ''
+        text = original_text.lower()
         href = a.get('href')
         if not href:
             continue
         combo = f"{text} {href.lower()}"
         if 'deltabit' in combo:
-            delta_raw.append(href)
+            delta_raw.append((href, original_text))
         elif 'mixdrop' in combo:
-            mix_raw.append(href)
+            mix_raw.append((href, original_text))
     results = []
-    # Prova ogni DeltaBit
+    # DeltaBit first (collect all)
     seen = set()
-    for raw in delta_raw:
-        if raw in seen: continue
+    for raw, anchor_text in delta_raw:
+        if raw in seen:
+            continue
         seen.add(raw)
         try:
             resolved = await resolve_clicka_to_host(raw, client)
@@ -465,25 +467,31 @@ async def scraping_links(atag, MFP, client):
                 continue
             url, name = await deltabit(resolved, client)
             if url:
-                results.append((url, name, 'deltabit'))
+                # Prefer extracted filename (name) else fallback to anchor text
+                results.append((url, name or anchor_text, 'deltabit'))
         except Exception as e:
             log('scraping_links: delta error', e)
-    if results:
-        log('scraping_links: collected deltabit count', len(results))
-        return results
-    # Nessun DeltaBit valido, prova MixDrop (solo primo per evitare duplicati inutili)
-    if mix_raw:
+    # MixDrop (collect all distinct)
+    seen_mix = set()
+    for raw, anchor_text in mix_raw:
+        if raw in seen_mix:
+            continue
+        seen_mix.add(raw)
         try:
-            resolved = await resolve_clicka_to_host(mix_raw[0], client)
-            if resolved:
-                url, name = await mixdrop(resolved, MFP, client)
-                if url:
-                    log('scraping_links: fallback mixdrop')
-                    return [(url, name, 'mixdrop')]
+            resolved = await resolve_clicka_to_host(raw, client)
+            if not resolved:
+                continue
+            url, name = await mixdrop(resolved, MFP, client)
+            if url:
+                # Mixdrop returns (url, '') so use anchor text if name empty
+                results.append((url, name or anchor_text, 'mixdrop'))
         except Exception as e:
             log('scraping_links: mixdrop error', e)
-    log('scraping_links: no supported hosts found')
-    return []
+    if results:
+        log('scraping_links: collected hosts', len(results))
+    else:
+        log('scraping_links: no supported hosts found')
+    return results
 
 STOPWORDS = {
     'the','la','le','lo','gli','i','il','di','da','a','in','of','and','or','serie','series','season','show','tv','la','una','un','uno','del','della','degli','delle','de','el',
@@ -830,6 +838,19 @@ async def search_advanced(showname, date, season, episode, MFP, client):
                     part = part.split(' – ', 1)[1]
                 elif ' - ' in part:
                     part = part.split(' - ', 1)[1]
+                # Determina se la riga appartiene a una sezione SUB consultando l'ultimo spoiler-title precedente
+                idx_line = description.find(episode_details)
+                sub_section_flag = False
+                if idx_line != -1:
+                    pre = description[:idx_line]
+                    titles = re.findall(r'<div class="su-spoiler-title"[^>]*>(.*?)</div>', pre, re.IGNORECASE|re.DOTALL)
+                    if titles:
+                        last_title = titles[-1]
+                        last_title_txt = html.unescape(re.sub(r'<[^>]+>', ' ', last_title)).lower()
+                        norm_title = re.sub(r'[^a-z0-9]+', ' ', last_title_txt)
+                        tokens_title = set(norm_title.split())
+                        if 'sub' in tokens_title:  # 'sub', 'sub', 'sub ita', '(SUB ITA)' ecc.
+                            sub_section_flag = True
                 host_list = await scraping_links(part, MFP, client)
                 for item in host_list:
                     if not item or not isinstance(item, tuple):
@@ -840,6 +861,8 @@ async def search_advanced(showname, date, season, episode, MFP, client):
                         # Format: "__HT__{host}__::{original_name}". This avoids changing the downstream structure mid-search.
                         host_tag = f"__HT__{_host_type}__::"
                         stored_name = name or ''
+                        if sub_section_flag and 'sub' not in stored_name.lower():
+                            stored_name = (stored_name + ' SUB ITA').strip()
                         urls[full_url] = host_tag + stored_name
             if urls:
                 log('search: urls collected', len(urls), 'pass', pass_name)
@@ -912,6 +935,19 @@ async def search_legacy(showname, date, season, episode, MFP, client):
             part = ep_details
             if ' – ' in part:
                 part = part.split(' – ', 1)[1]
+            # Per-episode section context detection
+            idx_line = desc.find(ep_details)
+            sub_section_flag = False
+            if idx_line != -1:
+                pre = desc[:idx_line]
+                titles = re.findall(r'<div class="su-spoiler-title"[^>]*>(.*?)</div>', pre, re.IGNORECASE|re.DOTALL)
+                if titles:
+                    last_title = titles[-1]
+                    last_title_txt = html.unescape(re.sub(r'<[^>]+>', ' ', last_title)).lower()
+                    norm_title = re.sub(r'[^a-z0-9]+', ' ', last_title_txt)
+                    tokens_title = set(norm_title.split())
+                    if 'sub' in tokens_title:
+                        sub_section_flag = True
             host_list = await scraping_links(part, MFP, client)
             for item in host_list:
                 if not item or not isinstance(item, tuple):
@@ -920,6 +956,8 @@ async def search_legacy(showname, date, season, episode, MFP, client):
                 if full_url:
                     host_tag = f"__HT__{_host_type}__::"
                     stored_name = name or ''
+                    if sub_section_flag and 'sub' not in stored_name.lower():
+                        stored_name = (stored_name + ' SUB ITA').strip()
                     urls[full_url] = host_tag + stored_name
         if urls:
             debug['used_pattern'] = 'primary'
