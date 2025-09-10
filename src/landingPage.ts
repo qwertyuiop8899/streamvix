@@ -315,6 +315,7 @@ function landingTemplate(manifest: any) {
 						'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
 						'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
 						'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(non sempre funzionante)</span>', invert: false },
+						'cb01Enabled': { title: 'CB01 Mixdrop 🎞️ - 🔓', invert: false },
 							'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false },
 							'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
 							'mediaflowMaster': { title: 'MediaflowProxy', invert: false },
