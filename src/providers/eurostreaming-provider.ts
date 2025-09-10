@@ -82,17 +82,33 @@ export class EurostreamingProvider {
 
   private formatStreams(list: PyResult['streams']): StreamForStremio[] {
     if (!list) return [];
-  // Priority: if any delta(deltabit) URL present, drop mixdrop entries
-  const hasDelta = list.some(s => s.url && /deltabit|\/delta\//i.test(s.url));
-  const filtered = hasDelta ? list.filter(s => s.url && /deltabit|\/delta\//i.test(s.url)) : list;
+  // Mostra sempre entrambi gli host (DeltaBit + MixDrop). Ordina con DeltaBit prima.
+  const ordered = [...list].sort((a,b)=>{
+    const aDelta = a.url && /deltabit|\/delta\//i.test(a.url) ? 1:0;
+    const bDelta = b.url && /deltabit|\/delta\//i.test(b.url) ? 1:0;
+    if (aDelta !== bDelta) return bDelta - aDelta; // DeltaBit first
+    return 0;
+  });
   const out: StreamForStremio[] = [];
-  for (const s of filtered) {
+  const seen = new Set<string>();
+  for (const s of ordered) {
       if (!s.url) continue;
       let line1: string;
       if (s.title) line1 = s.title.split('\n')[0]; else line1 = 'Eurostreaming';
       // Language labeling exactly like MammaMia: ITA uses [ITA], subbed uses [SUB ITA]
-      const lang = (s.lang||'ita').toLowerCase();
-      if (lang === 'sub') {
+      let lang = (s.lang||'ita').toLowerCase();
+      // Extra detection: if not already sub, inspect raw title/URL for subtitle markers
+      if (lang !== 'sub') {
+        const rawLower = (s.title||'').toLowerCase();
+        const urlLower = s.url.toLowerCase();
+        if (/\bsub(?![a-z])|sub[ ._-]?ita|ita[ ._-]?sub|sottotit|subs?\b/.test(rawLower) || /sub/i.test(urlLower)) {
+          lang = 'sub';
+        }
+      }
+      const rawTitleLower = (s.title||'').toLowerCase();
+      const hasSubMarker = /\bsub(?![a-z])|sub[ ._-]?ita|ita[ ._-]?sub|sottotit|subs?\b/.test(rawTitleLower);
+      if (lang === 'sub' || hasSubMarker) {
+        lang = 'sub';
         if (!/\[SUB ITA\]/i.test(line1)) line1 = line1.replace(/\s*\[(SUB )?ITA\]$/i,'').trim()+ ' • [SUB ITA]';
       } else {
         if (!/\[ITA\]/i.test(line1)) line1 = line1.replace(/\s*\[(SUB )?ITA\]$/i,'').trim()+ ' • [ITA]';
@@ -119,9 +135,11 @@ export class EurostreamingProvider {
           playerName = 'Deltabit';
         }
       } catch { /* ignore parse */ }
-      const second = `${langTag} • ${playerName}${pct}`;
+  const second = `${langTag} • ${playerName}${pct}`;
       const title = `${line1}\n${second}`;
-      out.push({ url: finalUrl, title, behaviorHints: { notWebReady: true } });
+  if (seen.has(finalUrl)) continue;
+  seen.add(finalUrl);
+  out.push({ url: finalUrl, title, behaviorHints: { notWebReady: true } });
     }
     return out;
   }
