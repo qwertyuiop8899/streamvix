@@ -1,4 +1,34 @@
 import { HostExtractor, ExtractResult, ExtractorContext, normalizeUrl } from './base';
+// Proxy support
+let proxyIndex = 0;
+function nextProxy() {
+  const raw = (globalThis as any).process?.env?.WEBSHARE_PROXIES as string | undefined; // format: host:port[:user:pass],comma-separated
+  if (!raw) return undefined;
+  const list = raw.split(',').map(s=>s.trim()).filter(Boolean);
+  if (!list.length) return undefined;
+  const entry = list[proxyIndex % list.length];
+  proxyIndex++;
+  const parts = entry.split(':');
+  if (parts.length === 2) return { host: parts[0], port: parts[1] };
+  if (parts.length >= 4) return { host: parts[0], port: parts[1], user: parts[2], pass: parts[3] };
+  return undefined;
+}
+async function proxiedFetch(input: string, init: any, debug: boolean) {
+  const p = nextProxy();
+  if (!p) return fetch(input, init);
+  const url = new URL(input);
+  // Basic HTTP proxy via global fetch is not native; implement manual CONNECT fallback using undici ProxyAgent if available
+  try {
+    const { ProxyAgent } = require('undici');
+    const auth = p.user ? `${p.user}:${p.pass}@` : '';
+    const proxyUrl = `http://${auth}${p.host}:${p.port}`;
+    if (debug) console.log('[Dood][proxy]', proxyUrl);
+    return fetch(input, { ...init, dispatcher: new ProxyAgent(proxyUrl) });
+  } catch (e) {
+    if (debug) console.log('[Dood][proxy-fallback-no-undici]', (e as any)?.message);
+    return fetch(input, init); // fallback direct
+  }
+}
 import type { StreamForStremio } from '../types/animeunity';
 
 // Enhanced DoodStream extractor approximating behavior of external fetcher-based implementation.
@@ -56,7 +86,7 @@ export class DoodStreamExtractor implements HostExtractor {
       const embed = `${base}/e/${videoId}`;
       if (debug) console.log('[Dood] try', embed);
       try {
-        const resp = await fetch(embed, { headers: BASE_HEADERS as any });
+  const resp = await proxiedFetch(embed, { headers: BASE_HEADERS as any }, debug);
         if (!resp.ok) continue;
         const text = await resp.text();
         if (/pass_md5/.test(text)) { html = text; domain = base; break; }
@@ -77,7 +107,7 @@ export class DoodStreamExtractor implements HostExtractor {
     // Resolve base video url
     let baseUrl: string | undefined;
     try {
-      const r2 = await fetch(passUrl, { headers: { ...BASE_HEADERS, 'X-Requested-With':'XMLHttpRequest', 'Referer': domain } as any });
+  const r2 = await proxiedFetch(passUrl, { headers: { ...BASE_HEADERS, 'X-Requested-With':'XMLHttpRequest', 'Referer': domain } as any }, debug);
       if (r2.ok) baseUrl = (await r2.text()).trim();
     } catch {}
     if (!baseUrl) return { streams: [] };
