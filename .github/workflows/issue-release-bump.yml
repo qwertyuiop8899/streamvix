@@ -113,6 +113,22 @@ jobs:
               body: `❌ Bump non valido: ${reason}`
             });
 
+      - name: Normalize issue title
+        if: steps.compare.outputs.valid == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ steps.extract.outputs.version }}';
+            const wanted = `release: ${version}`;
+            if (context.payload.issue.title !== wanted) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                title: wanted
+              });
+            }
+
       - name: Update versions in files
         if: steps.compare.outputs.valid == 'true'
         id: bump_files
@@ -184,6 +200,18 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
               body
+            });
+
+      - name: Close issue
+        if: steps.bump_files.outputs.commit_made == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed'
             });
 
       - name: Fail if bump expected but no commit
