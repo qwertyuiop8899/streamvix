@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import { spawnSync } from 'child_process';
 import * as path from 'path';
 import { KitsuProvider } from './kitsu';
-import { formatMediaFlowUrl } from '../utils/mediaflow';
+// import { formatMediaFlowUrl } from '../utils/mediaflow'; // disabilitato: usiamo URL mp4 diretto
 import { AnimeWorldConfig, AnimeWorldResult, AnimeWorldEpisode, StreamForStremio } from '../types/animeunity';
 import { checkIsAnimeById } from '../utils/animeGate';
 
@@ -293,64 +293,88 @@ export class AnimeWorldProvider {
       const raw: AnimeWorldResult[] = await invokePython(['search','--query', title]);
       if (!raw) return [];
       const normSlugKey = title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-      const ALWAYS_ITA_SLUGS = new Set<string>([
-        'detective-conan.3yRqx'.toLowerCase()
-      ]);
-      const mapped = await Promise.all(raw.map(async r => {
+
+      // Regole richieste:
+      // 1. Se slug contiene pattern sub ita -> SUB ITA
+      // 2. Altrimenti se slug contiene ita -> ITA
+      // 3. Altrimenti (slug "base", nessun marcatore) -> probe HTML UNA VOLTA
+      //    Se page mostra DUB forte -> ITA, else SUB ITA
+      // Evitare probe per slug già marcati.
+
+      const SUB_PAT = /(?:^|[\-_.])sub[-_]?ita(?:$|[\-_.])/i;
+      const ITA_PAT = /(?:^|[\-_.])ita(?:$|[\-_.])/i; // non cattura subita grazie ordine check
+
+      // Colleziona slug che richiedono probe (base slugs)
+      const probeQueue: string[] = [];
+      const baseSlugSet = new Set<string>();
+
+      interface TempRes { baseMatch: boolean; nameRaw: string; slugRaw: string; language_type: 'ORIGINAL' | 'SUB ITA' | 'CR ITA' | 'ITA' | 'NEEDS_PROBE'; }
+      const prelim: TempRes[] = raw.map(r => {
         const nameRaw = r.name || '';
         const slugRaw = r.slug || '';
-        const name = nameRaw.toLowerCase();
-        const slug = slugRaw.toLowerCase();
-        let language_type: 'ORIGINAL' | 'SUB ITA' | 'CR ITA' | 'ITA' = 'ORIGINAL';
-        const nameHasSub = name.includes('subita') || /sub[-_\s]?ita/.test(name);
-        const slugHasSub = slug.includes('subita') || /sub[-_\s]?ita/.test(slug);
-        const isCrIta = /ita[-_]?cr/.test(name) || /ita[-_]?cr/.test(slug) || /cr[-_]?ita/.test(name) || /cr[-_]?ita/.test(slug);
-        const hasIta = /(^|[-_\s])ita($|[-_\s])/i.test(name) || /(^|[-_\s])ita($|[-_\s])/i.test(slug) || name.endsWith('-ita') || slug.endsWith('-ita') || (name.includes('ita') || slug.includes('ita'));
-        const basePart = (slug || name).split('.')[0];
-        const cleaned = basePart.replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-  const baseMatch = cleaned === normSlugKey;
-  const hasDubName = /(^|\b)DUB(\b|$)/i.test(nameRaw.trim());
-        const onlyNameSaysSub = nameHasSub && !slugHasSub;
-        // Decision tree
-        if (slugHasSub) {
+        const slugLower = slugRaw.toLowerCase();
+        let language_type: TempRes['language_type'] = 'ORIGINAL';
+        // 1. Marker nello slug
+        if (SUB_PAT.test(slugLower)) {
           language_type = 'SUB ITA';
-        } else if (isCrIta) {
-          language_type = 'CR ITA';
-        } else if (hasIta) {
+        } else if (ITA_PAT.test(slugLower)) {
           language_type = 'ITA';
-        } else if (hasDubName) {
-          // If the site label already shows DUB (and slug no sub marker), treat as ITA without probe
-          language_type = 'ITA';
-        } else if (onlyNameSaysSub) {
-          // Suspicious: title text has SUB but slug no -> probe
-          console.log('[AnimeWorld][LangMap] onlyNameSaysSub -> probing page for real lang', slugRaw);
-          language_type = await this.inferLanguageFromPlayPage(slugRaw);
-        } else if (baseMatch) {
-          console.log('[AnimeWorld][LangMap] Base slug match (no sub marker) -> probing', slugRaw);
-          language_type = await this.inferLanguageFromPlayPage(slugRaw);
+        } else {
+          // 2. Marker solo nel nome (es. name: "DUB" oppure contiene (ITA))
+          if (/\bDUB\b/i.test(nameRaw) || /\(\s*ITA\s*\)/i.test(nameRaw)) {
+            language_type = 'ITA';
+          } else {
+            // 3. Base slug senza marcatori -> probe HTML (una volta per base)
+            const basePartProbe = slugLower.split('.')[0];
+            const cleanedProbe = basePartProbe.replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+            if (!baseSlugSet.has(cleanedProbe)) {
+              probeQueue.push(slugRaw);
+              baseSlugSet.add(cleanedProbe);
+            }
+            language_type = 'NEEDS_PROBE';
+          }
         }
-        // Brotherhood forced probe if still SUB ITA without slug marker
-        if (language_type === 'SUB ITA' && /fullmetal-alchemist-brotherhood/i.test(slugRaw) && !slugHasSub) {
-          console.log('[AnimeWorld][LangMap] Brotherhood still SUB ITA (no slug marker) -> force re-probe', slugRaw);
-          const forced = await this.inferLanguageFromPlayPage(slugRaw);
-            if (forced === 'ITA') language_type = 'ITA';
-        }
-        if (ALWAYS_ITA_SLUGS.has(slug)) {
-          language_type = 'ITA';
-        }
-        console.log('[AnimeWorld][LangMap][Decision]', {
-          slug: slugRaw,
-          name: nameRaw,
-          baseMatch,
-          nameHasSub,
-          slugHasSub,
-          onlyNameSaysSub,
-          hasIta,
-          isCrIta,
-          final: language_type
-        });
-        return { ...r, language_type };
+        const basePart = slugLower.split('.')[0];
+        const cleaned = basePart.replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+        const baseMatch = cleaned === normSlugKey;
+        return { baseMatch, nameRaw, slugRaw, language_type };
+      });
+
+      // Probe funzione ridotta (solo segnali forti)
+      const probeLang = async (slug: string): Promise<'ITA' | 'SUB ITA'> => {
+        try {
+          const url = `https://www.animeworld.so/play/${slug}`;
+          const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 AWProbe', 'Accept-Language': 'it-IT,it;q=0.9' } });
+          if (!r.ok) return 'SUB ITA';
+          const html = await r.text();
+          // Segnali ITA accettati:
+          // 1. DUB markers (window.animeDub=true, class="...dub...", parole doppiato, etc.)
+          // 2. Presenza di (ITA) nel testo o negli attributi (es. data-jtitle)
+          const strongDub = /window\.animeDub\s*=\s*true/i.test(html) || /class=["'][^"']*\bdub\b[^"']*["']/i.test(html) || /doppiat[oa]/i.test(html);
+          const hasItaParenthetical = /\(\s*ITA\s*\)/i.test(html) || /data-jtitle=\"[^\"]*\(\s*ITA\s*\)/i.test(html);
+          if (strongDub || hasItaParenthetical) return 'ITA';
+          return 'SUB ITA';
+        } catch { return 'SUB ITA'; }
+      };
+
+      // Esegui probe in serie (pochi slug base)
+      for (const slug of probeQueue) {
+        const lang = await probeLang(slug);
+        prelim.filter(p => p.slugRaw === slug && p.language_type === 'NEEDS_PROBE').forEach(p => p.language_type = lang);
+      }
+
+      const mapped = prelim.map(p => ({
+        ...raw.find(r => r.slug === p.slugRaw)!,
+        language_type: p.language_type === 'NEEDS_PROBE' ? 'SUB ITA' : p.language_type
       }));
+
+      mapped.forEach(m => {
+        console.log('[AnimeWorld][LangMap][DecisionSimple]', {
+          slug: m.slug,
+          name: m.name,
+          final: m.language_type
+        });
+      });
       console.log('[AnimeWorld] search versions sample:', mapped.slice(0,12).map(v => `${v.language_type}:${v.slug}`).join(', '));
       return mapped;
     } catch (e) {
@@ -477,13 +501,13 @@ export class AnimeWorldProvider {
     console.warn('[AnimeWorld] Strict base slug filter error (ignored):', e);
   }
   // Prioritize versions (ITA first, then SUB ITA, CR ITA, ORIGINAL) e poi riduci a solo ITA + SUB ITA
-     const order = { 'ITA': 0, 'SUB ITA': 1, 'CR ITA': 2, 'ORIGINAL': 3 } as Record<string, number>;
+     // Nuovo ordinamento: ITA -> SUB ITA -> CR ITA -> ORIGINAL
      versions.sort((a, b) => {
        const rank = (v: any) => {
-         if (v.language_type === 'SUB ITA') return 0;
-         if (v.language_type === 'ITA') return 1;
+         if (v.language_type === 'ITA') return 0;
+         if (v.language_type === 'SUB ITA') return 1;
          if (v.language_type === 'CR ITA') return 2;
-         return 4;
+         return 3;
        };
        return rank(a) - rank(b);
      });
@@ -562,7 +586,7 @@ export class AnimeWorldProvider {
           return null;
         }
       }
-      const mp4 = streamData?.mp4_url;
+  const mp4 = streamData?.mp4_url; // URL diretto dal python scraper
       if (!mp4) return null;
       // Se stiamo cercando un episodio numerato e l'URL punta ad un Movie o Special non coerente, scarta
       if (!isMovie && episodeNumber != null) {
@@ -578,9 +602,10 @@ export class AnimeWorldProvider {
           return null;
         }
       }
-      const mediaFlowUrl = formatMediaFlowUrl(mp4, this.config.mfpUrl, this.config.mfpPassword);
-      if (seen.has(mediaFlowUrl)) return null;
-      seen.add(mediaFlowUrl);
+  // NIENTE MEDIAFLOW: usiamo direttamente l'mp4
+  const finalUrl = mp4;
+  if (seen.has(finalUrl)) return null;
+  seen.add(finalUrl);
       // Pulizia nome: rimuovi marcatori inutili e newline
       let cleanName = v.name.replace(/\r?\n+/g,' ').replace(/\s{2,}/g,' ').trim();
       cleanName = cleanName
@@ -613,7 +638,7 @@ export class AnimeWorldProvider {
   else if (v.language_type === 'CR ITA') langLabel = 'CR';
   let titleStream = `${capitalize(baseName)} ▪ ${langLabel} ▪ S${sNum}`;
       if (episodeNumber) titleStream += `E${episodeNumber}`;
-      return { title: titleStream, url: mediaFlowUrl, behaviorHints: { notWebReady: true } } as StreamForStremio;
+  return { title: titleStream, url: finalUrl } as StreamForStremio;
     } catch (e) {
       console.error('[AnimeWorld] get_stream error', v.slug, e);
       return null;
