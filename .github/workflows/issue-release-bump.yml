@@ -59,6 +59,11 @@ jobs:
           echo "Current version: $CURR"
           echo "current=$CURR" >> $GITHUB_OUTPUT
 
+      - name: Capture HEAD before bump
+        if: steps.extract.outputs.found == 'true'
+        id: prev_head
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
       - name: Compare versions (enforce increment)
         if: steps.extract.outputs.found == 'true'
         id: compare
@@ -110,6 +115,7 @@ jobs:
 
       - name: Update versions in files
         if: steps.compare.outputs.valid == 'true'
+        id: bump_files
         env:
           NEW_VERSION: ${{ steps.extract.outputs.version }}
         run: |
@@ -118,7 +124,12 @@ jobs:
           # 1) package.json via jq
           tmp=$(mktemp)
           jq --arg v "$NEW_VERSION" '.version=$v' package.json > "$tmp" && mv "$tmp" package.json
-          # 2) package-lock.json (if exists) – replace all occurrences of old root version pattern for simplicity
+          # 1b) addon-config.json (addonVersion) if exists
+          if [ -f addon-config.json ]; then
+            node -e 'const fs=require("fs");const p="addon-config.json";let o=JSON.parse(fs.readFileSync(p,"utf8"));o.addonVersion=process.env.NEW_VERSION;fs.writeFileSync(p, JSON.stringify(o,null,4)+"\n");'
+            git add addon-config.json || true
+          fi
+          # 2) package-lock.json (if exists) – replace occurrences of previous root version
           if [ -f package-lock.json ]; then
             CURR_PKG=$(jq -r '.version' package-lock.json || true)
             if [ -n "$CURR_PKG" ]; then
@@ -130,23 +141,26 @@ jobs:
           # 3) src/addon.ts baseManifest version field (first occurrence inside file)
           if [ -f src/addon.ts ]; then
             node -e 'const fs=require("fs");const p="src/addon.ts";let t=fs.readFileSync(p,"utf8");const rx=/(const baseManifest:[^{]*\{[\s\S]*?version:\s*")(\d+\.\d+\.\d+)("[,])/;if(!rx.test(t)){console.error("Version field in baseManifest not found – aborting");process.exit(1);} t=t.replace(rx, `$1${process.env.NEW_VERSION}$3`);fs.writeFileSync(p,t);'
+            git add src/addon.ts || true
           fi
           echo "Files updated. Preview of package.json version:" $(jq -r .version package.json)
           git add package.json || true
           [ -f package-lock.json ] && git add package-lock.json || true
-          [ -f src/addon.ts ] && git add src/addon.ts || true
           if git diff --cached --quiet; then
-            echo "No staged changes after update – aborting commit"; exit 0; fi
+            echo "No staged changes after update – skipping commit"; echo "commit_made=false" >> $GITHUB_OUTPUT; exit 0; fi
           git config user.name 'github-actions'
           git config user.email 'github-actions@users.noreply.github.com'
           git commit -m "fix: bump version"
+          NEW_SHA=$(git rev-parse HEAD)
+          if [ "$NEW_SHA" != "${{ steps.prev_head.outputs.sha }}" ]; then
+            echo "commit_made=true" >> $GITHUB_OUTPUT
+          else
+            echo "commit_made=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Push changes
-        if: steps.compare.outputs.valid == 'true'
-        run: |
-          if git diff --cached --quiet; then
-            echo "No commit created"; exit 0; fi
-          git push origin HEAD:${GITHUB_REF_NAME}
+        if: steps.compare.outputs.valid == 'true' && steps.bump_files.outputs.commit_made == 'true'
+        run: git push origin HEAD:${GITHUB_REF_NAME}
 
       - name: Comment on issue
         if: steps.extract.outputs.found == 'true'
@@ -173,7 +187,7 @@ jobs:
             });
 
       - name: Fail if bump expected but no commit
-        if: steps.compare.outputs.valid == 'true'
+        if: steps.compare.outputs.valid == 'true' && steps.bump_files.outputs.commit_made != 'true'
         run: |
-          if ! git log -1 --pretty=%B | grep -q "fix: bump version"; then
-            echo "Expected commit not found" >&2; exit 1; fi
+          echo "Expected a commit but none was created" >&2
+          exit 1
