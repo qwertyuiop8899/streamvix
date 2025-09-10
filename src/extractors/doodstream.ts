@@ -7,11 +7,12 @@ import type { StreamForStremio } from '../types/animeunity';
 
 function randomToken(len=10){ const chars='abcdefghijklmnopqrstuvwxyz0123456789'; let o=''; for(let i=0;i<len;i++) o+=chars[Math.floor(Math.random()*chars.length)]; return o; }
 
-const DOOD_DOMAINS = [
+const STATIC_DOOD_DOMAINS = [
   'https://dood.to', 'http://dood.to',
   'https://dood.li', 'http://dood.li',
   'https://dood.ws', 'http://dood.ws',
-  'https://d000d.com', 'http://d000d.com'
+  'https://d000d.com', 'http://d000d.com',
+  'https://doodstream.co', 'http://doodstream.co'
 ];
 const BASE_HEADERS = {
   'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -42,10 +43,16 @@ export class DoodStreamExtractor implements HostExtractor {
     const videoId = normU.pathname.split('/').pop();
     if (!videoId) return { streams: [] };
 
+    // Build dynamic domain list (include original origin first)
+    const attemptDomains = Array.from(new Set([
+      normU.origin.replace(/\/$/, ''),
+      ...STATIC_DOOD_DOMAINS
+    ]));
+
     // Try each dood domain until we get pass_md5
     let html: string | null = null;
     let domain: string | undefined;
-    for (const base of DOOD_DOMAINS) {
+    for (const base of attemptDomains) {
       const embed = `${base}/e/${videoId}`;
       if (debug) console.log('[Dood] try', embed);
       try {
