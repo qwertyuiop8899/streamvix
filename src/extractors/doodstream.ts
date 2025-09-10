@@ -1,4 +1,4 @@
-import { HostExtractor, ExtractResult, ExtractorContext, normalizeUrl, parseSizeToBytes } from './base';
+import { HostExtractor, ExtractResult, ExtractorContext, normalizeUrl } from './base';
 import type { StreamForStremio } from '../types/animeunity';
 
 // Enhanced DoodStream extractor approximating behavior of external fetcher-based implementation.
@@ -7,7 +7,12 @@ import type { StreamForStremio } from '../types/animeunity';
 
 function randomToken(len=10){ const chars='abcdefghijklmnopqrstuvwxyz0123456789'; let o=''; for(let i=0;i<len;i++) o+=chars[Math.floor(Math.random()*chars.length)]; return o; }
 
-const DOOD_DOMAINS = [ 'https://dood.to', 'https://dood.li', 'https://dood.ws', 'https://d000d.com' ];
+const DOOD_DOMAINS = [
+  'https://dood.to', 'http://dood.to',
+  'https://dood.li', 'http://dood.li',
+  'https://dood.ws', 'http://dood.ws',
+  'https://d000d.com', 'http://d000d.com'
+];
 const BASE_HEADERS = {
   'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -54,11 +59,13 @@ export class DoodStreamExtractor implements HostExtractor {
     if (debug) console.log('[Dood] got html from', domain, 'len', html.length);
 
     // Extract pass_md5 path
-    const passMatch = html.match(/(\/pass_md5\/[\w-]+\/[\w-]+)/);
+  const passMatch = html.match(/(\/pass_md5\/[\w-]+\/[\w-]+)/);
     if (debug) console.log('[Dood] pass_md5', passMatch? passMatch[1]: null);
     if (!passMatch) return { streams: [] };
-    const token = passMatch[1].split('/').pop();
-    const passUrl = new URL(passMatch[1], domain).toString();
+  const passPath = passMatch[1];
+  const token = passPath.split('/').pop();
+  let passUrl: string;
+  try { passUrl = new URL(passPath, domain).toString(); } catch { passUrl = domain.replace(/\/$/,'') + passPath; }
 
     // Resolve base video url
     let baseUrl: string | undefined;
@@ -78,7 +85,7 @@ export class DoodStreamExtractor implements HostExtractor {
     const mp4 = baseUrl.includes('cloudflarestorage') ? baseUrl : `${baseUrl}${randomToken(10)}?token=${token}&expiry=${Date.now()}`;
 
     // Optional size HEAD probe (quick, can fail silently)
-    const sizeBytes = await headForSize(mp4, domain).catch(()=>undefined);
+  const sizeBytes = await headForSize(mp4, domain).catch(()=>undefined);
     const sizeLabel = sizeBytes ? ` • ${(sizeBytes/1024/1024).toFixed(1)} MB` : '';
 
     const stream: StreamForStremio = {
