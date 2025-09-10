@@ -1,10 +1,13 @@
 name: Release bump
 description: Inserisci il numero versione (X.Y.Z) per pubblicare una nuova release
+title: release-bump
+labels: [release]
 body:
   - type: markdown
     attributes:
       value: |
-        Compila la versione semantic (maior.minor.patch) che vuoi impostare (solo numero, es. 6.7.23). Il titolo verrà impostato automaticamente.
+        Compila la versione semantic (maior.minor.patch) che vuoi impostare (solo numero, es. 6.7.23).
+        Non modificare il titolo: verrà sovrascritto automaticamente.
         Il workflow aggiornerà automaticamente:
         - package.json
         - package-lock.json
