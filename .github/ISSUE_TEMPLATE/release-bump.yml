@@ -1,6 +1,5 @@
 name: Release bump
 description: Inserisci il numero versione (X.Y.Z) per pubblicare una nuova release
-labels: [release]
 body:
   - type: markdown
     attributes:
