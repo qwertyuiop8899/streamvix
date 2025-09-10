@@ -45,6 +45,7 @@ interface AddonConfig {
     disableVixsrc?: boolean;
     tvtapProxyEnabled?: boolean; // true = NO proxy (link diretto TvTap), false = usa proxy se disponibile
     vavooNoMfpEnabled?: boolean; // true = mostra stream Vavoo clean (🏠 / Vavoo🔓), false = nascondi
+    cb01Enabled?: boolean; // abilita provider CB01 (Mixdrop only)
 }
 
 function debugLog(...args: any[]) {
@@ -549,6 +550,7 @@ const baseManifest: Manifest = {
     { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
     { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
     { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox" },
+    { key: "cb01Enabled", title: "Enable CB01 Mixdrop", type: "checkbox" },
     { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: true },
     { key: "vavooNoMfpEnabled", title: "Vavoo NO MFP 🔓", type: "checkbox", default: true },
     // UI helper toggles (not used directly server-side but drive dynamic form logic)
@@ -2431,6 +2433,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (config.animeworldEnabled === true);
                 const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (config.guardaserieEnabled === true);
                 const guardaHdEnabled = envFlag('GUARDAHD_ENABLED') ?? (config.guardahdEnabled === true);
+                const cb01Enabled = envFlag('CB01_ENABLED') ?? (config as any).cb01Enabled === true;
                 // Eurostreaming: default ON unless explicitly disabled (config false) or env sets true/false
                 const eurostreamingEnv = envFlag('EUROSTREAMING_ENABLED');
                 const eurostreamingEnabled = eurostreamingEnv !== undefined
@@ -2484,7 +2487,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 if (result && result.streams) {
                                     for (const s of result.streams) {
                                         if (isMixdropSensitive) {
-                                            const isMixdrop = s.title ? /\bmixdrop\b/i.test(s.title) : false;
+                                            const isMixdrop = s.title ? /\b(mixdrop|streamtape)\b/i.test(s.title) : false;
                                             allStreams.push({ ...s, name: isMixdrop ? streamName.replace(' 🔓', '') : streamName });
                                         } else {
                                             allStreams.push({ ...s, name: streamName });
@@ -2559,6 +2562,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (id.startsWith('tmdb:')) return ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             return { streams: [] };
                         }, 'StreamViX GH 🔓', true));
+                    }
+
+                    // CB01 (Mixdrop only)
+                    if (cb01Enabled && (id.startsWith('tt'))) {
+                        providerPromises.push(runProvider('CB01', true, async () => {
+                            const { Cb01Provider } = await import('./providers/cb01-provider');
+                            const cbProvider = new Cb01Provider({
+                                enabled: true,
+                                mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
+                                mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
+                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
+                            });
+                            return cbProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        }, 'StreamViX CB', true));
                     }
 
                     // Eurostreaming
