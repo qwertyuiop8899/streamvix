@@ -123,10 +123,8 @@ function getCache(url: URL): HttpCacheItem | undefined {
   return it;
 }
 
-// Proxy support hard-coded (DISABLED): la lista è stata spostata in src/config/proxies.ts per uso negli extractor.
-// Manteniamo l'array vuoto così questa logica non userà più proxy interni.
-// Storico (commentato) lasciato per riferimento rapido.
-/*
+// Proxy support hard-coded: aggiungi fino a 20 proxy in questo array (formato http://user:pass@host:port/)
+const HARD_CODED_PROXIES: string[] = [
   'http://emaschipx-rotate:emaschipx@p.webshare.io:80/',
   'http://proxooo4-rotate:proxooo4@p.webshare.io:80/',
   'http://fabiorealdebrid-rotate:MammamiaHF1@p.webshare.io:80/',
@@ -141,8 +139,7 @@ function getCache(url: URL): HttpCacheItem | undefined {
   'http://fiupzkjx-rotate:0zlrd2in3mrh@p.webshare.io:80/',
   'http://tpnvndgp-rotate:xjp0ux1wwc7n@p.webshare.io:80/',
   'http://tmglotxc-rotate:stlrhx17nhqj@p.webshare.io:80/'
-*/
-const HARD_CODED_PROXIES: string[] = [];
+];
 function pickProxy(): string | undefined { if (!HARD_CODED_PROXIES.length) return undefined; return HARD_CODED_PROXIES[Math.floor(Math.random()*HARD_CODED_PROXIES.length)]; }
 
 let rrIndex = 0; // round-robin pointer
