@@ -64,10 +64,18 @@ export class SuperVideoExtractor implements HostExtractor {
   }
 
   async extract(rawUrl: string, ctx: ExtractorContext): Promise<ExtractResult> {
-    const debug = !!((globalThis as any).process?.env?.SUPERVIDEO_DEBUG === '1');
-    let url = normalizeUrl(rawUrl).replace('/embed-', '/').replace('/e/', '/');
-    const direct = await this.resolveSupervideo(url);
-    const streams: StreamForStremio[] = [];
+    const debug = true; // debug statico richiesto
+  const normalized = normalizeUrl(rawUrl);
+  const u = new URL(normalized);
+  let id = u.pathname.split('/').pop() || '';
+  id = id.replace(/^[e-]+/, '').replace(/\.html$/,''); // pulizia minima
+  // Se l'URL originale aveva già /e/ manteniamo quell'id esatto
+  const embedUrl = `${u.origin}/e/${id}`;
+  if (debug) console.log('[SV][embed-url]', embedUrl, 'from', rawUrl);
+  const streams: StreamForStremio[] = [];
+
+  // Primo tentativo (senza proxy) sull'embed canonico
+  const direct = await this.resolveSupervideo(embedUrl);
     if (direct) {
       // Try to enrich with size/res similar to provider getHlsInfo logic
       let resPart = '';
@@ -114,47 +122,63 @@ export class SuperVideoExtractor implements HostExtractor {
       segs.push('supervideo');
       const title = `${baseTitle} • [ITA]` + (segs.length? `\n💾 ${segs.join(' • ')}`: '');
       streams.push({ title, url: direct, behaviorHints: { notWebReady: true } });
-      if (streams.length) return { streams };
-    }
-    // Fallback: fetch embed page and parse packed sources (first without proxy)
-    let html = await fetchText(url, ctx.referer);
-    if (!html) {
-      if (debug) console.log('[SV][no-body-initial]');
-    }
-    if (!streams.length) {
-      if (!html || !/sources:\[{file:"/.test(html)) {
-        // Consider rate-limited if we had a known supervideo embed URL but 0 streams
-        const proxies = nextProxyPair();
-        for (let i=0;i<proxies.length;i++) {
-          const p = proxies[i];
-          if (debug) console.log('[SV][proxy try]', p.replace(/:\\w+@/,'://***@'));
-          const directViaProxy = await this.resolveSupervideo(url, p);
-          if (directViaProxy) {
-            if (debug) console.log('[SV][proxy success direct]');
-            return { streams: [{ title: (ctx.titleHint||'SuperVideo') + ' • [ITA]\n💾 supervideo', url: directViaProxy, behaviorHints:{ notWebReady:true } }] };
-          }
-          html = await fetchText(url, ctx.referer, p);
-          if (html && /sources:\[{file:"/.test(html)) {
-            if (debug) console.log('[SV][proxy success embed]');
-            break;
-          }
-          if (debug) console.log('[SV][proxy fail]', i+1);
-        }
+      if (streams.length) {
+        if (debug) console.log('[SV][first-attempt direct ok]', embedUrl);
+        return { streams };
       }
     }
-    if (!html) return { streams: [] };
-    const { m3u8, size, height, title } = extractPackedFile(html);
-    if (m3u8) {
-      const baseTitle = ctx.titleHint || title || 'SuperVideo';
-      let sizePart = '';
-      if (size) sizePart = size/1024/1024/1024>1? (size/1024/1024/1024).toFixed(2)+'GB': (size/1024/1024).toFixed(0)+'MB';
-      const segs: string[] = [];
-      if (sizePart) segs.push(sizePart);
-      if (height) segs.push(`${height}p`);
-      segs.push('supervideo');
-      const formatted = `${baseTitle} • [ITA]` + (segs.length? `\n💾 ${segs.join(' • ')}`:'');
-      streams.push({ title: formatted, url: m3u8, behaviorHints: { notWebReady: true } });
+    // Embed parse (senza proxy)
+  let html = await fetchText(embedUrl, ctx.referer);
+    if (html) {
+      const { m3u8, size, height, title } = extractPackedFile(html);
+      if (m3u8) {
+        const baseTitle = ctx.titleHint || title || 'SuperVideo';
+        let sizePart = '';
+        if (size) sizePart = size/1024/1024/1024>1? (size/1024/1024/1024).toFixed(2)+'GB': (size/1024/1024).toFixed(0)+'MB';
+        const segs: string[] = [];
+        if (sizePart) segs.push(sizePart);
+        if (height) segs.push(`${height}p`);
+        segs.push('supervideo');
+        const formatted = `${baseTitle} • [ITA]` + (segs.length? `\n💾 ${segs.join(' • ')}`:'');
+        streams.push({ title: formatted, url: m3u8, behaviorHints: { notWebReady: true } });
+      }
     }
-    return { streams };
+
+    if (streams.length) {
+  if (debug) console.log('[SV][first-attempt embed ok]', embedUrl);
+      return { streams };
+    }
+
+    // --- PROXY FALLBACK (sempre se 0 streams) ---
+    if (debug) console.log('[SV][proxy trigger] 0 streams after first attempt', embedUrl);
+    const proxies = nextProxyPair();
+    for (let i=0;i<proxies.length;i++) {
+      const p = proxies[i];
+      if (debug) console.log('[SV][proxy try]', p.replace(/:\\w+@/,'://***@'));
+      const viaDirect = await this.resolveSupervideo(embedUrl, p);
+      if (viaDirect) {
+        if (debug) console.log('[SV][proxy success direct]');
+        return { streams: [{ title: (ctx.titleHint||'SuperVideo') + ' • [ITA]\n💾 supervideo', url: viaDirect, behaviorHints:{ notWebReady:true } }] };
+      }
+      const viaHtml = await fetchText(embedUrl, ctx.referer, p);
+      if (viaHtml) {
+        const { m3u8, size, height, title } = extractPackedFile(viaHtml);
+        if (m3u8) {
+          if (debug) console.log('[SV][proxy success embed]');
+          let sizePart = '';
+          if (size) sizePart = size/1024/1024/1024>1? (size/1024/1024/1024).toFixed(2)+'GB': (size/1024/1024).toFixed(0)+'MB';
+          const segs: string[] = [];
+          if (sizePart) segs.push(sizePart);
+          if (height) segs.push(`${height}p`);
+          segs.push('supervideo');
+          const baseTitle = ctx.titleHint || title || 'SuperVideo';
+          const formatted = `${baseTitle} • [ITA]` + (segs.length? `\n💾 ${segs.join(' • ')}`:'');
+          return { streams: [{ title: formatted, url: m3u8, behaviorHints:{ notWebReady:true } }] };
+        }
+      }
+      if (debug) console.log('[SV][proxy fail]', i+1);
+    }
+  if (debug) console.log('[SV][proxy exhausted] still 0 streams', embedUrl);
+    return { streams: [] };
   }
 }
