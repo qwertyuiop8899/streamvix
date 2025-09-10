@@ -1,136 +1,136 @@
+//Adapted for use in Streamvix from:
+// webstreamr in https://github.com/webstreamr/webstreamr
+// 
+
 import { HostExtractor, ExtractResult, ExtractorContext, normalizeUrl } from './base';
-// Proxy support
-let proxyIndex = 0;
-function nextProxy() {
-  const raw = (globalThis as any).process?.env?.WEBSHARE_PROXIES as string | undefined; // format: host:port[:user:pass],comma-separated
-  if (!raw) return undefined;
-  const list = raw.split(',').map(s=>s.trim()).filter(Boolean);
-  if (!list.length) return undefined;
-  const entry = list[proxyIndex % list.length];
-  proxyIndex++;
-  const parts = entry.split(':');
-  if (parts.length === 2) return { host: parts[0], port: parts[1] };
-  if (parts.length >= 4) return { host: parts[0], port: parts[1], user: parts[2], pass: parts[3] };
-  return undefined;
-}
-async function proxiedFetch(input: string, init: any, debug: boolean) {
-  const p = nextProxy();
-  if (!p) return fetch(input, init);
-  const url = new URL(input);
-  // Basic HTTP proxy via global fetch is not native; implement manual CONNECT fallback using undici ProxyAgent if available
-  try {
-    const { ProxyAgent } = require('undici');
-    const auth = p.user ? `${p.user}:${p.pass}@` : '';
-    const proxyUrl = `http://${auth}${p.host}:${p.port}`;
-    if (debug) console.log('[Dood][proxy]', proxyUrl);
-    return fetch(input, { ...init, dispatcher: new ProxyAgent(proxyUrl) });
-  } catch (e) {
-    if (debug) console.log('[Dood][proxy-fallback-no-undici]', (e as any)?.message);
-    return fetch(input, init); // fallback direct
-  }
-}
 import type { StreamForStremio } from '../types/animeunity';
-
-// Enhanced DoodStream extractor approximating behavior of external fetcher-based implementation.
-
-// Implementazione ridotta identica a webstreamr (singolo host dood.to, singolo pass_md5).
+// NOTE: Unlike Mixdrop we DO NOT wrap Doodstream with MediaFlow proxy to match webstreamr behavior.
+// NOTE thanks to webstreamr for the logic
+interface FetchResult { text: string | null; setCookie?: string[] }
+async function fetchText(url: string, referer?: string, cookieJar: string[] = [], extraHeaders: Record<string,string> = {}): Promise<FetchResult> {
+  try {
+    const headers: any = {
+      'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+      'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language':'it-IT,it;q=0.9,en-US;q=0.7,en;q=0.6',
+      'Cache-Control':'no-cache',
+      'Pragma':'no-cache',
+      'Upgrade-Insecure-Requests':'1',
+      'DNT':'1',
+      'Connection':'keep-alive',
+      ...extraHeaders
+    };
+    if (cookieJar.length) headers['Cookie'] = cookieJar.join('; ');
+    if (referer) headers.Referer = referer;
+    const r = await fetch(url, { headers, redirect: 'manual' as any });
+    const setCookie = r.headers?.get?.('set-cookie');
+    const allCookies: string[] = [];
+    if (setCookie) allCookies.push(setCookie);
+    // Cloudflare / ddos-guard sometimes splits multiple Set-Cookie; attempt common header names
+    // (Fetch in some runtimes merges; if multiple, we rely on comma splitting heuristically)
+    if (setCookie && setCookie.includes(',')) {
+      // naive split only for key=value; expires attribute contains comma so keep simple tokens with =
+      for (const part of setCookie.split(/,(?=[^;]+=[^;]+)/)) allCookies.push(part.trim());
+    }
+    if (!r.ok && (r.status === 301 || r.status === 302) ) {
+      const loc = r.headers.get('location');
+      if (loc) {
+        // accumulate cookies and follow once
+        const jar = cookieJar.concat(allCookies.map(c=>c.split(';')[0]));
+        return fetchText(new URL(loc, url).toString(), referer, jar, extraHeaders);
+      }
+    }
+    if(!r.ok) return { text: null, setCookie: allCookies };
+    const txt = await r.text();
+    return { text: txt, setCookie: allCookies };
+  } catch { return { text: null }; }
+}
 
 function randomToken(len=10){ const chars='abcdefghijklmnopqrstuvwxyz0123456789'; let o=''; for(let i=0;i<len;i++) o+=chars[Math.floor(Math.random()*chars.length)]; return o; }
 
-const STATIC_DOOD_DOMAINS = [
-  'https://dood.to', 'http://dood.to',
-  'https://dood.li', 'http://dood.li',
-  'https://dood.ws', 'http://dood.ws',
-  'https://d000d.com', 'http://d000d.com',
-  'https://doodstream.co', 'http://doodstream.co'
-];
-const BASE_HEADERS = {
-  'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-  'Accept-Language':'en-US,en;q=0.9,it;q=0.6'
-};
-
-async function headForSize(url: string, referer: string): Promise<number | undefined> {
-  try {
-    const r = await fetch(url, { method:'HEAD', headers:{ 'User-Agent': BASE_HEADERS['User-Agent'], 'Referer': referer } as any });
-    const cl = r.headers.get('content-length');
-    if (cl) return parseInt(cl,10);
-    const disp = r.headers.get('content-disposition');
-    if (disp) {
-      const sizeMatch = disp.match(/size=([0-9]+)/i);
-      if (sizeMatch) return parseInt(sizeMatch[1],10);
-    }
-  } catch {}
-  return undefined;
-}
+const DOOD_PRIMARY = 'https://dood.to';
+const DOOD_FALLBACKS = [ 'https://doodstream.co', 'https://dood.watch', 'https://d000d.com' ];
 
 export class DoodStreamExtractor implements HostExtractor {
   id='doodstream';
   supports(url: string){ return /dood|do[0-9]go|doood|dooood|ds2play|ds2video|d0o0d|do0od|d0000d|d000d|vidply|all3do|doply|vide0|vvide0|d-s/i.test(url); }
   async extract(rawUrl: string, ctx: ExtractorContext): Promise<ExtractResult> {
-    const debug = !!((globalThis as any).process?.env?.DOOD_DEBUG === '1');
     const normU = new URL(normalizeUrl(rawUrl));
     const videoId = normU.pathname.split('/').pop();
     if (!videoId) return { streams: [] };
-
-    // Build dynamic domain list (include original origin first)
-    const attemptDomains = Array.from(new Set([
-      normU.origin.replace(/\/$/, ''),
-      ...STATIC_DOOD_DOMAINS
-    ]));
-
-    // Try each dood domain until we get pass_md5
-    let html: string | null = null;
-    let domain: string | undefined;
-    for (const base of attemptDomains) {
-      const embed = `${base}/e/${videoId}`;
-      if (debug) console.log('[Dood] try', embed);
-      try {
-  const resp = await proxiedFetch(embed, { headers: BASE_HEADERS as any }, debug);
-        if (!resp.ok) continue;
-        const text = await resp.text();
-        if (/pass_md5/.test(text)) { html = text; domain = base; break; }
-      } catch {}
+    const domains = [DOOD_PRIMARY, ...DOOD_FALLBACKS];
+    let html: string | null = null; let originUsed = '';
+    const cookieJar: string[] = [];
+    for (const dom of domains) {
+      const test = `${dom.replace(/\/$/,'')}/e/${videoId}`;
+      console.log('[DoodExtractor] try', test);
+      const res = await fetchText(test, ctx.referer || dom, cookieJar);
+      if (res.setCookie?.length) {
+        for (const c of res.setCookie) cookieJar.push(c.split(';')[0]);
+      }
+      if (res.text) { html = res.text; originUsed = dom; break; }
     }
-    if (!html || !domain) return { streams: [] };
-    if (debug) console.log('[Dood] got html from', domain, 'len', html.length);
+    if (!html) return { streams: [] };
+    const pass = html.match(/\/pass_md5\/[\w-]+\/([\w-]+)/);
+    if (!pass) { console.log('[DoodExtractor] pass_md5 not found'); return { streams: [] }; }
+    const token = pass[1];
+    let passUrl = new URL(pass[0], originUsed).toString();
+    const passHeaders = { 'Accept':'*/*', 'X-Requested-With':'XMLHttpRequest' };
+    const passRes = await fetchText(passUrl, originUsed, cookieJar, passHeaders);
+    if (passRes.setCookie?.length) for (const c of passRes.setCookie) cookieJar.push(c.split(';')[0]);
+    let baseUrl = passRes.text;
+    console.log('[DoodExtractor] passUrl primary', passUrl, 'len', baseUrl?.length, 'cookies', cookieJar.length);
+    if (!baseUrl) {
+      // replicate fallback chain
+      for (const altDom of domains) {
+        passUrl = new URL(pass[0], altDom).toString();
+        const altRes = await fetchText(passUrl, altDom, cookieJar, passHeaders);
+        if (altRes.setCookie?.length) for (const c of altRes.setCookie) cookieJar.push(c.split(';')[0]);
+        if (altRes.text) { baseUrl = altRes.text; originUsed = altDom; break; }
+      }
+    }
+    if (!baseUrl) {
+      console.log('[DoodExtractor] baseUrl fetch empty after fallbacks');
+      return { streams: [] };
+    }
+    const tMatch = html.match(/<title>([^<]+)<\/title>/i); let baseTitle = tMatch? tMatch[1]: 'Doodstream';
+    baseTitle = baseTitle.replace(/ - DoodStream/i,'').trim();
+    // Prefer external localized title if provided
+    if (ctx.titleHint) baseTitle = ctx.titleHint;
+    let mp4 = '';
+    if (baseUrl.includes('cloudflarestorage')) mp4 = baseUrl.trim(); else mp4 = `${baseUrl}${randomToken(10)}?token=${token}&expiry=${Date.now()}`;
+    console.log('[DoodExtractor] final mp4', mp4.slice(0,120));
 
-    // Extract pass_md5 path
-  const passMatch = html.match(/(\/pass_md5\/[\w-]+\/[\w-]+)/);
-    if (debug) console.log('[Dood] pass_md5', passMatch? passMatch[1]: null);
-    if (!passMatch) return { streams: [] };
-  const passPath = passMatch[1];
-  const token = passPath.split('/').pop();
-  let passUrl: string;
-  try { passUrl = new URL(passPath, domain).toString(); } catch { passUrl = domain.replace(/\/$/,'') + passPath; }
-
-    // Resolve base video url
-    let baseUrl: string | undefined;
+    // Attempt to discover size via HEAD request (Content-Length)
+    let sizePart = '';
     try {
-  const r2 = await proxiedFetch(passUrl, { headers: { ...BASE_HEADERS, 'X-Requested-With':'XMLHttpRequest', 'Referer': domain } as any }, debug);
-      if (r2.ok) baseUrl = (await r2.text()).trim();
+      const head = await fetch(mp4, { method:'HEAD', headers:{ 'User-Agent':'Mozilla/5.0 (DoodHead)' } as any });
+      const len = head.headers.get('content-length');
+      if (len) {
+        const bytes = parseInt(len);
+        if (!isNaN(bytes) && bytes>0) {
+          sizePart = bytes >= 1024**3 ? (bytes/1024/1024/1024).toFixed(2)+'GB' : (bytes/1024/1024).toFixed(0)+'MB';
+        }
+      }
     } catch {}
-    if (!baseUrl) return { streams: [] };
-    if (debug) console.log('[Dood] baseUrl', baseUrl.slice(0,120));
 
-    // Title
-    const titleMatch = html.match(/<title>([^<]+)<\/title>/i); let title = titleMatch? titleMatch[1]: 'Doodstream';
-    title = title.replace(/ - DoodStream/i,'').trim();
-    if (ctx.titleHint) title = ctx.titleHint;
+    // Try to infer resolution from page html (best-effort)
+    let resPart = '';
+    try {
+      const h = html.match(/(\d{3,4})p/);
+      if (h) {
+        const hv = parseInt(h[1]);
+        if (!isNaN(hv) && hv>=144 && hv<=4320) resPart = `${hv}p`;
+      }
+    } catch {}
 
-    // Final mp4
-    const mp4 = baseUrl.includes('cloudflarestorage') ? baseUrl : `${baseUrl}${randomToken(10)}?token=${token}&expiry=${Date.now()}`;
-
-    // Optional size HEAD probe (quick, can fail silently)
-  const sizeBytes = await headForSize(mp4, domain).catch(()=>undefined);
-    const sizeLabel = sizeBytes ? ` • ${(sizeBytes/1024/1024).toFixed(1)} MB` : '';
-
-    const stream: StreamForStremio = {
-      title: `${title} • [ITA]${sizeLabel}\n💾 doodstream`,
-      url: mp4,
-      behaviorHints:{ notWebReady:true, referer: domain }
-    } as StreamForStremio;
-    if (sizeBytes) (stream as any).bytes = sizeBytes;
-    return { streams:[stream] };
+    const secondSegs: string[] = [];
+    if (sizePart) secondSegs.push(sizePart);
+    if (resPart) secondSegs.push(resPart);
+    secondSegs.push('doodstream');
+    const line1 = `${baseTitle} • [ITA]`;
+    const title = `${line1}\n💾 ${secondSegs.join(' • ')}`;
+    const stream: StreamForStremio = { title, url: mp4, behaviorHints:{ notWebReady:true } };
+    return { streams: [stream] };
   }
 }
