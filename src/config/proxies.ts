@@ -1,6 +1,6 @@
 // Centralized proxy list + round-robin helper for extractors.
 // Populate / modify this list with Webshare (or other) rotating proxies.
-// Format: protocol://user:pass@host:port/
+// Format: protocol://user:pass@host:port/ 
 // Keep it small & curated; extractor will only try max 2 per call.
 
 export const PROXIES: string[] = [
