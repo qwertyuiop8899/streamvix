@@ -135,10 +135,8 @@ async function resolveDynamicEventUrl(dUrl: string, providerTitle: string, mfpUr
     const cacheKey = `${mfpUrl}|${mfpPsw}|${dUrl}`;
     const now = Date.now();
         const cached = dynamicStreamCache.get(cacheKey);
-    if (cached && (now - cached.ts) < DYNAMIC_STREAM_TTL_MS) {
-        return { url: cached.finalUrl, title: providerTitle };
-    }
-    const extractorUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(dUrl)}`;
+        if (cached && (now - cached.ts) < DYNAMIC_STREAM_TTL_MS) return { url: cached.finalUrl, title: providerTitle };
+        const extractorUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(dUrl)}`;
     try {
         const res = await fetch(extractorUrl);
         if (res.ok) {
@@ -798,31 +796,29 @@ async function updateVavooCache(): Promise<boolean> {
                 console.log(`📺 Recuperati ${channels.length} canali da Vavoo (nessun filtro)`);
                 const updatedLinks = new Map<string, string>();
                 for (const ch of channels) {
-                    if (ch.name && ch.url) {
-                        updatedLinks.set(ch.name, ch.url);
-                    }
+                    if (!ch || !ch.name || !ch.links) continue;
+                    const first = Array.isArray(ch.links) ? ch.links[0] : ch.links;
+                    if (first) updatedLinks.set(String(ch.name), String(first));
                 }
                 vavooCache.links = updatedLinks;
                 vavooCache.timestamp = Date.now();
                 saveVavooCache();
-                console.log(`✅ Cache Vavoo aggiornata: ${updatedLinks.size} canali in cache (tutti)`);
-                return true;
-            } catch (jsonError) {
-                console.error('❌ Errore nel parsing del risultato JSON di Vavoo:', jsonError);
-                throw jsonError;
+                console.log(`📺 Vavoo cache aggiornata: ${vavooCache.links.size} canali salvati`);
+            } catch (e) {
+                console.error('❌ Errore nel parsing canali Vavoo:', e);
             }
+        } else {
+            console.warn('⚠️ Nessun output da vavoo_resolver.py --dump-channels');
         }
+        return true;
     } catch (error) {
-        console.error('❌ Errore durante l\'aggiornamento della cache Vavoo:', error);
+        console.error('❌ Errore aggiornamento cache Vavoo:', error);
         return false;
     } finally {
         vavooCache.updating = false;
     }
-    return false;
 }
 
-// ====== VAVOO ALIAS INDEX (per injection click-time su eventi dinamici) ======
-// Costruisce un indice normalizzato -> alias originale partendo da tv_channels.json (vavooNames)
 const vavooAliasIndex = new Map<string, string>();
 
 function normAlias(s: string): string {
@@ -2648,8 +2644,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             adjustedName = adjustedName.replace(/\s*•\s*\[ITA\]$/i, ' • [ITA]');
                             adjustedName = adjustedName.replace(/\s*\[ITA\]$/i, ' • [ITA]');
                             let finalTitle = adjustedName;
-                            if (typeof st.sizeBytes === 'number' && st.sizeBytes > 0) {
-                                finalTitle = `${adjustedName}\n💾 ${fmtBytes(st.sizeBytes)}`;
+                            if (typeof st.sizeBytes === 'number') {
+                                const sizeLabel = st.sizeBytes > 0 ? fmtBytes(st.sizeBytes) : '?';
+                                finalTitle = `${adjustedName}\n💾 ${sizeLabel}`;
                             }
 
                             console.log(`Adding stream with title: "${finalTitle}"`);
