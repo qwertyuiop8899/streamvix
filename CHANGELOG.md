@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.2...v1.1.3) (2025-09-11)
+
+
+### Bug Fixes
+
+* fkng aw e landing ([0d4f4b8](https://github.com/qwertyuiop8899/streamvix/commit/0d4f4b8cb7c8726e9260f07c177fbd32a811931f))
+
 ## [1.1.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.1...v1.1.2) (2025-09-11)
 
 
