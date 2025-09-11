@@ -9,7 +9,7 @@ ATTENTION_FILE = Path('attenzione.check')
 
 # Keys we care about and optional detection hints (regex to search in fetched sources)
 KEY_ORDER = [
-    'animesaturn', 'animeunity', 'animeworld', 'guardaserie', 'guardahd', 'vixsrc', 'vavoo', 'eurostreaming'
+    'animesaturn', 'animeunity', 'animeworld', 'guardaserie', 'guardahd', 'vixsrc', 'vavoo', 'eurostreaming', 'streamingwatch'
 ]
 # Regex map for extracting canonical host from paste/site lines
 HOST_RE = re.compile(r'https?://(www\.)?([^/\s]+)', re.I)
@@ -19,6 +19,7 @@ KEY_HINTS = {
     'animeunity': re.compile(r'animeunity\.[a-z]{2,}'),
     'animeworld': re.compile(r'animeworld\.[a-z]{2,}'),
     'guardaserie': re.compile(r'guardaserie[a-z]*\.[a-z]{2,}'),
+    'streamingwatch': re.compile(r'streamingwatch[a-z]*\.[a-z]{2,}'),
     # eurostreaming handled separately via fixed position (line 4 of pastebin)
 }
 
@@ -72,7 +73,8 @@ def main():
             'vavoo': 'vavoo.to',
             'guardaserie': 'guardaserie.qpon',
             'guardahd': 'guardahd.stream',
-            'eurostreaming': 'eurostreaming.garden'
+            'eurostreaming': 'eurostreaming.garden',
+            'streamingwatch': 'streamingwatch.org'
         }
 
     if not reachable:

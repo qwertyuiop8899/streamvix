@@ -52,7 +52,7 @@ export class GuardaHdProvider {
           console.log('[GH][CACHE] forcing refresh due to placeholder titles');
         }
       }
-      if (useCache) return { streams: ce.streams };
+  if (useCache) return { streams: ce.streams };
     }
     // Fetch page
     let html: string;
@@ -106,15 +106,13 @@ export class GuardaHdProvider {
     const streams = await this.extractStreamsFromMoviePage(html, realTitle || imdbOnly);
     console.log('[GH][STREAMS] extracted embed streams count=', streams.length);
     // Forza iniettare titolo italiano nella prima linea (se extractor ha generato placeholder)
-  const finalStreams = streams.map(s => {
+    const finalStreams = streams.map(s => {
       try {
-    const lines = (s.title || '').split('\n');
+        const lines = (s.title || '').split('\n');
         if (!lines[0] || lines[0] === imdbOnly || /^movie\s+tt\d+/i.test(lines[0])) {
           lines[0] = realTitle || imdbOnly;
-          const joined = lines.filter(Boolean).join('\n');
-          return { ...s, title: joined } as StreamForStremio;
         }
-        return s;
+        return { ...s, title: this.normalizeTitle(lines.filter(Boolean).join('\n')) } as StreamForStremio;
       } catch { return s; }
     });
     console.log('[GH][STREAMS] final streams count=', finalStreams.length);
@@ -147,17 +145,43 @@ export class GuardaHdProvider {
     for (const eurl of dedup) {
       try {
     console.log('[GH][EMBED] resolving', eurl);
+  console.log('[GH][EMBED][CTX] mfpUrl?', !!this.config.mfpUrl, 'mfpPassword?', !!this.config.mfpPassword);
         const { streams } = await extractFromUrl(eurl, { mfpUrl: this.config.mfpUrl, mfpPassword: this.config.mfpPassword, countryCode: 'IT', titleHint });
-    console.log('[GH][EMBED] got', streams.length, 'streams from', eurl);
+        console.log('[GH][EMBED] got', streams.length, 'streams from', eurl);
+  // Streamtape fallback rimosso: la logica specifica del player deve stare nell'extractor dedicato
         for (const s of streams) {
           if (seen.has(s.url)) continue; seen.add(s.url);
-          // Mantiene titolo così come fornito dall'extractor (come webstreamr non rietichetta qui la Source) – opzionale potremmo aggiungere country marker
           out.push(s);
         }
       } catch { /* ignore single embed */ }
     }
   console.log('[GH][EMBED] total after dedup', out.length);
     return out;
+  }
+
+  // Normalizza capitalizzazione host nella seconda linea (se presente)
+  private normalizeTitle(raw: string): string {
+    if (!raw) return raw;
+    const parts = raw.split('\n');
+    if (parts.length > 1) {
+      let second = parts[1];
+      // Se la seconda linea contiene solo host senza floppy per streamtape deve rimanere senza symbol
+      const hasFloppy = /^💾\s*/.test(second);
+      if (hasFloppy) {
+        // Rimuovi floppy se la linea riguarda streamtape e NON ci sono size/res
+        const after = second.replace(/^💾\s*/, '');
+        if (/\bstreamtape\b/i.test(after) && !/(\d+p|MB|GB|KB)/i.test(after)) {
+          second = after; // senza icona
+        }
+      }
+      second = second
+        .replace(/\bsupervideo\b/gi, 'SuperVideo')
+        .replace(/\bmixdrop\b/gi, 'Mixdrop')
+        .replace(/\bdoodstream\b/gi, 'Doodstream')
+        .replace(/\bstreamtape\b/gi, 'Streamtape');
+      parts[1] = second;
+    }
+    return parts.join('\n');
   }
 }
 

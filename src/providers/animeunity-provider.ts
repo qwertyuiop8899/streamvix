@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { KitsuProvider } from './kitsu';
+import { getDomain } from '../utils/domains';
 import { formatMediaFlowUrl } from '../utils/mediaflow';
 import { AnimeUnityConfig, StreamForStremio } from '../types/animeunity';
 import * as path from 'path';
@@ -184,6 +185,8 @@ export class AnimeUnityProvider {
   private kitsuProvider = new KitsuProvider();
 
   constructor(private config: AnimeUnityConfig) {}
+
+  private get baseHost(): string { return getDomain('animeunity') || 'animeunity.so'; }
 
   // Made public for catalog search
   async searchAllVersions(title: string): Promise<{ version: AnimeUnitySearchResult; language_type: string }[]> {

@@ -13,7 +13,8 @@ html {
 
 body {
 	padding: 2vh;
-	font-size: 2.2vh;
+	/* Responsive base font size: never smaller than 15px, scales with viewport height */
+	font-size: clamp(15px, 2.2vh, 22px);
 }
 
 html {
@@ -34,19 +35,19 @@ body {
 }
 
 h1 {
-	font-size: 4.5vh;
+	font-size: clamp(28px, 5vh, 54px);
 	font-weight: 700;
 }
 
 h2 {
-	font-size: 2.2vh;
+	font-size: clamp(17px, 2.6vh, 30px);
 	font-weight: normal;
 	font-style: italic;
 	opacity: 0.8;
 }
 
 h3 {
-	font-size: 2.2vh;
+	font-size: clamp(17px, 2.6vh, 30px);
 }
 
 h1,
@@ -58,11 +59,11 @@ p {
 }
 
 p {
-	font-size: 1.75vh;
+	font-size: clamp(14px, 2vh, 22px);
 }
 
 ul {
-	font-size: 1.75vh;
+	font-size: clamp(14px, 2vh, 22px);
 	margin: 0;
 	margin-top: 1vh;
 	padding-left: 3vh;
@@ -85,7 +86,7 @@ button {
 	margin: auto;
 	text-align: center;
 	font-family: 'Open Sans', Arial, sans-serif;
-	font-size: 2.2vh;
+	font-size: clamp(16px, 2.4vh, 26px);
 	font-weight: 600;
 	cursor: pointer;
 	display: block;
@@ -123,7 +124,7 @@ button:active {
 	background-color: #b31b1b !important;
 }
 .toggle-title {
-	font-size: 1.1rem;
+	font-size: clamp(0.95rem, 2.1vh, 1.35rem);
 	font-weight: 700;
 	letter-spacing: 0.01em;
 	color: #c9b3ff; /* soft purple */
@@ -136,7 +137,7 @@ button:active {
 	gap: 0.4rem;
 }
 .toggle-off, .toggle-on {
-	font-size: 0.85rem;
+	font-size: clamp(0.75rem, 1.8vh, 1rem);
 	font-weight: 700;
 	letter-spacing: 0.03em;
 }
@@ -314,10 +315,12 @@ function landingTemplate(manifest: any) {
 						'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
 						'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
 						'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
-						'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(non sempre funzionante)</span>', invert: false },
+						'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(funziona in locale)</span>', invert: false },
+						'cb01Enabled': { title: 'CB01 🎞️ - 🔒', invert: false },
+						'streamingwatchEnabled': { title: 'StreamingWatch 📼 - 🔓', invert: false },
 							'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false },
 							'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
-							'mediaflowMaster': { title: 'MediaflowProxy', invert: false },
+							'mediaflowMaster': { title: 'MediaflowProxy 🔄', invert: false },
 					}
 					if (toggleMap[key]) {
 						const t = toggleMap[key];
@@ -471,7 +474,10 @@ function landingTemplate(manifest: any) {
 				var vixsrcCb = document.getElementById('disableVixsrc');
 				var vixsrcRow = vixsrcCb ? vixsrcCb.closest('[data-toggle-row]') : null;
 				var animeUnityRow = animeUnityEl ? animeUnityEl.closest('[data-toggle-row]') : null;
+				var cb01El = document.getElementById('cb01Enabled');
+				var cb01Row = cb01El ? cb01El.closest('[data-toggle-row]') : null;
 				var storedVixsrcState = null; // remember previous user choice
+				var storedCb01State = null; // remember previous cb01 state
 				function syncMfp(){
 					var on = mfpMaster ? mfpMaster.checked : false; // default OFF
 					var inputsFilled = mfpUrlInput && mfpPwdInput && mfpUrlInput.value.trim() !== '' && mfpPwdInput.value.trim() !== '';
@@ -518,6 +524,27 @@ function landingTemplate(manifest: any) {
 						}
 						if (vixsrcRow) setRowState(vixsrcRow);
 					}
+
+					// CB01 toggle gating (richiede MFP attivo e credenziali come AnimeUnity)
+					if (cb01El){
+						if (!on) { // Master OFF -> disabilita e memorizza stato
+							if (storedCb01State === null) storedCb01State = cb01El.checked;
+							cb01El.checked = false;
+							cb01El.disabled = true;
+							if (cb01Row) cb01Row.classList.add('dimmed');
+						} else { // Master ON
+							if (cb01Row) cb01Row.classList.remove('dimmed');
+							cb01El.disabled = !canEnableChildren;
+							if (canEnableChildren && storedCb01State !== null) {
+								cb01El.checked = storedCb01State || true; // riattiva precedente o ON
+								storedCb01State = null;
+							} else if (!canEnableChildren) {
+								if (storedCb01State === null) storedCb01State = cb01El.checked;
+								cb01El.checked = false;
+							}
+						}
+						if (cb01Row) setRowState(cb01Row);
+					}
 				}
 				if (mfpMaster){ mfpMaster.addEventListener('change', function(){ syncMfp(); updateLink(); }); syncMfp(); }
 				if (mfpUrlInput) { mfpUrlInput.addEventListener('input', function(){ syncMfp(); updateLink(); }); }
@@ -561,13 +588,16 @@ function landingTemplate(manifest: any) {
 				// Reorder provider toggles in requested order without altering other logic
 				try {
 					var orderIds = [
-						'disableVixsrc',       // VixSrc
-						'guardahdEnabled',      // GuardaHD
-						'guardaserieEnabled',   // GuardaSerie
-						'eurostreamingEnabled', // Eurostreaming
-						'animeunityEnabled',    // Anime Unity
-						'animesaturnEnabled',   // Anime Saturn
-						'animeworldEnabled'     // Anime World
+						'disableLiveTv',        // Live TV
+						'disableVixsrc',         // VixSrc
+						'cb01Enabled',           // CB01
+						'guardahdEnabled',       // GuardaHD
+						'guardaserieEnabled',    // GuardaSerie
+						'eurostreamingEnabled',  // Eurostreaming
+						'animeunityEnabled',     // Anime Unity
+						'animesaturnEnabled',    // Anime Saturn
+						'animeworldEnabled',     // Anime World
+						'streamingwatchEnabled'  // StreamingWatch (non specificato ma mantenuto alla fine)
 					];
 					var firstWrapper = null;
 					var prev = null;
@@ -582,6 +612,22 @@ function landingTemplate(manifest: any) {
 						}
 						prev = wrap;
 					});
+					// Dopo il riordino assicurati che il blocco opzioni Live TV sia subito dopo il toggle Live TV
+					try {
+						var liveTvToggle2 = document.getElementById('disableLiveTv');
+						var liveSub2 = document.getElementById('liveTvSubToggles');
+						if (liveTvToggle2 && liveSub2) {
+							var liveWrapper2 = liveTvToggle2.closest('.form-element');
+							if (liveWrapper2 && liveWrapper2.parentNode && liveWrapper2.nextSibling !== liveSub2) {
+								liveWrapper2.parentNode.insertBefore(liveSub2, liveWrapper2.nextSibling);
+							}
+							// Reinserisci i toggle TvTap e Vavoo dentro il blocco se non presenti
+							var tvtapToggleEl2 = document.getElementById('tvtapProxyEnabled')?.closest('.form-element');
+							var vavooToggleEl2 = document.getElementById('vavooNoMfpEnabled')?.closest('.form-element');
+							if (tvtapToggleEl2 && tvtapToggleEl2.parentElement !== liveSub2) liveSub2.appendChild(tvtapToggleEl2);
+							if (vavooToggleEl2 && vavooToggleEl2.parentElement !== liveSub2) liveSub2.appendChild(vavooToggleEl2);
+						}
+					} catch(e) { console.warn('LiveTV block reposition after reorder failed', e); }
 				} catch(e) { console.warn('Reorder toggles failed', e); }
 				// expose globally for bottom script
 					window.updateLink = updateLink;

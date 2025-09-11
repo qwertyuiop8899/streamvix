@@ -124,13 +124,16 @@ export class DoodStreamExtractor implements HostExtractor {
       }
     } catch {}
 
-    const secondSegs: string[] = [];
-    if (sizePart) secondSegs.push(sizePart);
-    if (resPart) secondSegs.push(resPart);
-    secondSegs.push('doodstream');
-    const line1 = `${baseTitle} • [ITA]`;
-    const title = `${line1}\n💾 ${secondSegs.join(' • ')}`;
-    const stream: StreamForStremio = { title, url: mp4, behaviorHints:{ notWebReady:true } };
+  const secondSegs: string[] = [];
+  if (sizePart) secondSegs.push(sizePart);
+  if (resPart) secondSegs.push(resPart);
+  // Always add provider label; even if alone still show second line per new GH requirement
+  secondSegs.push('Doodstream');
+  const line1 = `${baseTitle} • [ITA]`;
+  const title = `\n💾 ${secondSegs.join(' • ')}`.replace(/^\n/,'');
+  // Ensure line1 + second line always
+  const fullTitle = `${line1}\n💾 ${secondSegs.join(' • ')}`;
+    const stream: StreamForStremio = { title: fullTitle, url: mp4, behaviorHints:{ notWebReady:true } };
     return { streams: [stream] };
   }
 }

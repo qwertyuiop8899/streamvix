@@ -115,12 +115,13 @@ export class SuperVideoExtractor implements HostExtractor {
           }
         }
       } catch {}
-      const baseTitle = ctx.titleHint || 'SuperVideo';
-      const segs: string[] = [];
-      if (sizePart) segs.push(sizePart);
-      if (resPart) segs.push(resPart);
-      segs.push('supervideo');
-      const title = `${baseTitle} • [ITA]` + (segs.length? `\n💾 ${segs.join(' • ')}`: '');
+  const baseTitle = ctx.titleHint || 'SuperVideo';
+  const segs: string[] = [];
+  if (sizePart) segs.push(sizePart);
+  if (resPart) segs.push(resPart);
+  // Host label capitalized per new formatting rule
+  segs.push('SuperVideo');
+  const title = `${baseTitle} • [ITA]` + (segs.length? `\n💾 ${segs.join(' • ')}`: '');
       streams.push({ title, url: direct, behaviorHints: { notWebReady: true } });
       if (streams.length) {
         if (debug) console.log('[SV][first-attempt direct ok]', embedUrl);
@@ -138,7 +139,8 @@ export class SuperVideoExtractor implements HostExtractor {
         const segs: string[] = [];
         if (sizePart) segs.push(sizePart);
         if (height) segs.push(`${height}p`);
-        segs.push('supervideo');
+  // Host label capitalized per new formatting rule
+  segs.push('SuperVideo');
         const formatted = `${baseTitle} • [ITA]` + (segs.length? `\n💾 ${segs.join(' • ')}`:'');
         streams.push({ title: formatted, url: m3u8, behaviorHints: { notWebReady: true } });
       }
@@ -158,7 +160,7 @@ export class SuperVideoExtractor implements HostExtractor {
       const viaDirect = await this.resolveSupervideo(embedUrl, p);
       if (viaDirect) {
         if (debug) console.log('[SV][proxy success direct]');
-        return { streams: [{ title: (ctx.titleHint||'SuperVideo') + ' • [ITA]\n💾 supervideo', url: viaDirect, behaviorHints:{ notWebReady:true } }] };
+  return { streams: [{ title: (ctx.titleHint||'SuperVideo') + ' • [ITA]\n💾 SuperVideo', url: viaDirect, behaviorHints:{ notWebReady:true } }] };
       }
       const viaHtml = await fetchText(embedUrl, ctx.referer, p);
       if (viaHtml) {
@@ -170,7 +172,8 @@ export class SuperVideoExtractor implements HostExtractor {
           const segs: string[] = [];
           if (sizePart) segs.push(sizePart);
           if (height) segs.push(`${height}p`);
-          segs.push('supervideo');
+          // Host label capitalized per new formatting rule
+          segs.push('SuperVideo');
           const baseTitle = ctx.titleHint || title || 'SuperVideo';
           const formatted = `${baseTitle} • [ITA]` + (segs.length? `\n💾 ${segs.join(' • ')}`:'');
           return { streams: [{ title: formatted, url: m3u8, behaviorHints:{ notWebReady:true } }] };

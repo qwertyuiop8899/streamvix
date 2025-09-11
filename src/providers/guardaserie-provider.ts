@@ -4,7 +4,7 @@
 //# 
 /** GuardaSerie Provider (raw HLS, no proxy) - single clean implementation */
 import type { StreamForStremio } from '../types/animeunity';
-import { getFullUrl } from '../utils/domains';
+import { getFullUrl, getDomain } from '../utils/domains';
 import { extractFromUrl } from '../extractors';
 
 // Removed showSizeInfo (always include size/res with ruler icon when available)
@@ -18,8 +18,8 @@ export class GuardaSerieProvider {
   private lastSeriesYear: string | null = null; // anno serie estratto da TMDB per filtrare i risultati (non appeso al titolo)
 
   constructor(private config: GuardaSerieConfig) {
-    const dom = getFullUrl('guardaserie');
-    this.base = (config.baseUrl || dom || 'https://www.guardaserie.example').replace(/\/$/, '');
+  const dom = getFullUrl('guardaserie');
+  this.base = (config.baseUrl || dom || `https://www.${getDomain('guardaserie') || 'guardaserie.example'}`).replace(/\/$/, '');
   }
 
   async handleImdbRequest(imdbId: string, season: number | null, episode: number | null, isMovie = false) {
@@ -596,10 +596,14 @@ export class GuardaSerieProvider {
     }
     const sizePart = info?.size ? info.size : undefined;
     const resPart = info?.res ? info.res : undefined;
-    const playerPart = player ? player : undefined;
+  let playerPart = player ? player : undefined;
+  if (playerPart && /supervideo/i.test(playerPart)) playerPart = 'SuperVideo';
     const segments: string[] = [];
-    if (sizePart) segments.push(sizePart);
-    if (resPart) segments.push(resPart);
+  // Apply Dropload / general filters: skip sentinel size 5.00MB and fake 100p resolution
+  const filteredSize = sizePart && /^(5\.00MB)$/i.test(sizePart) ? undefined : sizePart;
+  const filteredRes = resPart && /^100p$/i.test(resPart) ? undefined : resPart;
+  if (filteredSize) segments.push(filteredSize);
+  if (filteredRes) segments.push(filteredRes);
     if (playerPart) segments.push(playerPart);
     const line2 = segments.length ? '💾 ' + segments.join(' • ') : '';
     return line2 ? `${line1}\n${line2}` : line1;

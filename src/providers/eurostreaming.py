@@ -105,8 +105,44 @@ try:
 except Exception:
     AsyncSession = None  # type: ignore
 
-# Static domain (as requested)
-ES_DOMAIN = 'https://eurostreaming.garden'
+# Domain loaded from config/domains.json (key "eurostreaming") with fallback
+def _load_es_domain():
+    base = 'https://eurostreaming.garden'
+    try:
+        # File reale è nella root del progetto: ../../.. dal file corrente porta a project root
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        cfg_path = os.path.join(project_root, 'config', 'domains.json')
+        if os.path.exists(cfg_path):
+            import json as _json
+            with open(cfg_path, 'r', encoding='utf-8') as fh:
+                data = _json.load(fh)
+                dom = data.get('eurostreaming')
+                if isinstance(dom, str) and dom.strip():
+                    if not dom.startswith('http'):
+                        dom = 'https://' + dom.strip().strip('/')
+                    base = dom.rstrip('/')
+    except Exception:  # pragma: no cover
+        pass
+    return base
+
+ES_DOMAIN = _load_es_domain()
+_ES_LAST_CHECK = 0.0  # epoch ms
+_ES_TTL = 12 * 60 * 60  # 12 ore in secondi
+
+def ensure_es_domain(force: bool = False):
+    """Ricarica il dominio da config ogni 12 ore (come strategia CB01) senza env e senza fallback multipli.
+    Aggiorna ES_DOMAIN solo se cambia.
+    """
+    global ES_DOMAIN, _ES_LAST_CHECK
+    now = time.time()
+    if not force and (now - _ES_LAST_CHECK) < _ES_TTL:
+        return ES_DOMAIN
+    new_dom = _load_es_domain()
+    if new_dom != ES_DOMAIN:
+        ES_DOMAIN = new_dom
+        log('domain refresh ->', ES_DOMAIN)
+    _ES_LAST_CHECK = now
+    return ES_DOMAIN
 
 # Proxies / ForwardProxy simplified (disabled by default)
 proxies: Dict[str, str] = {}
@@ -122,6 +158,7 @@ def log(*args):
     if os.environ.get('ES_DEBUG', '0') in ('1', 'true', 'True'):
         # Send debug logs to stderr so stdout stays clean JSON
         print('[ES]', *args, file=sys.stderr)
+log('init domain', ES_DOMAIN)
 
 # ========= Utilities (re-implemented minimal) ========= #
 async def is_movie(id_value: str) -> Tuple[int, str, Optional[int], Optional[int]]:
@@ -978,6 +1015,8 @@ search = _choose_search_fn()
 async def eurostreaming(id_value, client, MFP):
     """Main Eurostreaming orchestrator returning (urls|None, reason, debug)."""
     debug: Dict[str, object] = {}
+    # Refresh dominio se necessario (TTL 12h)
+    ensure_es_domain()
     # Parse id and ensure it's a series (movies unsupported)
     try:
         ismovie, clean_id, season_i, episode_i = await is_movie(id_value)
