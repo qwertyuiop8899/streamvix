@@ -41,6 +41,7 @@ interface AddonConfig {
     guardaserieEnabled?: boolean;
     guardahdEnabled?: boolean;
     eurostreamingEnabled?: boolean;
+    streamingwatchEnabled?: boolean; // nuovo toggle provider StreamingWatch
     disableLiveTv?: boolean;
     disableVixsrc?: boolean;
     tvtapProxyEnabled?: boolean; // true = NO proxy (link diretto TvTap), false = usa proxy se disponibile
@@ -551,6 +552,7 @@ const baseManifest: Manifest = {
     { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
     { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox" },
     { key: "cb01Enabled", title: "Enable CB01 Mixdrop", type: "checkbox" },
+    { key: "streamingwatchEnabled", title: "StreamingWatch 🔓", type: "checkbox" },
     { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: true },
     { key: "vavooNoMfpEnabled", title: "Vavoo NO MFP 🔓", type: "checkbox", default: true },
     // UI helper toggles (not used directly server-side but drive dynamic form logic)
@@ -2434,6 +2436,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (config.guardaserieEnabled === true);
                 const guardaHdEnabled = envFlag('GUARDAHD_ENABLED') ?? (config.guardahdEnabled === true);
                 const cb01Enabled = envFlag('CB01_ENABLED') ?? (config as any).cb01Enabled === true;
+                const streamingWatchEnabled = envFlag('STREAMINGWATCH_ENABLED') ?? (config as any).streamingwatchEnabled === true;
                 // Eurostreaming: default ON unless explicitly disabled (config false) or env sets true/false
                 const eurostreamingEnv = envFlag('EUROSTREAMING_ENABLED');
                 const eurostreamingEnabled = eurostreamingEnv !== undefined
@@ -2576,6 +2579,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             });
                             return cbProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                         }, 'StreamViX CB', true));
+                    }
+
+                    // StreamingWatch (nuovo provider) - supporta film e serie
+                    if (streamingWatchEnabled && id.startsWith('tt')) {
+                        providerPromises.push(runProvider('StreamingWatch', true, async () => {
+                            const { StreamingWatchProvider } = await import('./providers/streamingwatch-provider');
+                            const swProvider = new StreamingWatchProvider({
+                                enabled: true,
+                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
+                            });
+                            return swProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        }, 'StreamViX SW 🔓'));
                     }
 
                     // Eurostreaming
