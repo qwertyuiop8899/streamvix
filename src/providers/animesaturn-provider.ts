@@ -3,6 +3,7 @@ import { AnimeSaturnConfig, AnimeSaturnResult, AnimeSaturnEpisode, StreamForStre
 import * as path from 'path';
 import axios from 'axios';
 import { KitsuProvider } from './kitsu';
+import { getDomain } from '../utils/domains';
 import { checkIsAnimeById } from '../utils/animeGate';
 
 // Helper function to invoke the Python scraper
@@ -218,7 +219,10 @@ function normalizeUnicodeToAscii(str: string): string {
 
 export class AnimeSaturnProvider {
   private kitsuProvider = new KitsuProvider();
-  constructor(private config: AnimeSaturnConfig) {}
+  private baseHost: string;
+  constructor(private config: AnimeSaturnConfig) {
+    this.baseHost = getDomain('animesaturn') || 'animesaturn.cx';
+  }
 
   // Ricerca tutte le versioni (AnimeSaturn non distingue SUB/ITA/CR, ma puoi inferirlo dal titolo)
   // Made public for catalog search
