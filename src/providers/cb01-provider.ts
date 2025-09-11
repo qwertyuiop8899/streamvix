@@ -1,6 +1,4 @@
-/*
-Thanks to @urlomythus for the scraper logic https://github.com/UrloMythus/MammaMia/blob/main/Src/API/cb01.py
- CB01 Mixdrop-only provider 
+/* CB01 Mixdrop-only provider
  * Replica la logica essenziale di cb01.py limitandosi a:
  *  - Ricerca film: https://cb01net.lol/?s=<query>
  *  - Ricerca serie: https://cb01net.lol/serietv/?s=<query>
@@ -37,8 +35,10 @@ const warn = (...a: unknown[]) => { try { console.warn('[CB01]', ...a); } catch 
 interface Cb01Config { enabled:boolean; mfpUrl?:string; mfpPassword?:string; tmdbApiKey?: string }
 
 export class Cb01Provider {
-  private baseFilm = 'https://cb01net.lol';
-  private baseSerie = 'https://cb01net.lol/serietv';
+  private baseFilm = 'https://cb01net.lol'; // initial fallback
+  private baseSerie = 'https://cb01net.lol/serietv'; // initial fallback
+  private lastDomainCheck = 0;
+  private domainTTL = 12*60*60*1000; // 12h cache (domain redirect check)
   private userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
   private cache = new Map<string,{ ts:number; streams:StreamForStremio[] }>();
   private TTL = 6*60*60*1000;
@@ -56,12 +56,10 @@ export class Cb01Provider {
         log('movieFlow done', { imdbId, count: s.length });
         this.cache.set(key,{ ts:Date.now(), streams:s });
         return { streams: s };
+      // Series temporarily disabled per user request
       } else if(season!=null && episode!=null){
-        log('seriesFlow start', { imdbId, season, episode });
-        const s = await this.seriesFlow(imdbId, season, episode);
-        log('seriesFlow done', { imdbId, season, episode, count: s.length });
-        this.cache.set(key,{ ts:Date.now(), streams:s });
-        return { streams: s };
+        log('seriesFlow skipped (disabled)', { imdbId, season, episode });
+        return { streams: [] };
       }
     } catch (e){ warn('handleImdbRequest error', String((e as Error).message||e)); }
     return { streams: [] };
@@ -74,6 +72,25 @@ export class Cb01Provider {
   private async fetch(url:string, referer?:string){
     const res = await fetch(url,{ headers:{ 'User-Agent': this.userAgent, 'Referer': referer||this.baseFilm, 'Accept':'text/html' } });
     if(!res.ok) throw new Error('http '+res.status); return await res.text();
+  }
+  private async ensureDomain(){
+    const now = Date.now();
+    if(now - this.lastDomainCheck < this.domainTTL) return;
+    this.lastDomainCheck = now;
+    try {
+      // Hit canonical redirect domain; just perform HEAD/GET to capture final URL
+      const resp = await fetch('https://cb01official.uno/', { redirect: 'follow', headers:{ 'User-Agent': this.userAgent, 'Accept':'text/html' } });
+      const finalUrl = resp.url || '';
+      const m = finalUrl.match(/^(https?:\/\/[^/]+)\//);
+      if(m){
+        const root = m[1];
+        if(root && root !== this.baseFilm){
+          log('domain update', { from: this.baseFilm, to: root });
+          this.baseFilm = root;
+          this.baseSerie = root + '/serietv';
+        }
+      }
+    } catch(e){ warn('ensureDomain error', String(e)); }
   }
   // Risoluzione ibrida titolo/anno: tenta TMDb (/find) poi fallback scraping IMDb (<title>) simil eurostreaming.
   private async resolveTitleYear(imdbId:string, isMovie:boolean){
@@ -133,6 +150,7 @@ export class Cb01Provider {
   }
 
   private async movieFlow(imdbId:string):Promise<StreamForStremio[]>{
+  await this.ensureDomain();
   const meta = await this.resolveTitleYear(imdbId, true); const title = meta.title; const year = meta.year; log('meta chosen', { imdbId, source: meta.source, title, year });
     const q = this.norm(title);
     const searchUrl = `${this.baseFilm}/?s=${encodeURIComponent(q)}`;
@@ -152,59 +170,63 @@ export class Cb01Provider {
     return stream? [stream]: [];
   }
 
-  private async seriesFlow(imdbId:string, season:number, episode:number):Promise<StreamForStremio[]>{
-    const meta = await this.resolveTitleYear(imdbId, false); const title = meta.title; const year = meta.year; log('meta chosen', { imdbId, source: meta.source, title, year });
-    const q = this.norm(title);
-    const searchUrl = `${this.baseSerie}/?s=${encodeURIComponent(q)}`;
-    let searchHtml:string; try { searchHtml = await this.fetch(searchUrl, this.baseSerie+'/'); } catch (e){ warn('series search fetch fail', searchUrl, String(e)); return []; }
-    log('series search html', { url: searchUrl, len: searchHtml.length, snippet: searchHtml.slice(0,220) });
-    const serieHref = this.pickYearMatch(searchHtml, year);
-    if(!serieHref){ log('series no match', { imdbId, title, year }); return []; }
-    log('series picked', { imdbId, serieHref });
-    let pageHtml:string; try { pageHtml = await this.fetch(serieHref, this.baseSerie+'/'); } catch (e){ warn('series page fetch fail', serieHref, String(e)); return []; }
-    log('series page html', { href: serieHref, len: pageHtml.length, snippet: pageHtml.slice(0,220) });
-    // Estrae tutte le coppie sp-head/sp-body in ordine
-    const blocks: { seasonNum:number|null; headRaw:string; bodyHtml:string }[] = [];
-    const headRe = /<div[^>]*class="sp-head[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*class="sp-body"[^>]*>([\s\S]*?)(?=<div[^>]*class="sp-head|$)/gi;
-    let hm:RegExpExecArray|null;
-    while((hm = headRe.exec(pageHtml))){
-      const headHtml = hm[1];
-      const bodyHtml = hm[2];
-      const text = headHtml.replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').trim();
-      const mSeason = text.match(/STAGIONE\s+(\d+)/i);
-      const seasonNum = mSeason? parseInt(mSeason[1],10): null;
-      blocks.push({ seasonNum, headRaw: text, bodyHtml });
-    }
-    log('series seasons parsed', { total: blocks.length, seasons: blocks.map(b=>b.seasonNum) });
-    const chosen = blocks.find(b=> b.seasonNum === season);
-    if(!chosen){ log('series season block not found', { imdbId, season, parsed: blocks.map(b=>b.headRaw) }); return []; }
-    const segment = `<div class="sp-body">${chosen.bodyHtml}`;
-    log('series season segment', { len: segment.length, snippet: segment.slice(0,260) });
-    // Pattern episodio: considera formati S02E06, 2x06 e con simbolo × (U+00D7) tipo 2×06
-    const epPad = (n:number)=> n<10? '0'+n: ''+n;
-    const ePad = epPad(episode);
-    const pat = `(?:S0?${season}E${ePad}|${season}x${ePad}|${season}[×x]${ePad})`;
-    const epBlockRe = new RegExp(pat+`[\\s\\S]{0,260}?href=\"(https?:[^"]+)\"[\\s\\S]{0,80}?Mixdrop`, 'i');
-    const epLinkMatch = segment.match(epBlockRe);
-    log('series episode pattern', { pattern: epBlockRe.toString(), matched: !!epLinkMatch });
-    let candidate = epLinkMatch? epLinkMatch[1]: null;
-    if(!candidate){
-      // fallback: qualunque link mixdrop nella riga dell'episodio cercando prima la riga
-      const lineRe = new RegExp(pat+`[\\s\\S]{0,300}?<p>[\\s\\S]*?</p>`, 'i');
-      const line = segment.match(lineRe);
-      if(line){
-        const mix = line[0].match(/href=\"(https?:[^\"]+mixdrop[^\"]*)\"/i);
-        if(mix) candidate = mix[1];
-        log('series episode fallback line', { foundLine: !!line, hasMix: !!mix });
-      }
-    }
-    if(!candidate){ log('series episode link not found', { imdbId, season, episode }); return []; }
-    log('series episode candidate', { candidate });
-    const mixdrop = await this.resolveToMixdrop(candidate, pageHtml);
-    if(!mixdrop){ log('series resolveToMixdrop failed', { imdbId, candidate }); return []; }
-    const stream = await this.wrapMediaFlow(mixdrop, pageHtml, { season, episode });
-    return stream? [stream]: [];
-  }
+  // private async seriesFlow(imdbId:string, season:number, episode:number):Promise<StreamForStremio[]>{
+  //   // DISABLED: series handling temporarily removed
+  //   return [];
+  // }
+  /*
+  // --- Archived seriesFlow (disabled) ---
+  // private async seriesFlow(imdbId:string, season:number, episode:number):Promise<StreamForStremio[]>{
+  //   const meta = await this.resolveTitleYear(imdbId, false); const title = meta.title; const year = meta.year; log('meta chosen', { imdbId, source: meta.source, title, year });
+  //   const q = this.norm(title);
+  //   const searchUrl = `${this.baseSerie}/?s=${encodeURIComponent(q)}`;
+  //   let searchHtml:string; try { searchHtml = await this.fetch(searchUrl, this.baseSerie+'/'); } catch (e){ warn('series search fetch fail', searchUrl, String(e)); return []; }
+  //   log('series search html', { url: searchUrl, len: searchHtml.length, snippet: searchHtml.slice(0,220) });
+  //   const serieHref = this.pickYearMatch(searchHtml, year);
+  //   if(!serieHref){ log('series no match', { imdbId, title, year }); return []; }
+  //   log('series picked', { imdbId, serieHref });
+  //   let pageHtml:string; try { pageHtml = await this.fetch(serieHref, this.baseSerie+'/'); } catch (e){ warn('series page fetch fail', serieHref, String(e)); return []; }
+  //   log('series page html', { href: serieHref, len: pageHtml.length, snippet: pageHtml.slice(0,220) });
+  //   const blocks: { seasonNum:number|null; headRaw:string; bodyHtml:string }[] = [];
+  //   const headRe = /<div[^>]*class=\"sp-head[^\"]*\"[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*class=\"sp-body\"[^>]*>([\s\S]*?)(?=<div[^>]*class=\"sp-head|$)/gi;
+  //   let hm:RegExpExecArray|null;
+  //   while((hm = headRe.exec(pageHtml))){
+  //     const headHtml = hm[1];
+  //     const bodyHtml = hm[2];
+  //     const text = headHtml.replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').trim();
+  //     const mSeason = text.match(/STAGIONE\s+(\d+)/i);
+  //     const seasonNum = mSeason? parseInt(mSeason[1],10): null;
+  //     blocks.push({ seasonNum, headRaw: text, bodyHtml });
+  //   }
+  //   log('series seasons parsed', { total: blocks.length, seasons: blocks.map(b=>b.seasonNum) });
+  //   const chosen = blocks.find(b=> b.seasonNum === season);
+  //   if(!chosen){ log('series season block not found', { imdbId, season, parsed: blocks.map(b=>b.headRaw) }); return []; }
+  //   const segment = `<div class=\"sp-body\">${chosen.bodyHtml}`;
+  //   log('series season segment', { len: segment.length, snippet: segment.slice(0,260) });
+  //   const epPad = (n:number)=> n<10? '0'+n: ''+n;
+  //   const ePad = epPad(episode);
+  //   const pat = `(?:S0?${season}E${ePad}|${season}x${ePad}|${season}[×x]${ePad})`;
+  //   const epBlockRe = new RegExp(pat+`[\\s\\S]{0,260}?href=\"(https?:[^"]+)\"[\\s\\S]{0,80}?Mixdrop`, 'i');
+  //   const epLinkMatch = segment.match(epBlockRe);
+  //   log('series episode pattern', { pattern: epBlockRe.toString(), matched: !!epLinkMatch });
+  //   let candidate = epLinkMatch? epLinkMatch[1]: null;
+  //   if(!candidate){
+  //     const lineRe = new RegExp(pat+`[\\s\\S]{0,300}?<p>[\\s\\S]*?</p>`, 'i');
+  //     const line = segment.match(lineRe);
+  //     if(line){
+  //       const mix = line[0].match(/href=\"(https?:[^\"]+mixdrop[^\"]*)\"/i);
+  //       if(mix) candidate = mix[1];
+  //       log('series episode fallback line', { foundLine: !!line, hasMix: !!mix });
+  //     }
+  //   }
+  //   if(!candidate){ log('series episode link not found', { imdbId, season, episode }); return []; }
+  //   log('series episode candidate', { candidate });
+  //   const mixdrop = await this.resolveToMixdrop(candidate, pageHtml);
+  //   if(!mixdrop){ log('series resolveToMixdrop failed', { imdbId, candidate }); return []; }
+  //   const stream = await this.wrapMediaFlow(mixdrop, pageHtml, { season, episode });
+  //   return stream? [stream]: [];
+  // }
+  */
 
   private async resolveToMixdrop(raw:string, pageHtml:string):Promise<string|null>{
     let link = raw.trim();
