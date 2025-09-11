@@ -1,4 +1,5 @@
 /* CB01 Mixdrop-only provider
+thanks to @urlomythus for the code https://github.com/UrloMythus/MammaMia/blob/main/Src/API/cb01.py
  * Replica la logica essenziale di cb01.py limitandosi a:
  *  - Ricerca film: https://cb01net.lol/?s=<query>
  *  - Ricerca serie: https://cb01net.lol/serietv/?s=<query>
@@ -164,9 +165,14 @@ export class Cb01Provider {
     const iframe1 = pageHtml.match(/<div[^>]+id="iframen1"[^>]*data-src="([^"]+)"/i);
     let candidate = iframe2? iframe2[1]: (iframe1? iframe1[1]: null);
   if(!candidate){ log('movie no iframe found', { imdbId, movieHref }); return []; }
+    // Se è un link stayonline, preleva meta (filename + size) dalla pagina /l/<id>/
+    let stayMeta: { file:string|null; size:string|null } | null = null;
+    if(/stayonline\./i.test(candidate)) {
+      stayMeta = await this.fetchStayMeta(candidate);
+    }
     const mixdrop = await this.resolveToMixdrop(candidate, pageHtml);
   if(!mixdrop){ log('movie resolveToMixdrop failed', { imdbId, candidate }); return []; }
-    const stream = await this.wrapMediaFlow(mixdrop, pageHtml, undefined);
+    const stream = await this.wrapMediaFlow(mixdrop, pageHtml, undefined, stayMeta || undefined);
     return stream? [stream]: [];
   }
 
@@ -233,16 +239,19 @@ export class Cb01Provider {
     // stayonline bypass
     if(/stayonline\./i.test(link)){
       try {
+  log('stayonline initial link', { link });
   // Replica python: id = link.split('/')[-2]
   const rawParts = link.split('/');
   const id = rawParts.length >= 2 ? rawParts[rawParts.length - 2] : '';
   if(!id){ log('stayonline id not extracted', { link }); return null; }
   const body = new URLSearchParams({ id, ref: '' });
         const res = await fetch('https://stayonline.pro/ajax/linkEmbedView.php', { method:'POST', headers:{ 'User-Agent': this.userAgent, 'X-Requested-With':'XMLHttpRequest', 'Accept':'application/json','Origin':'https://stayonline.pro','Referer':'https://stayonline.pro/' }, body });
+        log('stayonline ajax request sent', { id, status: res.status });
         if(res.ok){
           const js = await res.json();
           const v = js?.data?.value;
           if (typeof v === 'string') {
+            log('stayonline ajax value', { length: v.length, snippet: v.slice(0,260) });
             const direct = v.trim();
             if(/mixdrop/i.test(direct)) { link = direct; log('stayonline ajax direct mixdrop', { link }); }
             else {
@@ -260,6 +269,7 @@ export class Cb01Provider {
             const pg = await fetch(embedUrl, { headers:{ 'User-Agent': this.userAgent, 'Referer':'https://stayonline.pro/' } });
             if(pg.ok){
               const txt = await pg.text();
+              log('stayonline embed page', { embedUrl, len: txt.length, snippet: txt.slice(0,400) });
               const mm = txt.match(/https?:\/\/[^"'<>]*mixdrop[^"'<>]*/i);
               if(mm){ link = mm[0]; log('stayonline page fallback mixdrop', { link }); }
             }
@@ -290,7 +300,7 @@ export class Cb01Provider {
     return url.endsWith('/')? url: url + '/';
   }
 
-  private async wrapMediaFlow(mixdropEmbed:string, pageHtml:string, ep?:{season:number;episode:number}):Promise<StreamForStremio|null>{
+  private async wrapMediaFlow(mixdropEmbed:string, pageHtml:string, ep?:{season:number;episode:number}, metaOverride?: {file:string|null; size:string|null}):Promise<StreamForStremio|null>{
   const { mfpUrl, mfpPassword } = this.config; if(!mfpUrl || !mfpPassword) return null;
   // Normalizza base URL mediaflow evitando doppio slash
   const mfpBase = mfpUrl.replace(/\/+$/, '');
@@ -328,21 +338,43 @@ export class Cb01Provider {
     const ua = headers['user-agent'] || headers['User-Agent'] || this.userAgent;
     const ref = headers['referer'] || headers['Referer'] || 'https://mixdrop.ps/';
   const finalBase = `${mfpBase}/proxy/stream?api_password=${encodeURIComponent(mfpPassword)}&d=${encodeURIComponent(dest)}&h_user-agent=${encodeURIComponent(ua)}&h_referer=${encodeURIComponent(ref)}`;
-    const meta = this.extractStayonlineMeta(pageHtml) || { file:null, size: undefined };
-    let titleLine1 = 'StreamViX CB';
-    if(meta.file){
-      // Pulisci nome
-      const clean = meta.file.replace(/\.[A-Za-z0-9]{2,4}$/,'').replace(/\./g,' ').replace(/\s+/g,' ').trim();
-      if(ep) titleLine1 = `${clean} S${ep.season}E${ep.episode}`; else titleLine1 = clean;
-    } else if(ep){
-      titleLine1 += ` S${ep.season}E${ep.episode}`;
-    }
-    if(!/• \[ITA\]$/i.test(titleLine1)) titleLine1 += ' • [ITA]';
-    const parts:string[] = [];
-    if(meta.size) parts.push(meta.size);
-    parts.push('mixdrop');
-    const title = parts.length? `${titleLine1}\n💾 ${parts.join(' • ')}`: titleLine1;
+  const meta = metaOverride || this.extractStayonlineMeta(pageHtml) || { file:null, size: undefined };
+  // Nuovo formato richiesto:
+  // Linea 1: Nome completo file (con estensione) + [ITA]
+  // Linea 2: "💾 <SIZE> Mixdrop [ITA]" (se size disponibile) altrimenti "💾 Mixdrop [ITA]"
+  let line1 = meta.file ? meta.file.trim() : 'StreamViX CB';
+  // (Serie disabilitate, quindi ep ignorato; se riabilitate e si vuole aggiungere S/E si può reinserire qui)
+  if(!/\[ITA\]/i.test(line1)) line1 += ' [ITA]';
+  const line2 = meta.size ? `💾 ${meta.size} • Mixdrop • [ITA]` : '💾 Mixdrop • [ITA]';
+  const title = `${line1}\n${line2}`;
   log('stream ready', { title, mixdrop: dUrl.substring(0,120), final: finalBase.substring(0,120) });
   return { title, url: finalBase, behaviorHints:{ notWebReady:true } } as StreamForStremio;
+  }
+
+  // Recupera filename e size dalla pagina stayonline /l/<id>/
+  private async fetchStayMeta(originalLink:string): Promise<{ file:string|null; size:string|null } | null> {
+    try {
+      const parts = originalLink.split('/').filter(Boolean);
+      const id = parts.length >= 2 ? parts[parts.length - 1] || parts[parts.length - 2] : '';
+      // Se path termina con e/<id>/ allora id è penultimo
+      const m = originalLink.match(/\/e\/(\w+)/i);
+      const finalId = m ? m[1] : id;
+      if(!finalId) { log('stayMeta no id', { originalLink }); return null; }
+      const metaUrl = `https://stayonline.pro/l/${finalId}/`;
+      log('stayMeta fetch', { metaUrl });
+      const r = await fetch(metaUrl, { headers:{ 'User-Agent': this.userAgent, 'Referer':'https://stayonline.pro/' } });
+      if(!r.ok){ warn('stayMeta http fail', { status: r.status }); return null; }
+      const html = await r.text();
+      // cerca bottone
+      const btn = html.match(/<button[^>]*btnClickToContinueLink[^>]*>([\s\S]*?)<\/button>/i);
+      if(!btn){ log('stayMeta no button'); return null; }
+      const inner = btn[1];
+      const nameMatch = inner.match(/([^<]+\.mp4)\s*<span/i);
+      const sizeMatch = inner.match(/<span[^>]*>([0-9.,]+\s*(?:GB|MB|KB))<\/span>/i);
+      const file = nameMatch ? nameMatch[1].trim() : null;
+      const size = sizeMatch ? sizeMatch[1].replace(',', '.') : null;
+      log('stayMeta parsed', { file, size });
+      return { file, size };
+    } catch(e){ warn('stayMeta error', String(e)); return null; }
   }
 }
