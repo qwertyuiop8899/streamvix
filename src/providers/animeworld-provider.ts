@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import { spawnSync } from 'child_process';
 import * as path from 'path';
 import { KitsuProvider } from './kitsu';
+import { getDomain } from '../utils/domains';
 // import { formatMediaFlowUrl } from '../utils/mediaflow'; // disabilitato: usiamo URL mp4 diretto
 import { AnimeWorldConfig, AnimeWorldResult, AnimeWorldEpisode, StreamForStremio } from '../types/animeunity';
 import { checkIsAnimeById } from '../utils/animeGate';
@@ -212,9 +213,9 @@ export class AnimeWorldProvider {
         console.log('[AnimeWorld][LangProbe] Rechecking SUB ITA cached slug for possible DUB upgrade:', slug);
       }
     }
+    const awDom = getDomain('animeworld') || 'animeworld.ac';
     const urls = [
-      `https://www.animeworld.ac/play/${slug}`,
-      `https://www.animeworld.so/play/${slug}`
+      `https://www.${awDom}/play/${slug}`
     ];
     for (const url of urls) {
       try {
@@ -343,7 +344,8 @@ export class AnimeWorldProvider {
       // Probe funzione ridotta (solo segnali forti)
       const probeLang = async (slug: string): Promise<'ITA' | 'SUB ITA'> => {
         try {
-          const url = `https://www.animeworld.so/play/${slug}`;
+          const awDom = getDomain('animeworld') || 'animeworld.ac';
+          const url = `https://www.${awDom}/play/${slug}`;
           const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 AWProbe', 'Accept-Language': 'it-IT,it;q=0.9' } });
           if (!r.ok) return 'SUB ITA';
           const html = await r.text();
