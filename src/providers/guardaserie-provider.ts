@@ -4,7 +4,7 @@
 //# 
 /** GuardaSerie Provider (raw HLS, no proxy) - single clean implementation */
 import type { StreamForStremio } from '../types/animeunity';
-import { getFullUrl } from '../utils/domains';
+import { getFullUrl, getDomain } from '../utils/domains';
 import { extractFromUrl } from '../extractors';
 
 // Removed showSizeInfo (always include size/res with ruler icon when available)
@@ -18,8 +18,8 @@ export class GuardaSerieProvider {
   private lastSeriesYear: string | null = null; // anno serie estratto da TMDB per filtrare i risultati (non appeso al titolo)
 
   constructor(private config: GuardaSerieConfig) {
-    const dom = getFullUrl('guardaserie');
-    this.base = (config.baseUrl || dom || 'https://www.guardaserie.example').replace(/\/$/, '');
+  const dom = getFullUrl('guardaserie');
+  this.base = (config.baseUrl || dom || `https://www.${getDomain('guardaserie') || 'guardaserie.example'}`).replace(/\/$/, '');
   }
 
   async handleImdbRequest(imdbId: string, season: number | null, episode: number | null, isMovie = false) {
