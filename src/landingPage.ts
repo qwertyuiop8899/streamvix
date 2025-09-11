@@ -592,12 +592,12 @@ function landingTemplate(manifest: any) {
 						'disableVixsrc',         // VixSrc
 						'cb01Enabled',           // CB01
 						'guardahdEnabled',       // GuardaHD
+						'streamingwatchEnabled', // StreamingWatch spostato subito sotto GuardaHD
 						'guardaserieEnabled',    // GuardaSerie
 						'eurostreamingEnabled',  // Eurostreaming
 						'animeunityEnabled',     // Anime Unity
 						'animesaturnEnabled',    // Anime Saturn
-						'animeworldEnabled',     // Anime World
-						'streamingwatchEnabled'  // StreamingWatch (non specificato ma mantenuto alla fine)
+						'animeworldEnabled'      // Anime World
 					];
 					var firstWrapper = null;
 					var prev = null;
