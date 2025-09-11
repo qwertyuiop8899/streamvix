@@ -105,8 +105,26 @@ try:
 except Exception:
     AsyncSession = None  # type: ignore
 
-# Static domain (as requested)
-ES_DOMAIN = 'https://eurostreaming.garden'
+# Domain loaded from config/domains.json (key "eurostreaming") with fallback
+def _load_es_domain():
+    base = 'https://eurostreaming.garden'
+    try:
+        cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'domains.json')
+        if os.path.exists(cfg_path):
+            import json as _json
+            with open(cfg_path, 'r', encoding='utf-8') as fh:
+                data = _json.load(fh)
+                dom = data.get('eurostreaming')
+                if isinstance(dom, str) and dom.strip():
+                    # ensure scheme
+                    if not dom.startswith('http'):
+                        dom = 'https://' + dom.strip().strip('/')
+                    base = dom.rstrip('/')
+    except Exception as e:  # pragma: no cover
+        pass
+    return base
+
+ES_DOMAIN = _load_es_domain()
 
 # Proxies / ForwardProxy simplified (disabled by default)
 proxies: Dict[str, str] = {}
@@ -122,6 +140,7 @@ def log(*args):
     if os.environ.get('ES_DEBUG', '0') in ('1', 'true', 'True'):
         # Send debug logs to stderr so stdout stays clean JSON
         print('[ES]', *args, file=sys.stderr)
+log('init domain', ES_DOMAIN)
 
 # ========= Utilities (re-implemented minimal) ========= #
 async def is_movie(id_value: str) -> Tuple[int, str, Optional[int], Optional[int]]:
