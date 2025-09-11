@@ -1,4 +1,6 @@
-/* CB01 Mixdrop-only provider 
+/*
+Thanks to @urlomythus for the scraper logic https://github.com/UrloMythus/MammaMia/blob/main/Src/API/cb01.py
+ CB01 Mixdrop-only provider 
  * Replica la logica essenziale di cb01.py limitandosi a:
  *  - Ricerca film: https://cb01net.lol/?s=<query>
  *  - Ricerca serie: https://cb01net.lol/serietv/?s=<query>
