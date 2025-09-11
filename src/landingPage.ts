@@ -314,11 +314,12 @@ function landingTemplate(manifest: any) {
 						'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
 						'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
 						'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
-						'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(non sempre funzionante)</span>', invert: false },
-						'cb01Enabled': { title: 'CB01 Mixdrop 🎞️ - 🔓', invert: false },
+						'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(funziona in locale)</span>', invert: false },
+						'cb01Enabled': { title: 'CB01 🎞️ - 🔒', invert: false },
+						'streamingwatchEnabled': { title: 'StreamingWatch 📼 - 🔓', invert: false },
 							'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false },
 							'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
-							'mediaflowMaster': { title: 'MediaflowProxy', invert: false },
+							'mediaflowMaster': { title: 'MediaflowProxy 🔄', invert: false },
 					}
 					if (toggleMap[key]) {
 						const t = toggleMap[key];
@@ -472,7 +473,10 @@ function landingTemplate(manifest: any) {
 				var vixsrcCb = document.getElementById('disableVixsrc');
 				var vixsrcRow = vixsrcCb ? vixsrcCb.closest('[data-toggle-row]') : null;
 				var animeUnityRow = animeUnityEl ? animeUnityEl.closest('[data-toggle-row]') : null;
+				var cb01El = document.getElementById('cb01Enabled');
+				var cb01Row = cb01El ? cb01El.closest('[data-toggle-row]') : null;
 				var storedVixsrcState = null; // remember previous user choice
+				var storedCb01State = null; // remember previous cb01 state
 				function syncMfp(){
 					var on = mfpMaster ? mfpMaster.checked : false; // default OFF
 					var inputsFilled = mfpUrlInput && mfpPwdInput && mfpUrlInput.value.trim() !== '' && mfpPwdInput.value.trim() !== '';
@@ -519,6 +523,27 @@ function landingTemplate(manifest: any) {
 						}
 						if (vixsrcRow) setRowState(vixsrcRow);
 					}
+
+					// CB01 toggle gating (richiede MFP attivo e credenziali come AnimeUnity)
+					if (cb01El){
+						if (!on) { // Master OFF -> disabilita e memorizza stato
+							if (storedCb01State === null) storedCb01State = cb01El.checked;
+							cb01El.checked = false;
+							cb01El.disabled = true;
+							if (cb01Row) cb01Row.classList.add('dimmed');
+						} else { // Master ON
+							if (cb01Row) cb01Row.classList.remove('dimmed');
+							cb01El.disabled = !canEnableChildren;
+							if (canEnableChildren && storedCb01State !== null) {
+								cb01El.checked = storedCb01State || true; // riattiva precedente o ON
+								storedCb01State = null;
+							} else if (!canEnableChildren) {
+								if (storedCb01State === null) storedCb01State = cb01El.checked;
+								cb01El.checked = false;
+							}
+						}
+						if (cb01Row) setRowState(cb01Row);
+					}
 				}
 				if (mfpMaster){ mfpMaster.addEventListener('change', function(){ syncMfp(); updateLink(); }); syncMfp(); }
 				if (mfpUrlInput) { mfpUrlInput.addEventListener('input', function(){ syncMfp(); updateLink(); }); }
@@ -562,13 +587,16 @@ function landingTemplate(manifest: any) {
 				// Reorder provider toggles in requested order without altering other logic
 				try {
 					var orderIds = [
-						'disableVixsrc',       // VixSrc
-						'guardahdEnabled',      // GuardaHD
-						'guardaserieEnabled',   // GuardaSerie
-						'eurostreamingEnabled', // Eurostreaming
-						'animeunityEnabled',    // Anime Unity
-						'animesaturnEnabled',   // Anime Saturn
-						'animeworldEnabled'     // Anime World
+						'disableLiveTv',        // Live TV
+						'disableVixsrc',         // VixSrc
+						'cb01Enabled',           // CB01
+						'guardahdEnabled',       // GuardaHD
+						'guardaserieEnabled',    // GuardaSerie
+						'eurostreamingEnabled',  // Eurostreaming
+						'animeunityEnabled',     // Anime Unity
+						'animesaturnEnabled',    // Anime Saturn
+						'animeworldEnabled',     // Anime World
+						'streamingwatchEnabled'  // StreamingWatch (non specificato ma mantenuto alla fine)
 					];
 					var firstWrapper = null;
 					var prev = null;
