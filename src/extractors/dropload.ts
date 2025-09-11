@@ -208,14 +208,19 @@ export class DroploadExtractor implements HostExtractor {
 
     const rawTitle = (titleMatch ? titleMatch[1] : 'Dropload').trim();
     const title = _ctx.titleHint || rawTitle;
-    const sizePart = sizeBytes ? humanSize(sizeBytes) : '';
-    const resPart = height ? `${height}p` : '';
-    const secondSegs: string[] = [];
-    if (sizePart) secondSegs.push(sizePart);
-    if (resPart) secondSegs.push(resPart);
-    secondSegs.push('Dropload');
-    const second = secondSegs.length ? `\n💾 ${secondSegs.join(' • ')}` : '';
-    const stream: StreamForStremio = { title: `${title} • [ITA]${second}`, url: m3u8, behaviorHints:{ notWebReady:true } };
+  let sizePart = sizeBytes ? humanSize(sizeBytes) : '';
+  let resPart = height ? `${height}p` : '';
+  // Filter out sentinel / unreliable values
+  if (/^5\.00MB$/i.test(sizePart)) sizePart = '';
+  if (/^100p$/i.test(resPart)) resPart = '';
+  const secondSegs: string[] = [];
+  if (sizePart) secondSegs.push(sizePart);
+  if (resPart) secondSegs.push(resPart);
+  // Always capitalize provider label
+  secondSegs.push('Dropload');
+  // If we have neither size nor resolution, omit the entire second line per new rule
+  const effectiveSecondLine = (sizePart || resPart) ? `\n💾 ${secondSegs.join(' • ')}` : '';
+  const stream: StreamForStremio = { title: `${title} • [ITA]${effectiveSecondLine}`, url: m3u8, behaviorHints:{ notWebReady:true } };
     return { streams: [stream] };
   }
 }
