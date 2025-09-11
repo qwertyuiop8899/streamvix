@@ -54,11 +54,13 @@ export class MixdropExtractor implements HostExtractor {
       if (!/•\s*\[ITA\]$/i.test(baseTitle)) baseTitle = `${baseTitle} • [ITA]`;
     }
 
-    const line2Segs: string[] = [];
-    if (sizePart) line2Segs.push(sizePart);
-    if (resMatch) line2Segs.push(resMatch[1].toLowerCase());
-    line2Segs.push('mixdrop');
-    const fullTitle = line2Segs.length ? `${baseTitle}\n💾 ${line2Segs.join(' • ')}` : baseTitle;
+  const line2Segs: string[] = [];
+  if (sizePart) line2Segs.push(sizePart);
+  if (resMatch) line2Segs.push(resMatch[1].toLowerCase());
+  // Capitalized host label
+  line2Segs.push('Mixdrop');
+  // If both size & resolution missing, omit second line entirely per new rule
+  const fullTitle = (sizePart || resMatch) ? `${baseTitle}\n💾 ${line2Segs.join(' • ')}` : baseTitle;
 
     // Restore notWebReady (will show lock unless overridden upstream; addon logic handles Mixdrop lock removal by name property)
     const streams: StreamForStremio[] = [{ title: fullTitle, url: finalUrl, behaviorHints: { notWebReady: true } as any }];
