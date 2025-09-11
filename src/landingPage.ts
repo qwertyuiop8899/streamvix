@@ -13,7 +13,8 @@ html {
 
 body {
 	padding: 2vh;
-	font-size: 2.2vh;
+	/* Responsive base font size: never smaller than 15px, scales with viewport height */
+	font-size: clamp(15px, 2.2vh, 22px);
 }
 
 html {
@@ -34,19 +35,19 @@ body {
 }
 
 h1 {
-	font-size: 4.5vh;
+	font-size: clamp(28px, 5vh, 54px);
 	font-weight: 700;
 }
 
 h2 {
-	font-size: 2.2vh;
+	font-size: clamp(17px, 2.6vh, 30px);
 	font-weight: normal;
 	font-style: italic;
 	opacity: 0.8;
 }
 
 h3 {
-	font-size: 2.2vh;
+	font-size: clamp(17px, 2.6vh, 30px);
 }
 
 h1,
@@ -58,11 +59,11 @@ p {
 }
 
 p {
-	font-size: 1.75vh;
+	font-size: clamp(14px, 2vh, 22px);
 }
 
 ul {
-	font-size: 1.75vh;
+	font-size: clamp(14px, 2vh, 22px);
 	margin: 0;
 	margin-top: 1vh;
 	padding-left: 3vh;
@@ -85,7 +86,7 @@ button {
 	margin: auto;
 	text-align: center;
 	font-family: 'Open Sans', Arial, sans-serif;
-	font-size: 2.2vh;
+	font-size: clamp(16px, 2.4vh, 26px);
 	font-weight: 600;
 	cursor: pointer;
 	display: block;
@@ -123,7 +124,7 @@ button:active {
 	background-color: #b31b1b !important;
 }
 .toggle-title {
-	font-size: 1.1rem;
+	font-size: clamp(0.95rem, 2.1vh, 1.35rem);
 	font-weight: 700;
 	letter-spacing: 0.01em;
 	color: #c9b3ff; /* soft purple */
@@ -136,7 +137,7 @@ button:active {
 	gap: 0.4rem;
 }
 .toggle-off, .toggle-on {
-	font-size: 0.85rem;
+	font-size: clamp(0.75rem, 1.8vh, 1rem);
 	font-weight: 700;
 	letter-spacing: 0.03em;
 }
@@ -611,6 +612,22 @@ function landingTemplate(manifest: any) {
 						}
 						prev = wrap;
 					});
+					// Dopo il riordino assicurati che il blocco opzioni Live TV sia subito dopo il toggle Live TV
+					try {
+						var liveTvToggle2 = document.getElementById('disableLiveTv');
+						var liveSub2 = document.getElementById('liveTvSubToggles');
+						if (liveTvToggle2 && liveSub2) {
+							var liveWrapper2 = liveTvToggle2.closest('.form-element');
+							if (liveWrapper2 && liveWrapper2.parentNode && liveWrapper2.nextSibling !== liveSub2) {
+								liveWrapper2.parentNode.insertBefore(liveSub2, liveWrapper2.nextSibling);
+							}
+							// Reinserisci i toggle TvTap e Vavoo dentro il blocco se non presenti
+							var tvtapToggleEl2 = document.getElementById('tvtapProxyEnabled')?.closest('.form-element');
+							var vavooToggleEl2 = document.getElementById('vavooNoMfpEnabled')?.closest('.form-element');
+							if (tvtapToggleEl2 && tvtapToggleEl2.parentElement !== liveSub2) liveSub2.appendChild(tvtapToggleEl2);
+							if (vavooToggleEl2 && vavooToggleEl2.parentElement !== liveSub2) liveSub2.appendChild(vavooToggleEl2);
+						}
+					} catch(e) { console.warn('LiveTV block reposition after reorder failed', e); }
 				} catch(e) { console.warn('Reorder toggles failed', e); }
 				// expose globally for bottom script
 					window.updateLink = updateLink;
