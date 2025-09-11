@@ -29,7 +29,8 @@ function envBool(name: string, def = false): boolean {
   if (['0','false','off','no','n'].includes(v)) return false;
   return def;
 }
-const SW_DEBUG = envBool('SW_DEBUG', false);
+// Logs abilitati di default: impostare SW_DEBUG=0 per spegnerli
+const SW_DEBUG = envBool('SW_DEBUG', true);
 const dlog = (...a: unknown[]) => { if (SW_DEBUG) { try { console.log('[SW]', ...a); } catch {} } };
 const dwarn = (...a: unknown[]) => { try { console.warn('[SW]', ...a); } catch {} };
 
@@ -48,6 +49,7 @@ export class StreamingWatchProvider {
   constructor(private config: StreamingWatchConfig){
     const dom = getDomain('streamingwatch');
     this.baseHost = dom ? `https://${dom}` : 'https://streamingwatch.example';
+  dlog('init provider', { baseHost: this.baseHost, enabled: config.enabled });
   }
 
   // --- Public API (IMDB only, matches other providers signature) ---
@@ -62,6 +64,7 @@ export class StreamingWatchProvider {
         const parts = imdbId.split(':');
         if(parts.length >= 3){ s = parseInt(parts[1]); e = parseInt(parts[2]); movie = false; }
       }
+  dlog('handleImdbRequest parsed', { imdbId, imdbOnly, season: s, episode: e, isMovie: movie });
       const meta = await this.resolveTitleYear(imdbOnly, movie);
       const shownameQ = this.normalizeQuery(meta.title);
       dlog('meta', meta, { shownameQ });
@@ -70,9 +73,13 @@ export class StreamingWatchProvider {
       const hls = await this.extractHls(hdplayer);
       if(!hls){ dlog('no hls'); return { streams: [] }; }
       const final = hls.endsWith('.m3u8') ? hls : (hls + '.m3u8');
+      // Titolo interno deve essere il nome reale (TMDb/IMDb) + opzionale SxE + [ITA]
+  let internalTitle = meta.title || imdbOnly;
+  if(meta.year) internalTitle += ` (${meta.year})`;
+  if(!movie && s!=null && e!=null) internalTitle += ` S${s}E${e}`;
+  if(!/\[ITA\]/i.test(internalTitle)) internalTitle += ' • [ITA]';
       const streams: StreamForStremio[] = [{
-        // Titolo con lucchetto aperto richiesto dall'utente
-        title: 'StreamViX SW 🔓',
+        title: internalTitle,
         url: final,
         behaviorHints: { notWebReady: false }
       }];
@@ -80,7 +87,37 @@ export class StreamingWatchProvider {
       return { streams };
     } catch (e){ dwarn('handleImdbRequest error', (e as Error).message); return { streams: [] }; }
   }
-  async handleTmdbRequest(_tmdbId:string,_season:number|null,_episode:number|null,_isMovie:boolean){ return { streams: [] }; }
+  async handleTmdbRequest(tmdbId:string, season:number|null, episode:number|null, isMovie:boolean){
+    if(!this.config.enabled) return { streams: [] };
+    const key = `tmdb:${tmdbId}|${isMovie?'movie':'series'}|${season||''}|${episode||''}`;
+    const c = this.cache.get(key); if(c && Date.now() - c.ts < this.RESULT_TTL) return { streams: c.streams };
+    const apiKey = this.config.tmdbApiKey || env.TMDB_API_KEY;
+    if(!apiKey){ dlog('tmdb handler skipped: no api key'); return { streams: [] }; }
+    try {
+      // fetch base title
+      const endpoint = isMovie ? `movie/${tmdbId}` : `tv/${tmdbId}`;
+      const url = `https://api.themoviedb.org/3/${endpoint}?api_key=${apiKey}&language=it`;
+      const r = await fetch(url);
+      if(!r.ok){ dwarn('tmdb handler meta status', r.status); return { streams: [] }; }
+      const meta = await r.json();
+      const rawTitle = (meta.title || meta.name || meta.original_title || meta.original_name || '').toString();
+      const shownameQ = this.normalizeQuery(rawTitle);
+      dlog('tmdb handler meta', { tmdbId, rawTitle, shownameQ, season, episode, isMovie });
+      const hdplayer = await this.search(shownameQ, season, episode, (meta.release_date||meta.first_air_date||'').slice(0,4)||null, isMovie);
+      if(!hdplayer){ dlog('tmdb handler no hdplayer'); return { streams: [] }; }
+      const hls = await this.extractHls(hdplayer);
+      if(!hls){ dlog('tmdb handler no hls'); return { streams: [] }; }
+  const final = hls.endsWith('.m3u8') ? hls : (hls + '.m3u8');
+  let internalTitle = rawTitle || `tmdb:${tmdbId}`;
+  const year = (meta.release_date||meta.first_air_date||'').slice(0,4);
+  if(year) internalTitle += ` (${year})`;
+  if(!isMovie && season!=null && episode!=null) internalTitle += ` S${season}E${episode}`;
+  if(!/\[ITA\]/i.test(internalTitle)) internalTitle += ' • [ITA]';
+  const streams: StreamForStremio[] = [{ title: internalTitle, url: final, behaviorHints: { notWebReady: false }}];
+      this.cache.set(key, { ts: Date.now(), streams });
+      return { streams };
+    } catch(e){ dwarn('handleTmdbRequest error', String(e)); return { streams: [] }; }
+  }
 
   // --- Query normalization (Python replacement chain) ---
   private normalizeQuery(t: string){
@@ -200,20 +237,31 @@ export class StreamingWatchProvider {
   }
 
   private async seriesSearch(showname: string, season: number, episode: number): Promise<string | null>{
-    // categories search
-    const catUrl = `${this.baseHost}/wp-json/wp/v2/categories?search=${encodeURIComponent(showname)}&_fields=id`;
-    let catJson: any;
-    try {
-      const r = await fetch(catUrl, { headers:{ 'User-Agent': this.userAgent, 'Accept':'application/json' } });
-      if(!r.ok) return null; catJson = await r.json();
-    } catch(e){ dwarn('series cat error', String(e)); return null; }
-    if(!Array.isArray(catJson) || !catJson.length) return null;
-    const categoryId = catJson[0].id;
+    dlog('seriesSearch start', { showname, season, episode });
+    // attempt multiple variants (plus -> space) for category search like Python behavior (it searches raw name)
+    const variants = [showname, showname.replace(/\+/g,' '), showname.replace(/\+/g,'')];
+    let catJson: any = null; let categoryId: number | null = null; let lastErr: string | null = null;
+    for(const v of variants){
+      const catUrl = `${this.baseHost}/wp-json/wp/v2/categories?search=${encodeURIComponent(v)}&_fields=id`;
+      dlog('seriesSearch category attempt', { variant: v, catUrl });
+      try {
+        const r = await fetch(catUrl, { headers:{ 'User-Agent': this.userAgent, 'Accept':'application/json' } });
+        if(!r.ok){ lastErr = 'status '+r.status; continue; }
+        catJson = await r.json();
+        if(Array.isArray(catJson) && catJson.length){
+          categoryId = catJson[0].id; dlog('seriesSearch category match', { variant: v, categoryId });
+          break;
+        }
+      } catch(e){ lastErr = String(e); }
+    }
+    if(!categoryId){ dwarn('seriesSearch no category', { showname, lastErr }); return null; }
     const postsUrl = `${this.baseHost}/wp-json/wp/v2/posts?categories=${categoryId}&per_page=100`;
     let posts: any[] = [];
     try {
       const r = await fetch(postsUrl, { headers:{ 'User-Agent': this.userAgent, 'Accept':'application/json' } });
-      if(!r.ok) return null; posts = await r.json();
+      if(!r.ok){ dwarn('series posts status', r.status); return null; }
+      posts = await r.json();
+      dlog('seriesSearch posts fetched', { count: posts.length });
     } catch(e){ dwarn('series posts error', String(e)); return null; }
     const needleA = `stagione-${season}-episodio-${episode}`;
     const needleB = `stagione-${season}-episode-${episode}`;
@@ -228,9 +276,11 @@ export class StreamingWatchProvider {
         const end = content.indexOf('"', start);
         if(end === -1) continue;
         const hdplayer = content.slice(start, end);
+        dlog('seriesSearch match', { slug, hdplayer });
         return hdplayer;
       }
     }
+    dlog('seriesSearch no episode match', { needleA, needleB });
     return null;
   }
 
@@ -242,6 +292,7 @@ export class StreamingWatchProvider {
       // parse first <iframe ... data-lazy-src="...">
       const m = html.match(/<iframe[^>]+data-lazy-src=['"]([^'"]+)['"]/i);
       if(m) return m[1];
+  dlog('extractIframeSrc no iframe', { pageUrl });
     } catch(e){ dwarn('extractIframeSrc error', String(e)); }
     return null;
   }
@@ -259,6 +310,7 @@ export class StreamingWatchProvider {
       for(const p of patts){
         const m = html.match(p); if(m) return m[1];
       }
+  dlog('extractHls no pattern', { hdplayer });
     } catch(e){ dwarn('extractHls error', String(e)); }
     return null;
   }
