@@ -9,8 +9,12 @@ import requests
 import json
 import os
 import re
+from typing import List, Dict, Any
 
-with open(os.path.join(os.path.dirname(__file__), 'config/domains.json'), encoding='utf-8') as f:
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR = os.path.join(BASE_DIR, 'config')
+
+with open(os.path.join(CONFIG_DIR, 'domains.json'), encoding='utf-8') as f:
     DOMAINS = json.load(f)
 
 VAVOO_DOMAIN = DOMAINS.get("vavoo")
@@ -91,7 +95,7 @@ def getAuthSignature():
         print(f"Errore nel recupero della signature: {e}", file=sys.stderr)
         return None
 
-def get_channels():
+def get_channels() -> List[Dict[str, Any]]:
     signature = getAuthSignature()
     if not signature:
         print("[DEBUG] Failed to get signature for channels", file=sys.stderr)
@@ -135,6 +139,42 @@ def get_channels():
                 print(f"[DEBUG] Error getting channels: {e}", file=sys.stderr)
                 break
     return all_channels
+
+# ---------------------- CACHE HELPERS (UNIFICATA) ----------------------
+CACHE_DIR = os.path.join(BASE_DIR, 'cache')
+UNIFIED_CACHE_PATH = os.path.join(CACHE_DIR, 'vavoo_cache.json')  # unico file usato da addon.ts
+
+def ensure_cache_dir():
+    try:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+def load_unified_cache() -> Dict[str, str]:
+    try:
+        if os.path.exists(UNIFIED_CACHE_PATH):
+            with open(UNIFIED_CACHE_PATH, encoding='utf-8') as f:
+                data = json.load(f)
+            links = data.get('links') if isinstance(data, dict) else {}
+            if isinstance(links, dict):
+                return {k: v for k, v in links.items() if isinstance(v, str)}
+    except Exception:
+        pass
+    return {}
+
+def save_unified_cache(links_map: Dict[str, str]):
+    try:
+        ensure_cache_dir()
+        payload = {
+            'timestamp': int(__import__('time').time() * 1000),
+            'links': links_map
+        }
+        tmp = UNIFIED_CACHE_PATH + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, UNIFIED_CACHE_PATH)
+    except Exception as e:
+        print(f"[DEBUG] Errore salvataggio cache unificata: {e}", file=sys.stderr)
 
 def resolve_vavoo_link(link):
     signature = getAuthSignature()
@@ -220,15 +260,21 @@ def resolve_direct_link(link):
         print(f"[DEBUG] Error in direct resolution: {e}", file=sys.stderr)
         return None
 
-def build_vavoo_cache(channels):
-    cache = {}
+def build_vavoo_cache(channels: List[Dict[str, Any]]) -> Dict[str, str]:
+    cache: Dict[str, str] = {}
     for ch in channels:
-        name = ch.get("name", "").strip()
-        url = ch.get("url", "")
-        if not name or not url:
+        try:
+            name = str(ch.get('name', '')).strip()
+            url = ch.get('url') or ch.get('links')
+            # Se 'links' è una lista o stringa (vecchi formati), estrai primo elemento
+            if isinstance(url, list):
+                url = url[0] if url else ''
+            url = str(url or '').strip()
+            if not name or not url:
+                continue
+            cache[name] = url
+        except Exception:
             continue
-        # Salva OGNI variante come chiave distinta, un solo link per chiave
-        cache[name] = url
     return cache
 
 def mostra_debug_cache():
@@ -244,10 +290,9 @@ def mostra_debug_cache():
 if "--build-cache" in sys.argv:
     channels = get_channels()
     cache = build_vavoo_cache(channels)
-    with open("vavoo_cache.json", "w", encoding="utf-8") as f:
-        json.dump({"links": cache}, f, ensure_ascii=False, indent=2)
-    print("Cache Vavoo generata con successo!")
-    # RIMOSSO: stampa debug dettagliata
+    # Salva SOLO nel path unificato usato da addon.ts
+    save_unified_cache(cache)
+    print("Cache Vavoo generata con successo (unificata)!")
     sys.exit(0)
 
 if __name__ == "__main__":
@@ -258,15 +303,31 @@ if __name__ == "__main__":
     
     # Controllo se l'opzione per dump dei canali è presente
     if "--dump-channels" in sys.argv:
+        # 1. Tenta di scaricare sempre (mantieni comportamento attuale)
         channels = get_channels()
-        # Aggiungi alias ai canali per un miglior matching
+        # 2. Costruisci cache aggiornata e salvala (unificata)
+        cache_map = build_vavoo_cache(channels)
+        if cache_map:
+            save_unified_cache(cache_map)
+        # 3. Adatta output al formato atteso da addon.ts (usa 'links')
+        out = []
         for ch in channels:
-            if "name" in ch:
-                ch["aliases"] = [
-                    ch["name"].replace(" HD", "").replace(" FHD", "").replace(" 4K", ""),  # Versione senza qualità
-                    re.sub(r'\.[a-zA-Z]$', '', ch["name"]),  # Senza suffisso .a, .b, ecc
+            name = ch.get('name')
+            url = ch.get('url')
+            if not name or not url:
+                continue
+            out.append({
+                'name': name,
+                'url': url,
+                # addon.ts si aspetta 'links' (string o array) -> forniamo array per estendere futura multi-variante
+                'links': [url],
+                # manteniamo anche eventuali alias generici
+                'aliases': [
+                    str(name).replace(' HD', '').replace(' FHD', '').replace(' 4K', ''),
+                    re.sub(r'\s+\.[a-zA-Z]$', '', str(name))
                 ]
-        print(json.dumps(channels))
+            })
+        print(json.dumps(out))
         sys.exit(0)
         
     input_arg = sys.argv[1]
