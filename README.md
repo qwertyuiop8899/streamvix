@@ -39,10 +39,9 @@ http://urladdon/live/purge    cancella vecchi eventi
 
 http://urladdon/live/reload   aggiorna il catalogo stremio 
 
-Endpoint aggiuntivi amministrazione / diagnostica
+https://streamvix.hayd.uk/live?forceIpCheck check mostraguarda
 
-http://urladdon/admin/mode?fast=1   abilita modalità FAST dinamica (usa URL dirette)
-http://urladdon/admin/mode?fast=0   torna alla modalità extractor (risoluzione + CAP)
+Endpoint aggiuntivi amministrazione / diagnostica
 
 Note: il toggle non è persistente al riavvio (solo runtime).
 
@@ -292,6 +291,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
