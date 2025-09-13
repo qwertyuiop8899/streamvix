@@ -1,5 +1,5 @@
 import { addonBuilder, getRouter, Manifest, Stream } from "stremio-addon-sdk";
-import { getStreamContent, VixCloudStreamInfo, ExtractorConfig } from "./extractor";
+import { getStreamContent, VixCloudStreamInfo, ExtractorConfig, warmupVixSrcCache } from "./extractor";
 import * as fs from 'fs';
 import { landingTemplate } from './landingPage';
 import * as path from 'path';
@@ -1160,6 +1160,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     }
     
     const builder = new addonBuilder(effectiveManifest);
+
+    // --- VixSrc cache warmup (non-bloccante) ---
+    try {
+        setTimeout(() => {
+            warmupVixSrcCache().then(() => {
+                console.log('VIX_CACHE: Warmup complete (startup).');
+            }).catch(e => console.warn('VIX_CACHE: Warmup error (startup)', e));
+        }, 250); // slight delay to let event loop settle
+    } catch { /* ignore */ }
 
     // === TV CATALOG HANDLER ONLY ===
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
