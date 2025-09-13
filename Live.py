@@ -349,7 +349,7 @@ def should_include_category(cat: str) -> bool:
     return cat in BASE_CATEGORIES
 
 # Rileva competizioni whitelisted all'interno di un evento della categoria generica "Soccer"
-SOCCER_CONTAINER_NAMES = { 'soccer' }
+SOCCER_CONTAINER_NAMES = { 'soccer', 'all soccer events' }
 INLINE_COMPETITION_PATTERNS = [
     (re.compile(r'\bChampions League\b', re.IGNORECASE), 'UEFA Champions League'),
     (re.compile(r'\bEuropa League\b', re.IGNORECASE), 'UEFA Europa League'),
