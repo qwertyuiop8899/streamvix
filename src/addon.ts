@@ -2435,7 +2435,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     return v.toLowerCase() === 'true';
                 };
                 // New rule: enabled only when checkbox true (or env forces true)
-                const animeUnityEnabled = envFlag('ANIMEUNITY_ENABLED') ?? (config.animeunityEnabled === true);
+                // AnimeUnity: abilitalo SOLO se esplicitamente true nel config (o env forza true ma non se config lo mette a false)
+                const envAnimeUnity = envFlag('ANIMEUNITY_ENABLED');
+                let animeUnityEnabled = false;
+                if (config.animeunityEnabled === true) {
+                    animeUnityEnabled = true;
+                } else if (config.animeunityEnabled === false) {
+                    animeUnityEnabled = false; // blocca anche se env true
+                } else if (envAnimeUnity === true) {
+                    animeUnityEnabled = true;
+                }
                 const animeSaturnEnabled = envFlag('ANIMESATURN_ENABLED') ?? (config.animesaturnEnabled === true);
                 const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (config.animeworldEnabled === true);
                 const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (config.guardaserieEnabled === true);
@@ -2674,6 +2683,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                 }
                 
+                // Filtro finale: se animeUnityEnabled è false, rimuovi eventuali stream con name/title riconducibili a AnimeUnity
+                if (!animeUnityEnabled && allStreams.length) {
+                    const before = allStreams.length;
+                    for (let i = allStreams.length - 1; i >= 0; i--) {
+                        const s = allStreams[i];
+                        const t = (s.title || s.name || '').toLowerCase();
+                        if (t.includes('animeunity') || t.includes('streamvix au')) {
+                            allStreams.splice(i, 1);
+                        }
+                    }
+                    const after = allStreams.length;
+                    if (after !== before) console.log(`🚫 AnimeUnity disattivato: rimossi ${before - after} stream residui`);
+                }
                 console.log(`✅ Total streams returned: ${allStreams.length}`);
                 return { streams: allStreams };
             } catch (error) {
