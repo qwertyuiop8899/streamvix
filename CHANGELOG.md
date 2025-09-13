@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.5...v1.1.6) (2025-09-13)
+
+
+### Bug Fixes
+
+* Vx cache AU button and Suggestion on Landingpage ([7d09236](https://github.com/qwertyuiop8899/streamvix/commit/7d09236900522b68f2f631960c89fa0c26669a7e))
+
 ## [1.1.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.4...v1.1.5) (2025-09-13)
 
 
