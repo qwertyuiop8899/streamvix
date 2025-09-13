@@ -267,6 +267,11 @@ button:active {
 	70% { box-shadow: 0 0 0 16px rgba(140, 82, 255, 0); }
 	100% { box-shadow: 0 0 0 0 rgba(140, 82, 255, 0); }
 }
+/* Preset buttons */
+.preset-btn { background:#4d2d66; border:1px solid #8c52ff; color:#fff; font-weight:600; padding:0.45rem 0.6rem; border-radius:8px; cursor:pointer; box-shadow:0 0 8px rgba(140,82,255,0.4); transition:background .2s, transform .15s; }
+.preset-btn:hover { background:#5c3780; }
+.preset-btn:active { transform:scale(.95); }
+.preset-btn.active { background:#00c16e; border-color:#00c16e; box-shadow:0 0 10px rgba(0,193,110,0.7); }
 `
 
 function landingTemplate(manifest: any) {
@@ -291,7 +296,7 @@ function landingTemplate(manifest: any) {
 			const key = elem.key
 				if (["text", "number", "password"].includes(elem.type)) {
 					if (key === 'tmdbApiKey') {
-						// Skip auto placement; we'll inject manually at top
+						// Remove custom TMDB key field from UI entirely (use default only)
 						return;
 					}
 					const isRequired = elem.required ? ' required' : ''
@@ -305,18 +310,18 @@ function landingTemplate(manifest: any) {
 					`
 				} else if (elem.type === 'checkbox') {
 					// Skip only personalTmdbKey (custom placement); mediaflowMaster & localMode will be moved later
-					if (key === 'personalTmdbKey') return;
+					if (key === 'personalTmdbKey') return; // removed from UI
 					// Custom pretty toggle for known keys
 					const toggleMap: any = {
-						'disableVixsrc': { title: 'VixSrc 🍿 - 🔒', invert: true },
+						'disableVixsrc': { title: 'VixSrc 🍿 - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci MFP per abilitare)</span>', invert: true },
 						'disableLiveTv': { title: 'Live TV 📺 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Molti canali hanno bisogno di MFP)</span>', invert: true },
-						'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔒', invert: false },
+						'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci MFP per abilitare)</span>', invert: false },
 						'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
 						'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
 						'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
 						'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
 						'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(funziona in locale)</span>', invert: false },
-						'cb01Enabled': { title: 'CB01 🎞️ - 🔒', invert: false },
+						'cb01Enabled': { title: 'CB01 🎞️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci MFP per abilitare)</span>', invert: false },
 						'streamingwatchEnabled': { title: 'StreamingWatch 📼 - 🔓', invert: false },
 							'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false },
 							'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
@@ -327,7 +332,9 @@ function landingTemplate(manifest: any) {
 						// Determine checked from elem.default boolean if provided; default visually ON
 						const hasDefault = (typeof (elem as any).default === 'boolean');
 						// For inverted toggles (disable*), show ON when default=false (i.e., feature enabled)
-						const isChecked = hasDefault ? (t.invert ? !((elem as any).default as boolean) : !!(elem as any).default) : true;
+						let isChecked = hasDefault ? (t.invert ? !((elem as any).default as boolean) : !!(elem as any).default) : true;
+						// Force Eurostreaming OFF by default (unless explicit default true)
+						if (key === 'eurostreamingEnabled' && !hasDefault) isChecked = false;
 						const checkedAttr = isChecked ? ' checked' : '';
 						const extraAttr = key==='mediaflowMaster' ? ' data-master-mfp="1"' : '';
 						const extraAttrTmdb = key==='personalTmdbKey' ? ' data-personal-tmdb="1"' : '';
@@ -378,16 +385,18 @@ function landingTemplate(manifest: any) {
 		if (options.length) {
 			formHTML = `
 			<form class="pure-form" id="mainForm">
-				<!-- Custom top-centered TMDB personal key checkbox -->
-				<div style="text-align:center; margin:0.5rem 0 0.75rem 0;">
-					<label style="display:inline-flex; align-items:center; gap:0.5rem; font-weight:600; color:#c9b3ff; cursor:pointer;">
-						<input type="checkbox" id="personalTmdbKey" name="personalTmdbKey" style="transform:scale(1.3);" />
-						<span>TMDB API KEY Personale</span>
-					</label>
-				</div>
-				<div id="tmdbKeyInputWrapper" style="display:none; max-width:480px; margin:0 auto 1rem auto;">
-					<div class="label-to-top" style="text-align:left;">TMDB API KEY</div>
-					<input type="text" id="tmdbApiKey" name="tmdbApiKey" class="full-width" placeholder="Inserisci la tua TMDB API KEY" />
+				<!-- Preset Installazioni consigliate -->
+				<div style="margin:0 0 1rem 0; padding:0.75rem; border:1px solid rgba(140,82,255,0.55); border-radius:10px; background:rgba(20,15,35,0.55);">
+					<div style="font-weight:700; margin-bottom:0.5rem; text-align:center; color:#c9b3ff;">Installazioni consigliate</div>
+					<div id="presetInstallations" style="display:grid; grid-template-columns:repeat(2, minmax(120px,1fr)); gap:0.5rem; justify-items:stretch; align-items:stretch;">
+						<!-- Colonna sinistra -->
+						<button type="button" data-preset="pubblicamfp" class="preset-btn" style="min-width:120px;">Pubblica (MFP)</button>
+						<button type="button" data-preset="locale" class="preset-btn" style="min-width:120px;">Locale</button>
+						<!-- Colonna sinistra seconda riga (NO MFP) e destra seconda riga (OCI) -->
+						<button type="button" data-preset="pubblicanomfp" class="preset-btn" style="min-width:140px;">Pubblica (NO MFP)</button>
+						<button type="button" data-preset="oci" class="preset-btn" style="min-width:140px;">OCI/Render</button>
+					</div>
+					<p style="margin:0.6rem 0 0 0; font-size:0.7rem; opacity:0.75; text-align:center;">I preset impostano automaticamente i provider consigliati.</p>
 				</div>
 				<!-- Manual placement containers for MediaflowProxy and Local (Eurostreaming) -->
 				<div id="mediaflowManualSlot"></div>
@@ -403,9 +412,12 @@ function landingTemplate(manifest: any) {
 			<div class="separator"></div>
 			`
 			script += `
+			console.log('[SVX] Main form logic init');
 			var installLink = document.getElementById('installLink');
 			var mainForm = document.getElementById('mainForm');
 			if (installLink && mainForm) {
+					// Basic runtime guard & error surface
+					try { window.__SVX_OK = true; } catch(e) {}
 				installLink.onclick = function () { return (mainForm && typeof mainForm.reportValidity === 'function') ? mainForm.reportValidity() : true; };
 				var buildConfigFromForm = function() {
 					var config = {};
@@ -413,7 +425,7 @@ function landingTemplate(manifest: any) {
 					elements.forEach(function(el) {
 						var key = el.id || el.getAttribute('name') || '';
 						if (!key) return;
-						if (['personalTmdbKey','mediaflowMaster'].includes(key)) return; // UI only controls
+						if (['personalTmdbKey'].includes(key)) return; // exclude only personal key; include mediaflowMaster in config
 						if (el.type === 'checkbox') {
 							var cfgKey = el.getAttribute('data-config-key') || key;
 							var invert = el.getAttribute('data-invert') === 'true';
@@ -423,11 +435,13 @@ function landingTemplate(manifest: any) {
 							config[key] = el.value;
 						}
 					});
-					// If personal TMDB not checked, delete tmdbApiKey
-					var personal = document.getElementById('personalTmdbKey');
-					if (personal && !personal.checked) { delete config.tmdbApiKey; }
+					// tmdbApiKey always kept (UI hidden)
 					return config;
 				};
+				// expose builder early (plain JS, no TS casts)
+				// NOTE: avoid TS only syntax inside runtime JS string
+				// Expose globally (plain JS)
+					try { window.buildConfigFromForm = buildConfigFromForm; } catch(e){}
 				var updateLink = function() {
 					var config = buildConfigFromForm();
 					installLink.setAttribute('href', 'stremio://' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json');
@@ -448,11 +462,7 @@ function landingTemplate(manifest: any) {
 					});
 
 				// --- Custom dynamic visibility logic ---
-				// Personal TMDB key input reveal
-				var personalTmdbToggle = document.getElementById('personalTmdbKey');
-				var tmdbKeyWrapper = document.getElementById('tmdbKeyInputWrapper');
-				function syncPersonalTmdb(){ if (tmdbKeyWrapper && personalTmdbToggle) tmdbKeyWrapper.style.display = personalTmdbToggle.checked ? 'block':'none'; }
-				if (personalTmdbToggle){ personalTmdbToggle.addEventListener('change', function(){ syncPersonalTmdb(); updateLink(); }); syncPersonalTmdb(); }
+				// Removed personal TMDB key UI
 
 				// Reposition MediaflowProxy & Local toggles into manual slots
 				var mediaflowWrapper = document.getElementById('mediaflowMaster') ? document.getElementById('mediaflowMaster').closest('.form-element'): null;
@@ -464,8 +474,8 @@ function landingTemplate(manifest: any) {
 				var mfpMaster = document.querySelector('[data-master-mfp] input[type="checkbox"]') || document.getElementById('mediaflowMaster');
 				var mfpUrlInput = document.getElementById('mediaFlowProxyUrl');
 				var mfpPwdInput = document.getElementById('mediaFlowProxyPassword');
-				var mfpUrlEl = mfpUrlInput?.closest('.form-element');
-				var mfpPwdEl = mfpPwdInput?.closest('.form-element');
+					var mfpUrlEl = mfpUrlInput ? mfpUrlInput.closest('.form-element') : null;
+					var mfpPwdEl = mfpPwdInput ? mfpPwdInput.closest('.form-element') : null;
 				var animeUnityEl = document.getElementById('animeunityEnabled');
 				var animeSaturnEl = document.getElementById('animesaturnEnabled');
 				var animeSaturnRow = animeSaturnEl ? animeSaturnEl.closest('[data-toggle-row]') : null;
@@ -482,20 +492,27 @@ function landingTemplate(manifest: any) {
 					var on = mfpMaster ? mfpMaster.checked : false; // default OFF
 					var inputsFilled = mfpUrlInput && mfpPwdInput && mfpUrlInput.value.trim() !== '' && mfpPwdInput.value.trim() !== '';
 					var canEnableChildren = on && inputsFilled;
+					var currentPreset = (window.__SVX_PRESET || '');
 
 					if (mfpUrlEl) mfpUrlEl.style.display = on ? 'block':'none';
 					if (mfpPwdEl) mfpPwdEl.style.display = on ? 'block':'none';
 					if (animeUnityEl){
-						if (!on) { // Master toggle is OFF
+						// AnimeUnity abilitato SOLO nel preset 'locale'
+						if (currentPreset !== 'locale') {
+							if (animeUnityRow) animeUnityRow.classList.add('dimmed');
 							animeUnityEl.checked = false;
 							animeUnityEl.disabled = true;
-							if (animeUnityRow) animeUnityRow.classList.add('dimmed');
-						} else { // Master toggle is ON
-							if (animeUnityRow) animeUnityRow.classList.remove('dimmed');
-							animeUnityEl.disabled = !canEnableChildren;
-							// Auto-enable only if it was not manually disabled before
-							if (canEnableChildren && !animeUnityEl.checked) animeUnityEl.checked = true;
-							if (!canEnableChildren) animeUnityEl.checked = false;
+						} else {
+							if (!on) { // Master OFF -> disabilita comunque
+								if (animeUnityRow) animeUnityRow.classList.add('dimmed');
+								animeUnityEl.checked = false;
+								animeUnityEl.disabled = true;
+							} else { // Master ON + preset locale
+								if (animeUnityRow) animeUnityRow.classList.remove('dimmed');
+								animeUnityEl.disabled = !canEnableChildren;
+								if (canEnableChildren && !animeUnityEl.checked) animeUnityEl.checked = true;
+								if (!canEnableChildren) animeUnityEl.checked = false;
+							}
 						}
 						if (animeUnityRow) setRowState(animeUnityRow);
 					}
@@ -571,8 +588,8 @@ function landingTemplate(manifest: any) {
 						liveWrapper.parentNode.insertBefore(liveSub, liveWrapper.nextSibling);
 					}
 				}
-				var tvtapToggleEl = document.getElementById('tvtapProxyEnabled')?.closest('.form-element');
-				var vavooToggleEl = document.getElementById('vavooNoMfpEnabled')?.closest('.form-element');
+				var tvtapToggleEl = (function(){ var n=document.getElementById('tvtapProxyEnabled'); return n? n.closest('.form-element'): null; })();
+				var vavooToggleEl = (function(){ var n=document.getElementById('vavooNoMfpEnabled'); return n? n.closest('.form-element'): null; })();
 				function syncLive(){
 						var enabled = liveTvToggle ? liveTvToggle.checked : true; // slider ON means feature ON
 					if (liveSub) liveSub.style.display = enabled ? 'block':'none';
@@ -622,15 +639,87 @@ function landingTemplate(manifest: any) {
 								liveWrapper2.parentNode.insertBefore(liveSub2, liveWrapper2.nextSibling);
 							}
 							// Reinserisci i toggle TvTap e Vavoo dentro il blocco se non presenti
-							var tvtapToggleEl2 = document.getElementById('tvtapProxyEnabled')?.closest('.form-element');
-							var vavooToggleEl2 = document.getElementById('vavooNoMfpEnabled')?.closest('.form-element');
+							var tvtapToggleEl2 = (function(){ var n=document.getElementById('tvtapProxyEnabled'); return n? n.closest('.form-element'): null; })();
+							var vavooToggleEl2 = (function(){ var n=document.getElementById('vavooNoMfpEnabled'); return n? n.closest('.form-element'): null; })();
 							if (tvtapToggleEl2 && tvtapToggleEl2.parentElement !== liveSub2) liveSub2.appendChild(tvtapToggleEl2);
 							if (vavooToggleEl2 && vavooToggleEl2.parentElement !== liveSub2) liveSub2.appendChild(vavooToggleEl2);
 						}
 					} catch(e) { console.warn('LiveTV block reposition after reorder failed', e); }
 				} catch(e) { console.warn('Reorder toggles failed', e); }
+				// Preset logic
+				function applyPreset(name){
+					// Base: tutto ON (compresi invertiti) => features abilitate
+					var base = {
+						disableVixsrc: true,
+						disableLiveTv: true,
+						cb01Enabled: true,
+						guardahdEnabled: true,
+						guardaserieEnabled: true,
+						eurostreamingEnabled: true,
+						streamingwatchEnabled: true,
+						animeunityEnabled: true,
+						animesaturnEnabled: true,
+						animeworldEnabled: true,
+						tvtapProxyEnabled: true,
+						vavooNoMfpEnabled: true,
+						mediaflowMaster: false
+					};
+					var p = name;
+					try { window.__SVX_PRESET = p; } catch(e){}
+					if (p==='locale') {
+						base.tvtapProxyEnabled = false; // OFF
+						base.vavooNoMfpEnabled = false; // OFF
+						base.mediaflowMaster = true;    // ON per preset Locale
+					} else if (p==='pubblicamfp') {
+						base.tvtapProxyEnabled = false;
+						base.vavooNoMfpEnabled = false;
+						base.eurostreamingEnabled = false;
+						base.animeunityEnabled = false;
+						base.mediaflowMaster = true;
+					} else if (p==='pubblicanomfp') {
+						base.disableVixsrc = false; // VixSrc OFF
+						base.cb01Enabled = false;
+						base.eurostreamingEnabled = false;
+						base.animeunityEnabled = false;
+					} else if (p==='oci') {
+						base.eurostreamingEnabled = false;
+						base.animeunityEnabled = false; // resta OFF
+						base.mediaflowMaster = true;    // abilita MFP
+					}
+					Object.keys(base).forEach(function(k){
+						var el = document.getElementById(k);
+						if (!el) return;
+						try { el.checked = !!base[k]; } catch(e){}
+						try {
+							var evt;
+							try { evt = new Event('change', { bubbles:true }); } catch(e2) { evt = document.createEvent('Event'); evt.initEvent('change', true, false); }
+							el.dispatchEvent(evt);
+						} catch(e3){}
+					});
+					// Active style on clicked button
+					var presetWrap = document.getElementById('presetInstallations');
+					if (presetWrap){
+						presetWrap.querySelectorAll('.preset-btn').forEach(function(b){ b.classList.remove('active'); });
+						var currentBtn = presetWrap.querySelector('[data-preset="'+p+'"]');
+						if (currentBtn) currentBtn.classList.add('active');
+					}
+					// Risincronizza gruppi dipendenti
+					if (typeof syncMfp === 'function') try { syncMfp(); } catch(e){}
+					if (typeof syncLive === 'function') try { syncLive(); } catch(e){}
+					updateLink();
+				}
+				var presetWrap = document.getElementById('presetInstallations');
+				if (presetWrap){
+					presetWrap.querySelectorAll('[data-preset]').forEach(function(btn){
+						btn.addEventListener('click', function(){
+							applyPreset(btn.getAttribute('data-preset'));
+						});
+					});
+				}
+				// expose preset for debug
+				try { window.applyPreset = applyPreset; } catch(e){}
 				// expose globally for bottom script
-					window.updateLink = updateLink;
+				window.updateLink = updateLink;
 			}
 			`
 		}
@@ -639,27 +728,14 @@ function landingTemplate(manifest: any) {
 	// Aggiunge la logica per il pulsante "Copia Manifest" allo script
 	// Questa logica viene aggiunta indipendentemente dalla presenza di un form di configurazione
 	script += `
+		console.log('[SVX] Copy manifest setup');
 		var copyManifestLink = document.getElementById('copyManifestLink');
 		if (copyManifestLink) {
 			copyManifestLink.onclick = function () {
 				var manifestUrl;
 				var mainForm = document.getElementById('mainForm');
 				if (mainForm) {
-					var config = {};
-					var elements = (mainForm).querySelectorAll('input, select, textarea');
-					elements.forEach(function(el) {
-						var key = el.id || el.getAttribute('name') || '';
-						if (!key) return;
-						if (['personalTmdbKey','mediaflowMaster'].includes(key)) return;
-						if (el.type === 'checkbox') {
-							var cfgKey = el.getAttribute('data-config-key') || key;
-							var invert = el.getAttribute('data-invert') === 'true';
-							var val = !!el.checked;
-							config[cfgKey] = invert ? !val : val;
-						} else { config[key] = el.value; }
-					});
-					var personal = document.getElementById('personalTmdbKey');
-					if (personal && !personal.checked) { delete config.tmdbApiKey; }
+					var config = window.buildConfigFromForm ? window.buildConfigFromForm() : {};
 					manifestUrl = window.location.protocol + '//' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json';
 				} else {
 					manifestUrl = window.location.protocol + '//' + window.location.host + '/manifest.json';
@@ -709,6 +785,9 @@ function landingTemplate(manifest: any) {
 
 	<head>
 		<meta charset="utf-8">
+		<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+		<meta http-equiv="Pragma" content="no-cache" />
+		<meta http-equiv="Expires" content="0" />
 		<title>${manifest.name} - Stremio Addon</title>
 		<style>${STYLESHEET}</style>
 		<link rel="shortcut icon" href="${logo}" type="image/x-icon">
