@@ -26,6 +26,154 @@ export interface VixCloudStreamInfo {
   sizeBytes?: number;
 }
 
+// ---------------- Level 2 (L2) SIMPLE CACHE FOR VixSrc PRESENCE ----------------
+// Goal: Avoid refetching bulky lists every request while NOT changing external logic.
+// Scope: Cache movie list, tv list and episode list (flattened) for up to CACHE_TTL.
+// Persistence: Stored in ../config/vixsrc_cache.json so it survives restarts.
+
+const VIXSRC_CACHE_PATH = path.join(__dirname, '../config/vixsrc_cache.json');
+const VIXSRC_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4h
+interface RawVixSrcCacheFile {
+  fetchedAt: number;
+  movies: (string|number)[];
+  tv: (string|number)[];
+  episodes: string[]; // encoded as `${tmdb}|${s}|${e}`
+  version?: number; // reserved
+}
+interface VixSrcCacheInMemory {
+  fetchedAt: number;
+  movies: Set<string>;
+  tv: Set<string>;
+  episodes: Set<string>; // same encoding
+}
+let vixSrcCache: VixSrcCacheInMemory | null = null;
+let vixSrcCacheLoading: Promise<void> | null = null;
+
+function readCacheFromDisk(): VixSrcCacheInMemory | null {
+  try {
+    if (!fs.existsSync(VIXSRC_CACHE_PATH)) return null;
+    const raw = JSON.parse(fs.readFileSync(VIXSRC_CACHE_PATH, 'utf-8')) as RawVixSrcCacheFile;
+    if (!raw || typeof raw.fetchedAt !== 'number') return null;
+    return {
+      fetchedAt: raw.fetchedAt,
+      movies: new Set(raw.movies.map(m => m.toString())),
+      tv: new Set(raw.tv.map(t => t.toString())),
+      episodes: new Set(raw.episodes)
+    };
+  } catch (e) {
+    console.warn('VIX_CACHE: Failed to read cache file', e);
+    return null;
+  }
+}
+
+function writeCacheToDisk(cache: VixSrcCacheInMemory) {
+  try {
+    const out: RawVixSrcCacheFile = {
+      fetchedAt: cache.fetchedAt,
+      movies: Array.from(cache.movies),
+      tv: Array.from(cache.tv),
+      episodes: Array.from(cache.episodes),
+      version: 1
+    };
+    fs.writeFileSync(VIXSRC_CACHE_PATH, JSON.stringify(out));
+  } catch (e) {
+    console.warn('VIX_CACHE: Failed to write cache file', e);
+  }
+}
+
+async function fetchListsSnapshot(): Promise<VixSrcCacheInMemory> {
+  const movieUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/movie?lang=it`;
+  const tvUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/tv?lang=it`;
+  const epUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
+  console.log('VIX_CACHE: Fetching fresh lists...');
+  try {
+    const [movieRes, tvRes, epRes] = await Promise.all([
+      fetch(movieUrl),
+      fetch(tvUrl),
+      fetch(epUrl)
+    ]);
+    if (!movieRes.ok || !tvRes.ok || !epRes.ok) throw new Error(`HTTP status movie:${movieRes.status} tv:${tvRes.status} ep:${epRes.status}`);
+    const [movieData, tvData, epData] = await Promise.all([
+      movieRes.json(),
+      tvRes.json(),
+      epRes.json()
+    ]);
+    const movieSet = new Set<string>();
+    if (Array.isArray(movieData)) movieData.forEach((it: any) => { if (it?.tmdb_id != null) movieSet.add(it.tmdb_id.toString()); });
+    const tvSet = new Set<string>();
+    if (Array.isArray(tvData)) tvData.forEach((it: any) => { if (it?.tmdb_id != null) tvSet.add(it.tmdb_id.toString()); });
+    const epSet = new Set<string>();
+    if (Array.isArray(epData)) epData.forEach((it: any) => {
+      const tid = it?.tmdb_id;
+      if (tid != null && it?.s != null && it?.e != null) {
+        epSet.add(`${tid}|${Number(it.s)}|${Number(it.e)}`);
+      }
+    });
+    const snapshot: VixSrcCacheInMemory = {
+      fetchedAt: Date.now(),
+      movies: movieSet,
+      tv: tvSet,
+      episodes: epSet
+    };
+    writeCacheToDisk(snapshot);
+    console.log('VIX_CACHE: Fresh lists cached. Sizes:', {
+      movies: movieSet.size,
+      tv: tvSet.size,
+      episodes: epSet.size
+    });
+    return snapshot;
+  } catch (e) {
+    console.error('VIX_CACHE: Failed to fetch fresh lists', e);
+    // If we already have an in-memory cache (even stale) keep it, else try disk
+    return vixSrcCache || readCacheFromDisk() || {
+      fetchedAt: 0,
+      movies: new Set(),
+      tv: new Set(),
+      episodes: new Set()
+    };
+  }
+}
+
+async function ensureCacheFresh(): Promise<void> {
+  if (vixSrcCache && (Date.now() - vixSrcCache.fetchedAt) < VIXSRC_CACHE_TTL_MS) return; // fresh
+  if (vixSrcCacheLoading) return vixSrcCacheLoading; // already loading
+  vixSrcCacheLoading = (async () => {
+    // Try load from disk first if no current cache
+    if (!vixSrcCache) {
+      const disk = readCacheFromDisk();
+      if (disk) {
+        vixSrcCache = disk;
+        if ((Date.now() - disk.fetchedAt) < VIXSRC_CACHE_TTL_MS) {
+          console.log('VIX_CACHE: Using disk cache (fresh).');
+          vixSrcCacheLoading = null;
+          return;
+        } else {
+          console.log('VIX_CACHE: Disk cache stale, refreshing...');
+        }
+      }
+    } else if ((Date.now() - vixSrcCache.fetchedAt) >= VIXSRC_CACHE_TTL_MS) {
+      console.log('VIX_CACHE: In-memory cache stale, refreshing...');
+    }
+    vixSrcCache = await fetchListsSnapshot();
+    vixSrcCacheLoading = null;
+  })();
+  return vixSrcCacheLoading;
+}
+
+// Public no-op externally safe warmup: triggers background snapshot load if stale/missing
+export async function warmupVixSrcCache(): Promise<void> {
+  try {
+    await ensureCacheFresh();
+  } catch (e) {
+    console.warn('VIX_CACHE: warmup failed (non-fatal)', e);
+  }
+}
+
+function episodeKey(tmdbId: string, season: number, episode: number): string {
+  return `${tmdbId}|${season}|${episode}`;
+}
+// ------------------------------------------------------------------------------
+
 /**
  * Fetches the site version from VixCloud.
  * This is analogous to the `version` method in the Python VixCloudExtractor.
@@ -110,55 +258,32 @@ export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string): 
 
 // 1. Aggiungi la funzione di verifica dei TMDB ID
 async function checkTmdbIdOnVixSrc(tmdbId: string, type: ContentType): Promise<boolean> {
-  const vixSrcApiType = type === 'movie' ? 'movie' : 'tv'; // VixSrc usa 'tv' per le serie
-  const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}?lang=it`;
-
+  if (!tmdbId) return false;
   try {
-    console.log(`VIX_CHECK: Checking TMDB ID ${tmdbId} of type ${vixSrcApiType} against VixSrc list: ${listUrl}`);
-    const response = await fetch(listUrl);
-    if (!response.ok) {
-      console.error(`VIX_CHECK: Failed to fetch VixSrc list for type ${vixSrcApiType}, status: ${response.status}`);
-      return false; // Se non possiamo ottenere la lista, assumiamo che non esista per sicurezza
-    }
-    const data = await response.json();
-    // L'API restituisce un array di oggetti, ognuno con una proprietà 'id' che è l'ID TMDB
-    if (data && Array.isArray(data)) {
-      const exists = data.some((item: any) => item.tmdb_id && item.tmdb_id.toString() === tmdbId.toString());
-      console.log(`VIX_CHECK: TMDB ID ${tmdbId} ${exists ? 'found' : 'NOT found'} in VixSrc list.`);
-      return exists;
-    } else {
-      console.error(`VIX_CHECK: VixSrc list for type ${vixSrcApiType} is not in the expected format.`);
-      return false;
-    }
-  } catch (error) {
-    console.error(`VIX_CHECK: Error checking TMDB ID ${tmdbId} on VixSrc:`, error);
-    return false; // In caso di errore, assumiamo che non esista
+    await ensureCacheFresh();
+    if (!vixSrcCache) return false;
+    const set = (type === 'movie') ? vixSrcCache.movies : vixSrcCache.tv;
+    const exists = set.has(tmdbId.toString());
+    console.log(`VIX_CHECK: (cache) TMDB ID ${tmdbId} ${exists ? 'FOUND' : 'NOT FOUND'} in ${type} list.`);
+    return exists;
+  } catch (e) {
+    console.error('VIX_CHECK: Cache check failed, falling back to false', e);
+    return false;
   }
 }
 
 // Verifica se uno specifico episodio (S/E) esiste su VixSrc
 async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: number): Promise<boolean> {
-  const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
+  if (!tmdbId) return false;
   try {
-    console.log(`VIX_EP_CHECK: Checking TMDB ID ${tmdbId} S${season}E${episode} against VixSrc episode list: ${listUrl}`);
-    const response = await fetch(listUrl);
-    if (!response.ok) {
-      console.error(`VIX_EP_CHECK: Failed to fetch VixSrc episode list, status: ${response.status}`);
-      return false;
-    }
-    const data = await response.json();
-    if (data && Array.isArray(data)) {
-      const exists = data.some((item: any) =>
-        item && item.tmdb_id?.toString() === tmdbId.toString() &&
-        Number(item.s) === Number(season) && Number(item.e) === Number(episode)
-      );
-      console.log(`VIX_EP_CHECK: Episode TMDB ${tmdbId} S${season}E${episode} ${exists ? 'found' : 'NOT found'} in VixSrc episode list.`);
-      return exists;
-    }
-    console.error('VIX_EP_CHECK: Episode list format not as expected');
-    return false;
-  } catch (error) {
-    console.error(`VIX_EP_CHECK: Error checking episode on VixSrc for TMDB ${tmdbId} S${season}E${episode}:`, error);
+    await ensureCacheFresh();
+    if (!vixSrcCache) return false;
+    const key = episodeKey(tmdbId.toString(), Number(season), Number(episode));
+    const exists = vixSrcCache.episodes.has(key);
+    console.log(`VIX_EP_CHECK: (cache) ${key} ${exists ? 'FOUND' : 'NOT FOUND'}`);
+    return exists;
+  } catch (e) {
+    console.error('VIX_EP_CHECK: Cache check failed, falling back to false', e);
     return false;
   }
 }
