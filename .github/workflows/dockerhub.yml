@@ -13,7 +13,7 @@ permissions:
 env:
   GHCR: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  DOCKERHUB_IMAGE: your-dockerhub-username/streamvix
+  DOCKERHUB_IMAGE: qwertyuiop8899/streamvix
 
 jobs:
   build-and-push:
