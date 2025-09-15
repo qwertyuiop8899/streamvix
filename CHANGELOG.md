@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.7](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.6...v1.1.7) (2025-09-15)
+
+
+### Bug Fixes
+
+* landing page ([5c3bdba](https://github.com/qwertyuiop8899/streamvix/commit/5c3bdbaa19c89bc150c565b65324fb0a20a83b41))
+* ram spike and landing ([d21c9aa](https://github.com/qwertyuiop8899/streamvix/commit/d21c9aa1d723481dc91189ee8ec8e7fef8ae6028))
+
 ## [1.1.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.5...v1.1.6) (2025-09-13)
 
 
