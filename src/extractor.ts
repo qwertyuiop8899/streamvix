@@ -1,10 +1,7 @@
 import { ContentType } from "stremio-addon-sdk";
-import { Buffer } from 'buffer';
 import * as cheerio from "cheerio";
 import * as fs from 'fs';
 import * as path from 'path';
-// Reusable text decoder for streaming UTF-8 decoding
-const __svxTextDecoder = new TextDecoder('utf-8');
 const domains = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/domains.json'), 'utf-8'));
 const VIXCLOUD_SITE_ORIGIN = `https://${domains.vixsrc}`; // e.g., "https://vixcloud.co"
 const VIXCLOUD_REQUEST_TITLE_PATH = "/richiedi-un-titolo"; // Path used to fetch site version
@@ -28,527 +25,6 @@ export interface VixCloudStreamInfo {
   // Optional: estimated content size in bytes (parsed from VixSrc page)
   sizeBytes?: number;
 }
-
-// ---------------- Level 2 (L2) SIMPLE CACHE FOR VixSrc PRESENCE ----------------
-// Goal: Avoid refetching bulky lists every request while NOT changing external logic.
-// Scope: Cache movie list, tv list and episode list (flattened) for up to CACHE_TTL.
-// Persistence: Stored in ../config/vixsrc_cache.json so it survives restarts.
-
-const VIXSRC_CACHE_PATH = path.join(__dirname, '../config/vixsrc_cache.json');
-const VIXSRC_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4h
-interface RawVixSrcCacheFile {
-  fetchedAt: number;
-  movies: (string|number)[];
-  tv: (string|number)[];
-  episodes: string[]; // encoded as `${tmdb}|${s}|${e}`
-  version?: number; // reserved
-  meta?: {
-    counts: { movies: number; tv: number; episodes: number };
-    hash: string;
-  };
-}
-interface VixSrcCacheInMemory {
-  fetchedAt: number;
-  movies: Set<string>;
-  tv: Set<string>;
-  episodes: Set<string>; // same encoding
-}
-let vixSrcCache: VixSrcCacheInMemory | null = null;
-let vixSrcCacheLoading: Promise<void> | null = null;
-
-// Ephemeral HTML cache for pages fetched during fallback presence checks (not persisted)
-const __fallbackPageHtml = new Map<string,string>();
-
-// Lightweight on-demand fallback queries (avoid full list refetch if single miss)
-async function fallbackHasMovieOrTv(tmdbId: string, type: 'movie'|'series'): Promise<boolean> {
-  const endpoint = type === 'movie' ? 'movie' : 'tv';
-  const url = `${VIXCLOUD_SITE_ORIGIN}/${endpoint}/${tmdbId}/`;
-  const headers: Record<string,string> = {
-    'Accept': 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
-    'Referer': `${VIXCLOUD_SITE_ORIGIN}/`,
-    'Origin': VIXCLOUD_SITE_ORIGIN,
-    'Cache-Control': 'no-cache'
-  };
-  try {
-    const res = await fetch(url, { method: 'GET', headers });
-    if (!res.ok) {
-      console.log(`VIX_FALLBACK_PAGE: ${type} ${tmdbId} status ${res.status}`);
-    } else {
-      const text = await res.text();
-      const hasId = text.includes(tmdbId);
-      const hasToken = text.includes("'token':") || text.includes('token');
-      const hasDataPage = text.includes('data-page');
-      console.log(`VIX_FALLBACK_PAGE: ${type} ${tmdbId} ok len=${text.length} id=${hasId} token=${hasToken} dataPage=${hasDataPage}`);
-      if (hasId || hasToken || hasDataPage) {
-        __fallbackPageHtml.set(url, text);
-        return true;
-      }
-    }
-  } catch (e) {
-    console.log(`VIX_FALLBACK_PAGE_ERR: ${type} ${tmdbId} ${(e as any)?.message || e}`);
-  }
-  // Secondary lightweight retry: re-fetch small JSON list endpoint (tv or movie) and scan id
-  try {
-    const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${endpoint}?lang=it`;
-    const res2 = await fetch(listUrl, { headers: { 'Accept':'application/json','User-Agent': headers['User-Agent'] }});
-    if (!res2.ok) {
-      console.log(`VIX_FALLBACK_LIST: ${endpoint} status ${res2.status}`);
-    } else {
-      const arr = await res2.json();
-      if (Array.isArray(arr)) {
-        let scanned = 0;
-        for (const it of arr) {
-          if (it && it.tmdb_id != null) {
-            scanned++;
-            if (String(it.tmdb_id) === tmdbId) {
-              console.log(`VIX_FALLBACK_LIST: Found ${tmdbId} in secondary list after scanning ${scanned}`);
-              return true;
-            }
-          }
-        }
-        console.log(`VIX_FALLBACK_LIST: Not found ${tmdbId}, scanned ${scanned}`);
-      }
-    }
-  } catch {}
-  // Extra for series: quick episode list scan (first 3000 chars) to detect newly-added series via episodes
-  if (type === 'series') {
-    try {
-      const epListUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
-      const res3 = await fetch(epListUrl, { headers: { 'Accept':'application/json','User-Agent': headers['User-Agent'] }});
-      if (res3.ok) {
-        const text = await res3.text();
-        const slice = text.slice(0, 3000); // lightweight
-        if (slice.includes(`"tmdb_id":${tmdbId}`) || slice.includes(`"tmdb_id":"${tmdbId}`)) {
-          console.log(`VIX_FALLBACK_EPISODE_SCAN: Found series ${tmdbId} via episode list sniff`);
-          return true;
-        }
-      }
-    } catch {}
-  }
-  return false;
-}
-
-async function fallbackHasEpisode(tmdbId: string, season: number, episode: number): Promise<boolean> {
-  const url = `${VIXCLOUD_SITE_ORIGIN}/tv/${tmdbId}/${season}/${episode}/`;
-  const headers: Record<string,string> = {
-    'Accept': 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
-    'Referer': `${VIXCLOUD_SITE_ORIGIN}/tv/${tmdbId}/`,
-    'Origin': VIXCLOUD_SITE_ORIGIN,
-    'Cache-Control': 'no-cache'
-  };
-  try {
-    const res = await fetch(url, { method: 'GET', headers });
-    if (!res.ok) {
-      console.log(`VIX_FALLBACK_EP: ${tmdbId} S${season}E${episode} status ${res.status}`);
-    } else {
-      const text = await res.text();
-      const hasPath = text.includes(`/${season}/${episode}/`);
-      const hasToken = text.includes("'token':") || text.includes('token');
-      const hasDataPage = text.includes('data-page');
-      // New relaxed signals: JSON style markers for tmdb_id + s/e inside the page
-      const jsonHasTmdb = text.includes(`"tmdb_id":${tmdbId}`) || text.includes(`"tmdb_id":"${tmdbId}`);
-      // look for patterns like "s":1,"e":2 (allow possible whitespace)
-      const sePattern = new RegExp(`"s"\s*:\s*${season}[^\n]{0,40}?"e"\s*:\s*${episode}`);
-      const hasSEPair = sePattern.test(text);
-      console.log(`VIX_FALLBACK_EP: ${tmdbId} S${season}E${episode} ok len=${text.length} path=${hasPath} token=${hasToken} dataPage=${hasDataPage}`);
-      if ((hasPath && (hasToken || hasDataPage)) || (hasToken && jsonHasTmdb && hasSEPair)) {
-        console.log(`VIX_FALLBACK_EP_HEURISTIC: accepted via ${(hasPath ? 'path' : 'json')}`);
-        __fallbackPageHtml.set(url, text);
-        return true;
-      }
-    }
-  } catch {}
-  // As an extra attempt, if the episode page not conclusive, try the series page quickly
-  try {
-    const seriesUrl = `${VIXCLOUD_SITE_ORIGIN}/tv/${tmdbId}/`;
-    const res2 = await fetch(seriesUrl, { headers });
-    if (!res2.ok) {
-      console.log(`VIX_FALLBACK_EP_SERIES: ${tmdbId} status ${res2.status}`);
-    } else {
-      const t2 = await res2.text();
-      const hasId = t2.includes(tmdbId);
-      console.log(`VIX_FALLBACK_EP_SERIES: ${tmdbId} len=${t2.length} id=${hasId}`);
-      if (hasId) return true; // presence at least
-    }
-  } catch {}
-  // Final lightweight scan on global episode list to confirm presence
-  try {
-    const epListUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
-    const res3 = await fetch(epListUrl, { headers: { 'Accept':'application/json','User-Agent': headers['User-Agent'] }});
-    if (res3.ok) {
-      const txt = await res3.text();
-      if (txt.includes(`"tmdb_id":${tmdbId}`) && txt.includes(`"s":${season}`) && txt.includes(`"e":${episode}`)) {
-        console.log(`VIX_FALLBACK_EP_GLOBAL_LIST: found ${tmdbId} S${season}E${episode}`);
-        return true;
-      }
-    }
-  } catch {}
-  return false;
-}
-
-function readCacheFromDisk(): VixSrcCacheInMemory | null {
-  try {
-    if (!fs.existsSync(VIXSRC_CACHE_PATH)) return null;
-    const raw = JSON.parse(fs.readFileSync(VIXSRC_CACHE_PATH, 'utf-8')) as RawVixSrcCacheFile;
-    if (!raw || typeof raw.fetchedAt !== 'number') return null;
-    return {
-      fetchedAt: raw.fetchedAt,
-      movies: new Set(raw.movies.map(m => m.toString())),
-      tv: new Set(raw.tv.map(t => t.toString())),
-      episodes: new Set(raw.episodes)
-    };
-  } catch (e) {
-    console.warn('VIX_CACHE: Failed to read cache file', e);
-    return null;
-  }
-}
-
-async function writeCacheToDisk(cache: VixSrcCacheInMemory) {
-  try {
-    const hashBase = `${cache.movies.size}|${cache.tv.size}|${cache.episodes.size}`;
-    let hash = 0;
-    for (let i = 0; i < hashBase.length; i++) hash = (hash * 31 + hashBase.charCodeAt(i)) >>> 0;
-    const out: RawVixSrcCacheFile = {
-      fetchedAt: cache.fetchedAt,
-      movies: Array.from(cache.movies),
-      tv: Array.from(cache.tv),
-      episodes: Array.from(cache.episodes),
-      version: 1,
-      meta: {
-        counts: { movies: cache.movies.size, tv: cache.tv.size, episodes: cache.episodes.size },
-        hash: hash.toString(16)
-      }
-    };
-    await fs.promises.writeFile(VIXSRC_CACHE_PATH, JSON.stringify(out));
-  } catch (e) {
-    console.warn('VIX_CACHE: Failed to write cache file', e);
-  }
-}
-
-// ---- STREAMING PARSE UTILITIES (line-oriented / object boundary) ----
-async function* iterateBody(res: any): AsyncGenerator<Uint8Array, void, unknown> {
-  if (!res || !res.body) return;
-  const body: any = res.body;
-  if (typeof body.getReader === 'function') {
-    const reader = body.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) yield value as Uint8Array;
-    }
-  } else if (Symbol.asyncIterator && (body as any)[Symbol.asyncIterator]) {
-    for await (const chunk of body as AsyncIterable<any>) {
-      if (chunk) yield (typeof chunk === 'string') ? Buffer.from(chunk) : chunk;
-    }
-  }
-}
-
-async function streamExtractSimpleIds(res: any, key: string): Promise<Set<string>> {
-  const out = new Set<string>();
-  if (!res?.body) return out;
-  let leftover = '';
-  // IMPORTANT: use \\d+ (single escaping in string literal) not \\\\d+; previous version over-escaped and failed to match digits
-  const regexSource = `"${key}"\\s*:\\s*("?)(\\d+)(\\1)`; // matches "tmdb_id": 12345 or "tmdb_id": "12345"
-  const regexGlobal = new RegExp(regexSource, 'g');
-  for await (const value of iterateBody(res)) {
-    const chunk = leftover + __svxTextDecoder.decode(value, { stream: true });
-    // Scan entire combined chunk
-    let m: RegExpExecArray | null;
-    regexGlobal.lastIndex = 0;
-    while ((m = regexGlobal.exec(chunk))) {
-      const idStr = (m[2] || '').toString();
-      if (idStr) out.add(idStr);
-    }
-    // Keep a small tail to cover boundary splits
-    leftover = chunk.slice(-64);
-  }
-  if (leftover) {
-    let m: RegExpExecArray | null;
-    regexGlobal.lastIndex = 0;
-    while ((m = regexGlobal.exec(leftover))) {
-      const idStr = (m[2] || '').toString();
-      if (idStr) out.add(idStr);
-    }
-  }
-  return out;
-}
-
-async function streamExtractEpisodes(res: any): Promise<Set<string>> {
-  const out = new Set<string>();
-  if (!res?.body) return out;
-  let buffer = '';
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-  let currentObj = '';
-  let parsedCount = 0;
-  // For capturing simple string tokens like "12345|2|6" that might appear directly in JSON arrays
-  const triplePattern = /"(\d+\|\d+\|\d+)"/g;
-  let tail = '';
-  for await (const value of iterateBody(res)) {
-    buffer = tail + __svxTextDecoder.decode(value, { stream: true });
-    // Scan quickly for any complete triple tokens in the chunk (outside of deep object parsing)
-    let m: RegExpExecArray | null;
-    triplePattern.lastIndex = 0;
-    while ((m = triplePattern.exec(buffer))) {
-      const token = m[1];
-      if (token && token.indexOf('|') > 0) out.add(token);
-    }
-    for (let i = 0; i < buffer.length; i++) {
-      const ch = buffer[i];
-      if (escape) { escape = false; if (depth>0) currentObj += ch; continue; }
-      if (ch === '\\') { if (inString) escape = true; if (depth>0) currentObj += ch; continue; }
-      if (ch === '"') { inString = !inString; if (depth>0) currentObj += ch; continue; }
-      if (inString) { if (depth>0) currentObj += ch; continue; }
-      if (ch === '{') { depth++; if (depth === 1) currentObj = '{'; else currentObj += ch; continue; }
-      if (ch === '}') {
-        if (depth > 0) {
-          depth--;
-          currentObj += '}';
-          if (depth === 0) {
-            try {
-              const obj = JSON.parse(currentObj);
-              if (obj && obj.tmdb_id != null) {
-                // Support both short keys (s,e) and longer (season, episode)
-                const sVal = obj.s != null ? obj.s : obj.season;
-                const eVal = obj.e != null ? obj.e : obj.episode;
-                if (sVal != null && eVal != null) {
-                  const key = `${obj.tmdb_id}|${Number(sVal)}|${Number(eVal)}`;
-                  out.add(key);
-                  parsedCount++;
-                }
-              }
-            } catch { /* ignore */ }
-            currentObj = '';
-          }
-          continue;
-        }
-      }
-      if (depth > 0) currentObj += ch;
-    }
-  // Keep last 32 chars to catch split tokens like "119051|2" + "|1"
-  tail = buffer.slice(-32);
-  buffer = depth === 0 ? '' : currentObj.slice(-5000);
-  }
-  // If suspiciously low, log (fallback handled outside)
-  if (parsedCount < 50) {
-    console.warn('VIX_CACHE: Episode streaming parse produced low count:', parsedCount);
-  }
-  return out;
-}
-
-async function fetchListsSnapshot(): Promise<VixSrcCacheInMemory> {
-  const movieUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/movie?lang=it`;
-  const tvUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/tv?lang=it`;
-  const epUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
-  console.log('VIX_CACHE: Fetching fresh lists (streaming)...');
-  try {
-    const commonHeaders: Record<string,string> = {
-      'Accept': 'application/json, text/plain, */*',
-      'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache',
-      'Referer': `${VIXCLOUD_SITE_ORIGIN}/`,
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
-      'Origin': VIXCLOUD_SITE_ORIGIN
-    };
-    const [movieRes, tvRes, epRes] = await Promise.all([
-      fetch(movieUrl, { headers: commonHeaders }),
-      fetch(tvUrl, { headers: commonHeaders }),
-      fetch(epUrl, { headers: commonHeaders })
-    ]);
-    if (!movieRes.ok || !tvRes.ok || !epRes.ok) throw new Error(`HTTP status movie:${movieRes.status} tv:${tvRes.status} ep:${epRes.status}`);
-
-    let [movieSet, tvSet, epSet] = await Promise.all([
-      streamExtractSimpleIds(movieRes, 'tmdb_id'),
-      streamExtractSimpleIds(tvRes, 'tmdb_id'),
-      streamExtractEpisodes(epRes)
-    ]);
-
-    // Always merge full movie list
-    try {
-      const fullMovieRes = await fetch(movieUrl);
-      if (fullMovieRes.ok) {
-        const arr = await fullMovieRes.json();
-        if (Array.isArray(arr)) {
-          let added = 0;
-          for (const it of arr) {
-            if (it && it.tmdb_id != null) {
-              const id = String(it.tmdb_id);
-              if (!movieSet.has(id)) { movieSet.add(id); added++; }
-            }
-          }
-          if (added > 0) console.warn('VIX_CACHE: Movie merge added', added, 'entries (final size:', movieSet.size, ')');
-        }
-      }
-    } catch (e) { console.warn('VIX_CACHE: Full movie merge failed', e); }
-
-    // Always merge full TV list
-    try {
-      const fullTvRes = await fetch(tvUrl);
-      if (fullTvRes.ok) {
-        const arr = await fullTvRes.json();
-        if (Array.isArray(arr)) {
-          let added = 0;
-          for (const it of arr) {
-            if (it && it.tmdb_id != null) {
-              const id = String(it.tmdb_id);
-              if (!tvSet.has(id)) { tvSet.add(id); added++; }
-            }
-          }
-          if (added > 0) console.warn('VIX_CACHE: TV merge added', added, 'entries (final size:', tvSet.size, ')');
-        }
-      }
-    } catch (e) { console.warn('VIX_CACHE: Full TV merge failed', e); }
-
-    // Always merge with full JSON episode list to ensure completeness (cost acceptable, still single fetch after initial streaming)
-    try {
-      const fullEpRes = await fetch(epUrl);
-      if (fullEpRes.ok) {
-        const arr = await fullEpRes.json();
-        if (Array.isArray(arr)) {
-          let added = 0;
-            for (const it of arr) {
-              if (!it) continue;
-              if (typeof it === 'string') {
-                if (/^\d+\|\d+\|\d+$/.test(it) && !epSet.has(it)) { epSet.add(it); added++; }
-                continue;
-              }
-              if (it.tmdb_id != null) {
-                const sVal = it.s != null ? it.s : it.season;
-                const eVal = it.e != null ? it.e : it.episode;
-                if (sVal != null && eVal != null) {
-                  const key = `${it.tmdb_id}|${Number(sVal)}|${Number(eVal)}`;
-                  if (!epSet.has(key)) { epSet.add(key); added++; }
-                }
-              }
-            }
-          if (added > 0) console.warn('VIX_CACHE: Episode merge added', added, 'entries (final size:', epSet.size, ')');
-        }
-      }
-    } catch (e) {
-      console.warn('VIX_CACHE: Full episode merge failed', e);
-    }
-
-    // Fallback: if a list unexpectedly empty, retry that endpoint with full JSON parse (rare)
-    if (tvSet.size === 0) {
-      try {
-        const retry = await fetch(tvUrl);
-        if (retry.ok) {
-          const arr = await retry.json();
-            if (Array.isArray(arr)) arr.forEach((it: any) => { if (it?.tmdb_id != null) tvSet.add(String(it.tmdb_id)); });
-          if (tvSet.size) console.warn('VIX_CACHE: TV list recovered via fallback JSON parse, size:', tvSet.size);
-        }
-      } catch (e) { console.warn('VIX_CACHE: TV fallback parse failed', e); }
-    }
-    if (movieSet.size === 0) {
-      try {
-        const retry = await fetch(movieUrl);
-        if (retry.ok) {
-          const arr = await retry.json();
-          if (Array.isArray(arr)) arr.forEach((it: any) => { if (it?.tmdb_id != null) movieSet.add(String(it.tmdb_id)); });
-          if (movieSet.size) console.warn('VIX_CACHE: Movie list recovered via fallback JSON parse, size:', movieSet.size);
-        }
-      } catch (e) { console.warn('VIX_CACHE: Movie fallback parse failed', e); }
-    }
-
-    // Derive tv IDs from episodes if tv list still empty but we have episodes
-    if (tvSet.size === 0 && epSet.size > 0) {
-      for (const ep of epSet) {
-        const parts = ep.split('|');
-        if (parts.length === 3 && parts[0]) tvSet.add(parts[0]);
-      }
-      if (tvSet.size > 0) console.warn('VIX_CACHE: Derived TV IDs from episodes, count:', tvSet.size);
-    }
-
-    // In-place update if cache exists
-    if (vixSrcCache) {
-      vixSrcCache.movies.clear();
-      movieSet.forEach(v => vixSrcCache!.movies.add(v));
-      vixSrcCache.tv.clear();
-      tvSet.forEach(v => vixSrcCache!.tv.add(v));
-      vixSrcCache.episodes.clear();
-      epSet.forEach(v => vixSrcCache!.episodes.add(v));
-      vixSrcCache.fetchedAt = Date.now();
-    } else {
-      vixSrcCache = {
-        fetchedAt: Date.now(),
-        movies: movieSet,
-        tv: tvSet,
-        episodes: epSet
-      };
-    }
-
-    // Async persist (fire & forget)
-    writeCacheToDisk(vixSrcCache).catch(()=>{});
-    console.log('VIX_CACHE: Fresh lists cached. Sizes:', {
-      movies: vixSrcCache.movies.size,
-      tv: vixSrcCache.tv.size,
-      episodes: vixSrcCache.episodes.size
-    });
-  // Verification line (hash recomputed same way as write)
-  const verifyBase = `${vixSrcCache.movies.size}|${vixSrcCache.tv.size}|${vixSrcCache.episodes.size}`;
-  let vh = 0; for (let i=0;i<verifyBase.length;i++) vh = (vh*31 + verifyBase.charCodeAt(i))>>>0;
-  console.log('VIX_CACHE_VERIFY:', { counts: verifyBase, hash: vh.toString(16) });
-    if (vixSrcCache.episodes.size < 50) {
-      console.warn('VIX_CACHE: FINAL EPISODE COUNT VERY LOW:', vixSrcCache.episodes.size);
-    }
-    if (vixSrcCache.tv.size === 0) {
-      console.warn('VIX_CACHE: TV list STILL EMPTY after fallbacks. Presence checks will FAIL-OPEN (not filtering).');
-    }
-    return vixSrcCache;
-  } catch (e) {
-    console.error('VIX_CACHE: Failed to fetch fresh lists (stream mode)', e);
-    return vixSrcCache || readCacheFromDisk() || {
-      fetchedAt: 0,
-      movies: new Set(),
-      tv: new Set(),
-      episodes: new Set()
-    };
-  }
-}
-
-async function ensureCacheFresh(): Promise<void> {
-  if (vixSrcCache && (Date.now() - vixSrcCache.fetchedAt) < VIXSRC_CACHE_TTL_MS) return; // fresh
-  if (vixSrcCacheLoading) return vixSrcCacheLoading; // already loading
-  vixSrcCacheLoading = (async () => {
-    // Try load from disk first if no current cache
-    if (!vixSrcCache) {
-      const disk = readCacheFromDisk();
-      if (disk) {
-        vixSrcCache = disk;
-        if ((Date.now() - disk.fetchedAt) < VIXSRC_CACHE_TTL_MS) {
-          console.log('VIX_CACHE: Using disk cache (fresh).');
-          vixSrcCacheLoading = null;
-          return;
-        } else {
-          console.log('VIX_CACHE: Disk cache stale, refreshing...');
-        }
-      }
-    } else if ((Date.now() - vixSrcCache.fetchedAt) >= VIXSRC_CACHE_TTL_MS) {
-      console.log('VIX_CACHE: In-memory cache stale, refreshing...');
-    }
-  vixSrcCache = await fetchListsSnapshot();
-    vixSrcCacheLoading = null;
-  })();
-  return vixSrcCacheLoading;
-}
-
-// Public no-op externally safe warmup: triggers background snapshot load if stale/missing
-export async function warmupVixSrcCache(): Promise<void> {
-  try {
-    await ensureCacheFresh();
-  } catch (e) {
-    console.warn('VIX_CACHE: warmup failed (non-fatal)', e);
-  }
-}
-
-function episodeKey(tmdbId: string, season: number, episode: number): string {
-  return `${tmdbId}|${season}|${episode}`;
-}
-// ------------------------------------------------------------------------------
 
 /**
  * Fetches the site version from VixCloud.
@@ -607,7 +83,7 @@ function getObject(id: string) {
 }
 
 export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string): Promise<string | null> {
-  if (!tmdbApiKey) { 
+  if (!tmdbApiKey) {
     console.error("TMDB_API_KEY is not configured.");
     return null;
   }
@@ -621,7 +97,7 @@ export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string): 
     const data = await response.json();
     if (data.movie_results && data.movie_results.length > 0) {
       return data.movie_results[0].id.toString();
-    } else if (data.tv_results && data.tv_results.length > 0) { 
+    } else if (data.tv_results && data.tv_results.length > 0) {
       return data.tv_results[0].id.toString();
     }
     console.warn(`No TMDB movie or TV results found for IMDb ID: ${imdbId}`);
@@ -634,64 +110,55 @@ export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string): 
 
 // 1. Aggiungi la funzione di verifica dei TMDB ID
 async function checkTmdbIdOnVixSrc(tmdbId: string, type: ContentType): Promise<boolean> {
-  if (!tmdbId) return false;
+  const vixSrcApiType = type === 'movie' ? 'movie' : 'tv'; // VixSrc usa 'tv' per le serie
+  const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}?lang=it`;
+
   try {
-    await ensureCacheFresh();
-    if (!vixSrcCache) return false;
-    const set = (type === 'movie') ? vixSrcCache.movies : vixSrcCache.tv;
-    // Fail-open: if checking TV and tv set is empty but episodes exist, treat as present if any episode has that tmdb id
-    if (type === 'series' && set.size === 0 && vixSrcCache.episodes.size > 0) {
-      for (const ep of vixSrcCache.episodes) {
-        if (ep.startsWith(tmdbId + '|')) {
-          console.log(`VIX_CHECK: (fail-open via episodes) TMDB ID ${tmdbId} assumed FOUND in tv list.`);
-          return true;
-        }
-      }
+    console.log(`VIX_CHECK: Checking TMDB ID ${tmdbId} of type ${vixSrcApiType} against VixSrc list: ${listUrl}`);
+    const response = await fetch(listUrl);
+    if (!response.ok) {
+      console.error(`VIX_CHECK: Failed to fetch VixSrc list for type ${vixSrcApiType}, status: ${response.status}`);
+      return false; // Se non possiamo ottenere la lista, assumiamo che non esista per sicurezza
     }
-    if (set.has(tmdbId.toString())) {
-      console.log(`VIX_CHECK: (cache) TMDB ID ${tmdbId} FOUND in ${type} list.`);
-      return true;
+    const data = await response.json();
+    // L'API restituisce un array di oggetti, ognuno con una proprietà 'id' che è l'ID TMDB
+    if (data && Array.isArray(data)) {
+      const exists = data.some((item: any) => item.tmdb_id && item.tmdb_id.toString() === tmdbId.toString());
+      console.log(`VIX_CHECK: TMDB ID ${tmdbId} ${exists ? 'found' : 'NOT found'} in VixSrc list.`);
+      return exists;
+    } else {
+      console.error(`VIX_CHECK: VixSrc list for type ${vixSrcApiType} is not in the expected format.`);
+      return false;
     }
-    console.log(`VIX_CHECK: TMDB ID ${tmdbId} NOT FOUND in cache (${type}), attempting live fallback...`);
-    const ok = await fallbackHasMovieOrTv(tmdbId.toString(), type === 'movie' ? 'movie' : 'series');
-    if (ok) {
-      set.add(tmdbId.toString());
-      // persist enrichment (fire & forget)
-      writeCacheToDisk(vixSrcCache).catch(()=>{});
-      console.log(`VIX_CHECK: Live fallback CONFIRMED TMDB ID ${tmdbId} (${type}); cache enriched.`);
-      return true;
-    }
-    console.log(`VIX_CHECK: Live fallback also failed for TMDB ID ${tmdbId} (${type}).`);
-    return false;
-  } catch (e) {
-    console.error('VIX_CHECK: Cache check failed, falling back to false', e);
-    return false;
+  } catch (error) {
+    console.error(`VIX_CHECK: Error checking TMDB ID ${tmdbId} on VixSrc:`, error);
+    return false; // In caso di errore, assumiamo che non esista
   }
 }
 
 // Verifica se uno specifico episodio (S/E) esiste su VixSrc
 async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: number): Promise<boolean> {
-  if (!tmdbId) return false;
+  const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
   try {
-    await ensureCacheFresh();
-    if (!vixSrcCache) return false;
-    const key = episodeKey(tmdbId.toString(), Number(season), Number(episode));
-    if (vixSrcCache.episodes.has(key)) {
-      console.log(`VIX_EP_CHECK: (cache) ${key} FOUND`);
-      return true;
+    console.log(`VIX_EP_CHECK: Checking TMDB ID ${tmdbId} S${season}E${episode} against VixSrc episode list: ${listUrl}`);
+    const response = await fetch(listUrl);
+    if (!response.ok) {
+      console.error(`VIX_EP_CHECK: Failed to fetch VixSrc episode list, status: ${response.status}`);
+      return false;
     }
-    console.log(`VIX_EP_CHECK: ${key} NOT FOUND in cache, attempting live fallback...`);
-    const ok = await fallbackHasEpisode(tmdbId.toString(), Number(season), Number(episode));
-    if (ok) {
-      vixSrcCache.episodes.add(key);
-      writeCacheToDisk(vixSrcCache).catch(()=>{});
-      console.log(`VIX_EP_CHECK: Live fallback CONFIRMED ${key}; cache enriched.`);
-      return true;
+    const data = await response.json();
+    if (data && Array.isArray(data)) {
+      const exists = data.some((item: any) =>
+        item && item.tmdb_id?.toString() === tmdbId.toString() &&
+        Number(item.s) === Number(season) && Number(item.e) === Number(episode)
+      );
+      console.log(`VIX_EP_CHECK: Episode TMDB ${tmdbId} S${season}E${episode} ${exists ? 'found' : 'NOT found'} in VixSrc episode list.`);
+      return exists;
     }
-    console.log(`VIX_EP_CHECK: Live fallback failed for ${key}.`);
+    console.error('VIX_EP_CHECK: Episode list format not as expected');
     return false;
-  } catch (e) {
-    console.error('VIX_EP_CHECK: Cache check failed, falling back to false', e);
+  } catch (error) {
+    console.error(`VIX_EP_CHECK: Error checking episode on VixSrc for TMDB ${tmdbId} S${season}E${episode}:`, error);
     return false;
   }
 }
@@ -755,7 +222,7 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
 export async function getStreamContent(id: string, type: ContentType, config: ExtractorConfig): Promise<VixCloudStreamInfo[] | null> {
   // Log config safely without exposing password
   console.log(`Extracting stream for ${id} (${type}) with config:`, { ...config, mfpPsw: config.mfpPsw ? '***' : undefined });
-  
+
   // First, get the target URL on vixsrc.to (this is needed for both proxy and direct modes)
   const targetUrl = await getUrl(id, type, config);
   if (!targetUrl) {
@@ -821,7 +288,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     }
 
     const cleanedMfpUrl = mfpUrl.endsWith('/') ? mfpUrl.slice(0, -1) : mfpUrl;
-    const proxyStreamUrl = `${cleanedMfpUrl}/extractor/video?host=VixCloud&redirect_stream=true&api_password=${mfpPsw}&d=${encodeURIComponent(url)}`;    
+    const proxyStreamUrl = `${cleanedMfpUrl}/extractor/video?host=VixCloud&redirect_stream=true&api_password=${mfpPsw}&d=${encodeURIComponent(url)}`;
     console.log(`Proxy mode active. Generated proxy URL for ${id}: ${proxyStreamUrl}`);
 
   // Nuova funzione asincrona per ottenere l'URL m3u8 finale
@@ -829,23 +296,23 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       try {
         // In modalità "debug" non seguiamo i reindirizzamenti e otteniamo l'URL m3u8 dalla risposta JSON
         const debugUrl = proxyUrl.replace('redirect_stream=true', 'redirect_stream=false');
-        
+
         console.log(`Fetching stream URL from: ${debugUrl}`);
         const response = await fetch(debugUrl);
-        
+
         if (!response.ok) {
           console.error(`Failed to fetch stream details: ${response.status}`);
           return proxyUrl; // Fallback al proxy URL originale
         }
-        
+
         const data = await response.json();
         console.log(`MFP Response:`, data);
-        
+
         // CORREZIONE: usa mediaflow_proxy_url invece di stream_url
         if (data && data.mediaflow_proxy_url) {
           // Costruisci l'URL completo includendo i parametri necessari
           let finalUrl = data.mediaflow_proxy_url;
-          
+
           // Aggiungi i parametri di query se presenti
           if (data.query_params) {
             const params = new URLSearchParams();
@@ -854,17 +321,17 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
                 params.append(key, String(value));
               }
             }
-            
+
             // Se l'URL ha già parametri, aggiungi & altrimenti ?
             finalUrl += (finalUrl.includes('?') ? '&' : '?') + params.toString();
           }
-          
+
           // Aggiungi il parametro d per il destination_url
           if (data.destination_url) {
             const destParam = 'd=' + encodeURIComponent(data.destination_url);
             finalUrl += (finalUrl.includes('?') ? '&' : '?') + destParam;
           }
-          
+
           // Aggiungi gli header come parametri h_
           if (data.request_headers) {
             for (const [key, value] of Object.entries(data.request_headers)) {
@@ -874,7 +341,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
               }
             }
           }
-          
+
           console.log(`Extracted proxy m3u8 URL: ${finalUrl}`);
           return finalUrl;
         } else {
@@ -917,7 +384,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         const obj = getObject(id);
         finalNameForProxy += ` (S${obj.season}E${obj.episode})`;
       }
-      finalNameForProxy += '[ITA]'; 
+      finalNameForProxy += '[ITA]';
     } else { // Titolo TMDB non trovato, usa il fallback
       if (type === 'movie') {
         finalNameForProxy = 'Movie Stream [ITA]';
@@ -927,24 +394,18 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         finalNameForProxy = `Series Stream (S${obj.season}E${obj.episode}) [ITA]`;
       }
     }
-    
+
     // Ottieni l'URL m3u8 finale
   let finalStreamUrl = await getActualStreamUrl(proxyStreamUrl);
     console.log(`Final m3u8 URL: ${finalStreamUrl}`);
-    
+
     // Prova ad estrarre la dimensione (bytes) dalla pagina VixSrc
     let sizeBytes: number | undefined = undefined;
     let canPlayFHD = false;
     try {
-      let html: string | null = __fallbackPageHtml.get(url) || null;
-      if (!html) {
-        const pageRes = await fetch(url);
-        if (pageRes.ok) {
-          html = await pageRes.text();
-          __fallbackPageHtml.set(url, html);
-        }
-      }
-      if (html) {
+      const pageRes = await fetch(url);
+      if (pageRes.ok) {
+        const html = await pageRes.text();
         // Rileva supporto Full HD
         canPlayFHD = html.includes('window.canPlayFHD = true');
         const sizeMatch = html.match(/\"size\":(\d+)/);
@@ -963,10 +424,10 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       console.log('Applied h=1 to destination URL (FHD enabled).');
     }
 
-    return { 
-      name: finalNameForProxy, 
-      streamUrl: finalStreamUrl, 
-      referer: url, 
+    return {
+      name: finalNameForProxy,
+      streamUrl: finalStreamUrl,
+      referer: url,
       source: 'proxy',
       ...(typeof sizeBytes === 'number' ? { sizeBytes } : {})
     };
@@ -980,12 +441,12 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     let finalReferer: string = url;
 
     try {
-      if (url.includes("/iframe")) { 
+      if (url.includes("/iframe")) {
         const version = await fetchVixCloudSiteVersion(siteOrigin);
         const initialResponse = await fetch(url, {
-          headers: { 
-            "x-inertia": "true", 
-            "x-inertia-version": version, 
+          headers: {
+            "x-inertia": "true",
+            "x-inertia-version": version,
             "Referer": `${siteOrigin}/`
           },
         });
@@ -997,9 +458,9 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         if (iframeSrc) {
           const actualPlayerUrl = new URL(iframeSrc, siteOrigin).toString();
           const playerResponse = await fetch(actualPlayerUrl, {
-            headers: { 
-              "x-inertia": "true", 
-              "x-inertia-version": version, 
+            headers: {
+              "x-inertia": "true",
+              "x-inertia-version": version,
               "Referer": url
             },
           });
@@ -1010,14 +471,14 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           throw new Error("Iframe src not found in initial response.");
         }
       } else {
-        const response = await fetch(url); 
+        const response = await fetch(url);
         if (!response.ok) throw new Error(`Direct embed request failed: ${response.status}`);
         pageHtml = await response.text();
         // Non modificare finalReferer qui, rimane targetUrl
       }
 
       const $ = cheerio.load(pageHtml);
-  const scriptTag = $("body script").filter((_idx: number, el: any) => {
+      const scriptTag = $("body script").filter((_, el) => {
         const htmlContent = $(el).html();
         return !!htmlContent && htmlContent.includes("'token':") && htmlContent.includes("'expires':");
       }).first();
@@ -1044,7 +505,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       // Aggiungi &h=1 solo se disponibile
       if (scriptContent.includes("window.canPlayFHD = true")) {
         finalStreamUrl += "&h=1";
-      } 
+      }
 
       // --- Inizio della nuova logica per il titolo ---
 
@@ -1052,12 +513,12 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       let baseTitle: string | null = null;
 
       // Prima prova a ottenere il titolo dalle API TMDB
-      baseTitle = type === 'movie' ? 
-        await getMovieTitle(id, config.tmdbApiKey) : 
+      baseTitle = type === 'movie' ?
+        await getMovieTitle(id, config.tmdbApiKey) :
         await getSeriesTitle(id, config.tmdbApiKey);
-      
+
       console.log(`TMDB title result: "${baseTitle}"`);
-    
+
       // Solo se TMDB fallisce, prova a usare il titolo dalla pagina
       if (!baseTitle) {
         const pageTitle = $("title").text().trim();
@@ -1092,7 +553,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           determinedName = `Series Stream (Direct) (S${obj.season}E${obj.episode}) [ITA]`;
         }
       }
-      
+
       console.log(`Final stream name: "${determinedName}"`);
       console.log(`Final stream URL: "${finalStreamUrl}"`); // Aggiungi questo log per l'URL
 
@@ -1109,7 +570,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         message = error.message;
       }
       console.error(`Stream extraction error: ${message}`, error);
-      
+
       // Ritorna null invece di un oggetto con URL HTML
       return null;
     }
