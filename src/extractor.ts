@@ -1,4 +1,5 @@
 import { ContentType } from "stremio-addon-sdk";
+import { Buffer } from 'buffer';
 import * as cheerio from "cheerio";
 import * as fs from 'fs';
 import * as path from 'path';
@@ -41,6 +42,10 @@ interface RawVixSrcCacheFile {
   tv: (string|number)[];
   episodes: string[]; // encoded as `${tmdb}|${s}|${e}`
   version?: number; // reserved
+  meta?: {
+    counts: { movies: number; tv: number; episodes: number };
+    hash: string;
+  };
 }
 interface VixSrcCacheInMemory {
   fetchedAt: number;
@@ -50,6 +55,138 @@ interface VixSrcCacheInMemory {
 }
 let vixSrcCache: VixSrcCacheInMemory | null = null;
 let vixSrcCacheLoading: Promise<void> | null = null;
+
+// Ephemeral HTML cache for pages fetched during fallback presence checks (not persisted)
+const __fallbackPageHtml = new Map<string,string>();
+
+// Lightweight on-demand fallback queries (avoid full list refetch if single miss)
+async function fallbackHasMovieOrTv(tmdbId: string, type: 'movie'|'series'): Promise<boolean> {
+  const endpoint = type === 'movie' ? 'movie' : 'tv';
+  const url = `${VIXCLOUD_SITE_ORIGIN}/${endpoint}/${tmdbId}/`;
+  const headers: Record<string,string> = {
+    'Accept': 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+    'Referer': `${VIXCLOUD_SITE_ORIGIN}/`,
+    'Origin': VIXCLOUD_SITE_ORIGIN,
+    'Cache-Control': 'no-cache'
+  };
+  try {
+    const res = await fetch(url, { method: 'GET', headers });
+    if (!res.ok) {
+      console.log(`VIX_FALLBACK_PAGE: ${type} ${tmdbId} status ${res.status}`);
+    } else {
+      const text = await res.text();
+      const hasId = text.includes(tmdbId);
+      const hasToken = text.includes("'token':") || text.includes('token');
+      const hasDataPage = text.includes('data-page');
+      console.log(`VIX_FALLBACK_PAGE: ${type} ${tmdbId} ok len=${text.length} id=${hasId} token=${hasToken} dataPage=${hasDataPage}`);
+      if (hasId || hasToken || hasDataPage) {
+        __fallbackPageHtml.set(url, text);
+        return true;
+      }
+    }
+  } catch (e) {
+    console.log(`VIX_FALLBACK_PAGE_ERR: ${type} ${tmdbId} ${(e as any)?.message || e}`);
+  }
+  // Secondary lightweight retry: re-fetch small JSON list endpoint (tv or movie) and scan id
+  try {
+    const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${endpoint}?lang=it`;
+    const res2 = await fetch(listUrl, { headers: { 'Accept':'application/json','User-Agent': headers['User-Agent'] }});
+    if (!res2.ok) {
+      console.log(`VIX_FALLBACK_LIST: ${endpoint} status ${res2.status}`);
+    } else {
+      const arr = await res2.json();
+      if (Array.isArray(arr)) {
+        let scanned = 0;
+        for (const it of arr) {
+          if (it && it.tmdb_id != null) {
+            scanned++;
+            if (String(it.tmdb_id) === tmdbId) {
+              console.log(`VIX_FALLBACK_LIST: Found ${tmdbId} in secondary list after scanning ${scanned}`);
+              return true;
+            }
+          }
+        }
+        console.log(`VIX_FALLBACK_LIST: Not found ${tmdbId}, scanned ${scanned}`);
+      }
+    }
+  } catch {}
+  // Extra for series: quick episode list scan (first 3000 chars) to detect newly-added series via episodes
+  if (type === 'series') {
+    try {
+      const epListUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
+      const res3 = await fetch(epListUrl, { headers: { 'Accept':'application/json','User-Agent': headers['User-Agent'] }});
+      if (res3.ok) {
+        const text = await res3.text();
+        const slice = text.slice(0, 3000); // lightweight
+        if (slice.includes(`"tmdb_id":${tmdbId}`) || slice.includes(`"tmdb_id":"${tmdbId}`)) {
+          console.log(`VIX_FALLBACK_EPISODE_SCAN: Found series ${tmdbId} via episode list sniff`);
+          return true;
+        }
+      }
+    } catch {}
+  }
+  return false;
+}
+
+async function fallbackHasEpisode(tmdbId: string, season: number, episode: number): Promise<boolean> {
+  const url = `${VIXCLOUD_SITE_ORIGIN}/tv/${tmdbId}/${season}/${episode}/`;
+  const headers: Record<string,string> = {
+    'Accept': 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+    'Referer': `${VIXCLOUD_SITE_ORIGIN}/tv/${tmdbId}/`,
+    'Origin': VIXCLOUD_SITE_ORIGIN,
+    'Cache-Control': 'no-cache'
+  };
+  try {
+    const res = await fetch(url, { method: 'GET', headers });
+    if (!res.ok) {
+      console.log(`VIX_FALLBACK_EP: ${tmdbId} S${season}E${episode} status ${res.status}`);
+    } else {
+      const text = await res.text();
+      const hasPath = text.includes(`/${season}/${episode}/`);
+      const hasToken = text.includes("'token':") || text.includes('token');
+      const hasDataPage = text.includes('data-page');
+      // New relaxed signals: JSON style markers for tmdb_id + s/e inside the page
+      const jsonHasTmdb = text.includes(`"tmdb_id":${tmdbId}`) || text.includes(`"tmdb_id":"${tmdbId}`);
+      // look for patterns like "s":1,"e":2 (allow possible whitespace)
+      const sePattern = new RegExp(`"s"\s*:\s*${season}[^\n]{0,40}?"e"\s*:\s*${episode}`);
+      const hasSEPair = sePattern.test(text);
+      console.log(`VIX_FALLBACK_EP: ${tmdbId} S${season}E${episode} ok len=${text.length} path=${hasPath} token=${hasToken} dataPage=${hasDataPage}`);
+      if ((hasPath && (hasToken || hasDataPage)) || (hasToken && jsonHasTmdb && hasSEPair)) {
+        console.log(`VIX_FALLBACK_EP_HEURISTIC: accepted via ${(hasPath ? 'path' : 'json')}`);
+        __fallbackPageHtml.set(url, text);
+        return true;
+      }
+    }
+  } catch {}
+  // As an extra attempt, if the episode page not conclusive, try the series page quickly
+  try {
+    const seriesUrl = `${VIXCLOUD_SITE_ORIGIN}/tv/${tmdbId}/`;
+    const res2 = await fetch(seriesUrl, { headers });
+    if (!res2.ok) {
+      console.log(`VIX_FALLBACK_EP_SERIES: ${tmdbId} status ${res2.status}`);
+    } else {
+      const t2 = await res2.text();
+      const hasId = t2.includes(tmdbId);
+      console.log(`VIX_FALLBACK_EP_SERIES: ${tmdbId} len=${t2.length} id=${hasId}`);
+      if (hasId) return true; // presence at least
+    }
+  } catch {}
+  // Final lightweight scan on global episode list to confirm presence
+  try {
+    const epListUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
+    const res3 = await fetch(epListUrl, { headers: { 'Accept':'application/json','User-Agent': headers['User-Agent'] }});
+    if (res3.ok) {
+      const txt = await res3.text();
+      if (txt.includes(`"tmdb_id":${tmdbId}`) && txt.includes(`"s":${season}`) && txt.includes(`"e":${episode}`)) {
+        console.log(`VIX_FALLBACK_EP_GLOBAL_LIST: found ${tmdbId} S${season}E${episode}`);
+        return true;
+      }
+    }
+  } catch {}
+  return false;
+}
 
 function readCacheFromDisk(): VixSrcCacheInMemory | null {
   try {
@@ -70,12 +207,19 @@ function readCacheFromDisk(): VixSrcCacheInMemory | null {
 
 async function writeCacheToDisk(cache: VixSrcCacheInMemory) {
   try {
+    const hashBase = `${cache.movies.size}|${cache.tv.size}|${cache.episodes.size}`;
+    let hash = 0;
+    for (let i = 0; i < hashBase.length; i++) hash = (hash * 31 + hashBase.charCodeAt(i)) >>> 0;
     const out: RawVixSrcCacheFile = {
       fetchedAt: cache.fetchedAt,
       movies: Array.from(cache.movies),
       tv: Array.from(cache.tv),
       episodes: Array.from(cache.episodes),
-      version: 1
+      version: 1,
+      meta: {
+        counts: { movies: cache.movies.size, tv: cache.tv.size, episodes: cache.episodes.size },
+        hash: hash.toString(16)
+      }
     };
     await fs.promises.writeFile(VIXSRC_CACHE_PATH, JSON.stringify(out));
   } catch (e) {
@@ -105,21 +249,28 @@ async function streamExtractSimpleIds(res: any, key: string): Promise<Set<string
   const out = new Set<string>();
   if (!res?.body) return out;
   let leftover = '';
-  const regex = new RegExp(`"${key}"\\s*:\\s*(?:"(\\\\d+)"|(\\\\d+))`, 'g');
+  // IMPORTANT: use \\d+ (single escaping in string literal) not \\\\d+; previous version over-escaped and failed to match digits
+  const regexSource = `"${key}"\\s*:\\s*("?)(\\d+)(\\1)`; // matches "tmdb_id": 12345 or "tmdb_id": "12345"
+  const regexGlobal = new RegExp(regexSource, 'g');
   for await (const value of iterateBody(res)) {
     const chunk = leftover + __svxTextDecoder.decode(value, { stream: true });
-    const scanPart = chunk.slice(0, Math.max(0, chunk.length - 100));
+    // Scan entire combined chunk
     let m: RegExpExecArray | null;
-    while ((m = regex.exec(scanPart))) {
-      const idStr = (m[1] || m[2] || '').toString();
+    regexGlobal.lastIndex = 0;
+    while ((m = regexGlobal.exec(chunk))) {
+      const idStr = (m[2] || '').toString();
       if (idStr) out.add(idStr);
     }
-    leftover = chunk.slice(-100);
+    // Keep a small tail to cover boundary splits
+    leftover = chunk.slice(-64);
   }
-  let m: RegExpExecArray | null;
-  while ((m = regex.exec(leftover))) {
-    const idStr = (m[1] || m[2] || '').toString();
-    if (idStr) out.add(idStr);
+  if (leftover) {
+    let m: RegExpExecArray | null;
+    regexGlobal.lastIndex = 0;
+    while ((m = regexGlobal.exec(leftover))) {
+      const idStr = (m[2] || '').toString();
+      if (idStr) out.add(idStr);
+    }
   }
   return out;
 }
@@ -132,8 +283,19 @@ async function streamExtractEpisodes(res: any): Promise<Set<string>> {
   let inString = false;
   let escape = false;
   let currentObj = '';
+  let parsedCount = 0;
+  // For capturing simple string tokens like "12345|2|6" that might appear directly in JSON arrays
+  const triplePattern = /"(\d+\|\d+\|\d+)"/g;
+  let tail = '';
   for await (const value of iterateBody(res)) {
-    buffer += __svxTextDecoder.decode(value, { stream: true });
+    buffer = tail + __svxTextDecoder.decode(value, { stream: true });
+    // Scan quickly for any complete triple tokens in the chunk (outside of deep object parsing)
+    let m: RegExpExecArray | null;
+    triplePattern.lastIndex = 0;
+    while ((m = triplePattern.exec(buffer))) {
+      const token = m[1];
+      if (token && token.indexOf('|') > 0) out.add(token);
+    }
     for (let i = 0; i < buffer.length; i++) {
       const ch = buffer[i];
       if (escape) { escape = false; if (depth>0) currentObj += ch; continue; }
@@ -148,8 +310,15 @@ async function streamExtractEpisodes(res: any): Promise<Set<string>> {
           if (depth === 0) {
             try {
               const obj = JSON.parse(currentObj);
-              if (obj && obj.tmdb_id != null && obj.s != null && obj.e != null) {
-                out.add(`${obj.tmdb_id}|${Number(obj.s)}|${Number(obj.e)}`);
+              if (obj && obj.tmdb_id != null) {
+                // Support both short keys (s,e) and longer (season, episode)
+                const sVal = obj.s != null ? obj.s : obj.season;
+                const eVal = obj.e != null ? obj.e : obj.episode;
+                if (sVal != null && eVal != null) {
+                  const key = `${obj.tmdb_id}|${Number(sVal)}|${Number(eVal)}`;
+                  out.add(key);
+                  parsedCount++;
+                }
               }
             } catch { /* ignore */ }
             currentObj = '';
@@ -159,7 +328,13 @@ async function streamExtractEpisodes(res: any): Promise<Set<string>> {
       }
       if (depth > 0) currentObj += ch;
     }
-    buffer = depth === 0 ? '' : currentObj.slice(-5000);
+  // Keep last 32 chars to catch split tokens like "119051|2" + "|1"
+  tail = buffer.slice(-32);
+  buffer = depth === 0 ? '' : currentObj.slice(-5000);
+  }
+  // If suspiciously low, log (fallback handled outside)
+  if (parsedCount < 50) {
+    console.warn('VIX_CACHE: Episode streaming parse produced low count:', parsedCount);
   }
   return out;
 }
@@ -170,18 +345,123 @@ async function fetchListsSnapshot(): Promise<VixSrcCacheInMemory> {
   const epUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
   console.log('VIX_CACHE: Fetching fresh lists (streaming)...');
   try {
+    const commonHeaders: Record<string,string> = {
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+      'Referer': `${VIXCLOUD_SITE_ORIGIN}/`,
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+      'Origin': VIXCLOUD_SITE_ORIGIN
+    };
     const [movieRes, tvRes, epRes] = await Promise.all([
-      fetch(movieUrl),
-      fetch(tvUrl),
-      fetch(epUrl)
+      fetch(movieUrl, { headers: commonHeaders }),
+      fetch(tvUrl, { headers: commonHeaders }),
+      fetch(epUrl, { headers: commonHeaders })
     ]);
     if (!movieRes.ok || !tvRes.ok || !epRes.ok) throw new Error(`HTTP status movie:${movieRes.status} tv:${tvRes.status} ep:${epRes.status}`);
 
-    const [movieSet, tvSet, epSet] = await Promise.all([
+    let [movieSet, tvSet, epSet] = await Promise.all([
       streamExtractSimpleIds(movieRes, 'tmdb_id'),
       streamExtractSimpleIds(tvRes, 'tmdb_id'),
       streamExtractEpisodes(epRes)
     ]);
+
+    // Always merge full movie list
+    try {
+      const fullMovieRes = await fetch(movieUrl);
+      if (fullMovieRes.ok) {
+        const arr = await fullMovieRes.json();
+        if (Array.isArray(arr)) {
+          let added = 0;
+          for (const it of arr) {
+            if (it && it.tmdb_id != null) {
+              const id = String(it.tmdb_id);
+              if (!movieSet.has(id)) { movieSet.add(id); added++; }
+            }
+          }
+          if (added > 0) console.warn('VIX_CACHE: Movie merge added', added, 'entries (final size:', movieSet.size, ')');
+        }
+      }
+    } catch (e) { console.warn('VIX_CACHE: Full movie merge failed', e); }
+
+    // Always merge full TV list
+    try {
+      const fullTvRes = await fetch(tvUrl);
+      if (fullTvRes.ok) {
+        const arr = await fullTvRes.json();
+        if (Array.isArray(arr)) {
+          let added = 0;
+          for (const it of arr) {
+            if (it && it.tmdb_id != null) {
+              const id = String(it.tmdb_id);
+              if (!tvSet.has(id)) { tvSet.add(id); added++; }
+            }
+          }
+          if (added > 0) console.warn('VIX_CACHE: TV merge added', added, 'entries (final size:', tvSet.size, ')');
+        }
+      }
+    } catch (e) { console.warn('VIX_CACHE: Full TV merge failed', e); }
+
+    // Always merge with full JSON episode list to ensure completeness (cost acceptable, still single fetch after initial streaming)
+    try {
+      const fullEpRes = await fetch(epUrl);
+      if (fullEpRes.ok) {
+        const arr = await fullEpRes.json();
+        if (Array.isArray(arr)) {
+          let added = 0;
+            for (const it of arr) {
+              if (!it) continue;
+              if (typeof it === 'string') {
+                if (/^\d+\|\d+\|\d+$/.test(it) && !epSet.has(it)) { epSet.add(it); added++; }
+                continue;
+              }
+              if (it.tmdb_id != null) {
+                const sVal = it.s != null ? it.s : it.season;
+                const eVal = it.e != null ? it.e : it.episode;
+                if (sVal != null && eVal != null) {
+                  const key = `${it.tmdb_id}|${Number(sVal)}|${Number(eVal)}`;
+                  if (!epSet.has(key)) { epSet.add(key); added++; }
+                }
+              }
+            }
+          if (added > 0) console.warn('VIX_CACHE: Episode merge added', added, 'entries (final size:', epSet.size, ')');
+        }
+      }
+    } catch (e) {
+      console.warn('VIX_CACHE: Full episode merge failed', e);
+    }
+
+    // Fallback: if a list unexpectedly empty, retry that endpoint with full JSON parse (rare)
+    if (tvSet.size === 0) {
+      try {
+        const retry = await fetch(tvUrl);
+        if (retry.ok) {
+          const arr = await retry.json();
+            if (Array.isArray(arr)) arr.forEach((it: any) => { if (it?.tmdb_id != null) tvSet.add(String(it.tmdb_id)); });
+          if (tvSet.size) console.warn('VIX_CACHE: TV list recovered via fallback JSON parse, size:', tvSet.size);
+        }
+      } catch (e) { console.warn('VIX_CACHE: TV fallback parse failed', e); }
+    }
+    if (movieSet.size === 0) {
+      try {
+        const retry = await fetch(movieUrl);
+        if (retry.ok) {
+          const arr = await retry.json();
+          if (Array.isArray(arr)) arr.forEach((it: any) => { if (it?.tmdb_id != null) movieSet.add(String(it.tmdb_id)); });
+          if (movieSet.size) console.warn('VIX_CACHE: Movie list recovered via fallback JSON parse, size:', movieSet.size);
+        }
+      } catch (e) { console.warn('VIX_CACHE: Movie fallback parse failed', e); }
+    }
+
+    // Derive tv IDs from episodes if tv list still empty but we have episodes
+    if (tvSet.size === 0 && epSet.size > 0) {
+      for (const ep of epSet) {
+        const parts = ep.split('|');
+        if (parts.length === 3 && parts[0]) tvSet.add(parts[0]);
+      }
+      if (tvSet.size > 0) console.warn('VIX_CACHE: Derived TV IDs from episodes, count:', tvSet.size);
+    }
 
     // In-place update if cache exists
     if (vixSrcCache) {
@@ -208,6 +488,16 @@ async function fetchListsSnapshot(): Promise<VixSrcCacheInMemory> {
       tv: vixSrcCache.tv.size,
       episodes: vixSrcCache.episodes.size
     });
+  // Verification line (hash recomputed same way as write)
+  const verifyBase = `${vixSrcCache.movies.size}|${vixSrcCache.tv.size}|${vixSrcCache.episodes.size}`;
+  let vh = 0; for (let i=0;i<verifyBase.length;i++) vh = (vh*31 + verifyBase.charCodeAt(i))>>>0;
+  console.log('VIX_CACHE_VERIFY:', { counts: verifyBase, hash: vh.toString(16) });
+    if (vixSrcCache.episodes.size < 50) {
+      console.warn('VIX_CACHE: FINAL EPISODE COUNT VERY LOW:', vixSrcCache.episodes.size);
+    }
+    if (vixSrcCache.tv.size === 0) {
+      console.warn('VIX_CACHE: TV list STILL EMPTY after fallbacks. Presence checks will FAIL-OPEN (not filtering).');
+    }
     return vixSrcCache;
   } catch (e) {
     console.error('VIX_CACHE: Failed to fetch fresh lists (stream mode)', e);
@@ -349,9 +639,30 @@ async function checkTmdbIdOnVixSrc(tmdbId: string, type: ContentType): Promise<b
     await ensureCacheFresh();
     if (!vixSrcCache) return false;
     const set = (type === 'movie') ? vixSrcCache.movies : vixSrcCache.tv;
-    const exists = set.has(tmdbId.toString());
-    console.log(`VIX_CHECK: (cache) TMDB ID ${tmdbId} ${exists ? 'FOUND' : 'NOT FOUND'} in ${type} list.`);
-    return exists;
+    // Fail-open: if checking TV and tv set is empty but episodes exist, treat as present if any episode has that tmdb id
+    if (type === 'series' && set.size === 0 && vixSrcCache.episodes.size > 0) {
+      for (const ep of vixSrcCache.episodes) {
+        if (ep.startsWith(tmdbId + '|')) {
+          console.log(`VIX_CHECK: (fail-open via episodes) TMDB ID ${tmdbId} assumed FOUND in tv list.`);
+          return true;
+        }
+      }
+    }
+    if (set.has(tmdbId.toString())) {
+      console.log(`VIX_CHECK: (cache) TMDB ID ${tmdbId} FOUND in ${type} list.`);
+      return true;
+    }
+    console.log(`VIX_CHECK: TMDB ID ${tmdbId} NOT FOUND in cache (${type}), attempting live fallback...`);
+    const ok = await fallbackHasMovieOrTv(tmdbId.toString(), type === 'movie' ? 'movie' : 'series');
+    if (ok) {
+      set.add(tmdbId.toString());
+      // persist enrichment (fire & forget)
+      writeCacheToDisk(vixSrcCache).catch(()=>{});
+      console.log(`VIX_CHECK: Live fallback CONFIRMED TMDB ID ${tmdbId} (${type}); cache enriched.`);
+      return true;
+    }
+    console.log(`VIX_CHECK: Live fallback also failed for TMDB ID ${tmdbId} (${type}).`);
+    return false;
   } catch (e) {
     console.error('VIX_CHECK: Cache check failed, falling back to false', e);
     return false;
@@ -365,9 +676,20 @@ async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: num
     await ensureCacheFresh();
     if (!vixSrcCache) return false;
     const key = episodeKey(tmdbId.toString(), Number(season), Number(episode));
-    const exists = vixSrcCache.episodes.has(key);
-    console.log(`VIX_EP_CHECK: (cache) ${key} ${exists ? 'FOUND' : 'NOT FOUND'}`);
-    return exists;
+    if (vixSrcCache.episodes.has(key)) {
+      console.log(`VIX_EP_CHECK: (cache) ${key} FOUND`);
+      return true;
+    }
+    console.log(`VIX_EP_CHECK: ${key} NOT FOUND in cache, attempting live fallback...`);
+    const ok = await fallbackHasEpisode(tmdbId.toString(), Number(season), Number(episode));
+    if (ok) {
+      vixSrcCache.episodes.add(key);
+      writeCacheToDisk(vixSrcCache).catch(()=>{});
+      console.log(`VIX_EP_CHECK: Live fallback CONFIRMED ${key}; cache enriched.`);
+      return true;
+    }
+    console.log(`VIX_EP_CHECK: Live fallback failed for ${key}.`);
+    return false;
   } catch (e) {
     console.error('VIX_EP_CHECK: Cache check failed, falling back to false', e);
     return false;
@@ -614,9 +936,15 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     let sizeBytes: number | undefined = undefined;
     let canPlayFHD = false;
     try {
-      const pageRes = await fetch(url);
-      if (pageRes.ok) {
-        const html = await pageRes.text();
+      let html: string | null = __fallbackPageHtml.get(url) || null;
+      if (!html) {
+        const pageRes = await fetch(url);
+        if (pageRes.ok) {
+          html = await pageRes.text();
+          __fallbackPageHtml.set(url, html);
+        }
+      }
+      if (html) {
         // Rileva supporto Full HD
         canPlayFHD = html.includes('window.canPlayFHD = true');
         const sizeMatch = html.match(/\"size\":(\d+)/);
