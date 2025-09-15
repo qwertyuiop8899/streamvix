@@ -6,11 +6,12 @@ RUN echo "Cache bust: $CACHE_BUST"
 
 # Installa python3, pip e dipendenze per compilazione
 USER root 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip python3-dev \
     build-essential ca-certificates \
     tesseract-ocr tesseract-ocr-ita tesseract-ocr-eng \
-    --no-install-recommends && rm -rf /var/lib/apt/lists/*
+    libtesseract-dev libleptonica-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Imposta la directory di lavoro nell'immagine
 WORKDIR /usr/src/app
@@ -52,4 +53,5 @@ RUN chown node:node /start
 USER node
 
 ENTRYPOINT ["node", "/start"]
+
 
