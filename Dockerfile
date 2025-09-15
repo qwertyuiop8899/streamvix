@@ -4,7 +4,7 @@ FROM node:20-slim
 ARG CACHE_BUST=23
 RUN echo "Cache bust: $CACHE_BUST"
 
-# Installa python3, pip e dipendenze per compilazione
+# Installa python3, pip e dipendenze per compilazione 
 USER root 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip python3-dev \
@@ -53,5 +53,6 @@ RUN chown node:node /start
 USER node
 
 ENTRYPOINT ["node", "/start"]
+
 
 
