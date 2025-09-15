@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.7...v1.1.8) (2025-09-15)
+
+
+### Bug Fixes
+
+* vix cache ([0e7121b](https://github.com/qwertyuiop8899/streamvix/commit/0e7121b6d8a8a6f327e6a739d742102aa560c36b))
+
 ## [1.1.7](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.6...v1.1.7) (2025-09-15)
 
 
