@@ -2,6 +2,8 @@ import { ContentType } from "stremio-addon-sdk";
 import * as cheerio from "cheerio";
 import * as fs from 'fs';
 import * as path from 'path';
+// Reusable text decoder for streaming UTF-8 decoding
+const __svxTextDecoder = new TextDecoder('utf-8');
 const domains = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/domains.json'), 'utf-8'));
 const VIXCLOUD_SITE_ORIGIN = `https://${domains.vixsrc}`; // e.g., "https://vixcloud.co"
 const VIXCLOUD_REQUEST_TITLE_PATH = "/richiedi-un-titolo"; // Path used to fetch site version
@@ -66,7 +68,7 @@ function readCacheFromDisk(): VixSrcCacheInMemory | null {
   }
 }
 
-function writeCacheToDisk(cache: VixSrcCacheInMemory) {
+async function writeCacheToDisk(cache: VixSrcCacheInMemory) {
   try {
     const out: RawVixSrcCacheFile = {
       fetchedAt: cache.fetchedAt,
@@ -75,17 +77,98 @@ function writeCacheToDisk(cache: VixSrcCacheInMemory) {
       episodes: Array.from(cache.episodes),
       version: 1
     };
-    fs.writeFileSync(VIXSRC_CACHE_PATH, JSON.stringify(out));
+    await fs.promises.writeFile(VIXSRC_CACHE_PATH, JSON.stringify(out));
   } catch (e) {
     console.warn('VIX_CACHE: Failed to write cache file', e);
   }
+}
+
+// ---- STREAMING PARSE UTILITIES (line-oriented / object boundary) ----
+async function* iterateBody(res: any): AsyncGenerator<Uint8Array, void, unknown> {
+  if (!res || !res.body) return;
+  const body: any = res.body;
+  if (typeof body.getReader === 'function') {
+    const reader = body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) yield value as Uint8Array;
+    }
+  } else if (Symbol.asyncIterator && (body as any)[Symbol.asyncIterator]) {
+    for await (const chunk of body as AsyncIterable<any>) {
+      if (chunk) yield (typeof chunk === 'string') ? Buffer.from(chunk) : chunk;
+    }
+  }
+}
+
+async function streamExtractSimpleIds(res: any, key: string): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (!res?.body) return out;
+  let leftover = '';
+  const regex = new RegExp(`"${key}"\\s*:\\s*(?:"(\\\\d+)"|(\\\\d+))`, 'g');
+  for await (const value of iterateBody(res)) {
+    const chunk = leftover + __svxTextDecoder.decode(value, { stream: true });
+    const scanPart = chunk.slice(0, Math.max(0, chunk.length - 100));
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(scanPart))) {
+      const idStr = (m[1] || m[2] || '').toString();
+      if (idStr) out.add(idStr);
+    }
+    leftover = chunk.slice(-100);
+  }
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(leftover))) {
+    const idStr = (m[1] || m[2] || '').toString();
+    if (idStr) out.add(idStr);
+  }
+  return out;
+}
+
+async function streamExtractEpisodes(res: any): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (!res?.body) return out;
+  let buffer = '';
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  let currentObj = '';
+  for await (const value of iterateBody(res)) {
+    buffer += __svxTextDecoder.decode(value, { stream: true });
+    for (let i = 0; i < buffer.length; i++) {
+      const ch = buffer[i];
+      if (escape) { escape = false; if (depth>0) currentObj += ch; continue; }
+      if (ch === '\\') { if (inString) escape = true; if (depth>0) currentObj += ch; continue; }
+      if (ch === '"') { inString = !inString; if (depth>0) currentObj += ch; continue; }
+      if (inString) { if (depth>0) currentObj += ch; continue; }
+      if (ch === '{') { depth++; if (depth === 1) currentObj = '{'; else currentObj += ch; continue; }
+      if (ch === '}') {
+        if (depth > 0) {
+          depth--;
+          currentObj += '}';
+          if (depth === 0) {
+            try {
+              const obj = JSON.parse(currentObj);
+              if (obj && obj.tmdb_id != null && obj.s != null && obj.e != null) {
+                out.add(`${obj.tmdb_id}|${Number(obj.s)}|${Number(obj.e)}`);
+              }
+            } catch { /* ignore */ }
+            currentObj = '';
+          }
+          continue;
+        }
+      }
+      if (depth > 0) currentObj += ch;
+    }
+    buffer = depth === 0 ? '' : currentObj.slice(-5000);
+  }
+  return out;
 }
 
 async function fetchListsSnapshot(): Promise<VixSrcCacheInMemory> {
   const movieUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/movie?lang=it`;
   const tvUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/tv?lang=it`;
   const epUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
-  console.log('VIX_CACHE: Fetching fresh lists...');
+  console.log('VIX_CACHE: Fetching fresh lists (streaming)...');
   try {
     const [movieRes, tvRes, epRes] = await Promise.all([
       fetch(movieUrl),
@@ -93,38 +176,41 @@ async function fetchListsSnapshot(): Promise<VixSrcCacheInMemory> {
       fetch(epUrl)
     ]);
     if (!movieRes.ok || !tvRes.ok || !epRes.ok) throw new Error(`HTTP status movie:${movieRes.status} tv:${tvRes.status} ep:${epRes.status}`);
-    const [movieData, tvData, epData] = await Promise.all([
-      movieRes.json(),
-      tvRes.json(),
-      epRes.json()
+
+    const [movieSet, tvSet, epSet] = await Promise.all([
+      streamExtractSimpleIds(movieRes, 'tmdb_id'),
+      streamExtractSimpleIds(tvRes, 'tmdb_id'),
+      streamExtractEpisodes(epRes)
     ]);
-    const movieSet = new Set<string>();
-    if (Array.isArray(movieData)) movieData.forEach((it: any) => { if (it?.tmdb_id != null) movieSet.add(it.tmdb_id.toString()); });
-    const tvSet = new Set<string>();
-    if (Array.isArray(tvData)) tvData.forEach((it: any) => { if (it?.tmdb_id != null) tvSet.add(it.tmdb_id.toString()); });
-    const epSet = new Set<string>();
-    if (Array.isArray(epData)) epData.forEach((it: any) => {
-      const tid = it?.tmdb_id;
-      if (tid != null && it?.s != null && it?.e != null) {
-        epSet.add(`${tid}|${Number(it.s)}|${Number(it.e)}`);
-      }
-    });
-    const snapshot: VixSrcCacheInMemory = {
-      fetchedAt: Date.now(),
-      movies: movieSet,
-      tv: tvSet,
-      episodes: epSet
-    };
-    writeCacheToDisk(snapshot);
+
+    // In-place update if cache exists
+    if (vixSrcCache) {
+      vixSrcCache.movies.clear();
+      movieSet.forEach(v => vixSrcCache!.movies.add(v));
+      vixSrcCache.tv.clear();
+      tvSet.forEach(v => vixSrcCache!.tv.add(v));
+      vixSrcCache.episodes.clear();
+      epSet.forEach(v => vixSrcCache!.episodes.add(v));
+      vixSrcCache.fetchedAt = Date.now();
+    } else {
+      vixSrcCache = {
+        fetchedAt: Date.now(),
+        movies: movieSet,
+        tv: tvSet,
+        episodes: epSet
+      };
+    }
+
+    // Async persist (fire & forget)
+    writeCacheToDisk(vixSrcCache).catch(()=>{});
     console.log('VIX_CACHE: Fresh lists cached. Sizes:', {
-      movies: movieSet.size,
-      tv: tvSet.size,
-      episodes: epSet.size
+      movies: vixSrcCache.movies.size,
+      tv: vixSrcCache.tv.size,
+      episodes: vixSrcCache.episodes.size
     });
-    return snapshot;
+    return vixSrcCache;
   } catch (e) {
-    console.error('VIX_CACHE: Failed to fetch fresh lists', e);
-    // If we already have an in-memory cache (even stale) keep it, else try disk
+    console.error('VIX_CACHE: Failed to fetch fresh lists (stream mode)', e);
     return vixSrcCache || readCacheFromDisk() || {
       fetchedAt: 0,
       movies: new Set(),
@@ -154,7 +240,7 @@ async function ensureCacheFresh(): Promise<void> {
     } else if ((Date.now() - vixSrcCache.fetchedAt) >= VIXSRC_CACHE_TTL_MS) {
       console.log('VIX_CACHE: In-memory cache stale, refreshing...');
     }
-    vixSrcCache = await fetchListsSnapshot();
+  vixSrcCache = await fetchListsSnapshot();
     vixSrcCacheLoading = null;
   })();
   return vixSrcCacheLoading;
@@ -603,7 +689,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       }
 
       const $ = cheerio.load(pageHtml);
-      const scriptTag = $("body script").filter((_, el) => {
+  const scriptTag = $("body script").filter((_idx: number, el: any) => {
         const htmlContent = $(el).html();
         return !!htmlContent && htmlContent.includes("'token':") && htmlContent.includes("'expires':");
       }).first();
