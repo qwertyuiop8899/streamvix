@@ -1,12 +1,12 @@
 import { addonBuilder, getRouter, Manifest, Stream } from "stremio-addon-sdk";
-import { getStreamContent, VixCloudStreamInfo, ExtractorConfig, warmupVixSrcCache } from "./extractor";
+import { getStreamContent, VixCloudStreamInfo, ExtractorConfig } from "./extractor";
 import * as fs from 'fs';
 import { landingTemplate } from './landingPage';
 import * as path from 'path';
 import express, { Request, Response, NextFunction } from 'express'; // ✅ CORRETTO: Import tipizzato
 import { AnimeUnityProvider } from './providers/animeunity-provider';
 import { AnimeWorldProvider } from './providers/animeworld-provider';
-import { KitsuProvider } from './providers/kitsu'; 
+import { KitsuProvider } from './providers/kitsu';
 import { formatMediaFlowUrl } from './utils/mediaflow';
 import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels, getDynamicFilePath, getDynamicFileStats } from './utils/dynamicChannels';
 
@@ -482,7 +482,7 @@ function decodeStaticUrl(url: string): string {
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "7.4.23",
+    version: "7.2.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -556,7 +556,7 @@ const baseManifest: Manifest = {
     // UI helper toggles (not used directly server-side but drive dynamic form logic)
     { key: "personalTmdbKey", title: "TMDB API KEY Personale", type: "checkbox" },
     { key: "mediaflowMaster", title: "MediaflowProxy", type: "checkbox", default: false },
-    
+
     ]
 };
 
@@ -564,10 +564,10 @@ const baseManifest: Manifest = {
 function loadCustomConfig(): Manifest {
     try {
         const configPath = path.join(__dirname, '..', 'addon-config.json');
-        
+
         if (fs.existsSync(configPath)) {
             const customConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-            
+
             return {
                 ...baseManifest,
                 id: customConfig.addonId || baseManifest.id,
@@ -582,29 +582,29 @@ function loadCustomConfig(): Manifest {
     } catch (error) {
         console.error('Error loading custom configuration:', error);
     }
-    
+
     return baseManifest;
 }
 
 // Funzione per parsare la configurazione dall'URL
 function parseConfigFromArgs(args: any): AddonConfig {
     const config: AddonConfig = {};
-    
+
     // Se non ci sono args o sono vuoti, ritorna configurazione vuota
     if (!args || args === '' || args === 'undefined' || args === 'null') {
         debugLog('No configuration provided, using defaults');
         return config;
     }
-    
+
     // Se la configurazione è già un oggetto, usala direttamente
     if (typeof args === 'object' && args !== null) {
         debugLog('Configuration provided as object');
         return args;
     }
-    
+
     if (typeof args === 'string') {
         debugLog(`Configuration string: ${args.substring(0, 50)}... (length: ${args.length})`);
-        
+
         // PASSO 1: Prova JSON diretto
         try {
             const parsed = JSON.parse(args);
@@ -613,14 +613,14 @@ function parseConfigFromArgs(args: any): AddonConfig {
         } catch (error) {
             debugLog('Not direct JSON, trying other methods');
         }
-        
+
         // PASSO 2: Gestione URL encoded
         let decodedArgs = args;
         if (args.includes('%')) {
             try {
                 decodedArgs = decodeURIComponent(args);
                 debugLog('URL-decoded configuration');
-                
+
                 // Prova JSON dopo URL decode
                 try {
                     const parsed = JSON.parse(decodedArgs);
@@ -633,7 +633,7 @@ function parseConfigFromArgs(args: any): AddonConfig {
                 debugLog('URL decoding failed');
             }
         }
-        
+
         // PASSO 3: Gestione Base64
         if (decodedArgs.startsWith('eyJ') || /^[A-Za-z0-9+\/=]+$/.test(decodedArgs)) {
             try {
@@ -641,17 +641,17 @@ function parseConfigFromArgs(args: any): AddonConfig {
                 const base64Fixed = decodedArgs
                     .replace(/%3D/g, '=')
                     .replace(/=+$/, ''); // Rimuove eventuali = alla fine
-                
+
                 // Assicura che la lunghezza sia multipla di 4 aggiungendo = se necessario
                 let paddedBase64 = base64Fixed;
                 while (paddedBase64.length % 4 !== 0) {
                     paddedBase64 += '=';
                 }
-                
+
                 debugLog(`Trying base64 decode: ${paddedBase64.substring(0, 20)}...`);
                 const decoded = Buffer.from(paddedBase64, 'base64').toString('utf-8');
                 debugLog(`Base64 decoded result: ${decoded.substring(0, 50)}...`);
-                
+
                 if (decoded.includes('{') && decoded.includes('}')) {
                     try {
                         const parsed = JSON.parse(decoded);
@@ -659,7 +659,7 @@ function parseConfigFromArgs(args: any): AddonConfig {
                         return parsed;
                     } catch (jsonError) {
                         debugLog('Base64 content is not valid JSON');
-                        
+
                         // Prova a estrarre JSON dalla stringa decodificata
                         const jsonMatch = decoded.match(/({.*})/);
                         if (jsonMatch && jsonMatch[1]) {
@@ -678,10 +678,10 @@ function parseConfigFromArgs(args: any): AddonConfig {
                 debugLog('Base64 decoding failed');
             }
         }
-        
+
         debugLog('All parsing methods failed, using default configuration');
     }
-    
+
     return config;
 }
 
@@ -760,14 +760,14 @@ function saveVavooCache(): void {
             timestamp: vavooCache.timestamp,
             links: Object.fromEntries(vavooCache.links)
         };
-        
+
         // Salva prima in un file temporaneo e poi rinomina per evitare file danneggiati
         const tempPath = `${vavaoCachePath}.tmp`;
         fs.writeFileSync(tempPath, JSON.stringify(cacheData, null, 2), 'utf-8');
-        
+
         // Rinomina il file temporaneo nel file finale
         fs.renameSync(tempPath, vavaoCachePath);
-        
+
         console.log(`📺 Vavoo cache salvata con ${vavooCache.links.size} canali, timestamp: ${new Date(vavooCache.timestamp).toLocaleString()}`);
     } catch (error) {
         console.error('❌ Errore nel salvataggio della cache Vavoo:', error);
@@ -907,14 +907,14 @@ function resolveFirstVavooUrlForAlias(alias: string): string | null {
 try {
     // Assicurati che le directory di cache esistano
     ensureCacheDirectories();
-    
+
     staticBaseChannels = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/tv_channels.json'), 'utf-8'));
     tvChannels = [...staticBaseChannels];
     domains = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/domains.json'), 'utf-8'));
     epgConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/epg_config.json'), 'utf-8'));
-    
+
     console.log(`✅ Loaded ${tvChannels.length} TV channels`);
-    
+
     // ============ TVTAP INTEGRATION ============
 
     // Cache per i link TVTap
@@ -970,18 +970,18 @@ try {
                     PYTHONPATH: '/usr/local/lib/python3.9/site-packages'
                 }
             };
-            
+
             const { stdout, stderr } = await execFilePromise('python3', [path.join(__dirname, '../tvtap_resolver.py'), '--build-cache'], options);
-            
+
             if (stderr) {
                 console.error(`[TVTap] Script stderr:`, stderr);
             }
-            
+
             console.log('✅ Cache TVTap aggiornata con successo');
-            
+
             // Ricarica la cache aggiornata
             loadTVTapCache();
-            
+
             return true;
         } catch (error: any) {
             console.error('❌ Errore durante aggiornamento cache TVTap:', error.message || error);
@@ -992,14 +992,14 @@ try {
     }
 
     // ============ END TVTAP INTEGRATION ============
-    
+
     // ✅ INIZIALIZZA IL ROUTER GLOBALE SUBITO DOPO IL CARICAMENTO
     console.log('🔧 Initializing global router after loading TV channels...');
     globalBuilder = createBuilder(configCache);
     globalAddonInterface = globalBuilder.getInterface();
     globalRouter = getRouter(globalAddonInterface);
     console.log('✅ Global router initialized successfully');
-    
+
     // Carica la cache Vavoo
     loadVavooCache();
     // Costruisci indice alias Vavoo
@@ -1013,10 +1013,10 @@ try {
             console.log('[VAVOO] ERRORE DUMP CACHE:', e);
         }
     }
-    
+
     // Carica la cache TVTap
     loadTVTapCache();
-    
+
     // Aggiorna la cache Vavoo in background all'avvio
     setTimeout(() => {
         updateVavooCache().then(success => {
@@ -1049,7 +1049,7 @@ try {
             console.error(`❌ Errore durante l'aggiornamento cache Vavoo all'avvio:`, error);
         });
     }, 2000);
-    
+
     // Aggiorna la cache TVTap in background all'avvio
     setTimeout(() => {
         updateTVTapCache().then(success => {
@@ -1062,7 +1062,7 @@ try {
             console.error(`❌ Errore durante l'aggiornamento cache TVTap all'avvio:`, error);
         });
     }, 4000); // Aspetta un po' di più per non sovraccaricare
-    
+
     // Programma aggiornamenti periodici della cache Vavoo (ogni 12 ore)
     const VAVOO_UPDATE_INTERVAL = 12 * 60 * 60 * 1000; // 12 ore in millisecondi
     setInterval(() => {
@@ -1077,7 +1077,7 @@ try {
             console.error(`❌ Errore durante l'aggiornamento periodico cache Vavoo:`, error);
         });
     }, VAVOO_UPDATE_INTERVAL);
-    
+
     // Programma aggiornamenti periodici della cache TVTap (ogni 12 ore, offset di 1 ora)
     const TVTAP_UPDATE_INTERVAL = 12 * 60 * 60 * 1000; // 12 ore in millisecondi
     setInterval(() => {
@@ -1092,12 +1092,12 @@ try {
             console.error(`❌ Errore durante l'aggiornamento periodico cache TVTap:`, error);
         });
     }, TVTAP_UPDATE_INTERVAL);
-    
+
     // Inizializza EPG Manager
     if (epgConfig.enabled) {
         epgManager = new EPGManager(epgConfig);
         console.log(`📺 EPG Manager inizializzato con URL: ${epgConfig.epgUrl}`);
-        
+
         // Avvia aggiornamento EPG in background senza bloccare l'avvio
         setTimeout(() => {
             if (epgManager) {
@@ -1112,7 +1112,7 @@ try {
                 });
             }
         }, 1000);
-        
+
         // Programma aggiornamenti periodici dell'EPG (ogni 6 ore)
         setInterval(() => {
             if (epgManager) {
@@ -1154,21 +1154,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
         } catch {}
         return manifest;
     })();
-    
+
     if (initialConfig.mediaFlowProxyUrl || initialConfig.enableMpd || initialConfig.tmdbApiKey) {
         effectiveManifest.name; // no-op to avoid unused warning pattern
     }
-    
-    const builder = new addonBuilder(effectiveManifest);
 
-    // --- VixSrc cache warmup (non-bloccante) ---
-    try {
-        setTimeout(() => {
-            warmupVixSrcCache().then(() => {
-                console.log('VIX_CACHE: Warmup complete (startup).');
-            }).catch(e => console.warn('VIX_CACHE: Warmup error (startup)', e));
-        }, 250); // slight delay to let event loop settle
-    } catch { /* ignore */ }
+    const builder = new addonBuilder(effectiveManifest);
 
     // === TV CATALOG HANDLER ONLY ===
     builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
@@ -1379,7 +1370,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }];
                 isPlaceholder = true;
             }
-            
+
             // Ordina SOLO gli eventi dinamici per eventStart (asc) quando è presente un filtro di categoria
             try {
                 if (requestedSlug && filteredChannels.length) {
@@ -1405,7 +1396,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     console.log(`⏱️ Sorted only dynamic events within category '${requestedSlug}' (asc)`);
                 }
             } catch {}
-            
+
             // Aggiungi prefisso tv: agli ID, posterShape landscape e EPG
                 const tvChannelsWithPrefix = await Promise.all(filteredChannels.map(async (channel: any) => {
                 const channelWithPrefix = {
@@ -1416,7 +1407,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     logo: (channel as any).logo || (channel as any).poster || '',
                     background: (channel as any).background || (channel as any).poster || ''
                 };
-                
+
                 // Per canali dinamici: niente EPG, mostra solo ora inizio evento
                 if ((channel as any)._dynamic) {
                     const eventStart = (channel as any).eventStart || (channel as any).eventstart; // fallback
@@ -1469,10 +1460,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         console.error(`❌ Catalog: EPG error for ${channel.name}:`, epgError);
                     }
                 }
-                
+
                 return channelWithPrefix;
             }));
-            
+
                 console.log(`✅ Returning ${tvChannelsWithPrefix.length} TV channels for catalog ${id}${isPlaceholder ? ' (placeholder, cacheMaxAge=0)' : ''}`);
                 return isPlaceholder
                     ? { metas: tvChannelsWithPrefix, cacheMaxAge: 0 }
@@ -1506,11 +1497,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     cleanId = cleanId.replace('tv:', '');
                 }
             }
-            
+
             const channel = tvChannels.find((c: any) => c.id === cleanId);
             if (channel) {
                 console.log(`✅ Found channel for meta: ${channel.name}`);
-                
+
                 const metaWithPrefix = {
                     ...channel,
                     id: `tv:${channel.id}`,
@@ -1526,7 +1517,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     country: "IT",
                     language: "it"
                 };
-                
+
                 // Meta: canali dinamici senza EPG con ora inizio
                 if ((channel as any)._dynamic) {
                     const eventStart = (channel as any).eventStart || (channel as any).eventstart;
@@ -1582,7 +1573,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         console.error(`❌ Meta: EPG error for ${channel.name}:`, epgError);
                     }
                 }
-                
+
                 return { meta: metaWithPrefix };
             } else {
                 // Fallback per placeholder non persistiti in tvChannels
@@ -1618,7 +1609,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 return { meta: null };
             }
         }
-        
+
         // Meta handler per film/serie (logica originale)
         return { meta: null };
     });
@@ -1636,13 +1627,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
         }> => {
             try {
                 console.log(`🔍 Stream request: ${type}/${id}`);
-                
+
                 // ✅ USA SEMPRE la configurazione dalla cache globale più aggiornata
                 const config = { ...configCache };
                 console.log(`🔧 Using global config cache for stream:`, config);
-                
+
                 const allStreams: Stream[] = [];
-                
+
                 // Prima della logica degli stream TV, aggiungi:
                 // Usa sempre lo stesso proxy per tutto
                 // MediaFlow config: allow fallback to environment variables if not provided via addon config
@@ -1675,7 +1666,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     // Improved channel ID parsing to handle different formats from Stremio
                     let cleanId = id;
-                    
+
                     // Gestisci tutti i possibili formati di ID che Stremio può inviare
                     if (id.startsWith('tv:')) {
                         cleanId = id.replace('tv:', '');
@@ -1688,10 +1679,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             cleanId = cleanId.replace('tv:', '');
                         }
                     }
-                    
+
                     debugLog(`Looking for channel with ID: ${cleanId} (original ID: ${id})`);
                     const channel = tvChannels.find((c: any) => c.id === cleanId);
-                    
+
                     if (!channel) {
                         // Gestione placeholder non presente in tvChannels
                         if (cleanId.startsWith('placeholder-')) {
@@ -1713,13 +1704,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             title: 'Nessuno Stream'
                         } ] };
                     }
-                    
+
                     console.log(`✅ Found channel: ${channel.name}`);
-                    
+
                     // Debug della configurazione proxy
                     debugLog(`Config DEBUG - mediaFlowProxyUrl: ${config.mediaFlowProxyUrl}`);
                     debugLog(`Config DEBUG - mediaFlowProxyPassword: ${config.mediaFlowProxyPassword ? '***' : 'NOT SET'}`);
-                    
+
                     let streams: { url: string; title: string }[] = [];
                     const vavooCleanPromises: Promise<void>[] = [];
                     // Collect clean Vavoo results per variant index to prepend in order later
@@ -1964,23 +1955,23 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         console.log(`🔧 [staticUrl] Decoded URL: ${decodedUrl}`);
                         console.log(`🔧 [staticUrl] mfpUrl: ${mfpUrl}`);
                         console.log(`🔧 [staticUrl] mfpPsw: ${mfpPsw ? '***' : 'NOT SET'}`);
-                        
+
                         if (mfpUrl && mfpPsw) {
                             // Parse l'URL decodificato per separare l'URL base dai parametri
                             const urlParts = decodedUrl.split('&');
                             const baseUrl = urlParts[0]; // Primo elemento è l'URL base
                             const additionalParams = urlParts.slice(1); // Resto sono i parametri aggiuntivi
-                            
+
                             // Costruisci l'URL del proxy con l'URL base nel parametro d
                             let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
-                            
+
                             // Aggiungi i parametri aggiuntivi (key_id, key, etc.) direttamente all'URL del proxy
                             for (const param of additionalParams) {
                                 if (param) {
                                     proxyUrl += `&${param}`;
                                 }
                             }
-                            
+
                             streams.push({
                                 url: proxyUrl,
                                 title: `[📺HD] ${channel.name} [ITA]`
@@ -2001,23 +1992,23 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         console.log(`🔧 [staticUrl2] Decoded URL: ${decodedUrl}`);
                         console.log(`🔧 [staticUrl2] mfpUrl: ${mfpUrl}`);
                         console.log(`🔧 [staticUrl2] mfpPsw: ${mfpPsw ? '***' : 'NOT SET'}`);
-                        
+
                         if (mfpUrl && mfpPsw) {
                             // Parse l'URL decodificato per separare l'URL base dai parametri
                             const urlParts = decodedUrl.split('&');
                             const baseUrl = urlParts[0]; // Primo elemento è l'URL base
                             const additionalParams = urlParts.slice(1); // Resto sono i parametri aggiuntivi
-                            
+
                             // Costruisci l'URL del proxy con l'URL base nel parametro d
                             let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
-                            
+
                             // Aggiungi i parametri aggiuntivi (key_id, key, etc.) direttamente all'URL del proxy
                             for (const param of additionalParams) {
                                 if (param) {
                                     proxyUrl += `&${param}`;
                                 }
                             }
-                            
+
                             streams.push({
                                 url: proxyUrl,
                                 title: `[📽️FHD] ${channel.name} [ITA]`
@@ -2039,23 +2030,23 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         console.log(`🔧 [staticUrlMpd] Decoded URL: ${decodedUrl}`);
                         console.log(`🔧 [staticUrlMpd] mfpUrl: ${mfpUrl}`);
                         console.log(`🔧 [staticUrlMpd] mfpPsw: ${mfpPsw ? '***' : 'NOT SET'}`);
-                        
+
                         if (mfpUrl && mfpPsw) {
                             // Parse l'URL decodificato per separare l'URL base dai parametri
                             const urlParts = decodedUrl.split('&');
                             const baseUrl = urlParts[0]; // Primo elemento è l'URL base
                             const additionalParams = urlParts.slice(1); // Resto sono i parametri aggiuntivi
-                            
+
                             // Costruisci l'URL del proxy con l'URL base nel parametro d
                             let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
-                            
+
                             // Aggiungi i parametri aggiuntivi (key_id, key, etc.) direttamente all'URL del proxy
                             for (const param of additionalParams) {
                                 if (param) {
                                     proxyUrl += `&${param}`;
                                 }
                             }
-                            
+
                             streams.push({
                                 url: proxyUrl,
                                 title: `[🎬MPD] ${channel.name} [ITA]`
@@ -2069,7 +2060,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             debugLog(`Aggiunto staticUrlMpd Direct: ${decodedUrl}`);
                         }
                     }
-                    
+
                     // staticUrlD
                     if ((channel as any).staticUrlD) {
                         if (mfpUrl && mfpPsw) {
@@ -2291,12 +2282,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     console.log(`[TVTap] Cerco canale con vavooNames:`, vavooNamesArr);
                     // tvtapProxyEnabled: TRUE = NO PROXY (mostra 🔓), FALSE = usa proxy se possibile
                     const tvtapNoProxy = !!config.tvtapProxyEnabled;
-                    
+
                     // Prova ogni nome nei vavooNames
                     for (const vavooName of vavooNamesArr) {
                         try {
                             console.log(`[TVTap] Provo con nome: ${vavooName}`);
-                            
+
                             const tvtapUrl = await new Promise<string | null>((resolve) => {
                                 const timeout = setTimeout(() => {
                                     console.log(`[TVTap] Timeout per canale: ${vavooName}`);
@@ -2310,26 +2301,26 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         PYTHONPATH: '/usr/local/lib/python3.9/site-packages'
                                     }
                                 };
-                                
+
                                 execFile('python3', [path.join(__dirname, '../tvtap_resolver.py'), vavooName], options, (error: Error | null, stdout: string, stderr: string) => {
                                     clearTimeout(timeout);
-                                    
+
                                     if (error) {
                                         console.error(`[TVTap] Error for ${vavooName}:`, error.message);
                                         return resolve(null);
                                     }
-                                    
+
                                     if (!stdout || stdout.trim() === '') {
                                         console.log(`[TVTap] No output for ${vavooName}`);
                                         return resolve(null);
                                     }
-                                    
+
                                     const result = stdout.trim();
                                     if (result === 'NOT_FOUND' || result === 'NO_CHANNELS' || result === 'NO_ID' || result === 'STREAM_FAIL') {
                                         console.log(`[TVTap] Channel not found: ${vavooName} (${result})`);
                                         return resolve(null);
                                     }
-                                    
+
                                     if (result.startsWith('http')) {
                                         console.log(`[TVTap] Trovato stream per ${vavooName}: ${result}`);
                                         resolve(result);
@@ -2339,7 +2330,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     }
                                 });
                             });
-                            
+
                             if (tvtapUrl) {
                                 const baseTitle = `[📺 TvTap SD] ${channel.name} [ITA]`;
                                 if (tvtapNoProxy || !(mfpUrl && mfpPsw)) {
@@ -2364,7 +2355,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             console.error(`[TVTap] Errore per vavooName ${vavooName}:`, error);
                         }
                     }
-                    
+
                     if (streams.length === 0) {
                         console.log(`[TVTap] RISULTATO: nessun stream trovato per ${channel.name}`);
                     }
@@ -2424,7 +2415,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // RIMOSSO: Blocco che aggiunge fallback stream alternativi per canali Sky (skyFallbackUrls) se finalStreams.length < 3
                     // return { streams: finalStreamsWithRealUrls };
                 }
-                
+
                 // === LOGICA ANIME/FILM (originale) ===
                 // Per tutto il resto, usa solo mediaFlowProxyUrl/mediaFlowProxyPassword
                 // Gestione AnimeUnity per ID Kitsu o MAL con fallback variabile ambiente
@@ -2435,16 +2426,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     return v.toLowerCase() === 'true';
                 };
                 // New rule: enabled only when checkbox true (or env forces true)
-                // AnimeUnity: abilitalo SOLO se esplicitamente true nel config (o env forza true ma non se config lo mette a false)
-                const envAnimeUnity = envFlag('ANIMEUNITY_ENABLED');
-                let animeUnityEnabled = false;
-                if (config.animeunityEnabled === true) {
-                    animeUnityEnabled = true;
-                } else if (config.animeunityEnabled === false) {
-                    animeUnityEnabled = false; // blocca anche se env true
-                } else if (envAnimeUnity === true) {
-                    animeUnityEnabled = true;
-                }
+                const animeUnityEnabled = envFlag('ANIMEUNITY_ENABLED') ?? (config.animeunityEnabled === true);
                 const animeSaturnEnabled = envFlag('ANIMESATURN_ENABLED') ?? (config.animesaturnEnabled === true);
                 const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (config.animeworldEnabled === true);
                 const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (config.guardaserieEnabled === true);
@@ -2456,7 +2438,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const eurostreamingEnabled = eurostreamingEnv !== undefined
                     ? eurostreamingEnv
                     : (config.eurostreamingEnabled !== false); // default true
-                
+
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld
                 if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardaHdEnabled || eurostreamingEnabled)) {
                     const animeUnityConfig: AnimeUnityConfig = {
@@ -2623,7 +2605,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     await Promise.all(providerPromises);
                 }
-                
+
                 // Mantieni logica VixSrc per tutti gli altri ID
                 if (!id.startsWith('kitsu:') && !id.startsWith('mal:') && !id.startsWith('tv:')) {
                     console.log(`📺 Processing non-Kitsu or MAL ID with VixSrc: ${id}`);
@@ -2635,7 +2617,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             return { streams: allStreams };
                         }
                     } catch {}
-                    
+
                     const finalConfig: ExtractorConfig = {
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL,
@@ -2655,7 +2637,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         };
                         for (const st of res) {
                             if (st.streamUrl == null) continue;
-                            
+
                             // Costruisci il title: mantieni il nome invariato, e SOLO per VixSrc aggiungi sotto la riga 💾 size
                             let adjustedName = st.name || '';
                             // Inserisci bullet prima di [ITA] se presente e non già preceduto da bullet
@@ -2682,20 +2664,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         console.log(`📺 VixSrc streams found: ${res.length}`);
                     }
                 }
-                
-                // Filtro finale: se animeUnityEnabled è false, rimuovi eventuali stream con name/title riconducibili a AnimeUnity
-                if (!animeUnityEnabled && allStreams.length) {
-                    const before = allStreams.length;
-                    for (let i = allStreams.length - 1; i >= 0; i--) {
-                        const s = allStreams[i];
-                        const t = (s.title || s.name || '').toLowerCase();
-                        if (t.includes('animeunity') || t.includes('streamvix au')) {
-                            allStreams.splice(i, 1);
-                        }
-                    }
-                    const after = allStreams.length;
-                    if (after !== before) console.log(`🚫 AnimeUnity disattivato: rimossi ${before - after} stream residui`);
-                }
+
                 console.log(`✅ Total streams returned: ${allStreams.length}`);
                 return { streams: allStreams };
             } catch (error) {
@@ -2904,7 +2873,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.get('/tvtap-resolve/:channelId', async (req: Request, res: Response) => {
     const { channelId } = req.params;
     console.log(`[TVTap] Richiesta risoluzione per canale ID: ${channelId}`);
-    
+
     try {
         // Chiama lo script Python per ottenere il link stream
         const timeout = setTimeout(() => {
@@ -2919,32 +2888,32 @@ app.get('/tvtap-resolve/:channelId', async (req: Request, res: Response) => {
                 PYTHONPATH: '/usr/local/lib/python3.9/site-packages'
             }
         };
-        
+
         execFile('python3', [
-            path.join(__dirname, '../tvtap_resolver.py'), 
+            path.join(__dirname, '../tvtap_resolver.py'),
             // Se channelId è un numero, usa il formato tvtap_id:, altrimenti cerca per nome
             /^\d+$/.test(channelId) ? `tvtap_id:${channelId}` : channelId
         ], options, (error: Error | null, stdout: string, stderr: string) => {
             clearTimeout(timeout);
-            
+
             if (error) {
                 console.error(`[TVTap] Error resolving channel ${channelId}:`, error.message);
                 if (stderr) console.error(`[TVTap] Stderr:`, stderr);
                 return res.status(500).json({ error: 'TVTap resolution failed' });
             }
-            
+
             if (!stdout || stdout.trim() === '') {
                 console.log(`[TVTap] No output for channel ${channelId}`);
                 return res.status(404).json({ error: 'TVTap stream not found' });
             }
-            
+
             const streamUrl = stdout.trim();
             console.log(`[TVTap] Resolved channel ${channelId} to: ${streamUrl.substring(0, 50)}...`);
-            
+
             // Redirigi al link stream
             res.redirect(streamUrl);
         });
-        
+
     } catch (error) {
         console.error(`[TVTap] Exception resolving channel ${channelId}:`, error);
         res.status(500).json({ error: 'TVTap resolution exception' });
