@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.8...v1.1.9) (2025-09-15)
+
+
+### Bug Fixes
+
+* promise vix ([7439f2e](https://github.com/qwertyuiop8899/streamvix/commit/7439f2e51324c4c3f9bad40097cb2fb382578c27))
+* rollback vixsrc cache ([fcbeebe](https://github.com/qwertyuiop8899/streamvix/commit/fcbeebe5398d92256e890efcdf1d67edda473e23))
+
 ## [1.1.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.7...v1.1.8) (2025-09-15)
 
 
