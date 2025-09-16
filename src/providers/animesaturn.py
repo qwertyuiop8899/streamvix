@@ -14,21 +14,68 @@ import json
 import urllib.parse
 import argparse
 import os
+import time
+from typing import Optional
 with open(os.path.join(os.path.dirname(__file__), '../../config/domains.json'), encoding='utf-8') as f:
     DOMAINS = json.load(f)
 BASE_URL = f"https://{DOMAINS['animesaturn']}"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 HEADERS = {"User-Agent": USER_AGENT}
+DEBUG_MODE = os.getenv("ANIMESATURN_DEBUG", "0") == "1"
+def debug(msg: str):
+    if DEBUG_MODE:
+        print(f"[DEBUG] {msg}", file=sys.stderr)
 TIMEOUT = 20
 
 def safe_ascii_header(value):
     # Remove or replace non-latin-1 characters (e.g., typographic apostrophes)
     return value.encode('latin-1', 'ignore').decode('latin-1')
 
-def search_anime(query):
+def handle_challenge(resp, session, headers) -> bool:
+    """Tenta di gestire la pagina challenge impostando il cookie e seguendo location.href.
+    Ritorna True se ha provato un bypass, False se non è una challenge riconosciuta."""
+    text = resp.text
+    if 'document.cookie="ASFast-' not in text:
+        return False
+    # Estrai cookie
+    m_cookie = re.search(r'document.cookie="(ASFast-[^";=]+=[0-9a-fA-F]+)', text)
+    m_loc = re.search(r'location.href="([^"]+)"', text)
+    if not m_cookie:
+        return False
+    cookie_kv = m_cookie.group(1)
+    if '=' not in cookie_kv:
+        return False
+    k, v = cookie_kv.split('=', 1)
+    domain = urllib.parse.urlparse(BASE_URL).hostname
+    session.cookies.set(k, v, domain=domain, path='/')
+    print(f"[DEBUG] handle_challenge: impostato cookie {k}=*** (len={len(v)}) domain={domain}", file=sys.stderr)
+    # Se esiste un redirect esplicito prova a seguirlo
+    if m_loc:
+        redirect_url = m_loc.group(1)
+        # Normalizza eventuale schema mancante
+        if redirect_url.startswith('//'):
+            redirect_url = 'https:' + redirect_url
+        try:
+            if redirect_url.startswith('http'):
+                print(f"[DEBUG] handle_challenge: follow redirect -> {redirect_url}", file=sys.stderr)
+                session.get(redirect_url, headers=headers, timeout=(5, 20))
+                time.sleep(1.1)  # piccolo delay per emulare browser
+        except Exception as e:
+            print(f"[DEBUG] handle_challenge: errore follow redirect: {e}", file=sys.stderr)
+    return True
+
+
+def search_anime(query, session: Optional[requests.Session] = None):
     """Ricerca anime tramite la barra di ricerca di AnimeSaturn, con paginazione"""
+    # Usa sessione persistente per mantenere cookie e headers
+    if session is None:
+        session = requests.Session()
     results = []
     page = 1
+    # Modalità strict: se settata ANIMESATURN_STRICT=1 alza eccezioni invece di restituire lista vuota
+    STRICT_MODE = os.getenv("ANIMESATURN_STRICT", "0") == "1"
+    MAX_RETRIES = 2  # ritenta su errori transitori (rete / JSON decode / content-type errato)
+    challenge_saved = False  # salviamo solo la prima pagina challenge
     while True:
         search_url = f"{BASE_URL}/index.php?search=1&key={query.replace(' ', '+')}&page={page}"
         referer_query = urllib.parse.quote_plus(query)
@@ -36,11 +83,85 @@ def search_anime(query):
             "User-Agent": USER_AGENT,
             "Referer": safe_ascii_header(f"{BASE_URL}/animelist?search={referer_query}"),
             "X-Requested-With": "XMLHttpRequest",
-            "Accept": "application/json, text/javascript, */*; q=0.01"
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "keep-alive"
         }
-        resp = requests.get(search_url, headers=headers, timeout=TIMEOUT)
-        resp.raise_for_status()
-        page_results = resp.json()
+        debug(f"Search page={page} URL={search_url}")
+        attempt = 0
+        page_results = []
+        while True:
+            error_to_raise = None
+            try:
+                # timeout (connect, read) per evitare blocchi lunghi
+                resp = session.get(search_url, headers=headers, timeout=(5, 20))
+            except requests.exceptions.RequestException as e:
+                error_to_raise = f"Errore rete: {e}"
+            else:
+                status = resp.status_code
+                ctype = resp.headers.get('Content-Type', '')
+                # Rilevamento page anti-bot / HTML imprevisto
+                body_start = resp.text[:200]
+                is_probably_html = '<html' in body_start.lower() and 'json' not in ctype.lower()
+                # Bypass challenge: se status 202 o 200 HTML con script cookie
+                challenge_cookie = None
+                if (status == 202 or status == 200) and ('document.cookie="ASFast-' in resp.text):
+                    if not challenge_saved:
+                        try:
+                            with open('challenge_page.html', 'w', encoding='utf-8') as fch:
+                                fch.write(resp.text)
+                            debug("Salvata pagina challenge in challenge_page.html")
+                        except Exception as fe:
+                            debug(f"Impossibile salvare challenge_page.html: {fe}")
+                        challenge_saved = True
+                    # Prova gestione challenge
+                    handled = handle_challenge(resp, session, headers)
+                    if handled:
+                        try:
+                            resp = session.get(search_url, headers=headers, timeout=(5, 20))
+                            status = resp.status_code
+                            ctype = resp.headers.get('Content-Type', '')
+                            body_start = resp.text[:200]
+                            is_probably_html = '<html' in body_start.lower() and 'json' not in ctype.lower()
+                        except Exception as e2:
+                            error_to_raise = f"Errore rete dopo handle_challenge: {e2}"
+                        else:
+                            debug(f"Retry post-challenge status={status}")
+                    else:
+                        debug("Challenge pattern rilevato ma non gestito (regex mismatch)")
+
+                if not error_to_raise:
+                    if status != 200:
+                        error_to_raise = f"HTTP {status} non-200 snippet='{body_start.replace('\n',' ')[:160]}...'"
+                    else:
+                        body_trim = body_start.lstrip()
+                        looks_like_json = body_trim.startswith('{') or body_trim.startswith('[')
+                        content_is_json = 'json' in ctype.lower()
+                        if content_is_json or looks_like_json:
+                            try:
+                                page_results = resp.json()
+                            except Exception as e:
+                                error_to_raise = f"JSONDecodeError: {e} snippet='{body_start.replace('\n',' ')[:160]}...'"
+                            else:
+                                if not content_is_json:
+                                    debug(f"Forzato parsing JSON (ctype={ctype})")
+                                break
+                        else:
+                            error_to_raise = f"Content-Type={ctype} non-json e body non riconosciuto come JSON snippet='{body_start.replace('\n',' ')[:160]}...'"
+
+            if error_to_raise:
+                debug(f"Tentativo {attempt+1}/{MAX_RETRIES+1} fallito page={page}: {error_to_raise}")
+                if attempt < MAX_RETRIES:
+                    attempt += 1
+                    time.sleep(1 + attempt * 0.5)
+                    continue
+                # Esauriti tentativi
+                if STRICT_MODE:
+                    raise RuntimeError(f"search_anime fallita page={page}: {error_to_raise}")
+                # Modalità non-strict: interrompe la paginazione. Se page==1 results resterà vuoto
+                page_results = []
+                break
+        # Fine while retry
         if not page_results:
             break
         for item in page_results:
@@ -248,144 +369,81 @@ def download_mp4(mp4_url, referer_url, filename=None):
                 f.write(chunk)
     print(f"✅ Download completato: {filename}\n")
 
-def search_anime_html(query, max_pages=3):
-    """Ricerca anime tramite la pagina HTML di AnimeSaturn, con paginazione solo se necessario"""
-    results = []
-    page = 1
-    while page <= max_pages:
-        url = f'{BASE_URL}/animelist?search={urllib.parse.quote_plus(query)}&page={page}'
-        resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        # Seleziona solo i link principali ai dettagli anime
-        for a in soup.select('div.item-archivio h3 a[href^="/anime/"], div.item-archivio h3 a[href^="https://www.animesaturn.cx/anime/"]'):
-            title = a.get_text(strip=True)
-            href = a['href']
-            if not href.startswith('http'):
-                href = BASE_URL + href
-            if not any(r['url'] == href for r in results):
-                results.append({'title': title, 'url': href, 'page': page})
-                print(f"[DEBUG] Trovato titolo: {title} (url: {href})", file=sys.stderr)
-        pagination = soup.select_one('ul.pagination')
-        next_btn = soup.select_one('li.page-item.next:not(.disabled)')
-        if not (pagination and next_btn):
-            break
-        page += 1
-    return results
+## RIMOSSO: ricerca HTML separata (non più necessaria con bypass robusto)
 
-def search_anime_by_title_or_malid(title, mal_id):
-    print(f"[DEBUG] INIZIO: title={title}, mal_id={mal_id}", file=sys.stderr)
+def search_anime_by_title_or_malid(title, mal_id, session: Optional[requests.Session] = None):
+    debug(f"INIZIO: title={title}, mal_id={mal_id}")
+    if session is None:
+        session = requests.Session()
+
+    def fetch_with_challenge(url: str, max_challenge: int = 2):
+        """Recupera una pagina anime gestendo eventuale challenge ASFast e restituisce BeautifulSoup o None."""
+        attempts = 0
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "keep-alive",
+            "Referer": BASE_URL + "/"
+        }
+        while attempts <= max_challenge:
+            try:
+                r = session.get(url, headers=headers, timeout=(5, TIMEOUT))
+            except Exception as e:
+                debug(f"fetch_with_challenge errore rete ({attempts}): {e}")
+                return None
+            status = r.status_code
+            if (status == 202 or status == 200) and 'document.cookie="ASFast-' in r.text and attempts < max_challenge:
+                debug(f"fetch_with_challenge challenge detail status={status} url={url}")
+                handled = handle_challenge(r, session, headers)
+                attempts += 1
+                if handled:
+                    continue
+                else:
+                    break
+            # Se 200 normale
+            if status == 200:
+                return BeautifulSoup(r.text, 'html.parser')
+            debug(f"fetch_with_challenge status={status} non gestito url={url}")
+            break
+        return None
 
     # Helper function to check a list of results for a MAL ID match
     def check_results_for_mal_id(results_list, target_mal_id, search_step_name):
         if not results_list:
-            print(f"[DEBUG] {search_step_name}: Nessun risultato da controllare.", file=sys.stderr)
+            debug(f"{search_step_name}: Nessun risultato da controllare.")
             return None
         
-        print(f"[DEBUG] {search_step_name}: Controllo {len(results_list)} risultati...", file=sys.stderr)
+        debug(f"{search_step_name}: Controllo {len(results_list)} risultati...")
         matched_items = []
         for item in results_list:
             try:
-                resp = requests.get(item["url"], headers=HEADERS, timeout=TIMEOUT)
-                resp.raise_for_status()
-                soup = BeautifulSoup(resp.text, "html.parser")
+                soup = fetch_with_challenge(item["url"])
+                if soup is None:
+                    debug(f"Errore fetch '{item['title']}' (soup None)")
+                    continue
                 mal_btn = soup.find("a", href=re.compile(r"myanimelist\.net/anime/(\d+)"))
                 if mal_btn:
                     found_id_match = re.search(r"myanimelist\.net/anime/(\d+)", mal_btn["href"])
                     if found_id_match:
                         found_id = found_id_match.group(1)
-                        print(f"[DEBUG] -> Controllo '{item['title']}': trovato MAL ID {found_id} (cerco {target_mal_id})", file=sys.stderr)
+                        debug(f"-> Controllo '{item['title']}': trovato MAL ID {found_id} (cerco {target_mal_id})")
                         if found_id == str(target_mal_id):
-                            print(f"[DEBUG] MATCH TROVATO!", file=sys.stderr)
+                            debug("MATCH TROVATO!")
                             matched_items.append(item)
             except Exception as e:
-                print(f"[DEBUG] Errore visitando '{item['title']}': {e}", file=sys.stderr)
+                debug(f"Errore visitando '{item['title']}': {e}")
         if matched_items:
             return matched_items
-        print(f"[DEBUG] {search_step_name}: Nessun match trovato.", file=sys.stderr)
+        debug(f"{search_step_name}: Nessun match trovato.")
         return None  # No match in this batch
 
     # --- Fallback Chain ---
 
     # 1. Ricerca diretta per titolo completo
-    direct_results = search_anime(title)
-    matches = check_results_for_mal_id(direct_results, mal_id, "Step 1: Ricerca Diretta") or []
-    print(f"[DEBUG] matches dopo ricerca diretta: {matches}", file=sys.stderr)
-
-    # 2. Fallback: Titolo troncato all'apostrofo
-    if not matches and ("'" in title or "’" in title or "‘" in title):
-        last_apos = max(title.rfind(c) for c in ["'", "’", "‘"])
-        if last_apos != -1:
-            truncated_title = title[:last_apos].strip()
-            print(f"[DEBUG] Titolo troncato per Fallback #1: '{truncated_title}'", file=sys.stderr)
-            truncated_results = search_anime(truncated_title)
-            matches += check_results_for_mal_id(truncated_results, mal_id, "Step 2: Ricerca Titolo Troncato") or []
-    print(f"[DEBUG] matches dopo troncato: {matches}", file=sys.stderr)
-
-    # 3. Fallback finale: Ricerca fuzzy con prime 3 lettere
-    if not matches:
-        print(f"[DEBUG] PRIMA DELLA FUZZY: matches={matches}", file=sys.stderr)
-        short_key = title[:3]
-        print(f"[DEBUG] Avvio fallback fuzzy: chiave '{short_key}'", file=sys.stderr)
-        # Usa la ricerca HTML per la fuzzy search
-        fuzzy_results = search_anime_html(short_key)
-        print(f"[DEBUG] Fuzzy search ha trovato {len(fuzzy_results)} risultati", file=sys.stderr)
-        # Evita duplicati
-        urls_to_skip = {r['url'] for r in (direct_results or [])}
-        unique_fuzzy_results = [r for r in fuzzy_results if r['url'] not in urls_to_skip]
-        fuzzy_matches = []
-        found_normal = None
-        found_ita = None
-        found_cr = None
-        found_count = 0
-        for item in unique_fuzzy_results:
-            try:
-                print(f"[DEBUG] Visito URL: {item['url']}", file=sys.stderr)
-                resp = requests.get(item["url"], headers=HEADERS, timeout=TIMEOUT)
-                resp.raise_for_status()
-                soup = BeautifulSoup(resp.text, "html.parser")
-                mal_btn = soup.find("a", href=re.compile(r"myanimelist\.net/anime/(\d+)"))
-                if mal_btn:
-                    found_id_match = re.search(r"myanimelist\.net/anime/(\d+)", mal_btn["href"])
-                    if found_id_match:
-                        found_id = found_id_match.group(1)
-                        print(f"[DEBUG] -> Controllo '{item['title']}': trovato MAL ID {found_id} (cerco {mal_id})", file=sys.stderr)
-                        if found_id == str(mal_id):
-                            print(f"[DEBUG] MATCH TROVATO!", file=sys.stderr)
-                            t_upper = item['title'].upper()
-                            if not found_normal and '(ITA' not in t_upper and '(CR' not in t_upper:
-                                found_normal = item
-                                found_count += 1
-                            elif not found_ita and '(ITA' in t_upper:
-                                found_ita = item
-                                found_count += 1
-                            elif not found_cr and '(CR' in t_upper:
-                                found_cr = item
-                            # Se hai trovato normal e ita, continua a cercare CR fino a fine terza pagina
-                            if found_normal and found_ita and found_cr:
-                                break
-            except Exception as e:
-                print(f"[DEBUG] Errore visitando '{item['title']}': {e}", file=sys.stderr)
-            # Se hai già trovato normal e ita e sei oltre la terza pagina, esci
-            if item.get('page', 1) >= 3 and found_normal and found_ita:
-                break
-        # Aggiungi le versioni trovate
-        if found_normal:
-            fuzzy_matches.append(found_normal)
-        if found_ita:
-            fuzzy_matches.append(found_ita)
-        if found_cr:
-            fuzzy_matches.append(found_cr)
-        print(f"[DEBUG] fuzzy_matches trovati: {fuzzy_matches}", file=sys.stderr)
-        if fuzzy_matches and len(fuzzy_matches) >= 2:
-            seen = set()
-            deduped = []
-            for m in fuzzy_matches:
-                if m['url'] not in seen:
-                    deduped.append(m)
-                    seen.add(m['url'])
-            return deduped
-        matches += fuzzy_matches
-    print(f"[DEBUG] matches finali: {matches}", file=sys.stderr)
+    direct_results = search_anime(title, session=session)
+    matches = check_results_for_mal_id(direct_results, mal_id, "Ricerca Diretta") or []
+    debug(f"matches finali: {matches}")
 
     if matches:
         # Deduplica per url
@@ -397,7 +455,7 @@ def search_anime_by_title_or_malid(title, mal_id):
                 seen.add(m['url'])
         return deduped
 
-    print(f"[DEBUG] NESSUN MATCH TROVATO dopo tutti i tentativi.", file=sys.stderr)
+    debug("NESSUN MATCH TROVATO.")
     return []
 
 def main():
