@@ -16,60 +16,65 @@ import argparse
 import os
 import time
 from typing import Optional
+
+# Carica domini configurati
 with open(os.path.join(os.path.dirname(__file__), '../../config/domains.json'), encoding='utf-8') as f:
     DOMAINS = json.load(f)
+
 BASE_URL = f"https://{DOMAINS['animesaturn']}"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 HEADERS = {"User-Agent": USER_AGENT}
+SESSION = requests.Session()  # sessione globale condivisa
 DEBUG_MODE = os.getenv("ANIMESATURN_DEBUG", "0") == "1"
+TIMEOUT = 30
+
 def debug(msg: str):
     if DEBUG_MODE:
         print(f"[DEBUG] {msg}", file=sys.stderr)
-TIMEOUT = 20
 
-def safe_ascii_header(value):
-    # Remove or replace non-latin-1 characters (e.g., typographic apostrophes)
-    return value.encode('latin-1', 'ignore').decode('latin-1')
+def safe_ascii_header(value: str) -> str:
+    """Rende sicuro un valore header rimpiazzando caratteri non ASCII."""
+    return ''.join(c if 32 <= ord(c) < 127 else '?' for c in value)
 
-def handle_challenge(resp, session, headers) -> bool:
-    """Tenta di gestire la pagina challenge impostando il cookie e seguendo location.href.
-    Ritorna True se ha provato un bypass, False se non è una challenge riconosciuta."""
-    text = resp.text
-    if 'document.cookie="ASFast-' not in text:
+def handle_challenge(resp: requests.Response, session: requests.Session, original_headers: dict) -> bool:
+    """Gestisce pagina challenge ASFast impostando cookie e seguendo redirect opzionale.
+    Restituisce True se un pattern challenge è stato gestito, False altrimenti."""
+    try:
+        text = resp.text
+        # Il sito fornisce document.cookie="ASFast-..." senza backslash; adattiamo regex flessibile
+        cookie_match = re.search(r'document.cookie="(ASFast-[^=]+=[^";]+)', text)
+        if cookie_match:
+            cookie_kv = cookie_match.group(1)
+            if '=' in cookie_kv:
+                name, value = cookie_kv.split('=', 1)
+                host = urllib.parse.urlparse(BASE_URL).hostname
+                if host:
+                    session.cookies.set(name, value, domain=host)
+                    # Imposta anche su www.<host>
+                    if not host.startswith('www.'):
+                        session.cookies.set(name, value, domain='www.' + host)
+                debug(f"handle_challenge: impostato cookie {name}")
+        # Redirect opzionale
+        redir = re.search(r'window\\.location\\.href\s*=\s*\"([^\"]+)\"', text)
+        if redir:
+            url = redir.group(1)
+            debug(f"handle_challenge: follow redirect -> {url}")
+            try:
+                session.get(url, headers=original_headers, timeout=(5, 10))
+            except Exception as e:
+                debug(f"handle_challenge: errore follow redirect: {e}")
+        return True if 'ASFast-' in text else False
+    except Exception as e:
+        debug(f"handle_challenge exception: {e}")
         return False
-    # Estrai cookie
-    m_cookie = re.search(r'document.cookie="(ASFast-[^";=]+=[0-9a-fA-F]+)', text)
-    m_loc = re.search(r'location.href="([^"]+)"', text)
-    if not m_cookie:
-        return False
-    cookie_kv = m_cookie.group(1)
-    if '=' not in cookie_kv:
-        return False
-    k, v = cookie_kv.split('=', 1)
-    domain = urllib.parse.urlparse(BASE_URL).hostname
-    session.cookies.set(k, v, domain=domain, path='/')
-    print(f"[DEBUG] handle_challenge: impostato cookie {k}=*** (len={len(v)}) domain={domain}", file=sys.stderr)
-    # Se esiste un redirect esplicito prova a seguirlo
-    if m_loc:
-        redirect_url = m_loc.group(1)
-        # Normalizza eventuale schema mancante
-        if redirect_url.startswith('//'):
-            redirect_url = 'https:' + redirect_url
-        try:
-            if redirect_url.startswith('http'):
-                print(f"[DEBUG] handle_challenge: follow redirect -> {redirect_url}", file=sys.stderr)
-                session.get(redirect_url, headers=headers, timeout=(5, 20))
-                time.sleep(1.1)  # piccolo delay per emulare browser
-        except Exception as e:
-            print(f"[DEBUG] handle_challenge: errore follow redirect: {e}", file=sys.stderr)
-    return True
 
 
 def search_anime(query, session: Optional[requests.Session] = None):
     """Ricerca anime tramite la barra di ricerca di AnimeSaturn, con paginazione"""
     # Usa sessione persistente per mantenere cookie e headers
     if session is None:
-        session = requests.Session()
+        # Usa sessione globale per conservare cookie challenge fra invocazioni
+        session = SESSION
     results = []
     page = 1
     # Modalità strict: se settata ANIMESATURN_STRICT=1 alza eccezioni invece di restituire lista vuota
@@ -132,7 +137,8 @@ def search_anime(query, session: Optional[requests.Session] = None):
 
                 if not error_to_raise:
                     if status != 200:
-                        error_to_raise = f"HTTP {status} non-200 snippet='{body_start.replace('\n',' ')[:160]}...'"
+                        snippet = body_start.replace('\n', ' ')[:160]
+                        error_to_raise = f"HTTP {status} non-200 snippet='{snippet}...'"
                     else:
                         body_trim = body_start.lstrip()
                         looks_like_json = body_trim.startswith('{') or body_trim.startswith('[')
@@ -141,13 +147,15 @@ def search_anime(query, session: Optional[requests.Session] = None):
                             try:
                                 page_results = resp.json()
                             except Exception as e:
-                                error_to_raise = f"JSONDecodeError: {e} snippet='{body_start.replace('\n',' ')[:160]}...'"
+                                snippet = body_start.replace('\n', ' ')[:160]
+                                error_to_raise = f"JSONDecodeError: {e} snippet='{snippet}...'"
                             else:
                                 if not content_is_json:
                                     debug(f"Forzato parsing JSON (ctype={ctype})")
                                 break
                         else:
-                            error_to_raise = f"Content-Type={ctype} non-json e body non riconosciuto come JSON snippet='{body_start.replace('\n',' ')[:160]}...'"
+                            snippet = body_start.replace('\n', ' ')[:160]
+                            error_to_raise = f"Content-Type={ctype} non-json e body non riconosciuto come JSON snippet='{snippet}...'"
 
             if error_to_raise:
                 debug(f"Tentativo {attempt+1}/{MAX_RETRIES+1} fallito page={page}: {error_to_raise}")
@@ -175,19 +183,28 @@ def search_anime(query, session: Optional[requests.Session] = None):
         page += 1
     return results
 
-def get_watch_url(episode_url):
+def get_watch_url(episode_url, session: Optional[requests.Session] = None):
+    if session is None:
+        session = SESSION
     print(f"[DEBUG] GET watch URL da: {episode_url}", file=sys.stderr)
-    resp = requests.get(episode_url, headers=HEADERS, timeout=TIMEOUT)
+    resp = session.get(episode_url, headers=HEADERS, timeout=TIMEOUT)
+    if (resp.status_code in (200,202)) and 'document.cookie="ASFast-' in resp.text:
+        handled = handle_challenge(resp, session, HEADERS)
+        if handled:
+            try:
+                resp = session.get(episode_url, headers=HEADERS, timeout=TIMEOUT)
+            except Exception as e:
+                debug(f"get_watch_url retry errore: {e}")
     resp.raise_for_status()
     html_content = resp.text
     soup = BeautifulSoup(html_content, "html.parser")
-    
+
     # Stampa tutti i link per debug
     print("[DEBUG] Lista di tutti i link nella pagina:", file=sys.stderr)
     for a in soup.find_all("a", href=True):
         if "/watch" in a["href"]:
             print(f"[DEBUG] LINK TROVATO: {a.get_text().strip()[:30]} => {a['href']}", file=sys.stderr)
-    
+
     # Cerca il link con testo "Guarda lo streaming"
     for a in soup.find_all("a", href=True):
         div = a.find("div")
@@ -195,28 +212,28 @@ def get_watch_url(episode_url):
             url = a["href"] if a["href"].startswith("http") else BASE_URL + a["href"]
             print(f"[DEBUG] Trovato link 'Guarda lo streaming': {url}", file=sys.stderr)
             return url
-    
+
     # Cerca qualsiasi link che contenga "/watch"
     for a in soup.find_all("a", href=True):
         if "/watch" in a["href"]:
             url = a["href"] if a["href"].startswith("http") else BASE_URL + a["href"]
             print(f"[DEBUG] Trovato link generico watch: {url}", file=sys.stderr)
             return url
-    
+
     # Fallback: cerca il link alla pagina watch
     watch_link = soup.find("a", href=re.compile(r"/watch"))
     if watch_link:
         url = watch_link["href"] if watch_link["href"].startswith("http") else BASE_URL + watch_link["href"]
         print(f"[DEBUG] Trovato link watch (a): {url}", file=sys.stderr)
         return url
-    
+
     # Cerca in iframe
     iframe = soup.find("iframe", src=re.compile(r"/watch"))
     if iframe:
         url = iframe["src"] if iframe["src"].startswith("http") else BASE_URL + iframe["src"]
         print(f"[DEBUG] Trovato link watch (iframe): {url}", file=sys.stderr)
         return url
-    
+
     # Cerca pulsanti con "Guarda" nel testo
     for button in soup.find_all(["button", "a"], class_=re.compile(r"btn|button")):
         if "Guarda" in button.get_text():
@@ -225,7 +242,7 @@ def get_watch_url(episode_url):
                 url = button["href"] if button["href"].startswith("http") else BASE_URL + button["href"]
                 print(f"[DEBUG] Trovato link nel pulsante: {url}", file=sys.stderr)
                 return url
-    
+
     # Debug se non trova nulla
     print(f"[DEBUG] Nessun link watch trovato nella pagina", file=sys.stderr)
     with open("debug_page.html", "w", encoding="utf-8") as f:
@@ -233,21 +250,30 @@ def get_watch_url(episode_url):
     print(f"[DEBUG] Salvata pagina di debug in debug_page.html", file=sys.stderr)
     return None
 
-def extract_mp4_url(watch_url):
+def extract_mp4_url(watch_url, session: Optional[requests.Session] = None):
+    if session is None:
+        session = SESSION
     print(f"[DEBUG] Analisi URL: {watch_url}", file=sys.stderr)
-    resp = requests.get(watch_url, headers=HEADERS, timeout=TIMEOUT)
+    resp = session.get(watch_url, headers=HEADERS, timeout=TIMEOUT)
+    if (resp.status_code in (200,202)) and 'document.cookie="ASFast-' in resp.text:
+        handled = handle_challenge(resp, session, HEADERS)
+        if handled:
+            try:
+                resp = session.get(watch_url, headers=HEADERS, timeout=TIMEOUT)
+            except Exception as e:
+                debug(f"extract_mp4_url retry errore: {e}")
     resp.raise_for_status()
     html_content = resp.text
     soup = BeautifulSoup(html_content, "html.parser")
-    
+
     print(f"[DEBUG] Dimensione HTML: {len(html_content)} caratteri", file=sys.stderr)
-    
+
     # Metodo 1: Cerca direttamente il link mp4 nel sorgente (metodo originale)
     mp4_match = re.search(r'https://[\w\.-]+/[^"\']+\.mp4', html_content)
     if mp4_match:
         print(f"[DEBUG] Trovato MP4 con metodo 1: {mp4_match.group(0)}", file=sys.stderr)
         return mp4_match.group(0)
-    
+
     # Metodo 2: Analizza i tag video/source (metodo originale)
     video = soup.find("video", class_="vjs-tech")
     if video:
@@ -258,7 +284,7 @@ def extract_mp4_url(watch_url):
             return source["src"]
     else:
         print("[DEBUG] Nessun video con classe vjs-tech trovato", file=sys.stderr)
-    
+
     # Metodo 3: Cerca nel tag video con classe jw-video (nuovo metodo)
     jw_video = soup.find("video", class_="jw-video")
     if jw_video:
@@ -268,13 +294,13 @@ def extract_mp4_url(watch_url):
             return jw_video["src"]
     else:
         print("[DEBUG] Nessun video con classe jw-video trovato", file=sys.stderr)
-    
+
     # Metodo 4: Cerca link m3u8 nel jwplayer setup
     m3u8_match = re.search(r'jwplayer\([\'"]player_hls[\'"]\)\.setup\(\{\s*file:\s*[\'"]([^"\']+\.m3u8)[\'"]', html_content)
     if m3u8_match:
         print(f"[DEBUG] Trovato m3u8 con metodo jwplayer: {m3u8_match.group(1)}", file=sys.stderr)
         return m3u8_match.group(1)
-    
+
     # Cercare in altri posti della pagina per link alternativi
     player_alternativo = None
     for a in soup.find_all("a", href=True):
@@ -284,23 +310,23 @@ def extract_mp4_url(watch_url):
                 player_alternativo = BASE_URL + player_alternativo
             print(f"[DEBUG] Trovato link a player alternativo: {player_alternativo}", file=sys.stderr)
             break
-    
+
     # Se trovato un link al player alternativo, visita quella pagina
     if player_alternativo:
         try:
-            alt_resp = requests.get(player_alternativo, headers=HEADERS, timeout=TIMEOUT)
+            alt_resp = session.get(player_alternativo, headers=HEADERS, timeout=TIMEOUT)
             alt_resp.raise_for_status()
             alt_soup = BeautifulSoup(alt_resp.text, "html.parser")
             alt_html = alt_resp.text
-            
+
             print(f"[DEBUG] Dimensione HTML player alternativo: {len(alt_html)} caratteri", file=sys.stderr)
-            
+
             # Cerca mp4 nei metodi alternativi
             alt_mp4_match = re.search(r'https://[\w\.-]+/[^"\']+\.mp4', alt_html)
             if alt_mp4_match:
                 print(f"[DEBUG] Trovato MP4 nel player alternativo: {alt_mp4_match.group(0)}", file=sys.stderr)
                 return alt_mp4_match.group(0)
-            
+
             # Cerca source in video
             alt_video = alt_soup.find("video")
             if alt_video:
@@ -309,36 +335,46 @@ def extract_mp4_url(watch_url):
                 if alt_source and alt_source.get("src"):
                     print(f"[DEBUG] Trovato source nel player alternativo: {alt_source['src']}", file=sys.stderr)
                     return alt_source["src"]
-            
+
             # Cerca m3u8 nel player alternativo
             m3u8_match = re.search(r'src=[\'"]([^"\']+\.m3u8)[\'"]', alt_html)
             if m3u8_match:
                 print(f"[DEBUG] Trovato m3u8 nel player alternativo: {m3u8_match.group(1)}", file=sys.stderr)
                 return m3u8_match.group(1)
-            
+
             # Stampa i primi server disponibili per debug
             server_dropdown = alt_soup.find("div", class_="dropdown-menu")
             if server_dropdown:
                 print("[DEBUG] Server disponibili nel player alternativo:", file=sys.stderr)
                 for a in server_dropdown.find_all("a", href=True):
                     print(f"[DEBUG] - {a.text.strip()}: {a['href']}", file=sys.stderr)
-            
+
             # Prova a trovare iframe con video
             iframe = alt_soup.find("iframe")
             if iframe and iframe.get("src"):
                 print(f"[DEBUG] Trovato iframe nel player alternativo: {iframe['src']}", file=sys.stderr)
-            
+
         except Exception as e:
             print(f"[DEBUG] Errore cercando nel player alternativo: {e}", file=sys.stderr)
     else:
         print("[DEBUG] Nessun player alternativo trovato", file=sys.stderr)
-    
+
     # Debug finale
     print("[DEBUG] Nessun link trovato dopo tutti i tentativi", file=sys.stderr)
     return None
 
-def get_episodes_list(anime_url):
-    resp = requests.get(anime_url, headers=HEADERS, timeout=TIMEOUT)
+def get_episodes_list(anime_url, session: Optional[requests.Session] = None):
+    if session is None:
+        session = SESSION
+    resp = session.get(anime_url, headers=HEADERS, timeout=TIMEOUT)
+    # Gestione challenge come nelle altre funzioni
+    if (resp.status_code in (200,202)) and 'document.cookie="ASFast-' in resp.text:
+        handled = handle_challenge(resp, session, HEADERS)
+        if handled:
+            try:
+                resp = session.get(anime_url, headers=HEADERS, timeout=TIMEOUT)
+            except Exception as e:
+                debug(f"get_episodes_list retry errore: {e}")
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
     episodes = []
@@ -413,7 +449,7 @@ def search_anime_by_title_or_malid(title, mal_id, session: Optional[requests.Ses
         if not results_list:
             debug(f"{search_step_name}: Nessun risultato da controllare.")
             return None
-        
+
         debug(f"{search_step_name}: Controllo {len(results_list)} risultati...")
         matched_items = []
         for item in results_list:
@@ -466,7 +502,7 @@ def main():
         print("❌ Query vuota, uscita.")
         return
     print(f"\n⏳ Ricerca di '{query}' in corso...")
-    anime_results = search_anime(query)
+    anime_results = search_anime(query, session=SESSION)
     if not anime_results:
         print("❌ Nessun risultato trovato.")
         return
@@ -480,7 +516,7 @@ def main():
         print("❌ Selezione non valida.")
         return
     print(f"\n⏳ Recupero episodi di '{selected['title']}'...")
-    episodes = get_episodes_list(selected["url"])
+    episodes = get_episodes_list(selected["url"], session=SESSION)
     if not episodes:
         print("❌ Nessun episodio trovato.")
         return
@@ -494,12 +530,12 @@ def main():
         print("❌ Selezione non valida.")
         return
     print(f"\n⏳ Recupero link stream per '{ep_selected['title']}'...")
-    watch_url = get_watch_url(ep_selected["url"])
+    watch_url = get_watch_url(ep_selected["url"], session=SESSION)
     if not watch_url:
         print("❌ Link stream non trovato nella pagina episodio.")
         return
     print(f"\n🔗 Pagina stream: {watch_url}")
-    mp4_url = extract_mp4_url(watch_url)
+    mp4_url = extract_mp4_url(watch_url, session=SESSION)
     if mp4_url:
         print(f"\n🎬 LINK MP4 FINALE:\n   {mp4_url}\n")
         print("🎉 ✅ Estrazione completata con successo!")
@@ -545,59 +581,35 @@ def main_cli():
 
     if args.command == "search":
         if getattr(args, "mal_id", None):
-            results = search_anime_by_title_or_malid(args.query, args.mal_id)
+            results = search_anime_by_title_or_malid(args.query, args.mal_id, session=SESSION)
         else:
-            results = search_anime(args.query)
+            results = search_anime(args.query, session=SESSION)
         print(json.dumps(results, indent=2))
-    elif args.command == "get_episodes":
-        results = get_episodes_list(args.anime_url)
+        return
+    if args.command == "get_episodes":
+        results = get_episodes_list(args.anime_url, session=SESSION)
         print(json.dumps(results, indent=2))
-    elif args.command == "get_stream":
-        watch_url = get_watch_url(args.episode_url)
-        stream_url = extract_mp4_url(watch_url) if watch_url else None
+        return
+    if args.command == "get_stream":
+        watch_url = get_watch_url(args.episode_url, session=SESSION)
+        stream_url = extract_mp4_url(watch_url, session=SESSION) if watch_url else None
         stremio_stream = None
-        
         if stream_url:
-            # Verificare se è un URL m3u8
-            if stream_url.endswith(".m3u8"):
-                # Leggi i parametri di proxy MFP (se sono stati passati come argomento)
+            if stream_url.endswith('.m3u8'):
                 mfp_proxy_url = getattr(args, "mfp_proxy_url", None)
                 mfp_proxy_password = getattr(args, "mfp_proxy_password", None)
-                
                 if mfp_proxy_url and mfp_proxy_password:
-                    # Costruisci URL proxy per l'm3u8, rimuovendo eventuali https:// già presenti nell'URL
-                    mfp_url_normalized = mfp_proxy_url.replace("https://", "").replace("http://", "")
-                    if mfp_url_normalized.endswith("/"):
+                    mfp_url_normalized = mfp_proxy_url.replace('https://','').replace('http://','')
+                    if mfp_url_normalized.endswith('/'):
                         mfp_url_normalized = mfp_url_normalized[:-1]
                     proxy_url = f"https://{mfp_url_normalized}/proxy/hls/manifest.m3u8?d={stream_url}&api_password={mfp_proxy_password}"
-                    stremio_stream = {
-                        "url": proxy_url,
-                        "headers": {
-                            "Referer": watch_url,
-                            "User-Agent": USER_AGENT
-                        }
-                    }
+                    stremio_stream = {"url": proxy_url, "headers": {"Referer": watch_url, "User-Agent": USER_AGENT}}
                 else:
-                    # Se non ci sono parametri proxy, usa l'URL diretto
-                    stremio_stream = {
-                        "url": stream_url,
-                        "headers": {
-                            "Referer": watch_url,
-                            "User-Agent": USER_AGENT
-                        }
-                    }
+                    stremio_stream = {"url": stream_url, "headers": {"Referer": watch_url, "User-Agent": USER_AGENT}}
             else:
-                # Per gli URL MP4, usa il formato originale
-                stremio_stream = {
-                    "url": stream_url,
-                    "headers": {
-                        "Referer": watch_url,
-                        "User-Agent": USER_AGENT
-                    }
-                }
-                
-        # Test: se vuoi solo il link, restituisci {"url": stream_url}
+                stremio_stream = {"url": stream_url, "headers": {"Referer": watch_url, "User-Agent": USER_AGENT}}
         print(json.dumps(stremio_stream if stremio_stream else {"url": stream_url}, indent=2))
+        return
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
