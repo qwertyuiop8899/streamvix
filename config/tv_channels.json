@@ -7,7 +7,7 @@
     "description": "Rai 1 - Canale pubblico italiano",
     "category": "rai",
     "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/rai1/browser-dash/rai1.mpd",
-    "staticUrlD": "https://thedaddy.click/stream/stream-850.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=850",
     "vavooNames": [
       "RAI 1"
     ],
@@ -83,7 +83,7 @@
     "description": "Italia 1 - Mediaset",
     "category": "mediaset",
     "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-i1/i1-clr.isml/index.m3u8",
-    "staticUrlD": "https://thedaddy.click/stream/stream-854.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=854",
     "vavooNames": [
       "ITALIA 1"
     ],
@@ -722,7 +722,7 @@
     "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/raisport+hd.png",
     "description": "Rai Sport + HD - Canale pubblico italiano",
     "staticUrlF": "http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=358025&output=7&forceUserAgent=raiplayappletv",
-    "staticUrlD": "https://thedaddy.click/stream/stream-882.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=882",
     "vavooNames": [
       "RAI SPORT"
     ],
@@ -803,7 +803,7 @@
     "name": "Sky Cinema Uno",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-uno-it.png",
     "description": "Sky Cinema Uno",
-    "staticUrlD": "https://thedaddy.click/stream/stream-860.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=860",
     "vavooNames": [
       "SKY CINEMA UNO"
     ],
@@ -821,7 +821,7 @@
     "name": "Sky Cinema Due",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-due-it.png",
     "description": "Sky Cinema Due - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-866.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=866",
     "vavooNames": [
       "SKY CINEMA DUE"
     ],
@@ -839,7 +839,7 @@
     "name": "Sky Cinema Comedy",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-comedy-it.png",
     "description": "Sky Cinema Comedy - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-862.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=862",
     "vavooNames": [
       "SKY CINEMA COMEDY"
     ],
@@ -857,7 +857,7 @@
     "name": "Sky Cinema Action",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-action-it.png",
     "description": "Sky Cinema Action - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-861.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=861",
     "vavooNames": [
       "SKY CINEMA ACTION"
     ],
@@ -875,7 +875,7 @@
     "name": "Sky Cinema Family",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-family-it.png",
     "description": "Sky Cinema Family - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-865.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=865",
     "vavooNames": [
       "SKY CINEMA FAMILY"
     ],
@@ -893,7 +893,7 @@
     "name": "Sky Cinema Collection",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-collection-it.png",
     "description": "Sky Cinema Collection - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-859.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=859",
     "vavooNames": [
       "SKY CINEMA COLLECTION"
     ],
@@ -911,7 +911,7 @@
     "name": "Sky Cinema Drama",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-drama-it.png",
     "description": "Sky Cinema Drama - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-867.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=867",
     "vavooNames": [
       "SKY CINEMA DRAMA"
     ],
@@ -929,7 +929,7 @@
     "name": "Sky Cinema Suspense",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-suspense-it.png",
     "description": "Sky Cinema Suspense - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-868.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=868",
     "vavooNames": [
       "SKY CINEMA SUSPENSE"
     ],
@@ -947,7 +947,7 @@
     "name": "Sky Cinema Romance",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-romance-it.png",
     "description": "Sky Cinema Romance - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-864.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=864",
     "vavooNames": [
       "SKY CINEMA ROMANCE"
     ],
@@ -965,7 +965,7 @@
     "name": "Sky Uno",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-uno-it.png",
     "description": "Sky Uno - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-881.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=881",
     "vavooNames": [
       "SKY UNO"
     ],
@@ -980,7 +980,7 @@
     "name": "Sky Serie",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-serie-it.png",
     "description": "Sky Serie - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-880.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=880",
     "vavooNames": [
       "SKY SERIE"
     ],
@@ -1142,7 +1142,7 @@
     "name": "Sky Sport 24",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-24-it.png",
     "description": "Sky Sport 24 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-869.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=869",
     "vavooNames": [
       "SKY SPORT 24"
     ],
@@ -1160,7 +1160,7 @@
     "name": "Sky Sport Uno",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-uno-it.png",
     "description": "Sky Sport Uno - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-461.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=461",
     "vavooNames": [
       "SKY SPORT UNO"
     ],
@@ -1178,7 +1178,7 @@
     "name": "Sky Sport F1",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-f1-it.png",
     "description": "Sky Sport F1 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-577.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=577",
     "vavooNames": [
       "SKY SPORT F1"
     ],
@@ -1196,7 +1196,7 @@
     "name": "Sky Sport Calcio",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-calcio-it.png",
     "description": "Sky Sport Calcio - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-870.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=870",
     "vavooNames": [
       "SKY SPORT CALCIO"
     ],
@@ -1214,7 +1214,7 @@
     "name": "Sky Sport Tennis",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-tennis-it.png",
     "description": "Sky Sport Tennis - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-576.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=576",
     "vavooNames": [
       "SKY SPORT TENNIS"
     ],
@@ -1232,7 +1232,7 @@
     "name": "Sky Sport MotoGP",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-motogp-it.png",
     "description": "Sky Sport MotoGP - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-575.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=575",
     "vavooNames": [
       "SKY SPORT MOTOGP"
     ],
@@ -1250,7 +1250,7 @@
     "name": "Sky Sport Arena",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-arena-it.png",
     "description": "Sky Sport Arena - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-462.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=462",
     "vavooNames": [
       "SKY SPORT ARENA"
     ],
@@ -1268,7 +1268,7 @@
     "name": "Sky Sport Max",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-max-it.png",
     "description": "Sky Sport Max - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-460.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=460",
     "vavooNames": [
       "SKY SPORT MAX"
     ],
@@ -1321,7 +1321,7 @@
     "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Eurosport_1_Logo_2015.svg/1024px-Eurosport_1_Logo_2015.svg.png",
     "description": "Eurosport 1",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MSkvbWFuaWZlc3QubXBkJmtleV9pZD00NmU1NTljMmY5ZjY0NWNlOGQ4MGM3ZmEyMDQ0NmJkYiZrZXk9NTk3ZDIxNGQ2NjM0MmVlMDQyYmNjZmZlYjE2NWU3NTA=",
-    "staticUrlD": "https://thedaddy.click/stream/stream-878.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=878",
     "vavooNames": [
       "EUROSPORT 1"
     ],
@@ -1337,7 +1337,7 @@
     "poster": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Eurosport_2_Logo_2015.png",
     "description": "Eurosport 2",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MikvbWFuaWZlc3QubXBkJmtleV9pZD1lODM3MjI4M2E1MjM0NDRjODQ2NDZjNDE3MmIxYmMwZiZrZXk9OTY5YTkwZTFhMWE2NDI0YTY4ZmU0YjVkNzc2MzY4ZWM=",
-    "staticUrlD": "https://thedaddy.click/stream/stream-879.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=879",
     "vavooNames": [
       "EUROSPORT 2"
     ],
@@ -1386,7 +1386,7 @@
     "name": "Sky Sport 251",
     "poster": "https://i.imgur.com/ge0fdw9.png",
     "description": "Sky Sport 251 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-871.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=871",
     "vavooNames": [
       "SKY SPORT 251"
     ],
@@ -1404,7 +1404,7 @@
     "name": "Sky Sport 252",
     "poster": "https://i.imgur.com/z9CsC3U.png",
     "description": "Sky Sport 252 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-872.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=872",
     "vavooNames": [
       "SKY SPORT 252"
     ],
@@ -1422,7 +1422,7 @@
     "name": "Sky Sport 253",
     "poster": "https://i.imgur.com/MdNKRWQ.png",
     "description": "Sky Sport 253 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-873.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=873",
     "vavooNames": [
       "SKY SPORT 253"
     ],
@@ -1440,7 +1440,7 @@
     "name": "Sky Sport 254",
     "poster": "https://i.imgur.com/G0xjSIe.png",
     "description": "Sky Sport 254 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-874.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=874",
     "vavooNames": [
       "SKY SPORT 254"
     ],
@@ -1458,7 +1458,7 @@
     "name": "Sky Sport 255",
     "poster": "https://i.imgur.com/C2BKXje.png",
     "description": "Sky Sport 255 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-875.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=875",
     "vavooNames": [
       "SKY SPORT 255"
     ],
@@ -1476,7 +1476,7 @@
     "name": "Sky Sport 256",
     "poster": "https://i.imgur.com/q2WAtgI.png",
     "description": "Sky Sport 256 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-876.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=876",
     "vavooNames": [
       "SKY SPORT 256"
     ],
@@ -1494,7 +1494,7 @@
     "name": "Sky Sport 257",
     "poster": "https://i.imgur.com/o9qzl9U.png",
     "description": "Sky Sport 257 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-877.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=877",
     "vavooNames": [
       "SKY SPORT 257"
     ],
@@ -1549,7 +1549,7 @@
     "poster": "https://i.pinimg.com/736x/7e/78/4b/7e784b0cacc3ed5732b937ad8c466a77.jpg",
     "description": "Dazn 1",
     "staticUrlMpd": "aHR0cHM6Ly9hYmU2Zmp4YWFhYWFhYWFtYzRwZzU1ZWtjeXF6NC5vdHRlLmxpdmUuY2Yud3cuYWl2LWNkbi5uZXQvZHViLW5pdHJvL2xpdmUvY2xpZW50cy9kYXNoL2VuYy9sZ2s4a3BwY2xjL291dC92MS9mNTExNzNiNmIwNjI0YTQzODYzNThhYjhkZmVlMjU3Zi9jZW5jLm1wZCZrZXlfaWQ9ODI3MmJmNmJhNDZmMjNmOWRhNTI3MDA1N2I2ZTAyOGEma2V5PTc0YWU3MGRkMTBiNGJiMzhlZDZmZmU4NDNmM2UyY2Nk",
-    "staticUrlD": "https://thedaddy.click/stream/stream-877.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=877",
     "vavooNames": [
       "DAZN 1"
     ],
