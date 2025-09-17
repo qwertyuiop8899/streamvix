@@ -550,7 +550,7 @@ def build_event_id(name: str, start_dt: datetime.datetime) -> str:
 
 def get_stream_url(channel_obj: Any) -> str | None:
     if isinstance(channel_obj, dict) and channel_obj.get('channel_id'):
-        return f"https://thedaddy.click/stream/stream-{channel_obj['channel_id']}.php"
+        return f"https://dlhd.dad/watch.php?id={channel_obj['channel_id']}"
     return None
 
 def main():
