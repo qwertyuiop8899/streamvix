@@ -198,13 +198,13 @@ def get_watch_url(episode_url, session: Optional[requests.Session] = None):
     resp.raise_for_status()
     html_content = resp.text
     soup = BeautifulSoup(html_content, "html.parser")
-
+    
     # Stampa tutti i link per debug
     print("[DEBUG] Lista di tutti i link nella pagina:", file=sys.stderr)
     for a in soup.find_all("a", href=True):
         if "/watch" in a["href"]:
             print(f"[DEBUG] LINK TROVATO: {a.get_text().strip()[:30]} => {a['href']}", file=sys.stderr)
-
+    
     # Cerca il link con testo "Guarda lo streaming"
     for a in soup.find_all("a", href=True):
         div = a.find("div")
@@ -212,28 +212,28 @@ def get_watch_url(episode_url, session: Optional[requests.Session] = None):
             url = a["href"] if a["href"].startswith("http") else BASE_URL + a["href"]
             print(f"[DEBUG] Trovato link 'Guarda lo streaming': {url}", file=sys.stderr)
             return url
-
+    
     # Cerca qualsiasi link che contenga "/watch"
     for a in soup.find_all("a", href=True):
         if "/watch" in a["href"]:
             url = a["href"] if a["href"].startswith("http") else BASE_URL + a["href"]
             print(f"[DEBUG] Trovato link generico watch: {url}", file=sys.stderr)
             return url
-
+    
     # Fallback: cerca il link alla pagina watch
     watch_link = soup.find("a", href=re.compile(r"/watch"))
     if watch_link:
         url = watch_link["href"] if watch_link["href"].startswith("http") else BASE_URL + watch_link["href"]
         print(f"[DEBUG] Trovato link watch (a): {url}", file=sys.stderr)
         return url
-
+    
     # Cerca in iframe
     iframe = soup.find("iframe", src=re.compile(r"/watch"))
     if iframe:
         url = iframe["src"] if iframe["src"].startswith("http") else BASE_URL + iframe["src"]
         print(f"[DEBUG] Trovato link watch (iframe): {url}", file=sys.stderr)
         return url
-
+    
     # Cerca pulsanti con "Guarda" nel testo
     for button in soup.find_all(["button", "a"], class_=re.compile(r"btn|button")):
         if "Guarda" in button.get_text():
@@ -242,7 +242,7 @@ def get_watch_url(episode_url, session: Optional[requests.Session] = None):
                 url = button["href"] if button["href"].startswith("http") else BASE_URL + button["href"]
                 print(f"[DEBUG] Trovato link nel pulsante: {url}", file=sys.stderr)
                 return url
-
+    
     # Debug se non trova nulla
     print(f"[DEBUG] Nessun link watch trovato nella pagina", file=sys.stderr)
     with open("debug_page.html", "w", encoding="utf-8") as f:
@@ -265,15 +265,15 @@ def extract_mp4_url(watch_url, session: Optional[requests.Session] = None):
     resp.raise_for_status()
     html_content = resp.text
     soup = BeautifulSoup(html_content, "html.parser")
-
+    
     print(f"[DEBUG] Dimensione HTML: {len(html_content)} caratteri", file=sys.stderr)
-
+    
     # Metodo 1: Cerca direttamente il link mp4 nel sorgente (metodo originale)
     mp4_match = re.search(r'https://[\w\.-]+/[^"\']+\.mp4', html_content)
     if mp4_match:
         print(f"[DEBUG] Trovato MP4 con metodo 1: {mp4_match.group(0)}", file=sys.stderr)
         return mp4_match.group(0)
-
+    
     # Metodo 2: Analizza i tag video/source (metodo originale)
     video = soup.find("video", class_="vjs-tech")
     if video:
@@ -284,7 +284,7 @@ def extract_mp4_url(watch_url, session: Optional[requests.Session] = None):
             return source["src"]
     else:
         print("[DEBUG] Nessun video con classe vjs-tech trovato", file=sys.stderr)
-
+    
     # Metodo 3: Cerca nel tag video con classe jw-video (nuovo metodo)
     jw_video = soup.find("video", class_="jw-video")
     if jw_video:
@@ -294,13 +294,13 @@ def extract_mp4_url(watch_url, session: Optional[requests.Session] = None):
             return jw_video["src"]
     else:
         print("[DEBUG] Nessun video con classe jw-video trovato", file=sys.stderr)
-
+    
     # Metodo 4: Cerca link m3u8 nel jwplayer setup
     m3u8_match = re.search(r'jwplayer\([\'"]player_hls[\'"]\)\.setup\(\{\s*file:\s*[\'"]([^"\']+\.m3u8)[\'"]', html_content)
     if m3u8_match:
         print(f"[DEBUG] Trovato m3u8 con metodo jwplayer: {m3u8_match.group(1)}", file=sys.stderr)
         return m3u8_match.group(1)
-
+    
     # Cercare in altri posti della pagina per link alternativi
     player_alternativo = None
     for a in soup.find_all("a", href=True):
@@ -310,7 +310,7 @@ def extract_mp4_url(watch_url, session: Optional[requests.Session] = None):
                 player_alternativo = BASE_URL + player_alternativo
             print(f"[DEBUG] Trovato link a player alternativo: {player_alternativo}", file=sys.stderr)
             break
-
+    
     # Se trovato un link al player alternativo, visita quella pagina
     if player_alternativo:
         try:
@@ -318,15 +318,15 @@ def extract_mp4_url(watch_url, session: Optional[requests.Session] = None):
             alt_resp.raise_for_status()
             alt_soup = BeautifulSoup(alt_resp.text, "html.parser")
             alt_html = alt_resp.text
-
+            
             print(f"[DEBUG] Dimensione HTML player alternativo: {len(alt_html)} caratteri", file=sys.stderr)
-
+            
             # Cerca mp4 nei metodi alternativi
             alt_mp4_match = re.search(r'https://[\w\.-]+/[^"\']+\.mp4', alt_html)
             if alt_mp4_match:
                 print(f"[DEBUG] Trovato MP4 nel player alternativo: {alt_mp4_match.group(0)}", file=sys.stderr)
                 return alt_mp4_match.group(0)
-
+            
             # Cerca source in video
             alt_video = alt_soup.find("video")
             if alt_video:
@@ -335,30 +335,30 @@ def extract_mp4_url(watch_url, session: Optional[requests.Session] = None):
                 if alt_source and alt_source.get("src"):
                     print(f"[DEBUG] Trovato source nel player alternativo: {alt_source['src']}", file=sys.stderr)
                     return alt_source["src"]
-
+            
             # Cerca m3u8 nel player alternativo
             m3u8_match = re.search(r'src=[\'"]([^"\']+\.m3u8)[\'"]', alt_html)
             if m3u8_match:
                 print(f"[DEBUG] Trovato m3u8 nel player alternativo: {m3u8_match.group(1)}", file=sys.stderr)
                 return m3u8_match.group(1)
-
+            
             # Stampa i primi server disponibili per debug
             server_dropdown = alt_soup.find("div", class_="dropdown-menu")
             if server_dropdown:
                 print("[DEBUG] Server disponibili nel player alternativo:", file=sys.stderr)
                 for a in server_dropdown.find_all("a", href=True):
                     print(f"[DEBUG] - {a.text.strip()}: {a['href']}", file=sys.stderr)
-
+            
             # Prova a trovare iframe con video
             iframe = alt_soup.find("iframe")
             if iframe and iframe.get("src"):
                 print(f"[DEBUG] Trovato iframe nel player alternativo: {iframe['src']}", file=sys.stderr)
-
+            
         except Exception as e:
             print(f"[DEBUG] Errore cercando nel player alternativo: {e}", file=sys.stderr)
     else:
         print("[DEBUG] Nessun player alternativo trovato", file=sys.stderr)
-
+    
     # Debug finale
     print("[DEBUG] Nessun link trovato dopo tutti i tentativi", file=sys.stderr)
     return None
@@ -449,7 +449,7 @@ def search_anime_by_title_or_malid(title, mal_id, session: Optional[requests.Ses
         if not results_list:
             debug(f"{search_step_name}: Nessun risultato da controllare.")
             return None
-
+        
         debug(f"{search_step_name}: Controllo {len(results_list)} risultati...")
         matched_items = []
         for item in results_list:
