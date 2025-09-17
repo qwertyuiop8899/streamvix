@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.12...v1.1.13) (2025-09-17)
+
+
+### Bug Fixes
+
+* dlhd ([72e0c6b](https://github.com/qwertyuiop8899/streamvix/commit/72e0c6b42a4962313d3277e5a1ae92eb848ae17e))
+* dlhd live ([4ebacf3](https://github.com/qwertyuiop8899/streamvix/commit/4ebacf3b119fbed81d682cdd38290da0221de108))
+
 ## [1.1.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.11...v1.1.12) (2025-09-17)
 
 
