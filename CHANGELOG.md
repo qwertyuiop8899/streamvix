@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.15](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.14...v1.1.15) (2025-09-18)
+
+
+### Bug Fixes
+
+* add pgz channels ([3389250](https://github.com/qwertyuiop8899/streamvix/commit/3389250e1718e2456e33bf25afa053855deeeb67))
+* pd sempre primi ([9fea36e](https://github.com/qwertyuiop8899/streamvix/commit/9fea36e847c08b41d192d28974335d82e7c7a4c5))
+
 ## [1.1.14](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.13...v1.1.14) (2025-09-18)
 
 
