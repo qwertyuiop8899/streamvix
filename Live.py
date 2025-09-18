@@ -39,6 +39,54 @@ LOGO_BASE = 'https://raw.githubusercontent.com/qwertyuiop8899/logo/main'
 
 EXCLUDE_KEYWORDS_CHANNEL = ["college", "youth"]
 
+# Filtri richiesti: escludere eventi women / youth / qualificazioni femminili in coppe e Serie A/B/C
+# Pattern principali da filtrare nelle competizioni target
+_BLOCK_COMPETITION_PATTERNS = [
+    r"UEFA\s+Youth\s+League",
+    r"UEFA\s+Womens\s+Champions\s+League",
+    r"UEFA\s+Women(?:'s)?\s+Champions\s+League",
+    r"International\s+Club\s+UEFA\s+Champions\s+League\s+Women\s+Qualification",
+    r"UEFA\s+Champions\s+League\s+Women",
+    r"AFC\s+Champions\s+League",
+]
+_BLOCK_GENERIC_TOKENS = [
+    r"\bU-?1[6789]\b",  # U16-U19
+    r"\bUnder\s*1[6789]\b",
+    # Estensione richiesta: blocca anche U20 / U-20 / U21 / U-21 e varianti 'Under 20/21'
+    r"\bU-?2[01]\b",  # U20-U21
+    r"\bUnder\s*2[01]\b",
+    r"\bPrimavera\b",
+    r"\bYouth\b",
+    r"\bWomen(?:'s)?\b",
+    r"\bFemminile\b",
+]
+
+_BLOCK_COMPETITION_REGEX = [re.compile(p, re.IGNORECASE) for p in _BLOCK_COMPETITION_PATTERNS]
+_BLOCK_TOKEN_REGEX = [re.compile(p, re.IGNORECASE) for p in _BLOCK_GENERIC_TOKENS]
+
+def _is_blocked_women_youth(effective_category_src: str, raw_event: str) -> bool:
+    """Ritorna True se l'evento va scartato per le categorie richieste.
+
+    Applichiamo il filtro SOLO se la categoria effettiva (prima del mapping) appartiene a:
+      - Italy - Serie A / Serie B / Serie C
+      - Competizioni UEFA principali (Champions, Europa, Conference) o loro mapping coppe
+    """
+    target_cats = {
+        'Italy - Serie A', 'Italy - Serie B', 'Italy - Serie C',
+        'UEFA Champions League', 'UEFA Europa League', 'Conference League', 'Coppa Italia'
+    }
+    if effective_category_src not in target_cats:
+        return False
+    # Match competizioni esplicite
+    for rx in _BLOCK_COMPETITION_REGEX:
+        if rx.search(raw_event):
+            return True
+    # Match token generici (youth, women, primavera, ecc.)
+    for rx in _BLOCK_TOKEN_REGEX:
+        if rx.search(raw_event):
+            return True
+    return False
+
 BASE_CATEGORIES = {
     'Italy - Serie A', 'Italy - Serie B', 'Italy - Serie C',
     'UEFA Champions League', 'UEFA Europa League', 'Conference League', 'Coppa Italia',
@@ -648,6 +696,9 @@ def main():
                         display_event = f"Euroleague: {base_title}"
                     elif re.search(r'Coppa Italia', raw_event, re.IGNORECASE) and not re.match(r'^Coppa Italia', base_title, re.IGNORECASE):
                         display_event = f"Coppa Italia Basket: {base_title}"
+                # Applica filtro eventi women/youth per categorie indicate
+                if _is_blocked_women_youth(effective_category_src, raw_event):
+                    continue
                 external_name, internal_desc = build_titles(effective_category_src, display_event, rome_dt)
                 logo = build_logo(effective_category_src, raw_event)
                 streams_list = []
@@ -691,6 +742,12 @@ def main():
         print("Categorie viste (dopo cleaning):")
         for k,v in sorted(debug_categories.items()):
             print(f" - {k}: {v} eventi grezzi")
+        # Post-processing: inject PD streams & update pdUrlF for static channels
+        try:
+            from pig_channels import run_post_live
+            run_post_live(OUTPUT_FILE, TV_CHANNELS_DB, dry_run=False)
+        except Exception as e:
+            print(f"[PD] Post-processing failed: {e}")
     except Exception as e:
         print(f"Errore scrittura output: {e}")
 
