@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.14](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.13...v1.1.14) (2025-09-18)
+
+
+### Bug Fixes
+
+* domains update ([fb5d789](https://github.com/qwertyuiop8899/streamvix/commit/fb5d789faf2508db8820cd9192c16658fe1cdc55))
+
 ## [1.1.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.12...v1.1.13) (2025-09-17)
 
 
