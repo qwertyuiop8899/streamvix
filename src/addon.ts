@@ -1934,7 +1934,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             try {
                                 const pdUrl = (channel as any).pdUrlF;
                                 if (pdUrl && !streams.some(s => s.url === pdUrl)) {
-                                    streams.push({
+                                    // Inserisci il flusso PD sempre in prima posizione
+                                    streams.unshift({
                                         url: pdUrl,
                                         title: `[P🐽D] ${channel.name}`
                                     });
