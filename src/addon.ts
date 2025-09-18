@@ -1929,6 +1929,21 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         dynamicHandled = true;
                     } else {
                         // staticUrlF: Direct for non-dynamic
+                        // pdUrlF: nuovo flusso provider [PD] (derivato da playlist) da mostrare sempre se presente
+                        if ((channel as any).pdUrlF) {
+                            try {
+                                const pdUrl = (channel as any).pdUrlF;
+                                if (pdUrl && !streams.some(s => s.url === pdUrl)) {
+                                    streams.push({
+                                        url: pdUrl,
+                                        title: `[PD] ${channel.name}`
+                                    });
+                                    debugLog(`Aggiunto pdUrlF Direct: ${pdUrl}`);
+                                }
+                            } catch (e) {
+                                debugLog('Errore aggiunta pdUrlF', (e as any)?.message || e);
+                            }
+                        }
                         if ((channel as any).staticUrlF) {
                             const originalF = (channel as any).staticUrlF;
                             const nameLower = (channel.name || '').toLowerCase().trim();
