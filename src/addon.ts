@@ -1936,7 +1936,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 if (pdUrl && !streams.some(s => s.url === pdUrl)) {
                                     streams.push({
                                         url: pdUrl,
-                                        title: `[PD] ${channel.name}`
+                                        title: `[P🐽D] ${channel.name}`
                                     });
                                     debugLog(`Aggiunto pdUrlF Direct: ${pdUrl}`);
                                 }
