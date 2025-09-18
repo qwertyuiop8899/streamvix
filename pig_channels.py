@@ -310,7 +310,8 @@ def inject_pd_streams(entries: List[Dict[str, Any]], playlist_entries: List[Dict
             already = any(s for s in streams if isinstance(s, dict) and s.get('url') == url)
             if already:
                 continue
-            streams.append({'url': url, 'title': f'[PD] {channel_label}'})
+            # Inserisci sempre in testa per priorità
+            streams.insert(0, {'url': url, 'title': f'[P🐽D] {channel_label}'})
             injected += 1
     # SECOND PASS: single-event (no vs) token-based matching.
     # Build index of dynamic events without vs by token set (minimum 2 tokens to reduce noise).
@@ -362,7 +363,8 @@ def inject_pd_streams(entries: List[Dict[str, Any]], playlist_entries: List[Dict
             streams = ev.setdefault('streams', [])
             if any(s for s in streams if isinstance(s, dict) and s.get('url') == url):
                 continue
-            streams.append({'url': url, 'title': f'[PD] {channel_label}'})
+            # Inserisci sempre in testa per priorità (single-event)
+            streams.insert(0, {'url': url, 'title': f'[P🐽D] {channel_label}'})
             injected += 1
 
     print(f"[PD] Dynamic events injected streams: {injected} (candidates matched: {candidate_events}, allowed broadcaster sports: {allowed_broadcaster_events}){' (dry-run only)' if dry_run else ''}")
