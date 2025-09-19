@@ -743,11 +743,20 @@ def main():
         for k,v in sorted(debug_categories.items()):
             print(f" - {k}: {v} eventi grezzi")
         # Post-processing: inject PD streams & update pdUrlF for static channels
+        print("[PD][HOOK] Avvio post-processing pig_channels ...")
+        print(f"[PD][HOOK] OUTPUT_FILE={OUTPUT_FILE} TV_CHANNELS_DB={TV_CHANNELS_DB}")
         try:
+            import importlib, importlib.util, sys as _sys
+            if 'pig_channels' in globals() or 'pig_channels' in _sys.modules:
+                print("[PD][HOOK] pig_channels già caricato, riutilizzo modulo")
             from pig_channels import run_post_live
+            print("[PD][HOOK] run_post_live importato, esecuzione...")
             run_post_live(OUTPUT_FILE, TV_CHANNELS_DB, dry_run=False)
+            print("[PD][HOOK] post-processing completato")
         except Exception as e:
-            print(f"[PD] Post-processing failed: {e}")
+            import traceback as _tb
+            print(f"[PD][HOOK][ERR] Post-processing failed: {e}")
+            _tb.print_exc()
     except Exception as e:
         print(f"Errore scrittura output: {e}")
 
