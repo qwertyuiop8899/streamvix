@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.18](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.17...v1.1.18) (2025-09-19)
+
+
+### Bug Fixes
+
+* addon pgz ([4391fe3](https://github.com/qwertyuiop8899/streamvix/commit/4391fe32182728c271ddbf242c8d068a717c7202))
+
 ## [1.1.17](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.16...v1.1.17) (2025-09-19)
 
 
