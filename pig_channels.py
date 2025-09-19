@@ -166,6 +166,11 @@ def is_allowed_broadcaster(label: str) -> bool:
 # ---------------------------------------------------------------------------
 ITALIAN_CHANNEL_NAME_RE = re.compile(r"\b(Rai ?[0-9A-Z]?|Rai ?[A-Z][a-z]+|Sky ?Sport ?[0-9A-Za-z]*|Sky ?Cinema ?[A-Za-z]*|Canale 5|Italia 1|Rete 4|Mediaset|Eurosport ?[12]?|DAZN ?[0-9]?|Dazn ?[0-9]?|Cine34|Top ?Crime|Motor Trend)\b", re.IGNORECASE)
 
+# Whitelist mapping per nomi playlist speciali che devono corrispondere a canali statici esistenti.
+# In particolare: "Sky Calcio 1 (251)" .. "Sky Calcio 1 (257)" -> "Sky Sport 251" .. "Sky Sport 257".
+# Estendiamo il mapping preventivamente fino a 269 per coprire future assegnazioni
+SKY_CALCIO_SPECIAL_MAP = { str(n): f"Sky Sport {n}" for n in range(251, 270) }
+
 def update_static_channels(entries: List[Dict[str, Any]], tv_channels_path: Path, dry_run: bool) -> int:
     if not tv_channels_path.exists():
         print(f"[PD] tv_channels.json not found at {tv_channels_path}")
@@ -205,10 +210,22 @@ def update_static_channels(entries: List[Dict[str, Any]], tv_channels_path: Path
         disp = e['display']
         # Remove channel suffix tokens for match
         base_name = re.sub(r"\b(Italy|IT)\b", "", disp, flags=re.IGNORECASE).strip()
-        # Remove trailing spaces and repeated tokens
-        base_name = re.sub(r"\s+", " ", base_name)
-        # Some playlist entries append country again; remove trailing ' Italy'
+        # Normalization specifica per nuove denominazioni SKY CALCIO -> SKY SPORT 25x
+        # Esempio playlist: "Sky Calcio 1 (251)" -> static channel name: "Sky Sport 251"
+        # Cattura pattern Sky Calcio <n> (<25x>)
+        m_calcio = re.match(r"(?i)^Sky\s+Calcio\s+\d+\s*\((25\d)\)", base_name)
+        if m_calcio:
+            num = m_calcio.group(1)
+            mapped = SKY_CALCIO_SPECIAL_MAP.get(num)
+            if mapped:
+                base_name = mapped
+                # Log minimal debug once per match key (avoid flooding) -> print only in dry_run to surface mapping quickly
+                if dry_run:
+                    print(f"[PD][MAP] Playlist '{disp}' mappato -> '{base_name}'")
+        # Rimuove eventuale doppia occorrenza country
         base_name = re.sub(r"\s+Italy$", "", base_name, flags=re.IGNORECASE)
+        # Riduci spazi
+        base_name = re.sub(r"\s+", " ", base_name)
         key = norm_key(base_name)
         if not key:
             continue
