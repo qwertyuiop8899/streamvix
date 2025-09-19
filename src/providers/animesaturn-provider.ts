@@ -186,6 +186,8 @@ function normalizeTitleForSearch(title: string): string {
     "Parasyte: The Maxim": "Kiseijuu",
     "Attack on Titan OAD": "L'attacco dei Giganti: Il taccuino di Ilse Sub ITA",
     "Fullmetal Alchemist: Brotherhood": "Fullmetal Alchemist Brotherhood",
+    "Slam Dunk: Shohoku Maximum Crisis! Burn Sakuragi Hanamichi": "Slam Dunk: Shouhoku Saidai no Kiki! Moero Sakuragi Hanamichi",
+
 
 
 
