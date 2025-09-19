@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.18...v1.2.0) (2025-09-19)
+
+
+### Features
+
+* **normalize:** add "Slam Dunk: National Domination! Sakuragi Hanamichi" ([c31d041](https://github.com/qwertyuiop8899/streamvix/commit/c31d041005125da8f97216ebde6d456fc5c1bf21))
+
+
+### Bug Fixes
+
+* pd channels ([41b1c8d](https://github.com/qwertyuiop8899/streamvix/commit/41b1c8d6c7fbd443dbd10b47142dc17a9c561896))
+
 ## [1.1.18](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.17...v1.1.18) (2025-09-19)
 
 
