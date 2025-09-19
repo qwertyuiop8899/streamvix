@@ -698,6 +698,91 @@ let globalAddonInterface: any;
 let globalRouter: any;
 let lastDisableLiveTvFlag: boolean | undefined;
 
+// === Lightweight watcher state for static tv_channels.json reload ===
+let _staticFilePath: string | null = null;
+let _staticFileLastMtime = 0;
+let _staticFileLastHash = '';
+function _computeHash(buf: Buffer): string { try { return crypto.createHash('md5').update(buf).digest('hex'); } catch { return ''; } }
+function _resolveStaticPath(): string {
+    if (_staticFilePath && fs.existsSync(_staticFilePath)) return _staticFilePath;
+    const candidates = [
+        path.join(__dirname, '..', 'config', 'tv_channels.json'),
+        path.join(process.cwd(), 'config', 'tv_channels.json'),
+        path.join(__dirname, 'config', 'tv_channels.json')
+    ];
+    for (const c of candidates) { if (fs.existsSync(c)) { _staticFilePath = c; return c; } }
+    return candidates[0];
+}
+function _loadStaticChannelsIfChanged(force = false) {
+    try {
+        const p = _resolveStaticPath();
+        if (!fs.existsSync(p)) return;
+        const st = fs.statSync(p);
+        const mtime = st.mtimeMs;
+        if (!force && mtime === _staticFileLastMtime) return; // quick check
+        const raw = fs.readFileSync(p);
+        const h = _computeHash(raw);
+        if (!force && mtime === _staticFileLastMtime && h === _staticFileLastHash) return;
+        const parsed = JSON.parse(raw.toString('utf-8'));
+        if (!Array.isArray(parsed)) return;
+        staticBaseChannels = parsed;
+        _staticFileLastMtime = mtime;
+        _staticFileLastHash = h;
+        // Count pdUrlF present
+        let pdCount = 0; let total = parsed.length;
+        for (const c of parsed) if (c && c.pdUrlF) pdCount++;
+        console.log(`[TV][RELOAD] staticBaseChannels reloaded: total=${total} pdUrlF=${pdCount} mtime=${new Date(mtime).toISOString()} hash=${h.slice(0,12)}`);
+    } catch (e) {
+        console.warn('[TV][RELOAD] errore reload static tv_channels:', (e as any)?.message || e);
+    }
+}
+// WATCH UNIFICATO: controlla sia static (tv_channels.json) che dynamic (dynamic_channels.json)
+//   - Intervallo configurabile con WATCH_INTERVAL_MS (fallback: TV_STATIC_WATCH_INTERVAL_MS / DYNAMIC_WATCH_INTERVAL_MS / 300000)
+//   - Static: usa _loadStaticChannelsIfChanged (già fa hash/mtime e log solo se cambia)
+//   - Dynamic: calcola mtime+hash e se cambia invalida+reload
+(() => {
+    try {
+        const intervalMs = parseInt(process.env.WATCH_INTERVAL_MS || process.env.TV_STATIC_WATCH_INTERVAL_MS || process.env.DYNAMIC_WATCH_INTERVAL_MS || '300000', 10); // default 5m
+        let lastDynMtime = 0; let lastDynHash = '';
+        function checkDynamicOnce() {
+            try {
+                const p = getDynamicFilePath();
+                if (!p || !fs.existsSync(p)) return;
+                const st = fs.statSync(p);
+                const raw = fs.readFileSync(p);
+                const h = _computeHash(raw);
+                if (st.mtimeMs !== lastDynMtime || h !== lastDynHash) {
+                    const oldShort = lastDynHash.slice(0,8);
+                    lastDynMtime = st.mtimeMs; lastDynHash = h;
+                    invalidateDynamicChannels();
+                    const dyn = loadDynamicChannels(true);
+                    console.log(`[WATCH][DYN] reload (changed) oldHash=${oldShort} newHash=${h.slice(0,8)} count=${dyn.length}`);
+                }
+            } catch (e) {
+                console.warn('[WATCH][DYN] errore controllo dynamic:', (e as any)?.message || e);
+            }
+        }
+        function loop() {
+            try {
+                _loadStaticChannelsIfChanged(false);
+                checkDynamicOnce();
+            } finally {
+                // next tick gestito da setInterval
+            }
+        }
+        // primo giro: forziamo static + dynamic
+        setTimeout(() => { _loadStaticChannelsIfChanged(true); checkDynamicOnce(); }, 1500);
+        setInterval(loop, Math.max(60000, intervalMs));
+        console.log(`[WATCH] unificato attivo ogni ${Math.max(60000, intervalMs)}ms (default 5m)`);
+    } catch (e) {
+        console.log('[WATCH] init failed', (e as any)?.message || e);
+    }
+})();
+
+// (RIMOSSO) watcher dinamico separato (ora unificato sopra)
+
+// (RIMOSSO) Adaptive windows: sostituito da watcher semplice costante.
+
 // =====================================
 // [P🐽D] STARTUP DIAGNOSTICS (container parity)
 // Attivabile con env: DIAG_PD=1 (default ON per ora salvo DIAG_PD=0)
@@ -3144,6 +3229,38 @@ app.get('/live/reload', (_: Request, res: Response) => {
         res.json({ ok: true, dynamicCount: dyn.length });
     } catch (e: any) {
         res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
+// ================= MANUAL STATIC CHANNELS RELOAD ===============
+// GET /static/reload?token=XYZ (token optional if STATIC_RELOAD_TOKEN set)
+// Forza il ricaricamento di config/tv_channels.json (anche se mtime identico) e restituisce statistiche
+app.get('/static/reload', (req: Request, res: Response) => {
+    try {
+        const requiredToken = process?.env?.STATIC_RELOAD_TOKEN;
+        const provided = (req.query.token as string) || '';
+        if (requiredToken && provided !== requiredToken) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+        const beforeHash = _staticFileLastHash;
+        const beforeMtime = _staticFileLastMtime;
+        _loadStaticChannelsIfChanged(true); // forza reload
+        const changed = (_staticFileLastHash !== beforeHash) || (_staticFileLastMtime !== beforeMtime);
+        let pdCount = 0;
+        for (const c of staticBaseChannels) if (c && (c as any).pdUrlF) pdCount++;
+        const total = staticBaseChannels.length;
+        console.log(`[TV][RELOAD][API] /static/reload changed=${changed} total=${total} pdUrlF=${pdCount} hash=${_staticFileLastHash.slice(0,12)}`);
+        return res.json({
+            ok: true,
+            changed,
+            total,
+            pdUrlF: pdCount,
+            mtime: _staticFileLastMtime ? new Date(_staticFileLastMtime).toISOString() : null,
+            hash: _staticFileLastHash,
+        });
+    } catch (e: any) {
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
     }
 });
 // =============================================================
