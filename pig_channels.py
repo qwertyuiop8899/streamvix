@@ -34,6 +34,7 @@ import argparse
 import json
 import re
 import sys
+import traceback
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 
@@ -378,16 +379,23 @@ def inject_pd_streams(entries: List[Dict[str, Any]], playlist_entries: List[Dict
 # Orchestrator
 # ---------------------------------------------------------------------------
 def run_post_live(dynamic_path: str | Path, tv_channels_path: str | Path, dry_run: bool = False):
+    print(f"[PD][BOOT] pig_channels.run_post_live start dry_run={dry_run}")
     dynamic_p = Path(dynamic_path)
     tv_p = Path(tv_channels_path)
+    print(f"[PD][PATH] dynamic={dynamic_p} exists={dynamic_p.exists()} size={dynamic_p.stat().st_size if dynamic_p.exists() else 'NA'}")
+    print(f"[PD][PATH] tv_channels={tv_p} exists={tv_p.exists()} size={tv_p.stat().st_size if tv_p.exists() else 'NA'}")
 
     # 1. Channels playlist (static enrichment)
     try:
+        print(f"[PD][HTTP] GET channels playlist: {PLAYLIST_URL}")
         ch_resp = requests.get(PLAYLIST_URL, timeout=25)
+        print(f"[PD][HTTP] channels status={ch_resp.status_code} bytes={len(ch_resp.text)}")
         ch_resp.raise_for_status()
         channels_entries = parse_m3u(ch_resp.text)
+        print(f"[PD][PARSE] channels entries={len(channels_entries)}")
     except Exception as e:
-        print(f"[PD] Failed to download channels playlist: {e}")
+        print(f"[PD][ERR] Failed to download channels playlist: {e}")
+        traceback.print_exc()
         channels_entries = []
 
     if channels_entries:
@@ -397,21 +405,32 @@ def run_post_live(dynamic_path: str | Path, tv_channels_path: str | Path, dry_ru
 
     # 2. Events playlist (dynamic injection)
     try:
+        print(f"[PD][HTTP] GET events playlist: {EVENTS_PLAYLIST_URL}")
         ev_resp = requests.get(EVENTS_PLAYLIST_URL, timeout=25)
+        print(f"[PD][HTTP] events status={ev_resp.status_code} bytes={len(ev_resp.text)}")
         ev_resp.raise_for_status()
         events_entries = parse_m3u(ev_resp.text)
+        print(f"[PD][PARSE] events entries={len(events_entries)}")
     except Exception as e:
-        print(f"[PD] Failed to download events playlist: {e}")
+        print(f"[PD][ERR] Failed to download events playlist: {e}")
+        traceback.print_exc()
         events_entries = []
 
     dynamic_events = load_dynamic(dynamic_p)
+    print(f"[PD][STATE] dynamic_events={len(dynamic_events) if dynamic_events else 0} events_entries={len(events_entries) if events_entries else 0}")
     if dynamic_events and events_entries:
-        inject_pd_streams(dynamic_events, events_entries, dry_run=dry_run)
-        save_dynamic(dynamic_p, dynamic_events, dry_run=dry_run)
+        try:
+            inject_pd_streams(dynamic_events, events_entries, dry_run=dry_run)
+            save_dynamic(dynamic_p, dynamic_events, dry_run=dry_run)
+            print("[PD][DONE] Injection + save complete")
+        except Exception as e:
+            print(f"[PD][ERR] Injection failed: {e}")
+            traceback.print_exc()
     elif dynamic_events and not events_entries:
-        print("[PD] Events playlist empty -> no PD injections this run")
+        print("[PD][INFO] Events playlist empty -> no PD injections this run")
     else:
-        print("[PD] Dynamic file empty or not found, skipping injection")
+        print("[PD][INFO] Dynamic file empty or not found, skipping injection")
+    print("[PD][END] run_post_live finished")
 
 
 def _parse_args(argv: List[str]) -> argparse.Namespace:
