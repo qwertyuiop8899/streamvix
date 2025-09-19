@@ -482,7 +482,7 @@ function decodeStaticUrl(url: string): string {
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "7.6.23",
+    version: "7.5.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -697,6 +697,79 @@ let globalBuilder: any;
 let globalAddonInterface: any;
 let globalRouter: any;
 let lastDisableLiveTvFlag: boolean | undefined;
+
+// =====================================
+// [P🐽D] STARTUP DIAGNOSTICS (container parity)
+// Attivabile con env: DIAG_PD=1 (default ON per ora salvo DIAG_PD=0)
+// Stampa informazioni su:
+//  - Presenza & hash di pig_channels.py
+//  - Presenza & hash di config/tv_channels.json
+//  - Presenza, size, mtime del dynamic_channels.json selezionato (via getDynamicFilePath)
+//  - Conteggio rapida occorrenze label "[P🐽D]" nel dynamic_channels.json (per confermare injection)
+// =====================================
+(() => {
+    try {
+        const envVal = (process?.env?.DIAG_PD || '1').toString().toLowerCase();
+        if (['0','false','off','no'].includes(envVal)) {
+            return; // diagnostics disabilitata
+        }
+        const root = path.join(__dirname, '..');
+        const fileInfo = (rel: string) => {
+            const p = path.join(root, rel);
+            if (!fs.existsSync(p)) return { path: p, exists: false, size: 0, mtime: 0, md5: '' };
+            const st = fs.statSync(p);
+            let md5 = '';
+            try { md5 = crypto.createHash('md5').update(fs.readFileSync(p)).digest('hex'); } catch {}
+            return { path: p, exists: true, size: st.size, mtime: st.mtimeMs, md5 };
+        };
+        const pig = fileInfo('pig_channels.py');
+        const tvc = fileInfo('config/tv_channels.json');
+        // dynamic file path discovery (may live in /tmp or config/)
+        let dynPath = '';
+        let dynStats: any = { path: '', exists: false, size: 0, mtime: 0, md5: '', pdStreams: 0 };
+        try {
+            dynPath = getDynamicFilePath();
+            if (dynPath && fs.existsSync(dynPath)) {
+                const st = fs.statSync(dynPath);
+                let md5 = '';
+                try { md5 = crypto.createHash('md5').update(fs.readFileSync(dynPath)).digest('hex'); } catch {}
+                // Quick scan for label occurrences (keep light: don't parse JSON if huge)
+                let pdStreams = 0;
+                try {
+                    const raw = fs.readFileSync(dynPath, 'utf-8');
+                    // Count occurrences of string "[P🐽D]" (label start) to confirm injection; fallback to "[P" if pig emoji missing fonts
+                    const re = /\[P🐽D\]/g; // literal match
+                    const reAlt = /\[P.D\]/g; // extremely defensive (unlikely)
+                    const matches = raw.match(re);
+                    pdStreams = matches ? matches.length : 0;
+                    if (!pdStreams) {
+                        const alt = raw.match(reAlt);
+                        if (alt) pdStreams = alt.length;
+                    }
+                } catch {}
+                dynStats = { path: dynPath, exists: true, size: st.size, mtime: st.mtimeMs, md5, pdStreams };
+            } else {
+                dynStats = { path: dynPath || '(empty)', exists: false, size: 0, mtime: 0, md5: '', pdStreams: 0 };
+            }
+        } catch (e) {
+            dynStats = { path: dynPath || '(error)', exists: false, size: 0, mtime: 0, md5: '', err: String(e), pdStreams: 0 };
+        }
+        const fmtTime = (ms: number) => {
+            if (!ms) return 0;
+            try { return new Date(ms).toISOString(); } catch { return ms; }
+        };
+        console.log('[P🐽D][DIAG] pig_channels.py', { exists: pig.exists, size: pig.size, mtime: fmtTime(pig.mtime), md5: pig.md5.slice(0,12) });
+        console.log('[P🐽D][DIAG] tv_channels.json', { exists: tvc.exists, size: tvc.size, mtime: fmtTime(tvc.mtime), md5: tvc.md5.slice(0,12) });
+        console.log('[P🐽D][DIAG] dynamic_channels.json', { path: dynStats.path, exists: dynStats.exists, size: dynStats.size, mtime: fmtTime(dynStats.mtime), md5: (dynStats.md5||'').slice(0,12), pdLabelCount: dynStats.pdStreams });
+        if (!dynStats.exists) {
+            console.warn('[P🐽D][DIAG] dynamic_channels.json NON TROVATO al bootstrap – Live.py o pig_channels.py non ancora eseguiti nel container?');
+        } else if (dynStats.exists && dynStats.pdStreams === 0) {
+            console.warn('[P🐽D][DIAG] dynamic_channels.json presente ma CONTATORE label [P🐽D] = 0 – possibili cause: pig_channels non eseguito / label diversa / build cache vecchia.');
+        }
+    } catch (e) {
+        try { console.error('[P🐽D][DIAG] Errore diagnostics startup:', e); } catch {}
+    }
+})();
 
 // Cache per i link Vavoo
 interface VavooCache {
