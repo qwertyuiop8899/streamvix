@@ -38,10 +38,11 @@ import traceback
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 
-import requests
+import requests, socket, urllib.request, time
 
 PLAYLIST_URL = "https://raw.githubusercontent.com/pigzillaaa/daddylive/refs/heads/main/daddylive-channels.m3u8"  # channels (static)
 EVENTS_PLAYLIST_URL = "https://raw.githubusercontent.com/pigzillaaa/daddylive/refs/heads/main/daddylive-events.m3u8"  # events (matches)
+FALLBACK_EVENTS_URL = "https://world-proxifier.xyz/daddylive/playlist.m3u8"  # fallback events if GitHub not reachable
 
 # ---------------------------------------------------------------------------
 # Parsing M3U
@@ -76,7 +77,11 @@ def parse_m3u(text: str) -> List[Dict[str, Any]]:
                 })
         i += 1
     return out
-
+RELAX_KEYWORDS = [
+    'SERIE A','SERIE B','SERIE C','COPPA','CHAMPIONS LEAGUE','EUROPA LEAGUE','CONFERENCE LEAGUE','SUPERCOPPA',
+    'FORMULA 1','F1','MOTOGP','ROLAND GARROS','WIMBLEDON','US OPEN','AUSTRALIAN OPEN','ATP','WTA','TENNIS',
+    'VOLLEY','VOLLEYBALL'
+]
 # ---------------------------------------------------------------------------
 # Normalization helpers
 # ---------------------------------------------------------------------------
@@ -143,23 +148,30 @@ def extract_channel_label_from_display(display: str) -> Optional[str]:
     base = re.sub(r"\b(Italy|Spain|Poland|France|Germany|Portugal|Israel|Croatia|USA|UK|Nederland|Netherlands)\b\s*$", "", display, flags=re.IGNORECASE).strip()
     return base or display.strip()
 
+ITAL_TOKEN_RE = re.compile(r"(\bIT\b|ITALY|ITALIA|ITALIANO|\bITA\b|ITAL)", re.IGNORECASE)
 def is_allowed_broadcaster(label: str) -> bool:
-    """Return True if label contains an allowed Italian-relevant broadcaster.
+    """Return True if label contains an allowed broadcaster + italian token.
 
-    Simplify given playlist variant (some entries lose explicit IT token):
-      Accept if label contains any of SKY SPORT / SKY / DAZN / EUROSPORT / PRIME / AMAZON
-      and (either contains 'IT'/'ITALY' OR label is DAZN / EUROSPORT / PRIME where we relax country).
+    Richiesta: accetta solo se (brand in lista) E (token italiano IT / ITA / ITALY / ITALIA / ITAL / ITALIANO).
+    Brand list: SKY SPORT, SKY, DAZN, EUROSPORT, PRIME, AMAZON.
     """
     L = label.upper()
     brands = ('SKY SPORT', 'SKY', 'DAZN', 'EUROSPORT', 'PRIME', 'AMAZON')
     if not any(b in L for b in brands):
         return False
-    if any(b in L for b in ('PRIME', 'AMAZON', 'DAZN', 'EUROSPORT')):
-        return True  # relax for these
-    # For SKY require IT or ITALY to reduce false positives
-    if 'SKY' in L and (' IT' in L or 'ITALY' in L):
-        return True
-    return False
+    if not ITAL_TOKEN_RE.search(label):
+        return False
+    return True
+
+# Relax competitions: if event belongs to these competition keywords, bypass broadcaster requirement (still need team match)
+RELAX_KEYWORDS = [
+    'SERIE A','SERIE B','SERIE C','COPPA','CHAMPIONS LEAGUE','EUROPA LEAGUE','CONFERENCE LEAGUE','SUPERCOPPA',
+    'FORMULA 1','F1','MOTOGP','ROLAND GARROS','WIMBLEDON','US OPEN','AUSTRALIAN OPEN','ATP','WTA','TENNIS',
+    'VOLLEY','VOLLEYBALL'
+]
+def event_is_relax(name: str) -> bool:
+    up = name.upper()
+    return any(k in up for k in RELAX_KEYWORDS)
 
 # ---------------------------------------------------------------------------
 # Static channels update (pdUrlF)
@@ -300,55 +312,74 @@ def inject_pd_streams(entries: List[Dict[str, Any]], playlist_entries: List[Dict
             if k:
                 event_index.setdefault(k, []).append(ev)
 
+    # Normalizza eventuali simboli dinamici pre-esistenti (🚫/🔴) rimossi dalla logica PD
+    pd_prefix = '[P🐽D]'
+    for ev in entries:
+        streams = ev.get('streams') or []
+        for s in streams:
+            if isinstance(s, dict):
+                tt = s.get('title','')
+                if tt.startswith(pd_prefix):
+                    rest = tt[len(pd_prefix):].lstrip()
+                    # Rimuovi eventuale emoji iniziale ora deprecata
+                    if rest.startswith('🚫') or rest.startswith('🔴'):
+                        rest = rest[1:].lstrip()
+                        s['title'] = f'{pd_prefix} {rest}'.rstrip() if rest else pd_prefix
+
     injected = 0
     candidate_events = 0
     allowed_broadcaster_events = 0
     for pe in playlist_entries:
         attrs = pe['attrs']
         gtitle = attrs.get('group-title', '')
-        if gtitle == 'ITALY':  # skip pure channel lines
+        if gtitle == 'ITALY':
             continue
         display = pe['display']
         teams = extract_teams_from_title(display)
         if not teams:
             continue
         channel_label = extract_channel_label_from_display(display) or ''
-        if not channel_label or not is_allowed_broadcaster(channel_label):
+        if not channel_label:
             continue
-        allowed_broadcaster_events += 1
+        has_it_token = bool(ITAL_TOKEN_RE.search(channel_label))
         k = team_pair_key(teams)
         if not k or k not in event_index:
             continue
-        candidate_events += 1
-        url = pe['url']
+        url = pe.get('url')
         if not url:
             continue
+        candidate_events += 1
         for ev in event_index[k]:
             streams = ev.setdefault('streams', [])
+            rel = event_is_relax(ev.get('name',''))
+            if rel:
+                if not has_it_token:
+                    continue
+            else:
+                if not is_allowed_broadcaster(channel_label):
+                    continue
             already = any(s for s in streams if isinstance(s, dict) and s.get('url') == url)
             if already:
                 continue
-            # Inserisci sempre in testa per priorità
             streams.insert(0, {'url': url, 'title': f'[P🐽D] {channel_label}'})
             injected += 1
     # SECOND PASS: single-event (no vs) token-based matching.
     # Build index of dynamic events without vs by token set (minimum 2 tokens to reduce noise).
-    single_events: List[Dict[str, Any]] = []
     single_index: Dict[str, List[Dict[str, Any]]] = {}
     for ev in entries:
         if extract_teams_from_dynamic_name(ev.get('name','') or ''):
             continue  # skip those with vs (already processed)
-        raw_name = ev.get('name','')
-        # Strip clock and league suffix
+        raw_name = ev.get('name','') or ''
         core = re.sub(r"^⏰\s*\d{1,2}:\d{2}\s*:\s*", "", raw_name)
         core = core.split(' - ')[0]
-        tokens = [t for t in re.split(r"[^A-Za-z0-9]+", core) if t]
+        base = core
+        if ':' in base:
+            base = base.split(':', 1)[1].strip()
+        tokens = [t for t in re.split(r"[^A-Za-z0-9]+", base) if t]
         if len(tokens) < 2:
             continue
         key = '::'.join(sorted(set(t.lower() for t in tokens)))
         single_index.setdefault(key, []).append(ev)
-        single_events.append(ev)
-
     def build_single_key_from_playlist(display: str) -> Optional[str]:
         # Remove broadcaster parentheses and competition colons, take first segment
         base = re.sub(r"\([^()]*\)$", "", display).strip()
@@ -369,19 +400,30 @@ def inject_pd_streams(entries: List[Dict[str, Any]], playlist_entries: List[Dict
             continue
         display = pe['display']
         channel_label = extract_channel_label_from_display(display) or ''
-        if not channel_label or not is_allowed_broadcaster(channel_label):
+        if not channel_label:
             continue
+        has_it_token = bool(ITAL_TOKEN_RE.search(channel_label))
         skey = build_single_key_from_playlist(display)
         if not skey or skey not in single_index:
             continue
-        url = pe['url']
+        url = pe.get('url')
         if not url:
             continue
+        passed_filter = False
         for ev in single_index[skey]:
             streams = ev.setdefault('streams', [])
+            rel = event_is_relax(ev.get('name',''))
+            if rel:
+                if not has_it_token:
+                    continue
+            else:
+                if not is_allowed_broadcaster(channel_label):
+                    continue
+            if not passed_filter:
+                allowed_broadcaster_events += 1
+                passed_filter = True
             if any(s for s in streams if isinstance(s, dict) and s.get('url') == url):
                 continue
-            # Inserisci sempre in testa per priorità (single-event)
             streams.insert(0, {'url': url, 'title': f'[P🐽D] {channel_label}'})
             injected += 1
 
@@ -421,17 +463,67 @@ def run_post_live(dynamic_path: str | Path, tv_channels_path: str | Path, dry_ru
         print("[PD] Skipping static enrichment (no channels entries)")
 
     # 2. Events playlist (dynamic injection)
+    def _dns_log(host: str, tag: str):
+        try:
+            ips = socket.gethostbyname_ex(host)[2]
+            print(f"[PD][DNS][{tag}] {host} -> {','.join(ips)}")
+        except Exception as _e:
+            print(f"[PD][DNS][{tag}][ERR] {host} {_e}")
+    def _fetch_events(url: str) -> str | None:
+        attempts = 3
+        last_err = None
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (compatible; PDFetcher/1.0)',
+            'Accept': '*/*',
+            'Pragma': 'no-cache',
+            'Cache-Control': 'no-cache'
+        }
+        for i in range(1, attempts+1):
+            try:
+                resp = requests.get(url, headers=headers, timeout=20)
+                if resp.ok and '#EXTM3U' in resp.text:
+                    return resp.text
+                last_err = RuntimeError(f"status={resp.status_code}")
+            except Exception as ee:
+                last_err = ee
+            time.sleep(min(2, i))
+        # fallback with urllib
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=20) as r:
+                raw = r.read().decode('utf-8','replace')
+            if '#EXTM3U' in raw:
+                return raw
+        except Exception as ee2:
+            last_err = ee2
+        if last_err:
+            print(f"[PD][FETCH][EVENTS][ERR] {last_err}")
+        return None
+    events_entries = []
     try:
         print(f"[PD][HTTP] GET events playlist: {EVENTS_PLAYLIST_URL}")
-        ev_resp = requests.get(EVENTS_PLAYLIST_URL, timeout=25)
-        print(f"[PD][HTTP] events status={ev_resp.status_code} bytes={len(ev_resp.text)}")
-        ev_resp.raise_for_status()
-        events_entries = parse_m3u(ev_resp.text)
-        print(f"[PD][PARSE] events entries={len(events_entries)}")
+        try:
+            host = urllib.request.urlparse(EVENTS_PLAYLIST_URL).hostname
+            if host: _dns_log(host, 'PRIMARY')
+        except Exception:
+            pass
+        raw_events = _fetch_events(EVENTS_PLAYLIST_URL)
+        if not raw_events and FALLBACK_EVENTS_URL and FALLBACK_EVENTS_URL != EVENTS_PLAYLIST_URL:
+            print(f"[PD][HTTP][FALLBACK] trying events playlist fallback: {FALLBACK_EVENTS_URL}")
+            try:
+                host2 = urllib.request.urlparse(FALLBACK_EVENTS_URL).hostname
+                if host2: _dns_log(host2, 'FALLBACK')
+            except Exception:
+                pass
+            raw_events = _fetch_events(FALLBACK_EVENTS_URL)
+        if raw_events:
+            events_entries = parse_m3u(raw_events)
+            print(f"[PD][PARSE] events entries={len(events_entries)}")
+        else:
+            print("[PD][ERR] Events playlist fetch failed (primary + fallback)")
     except Exception as e:
-        print(f"[PD][ERR] Failed to download events playlist: {e}")
+        print(f"[PD][ERR] Failed events playlist logic: {e}")
         traceback.print_exc()
-        events_entries = []
 
     dynamic_events = load_dynamic(dynamic_p)
     print(f"[PD][STATE] dynamic_events={len(dynamic_events) if dynamic_events else 0} events_entries={len(events_entries) if events_entries else 0}")
