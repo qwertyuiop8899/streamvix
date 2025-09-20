@@ -153,6 +153,359 @@ Se vuoi modificare solo la finestra di visibilità estesa fino a una certa ora, 
 | `DYNAMIC_KEEP_YESTERDAY` | 0 | 1 = con filtro attivo, mantiene anche gli eventi di ieri |
 
 ---
+## 🐽 Integrazione Provider [P🐽D]
+
+L'integrazione [P🐽D] aggiunge flussi prioritari provenienti da playlist esterne per:
+
+1. Canali TV statici italiani esistenti (`tv_channels.json`): viene aggiunto il campo `pdUrlF` se il canale è presente anche nella playlist ITALY (nessuna creazione di nuovi canali).
+2. Eventi sportivi dinamici (`dynamic_channels.json`): vengono iniettati uno o più stream `[P🐽D] <Broadcaster>` in testa alla lista degli stream dell'evento se esiste una corrispondenza tra le squadre (match "Team A vs Team B").
+
+### Caratteristiche
+* Mai creati canali nuovi: solo arricchimento di quelli già presenti.
+* Idempotente: riesecuzioni non duplicano `pdUrlF` né gli stream `[P🐽D]`.
+* Ordinamento: gli stream `[P🐽D]` sono sempre in cima; seguono eventuali stream Vavoo, poi gli altri.
+* Mapping speciale Sky Calcio: nomi tipo `Sky Calcio 1 (251)` → `Sky Sport 251` (esteso automaticamente 251–269).
+* Filtri broadcaster: accetta solo etichette contenenti SKY SPORT / SKY (con IT/ITALY), DAZN, EUROSPORT, PRIME, AMAZON.
+
+### Flusso di Esecuzione
+`Live.py` genera `dynamic_channels.json` → viene eseguito `pig_channels.py` → aggiorna `tv_channels.json` (pdUrlF) + inietta `[P🐽D]` negli eventi → l'addon carica/merge e serve.
+
+### Variabili Ambiente Rilevanti
+| Variabile | Default | Descrizione |
+|-----------|---------|-------------|
+| `WATCH_INTERVAL_MS` | 300000 | Intervallo (ms) loop watcher unificato che ricarica static/dynamic se i file cambiano (fallback: `TV_STATIC_WATCH_INTERVAL_MS` / `DYNAMIC_WATCH_INTERVAL_MS`). |
+| `TV_STATIC_WATCH_INTERVAL_MS` | – | Fallback legacy per l'intervallo static (usato se `WATCH_INTERVAL_MS` non presente). |
+| `DYNAMIC_WATCH_INTERVAL_MS` | – | Fallback legacy per l'intervallo dynamic (usato se `WATCH_INTERVAL_MS` non presente). |
+| `DIAG_PD` | 1 | Abilita diagnostica startup: stampa hash/presenza di `pig_channels.py`, `tv_channels.json`, `dynamic_channels.json` e conteggio label `[P🐽D]`. Mettere `0` per disattivare. |
+| `PYTHON_BIN` | python3 | Binario Python usato per script di arricchimento opzionali. |
+| `DYNAMIC_FILE` | autodetect | Path al file dinamico (passato anche agli script figli se definito). |
+
+### Esecuzione Manuale
+Per rieseguire post-processing manuale:
+```
+python3 pig_channels.py --dynamic /percorso/dynamic_channels.json --tv-config config/tv_channels.json
+```
+
+### Log Principali
+Prefissi:
+* `[PD][BOOT]` avvio script
+* `[PD][HTTP]` download playlist
+* `[PD][PARSE]` parsing M3U
+* `[PD][PATH]` diagnostica file input
+* `[PD][STATE]` riepilogo eventi dinamici trovati
+* `[PD][DONE]` completamento iniezione
+
+### Entry Points / Endpoints [P🐽D]
+
+| Endpoint / Script | Azione | Note |
+|-------------------|--------|------|
+| `/live/update` | Esegue `Live.py` quindi il post-processing `pig_channels.py` | Rigenera completamente `dynamic_channels.json` e re-inietta gli stream `[P🐽D]`. Aggiorna anche `pdUrlF` nei canali statici. |
+| `/live/reload` | Ricarica in memoria il file dinamico già processato | Non rilancia gli script: mantiene le ultime iniezioni `[P🐽D]`. |
+| `/static/reload` | Ricarica i canali statici (`tv_channels.json`) | Utile dopo modifiche manuali a `pdUrlF` o mapping Sky Calcio. |
+| `python3 pig_channels.py --dynamic /path/dynamic_channels.json --tv-config config/tv_channels.json` | Post-processing manuale standalone | Non rigenera gli eventi: ri-applica solo l'arricchimento `[P🐽D]` e `pdUrlF`. |
+
+Re-iniezione rapida senza aspettare la prossima finestra schedulata:
+1. Modifica playlist esterna / mapping.
+2. Chiama `/live/update` (o esegui `Live.py` manualmente) per pipeline completa, oppure esegui direttamente `pig_channels.py` se vuoi solo reiniettare.
+
+Diagnostica iniziale (se `DIAG_PD=1`) mostra:
+* Conteggio stream `[P🐽D]` trovati negli eventi
+* Quanti canali statici hanno `pdUrlF`
+* Hash/mtime dei file coinvolti
+
+---
+## 🛰️ Integrazione RB77 / RBTV (Streams `[RB77🇮🇹]`)
+
+La sorgente RB77 (script `rbtv_streams.py`) arricchisce gli eventi dinamici con flussi marcati esplicitamente come italiani tramite tag tra parentesi quadre (es. `[HDD B ITALIANO]`, `[SD ITA]`, `[VDO ITALY]`).
+
+### Obiettivi
+* Iniettare solo varianti chiaramente italiane (riducendo falsi positivi tipo “digital”).
+* Persistenza dei flussi: una volta scoperti restano associati all'evento anche fuori finestra (con simbolo aggiornato).
+* Matching squadre molto preciso per evitare contaminazioni tra partite diverse (nessun cross-match Udinese↔Verona ecc.).
+* Supporto eventi single-entity (MotoGP / F1 / Tennis) tramite elenco keyword.
+
+### Finestra Discovery
+| Parametro | Descrizione |
+|-----------|-------------|
+| `RBTV_DISCOVERY_BEFORE_MIN` | Minuti prima dell'`eventStart` in cui iniziare a cercare (default 15) |
+| `RBTV_DISCOVERY_AFTER_MIN` | Minuti dopo l'inizio evento in cui continuare ad aggiungere nuove varianti (default 10) |
+| `RBTV_FORCE` | Se impostata (1/true) ignora completamente le finestre e prova per tutti gli eventi (utile test) |
+
+Fuori finestra (e non in force) lo script aggiorna solo l'emoji (🚫 / 🔴) dei flussi già presenti e prova un restore da cache se il titolo è scomparso.
+
+### Filtraggio Lingua
+Accetta SOLO titoli che abbiano almeno un tag tra parentesi quadre contenente token italiani:
+`ita`, `italy`, `italia`, `italiano`, oppure forme parziali `ital` se configurate.
+
+Variabili:
+| Variabile | Default | Note |
+|-----------|---------|------|
+| `RBTV_LANG_KEYWORDS` | `italiano,italia,italy,ita,[ita]` | Lista include (csv, case-insensitive) |
+| `RBTV_EXCLUDE_KEYWORDS` | (lista lingue estere) | Esclude se matcha (evita english, spanish, ecc.) |
+| `RBTV_STRICT` | 0 | Se 1 richiede presenza `[ITA]` o parola intera italy/italia/italiano |
+
+### Matching Squadre (Duo)
+1. Parse nome evento (pattern `Team A vs Team B`) usando l'ULTIMO separatore `v|vs|vs.` presente nel titolo (elimina prefissi tipo "Serie A - ").
+2. Normalizzazione: minuscole, rimozione rumore (ac, fc, calcio, club, anni), mapping sinonimi (`internazionale→inter`, `hellas→verona`, `juventus→juve`, ecc.).
+3. Confronto ordine-indipendente (set esatto). Solo se entrambe le coppie coincidono viene accettato direttamente.
+4. (Opzionale) Fuzzy: se il match esatto fallisce e fuzzy abilitato verifica due possibili accoppiamenti con `difflib.SequenceMatcher` usando soglia media e minima per singolo team.
+5. Partial / single-side matching DISATTIVATI di default (riduce rumorosità). Possono essere riattivati con `RBTV_ALLOW_PARTIAL=1`.
+
+### Variabili Matching / Debug
+| Variabile | Default | Descrizione |
+|-----------|---------|-------------|
+| `RBTV_FUZZY_RATIO` | 0.75 | Soglia media fuzzy (clamp 0.5–0.95). Per-team min = max(0.55, soglia-0.2) |
+| `RBTV_ALLOW_PARTIAL` | 0 | Se 1 riabilita match parziali / single-side (sconsigliato in produzione) |
+| `RBTV_DEBUG_MATCH` | 0 | Log dettagli per ogni titolo saltato / accettato |
+| `RBTV_DEBUG_SUMMARY` | 0 | Riepilogo per evento (conteggio exact/partial/single/fuzzy) |
+| `RBTV_MAX_VARIANTS` | 0 | Limita numero varianti per stesso incontro (scoring HDD B > HDD A > VDO > SD) |
+
+### Simboli Dinamici
+| Simbolo | Significato |
+|---------|-------------|
+| 🚫 | Mancano >10 minuti allo start evento |
+| 🔴 | Evento imminente (≤10 min) o iniziato |
+
+Aggiornati anche fuori discovery per flussi già persistiti.
+
+### Ordinamento Configurato
+Gli stream `[RB77🇮🇹]` si inseriscono:
+1. Dopo blocco iniziale `[P🐽D]` (broadcaster ufficiali) + eventuali altri 🇮🇹 non RB77 già presenti all’inizio.
+2. Prima dei flussi `[Strd]`.
+3. Prima di eventuali leftover dinamici.
+
+### Persistenza
+File cache: `/tmp/rbtv_streams_persist.json` contiene per-evento i flussi RB77 già scoperti; se il file dinamico viene rigenerato gli stessi stream vengono reiniettati (con prefisso aggiornato) purché l’evento esista ancora.
+
+### Esempio Tuning
+| Obiettivo | Azione |
+|----------|--------|
+| Rendere matching ancora più severo | Aumenta `RBTV_FUZZY_RATIO` a 0.8–0.85 e lascia `RBTV_ALLOW_PARTIAL=0` |
+| Consentire varianti parziali (nomi incompleti) | `RBTV_ALLOW_PARTIAL=1` (attenzione a possibili cross-match) |
+| Limitare varianti per pulizia UI | `RBTV_MAX_VARIANTS=2` |
+| Debug profondo | `RBTV_DEBUG_MATCH=1 RBTV_DEBUG_SUMMARY=1` |
+
+### Troubleshooting Rapido RB77
+| Sintomo | Possibile Causa | Soluzione |
+|---------|-----------------|-----------|
+| Nessun flusso RB77 appare | Fuori discovery e `RBTV_FORCE` non impostato | Imposta `RBTV_FORCE=1` per test oppure attendi finestra |
+| Flussi non marcati 🚫 / 🔴 correttamente | Clock server timezone non UTC o `eventStart` formattato male | Verifica ISO `eventStart` (termina con Z) |
+| Cross-match tra partite | `RBTV_ALLOW_PARTIAL=1` attivo + fuzzy troppo basso | Disabilita partial o alza soglia fuzzy |
+| Varianti eccessive stesso match | Nessun limite e playlist include A/B/SD/VDO | Imposta `RBTV_MAX_VARIANTS` |
+| Playlist vuota | URL non raggiungibile o filtri italiani troppo stretti | Disabilita `RBTV_STRICT` temporaneamente e controlla log fetch |
+
+### Roadmap Facoltativa
+* De-duplicazione tra eventi invertiti (A vs B / B vs A) selezionando evento primario.
+* Lista sinonimi estesa (Serie B/C) caricabile da file esterno.
+* Modalità “audit” che salva CSV con motivazioni di skip.
+
+---
+## 🌊 Integrazione Playlist Streamed ([Strd])
+
+Arricchisce gli eventi sportivi dinamici con stream provenienti da una playlist M3U esterna. Funzione disabilitata di default. (Vecchio prefisso legacy `[Streamed]` ancora riconosciuto per evitare duplicati durante la transizione.)
+
+### Novità / Miglioramenti
+* Prefisso più corto: `[Strd]`.
+* Matching fuzzy tollerante: ordine squadre invertito, descrizioni aggiuntive, tag finali vengono ignorati.
+* Supporto eventi single-entity / tournament (F1, MotoGP, Tennis, coppe, practice/qualifying): matching per parole chiave con soglia configurabile.
+* Modalità debug per vedere i match fuzzy accettati.
+* Sottotoken opzionali (es: "man" dentro "manchester") disattivabili.
+
+### Matching Squadre (Duo)
+1. Parse del nome evento `⏰ HH:MM : Team A vs Team B - League ...` per estrarre `Team A`, `Team B`.
+2. Normalizzazione: rimozione prefissi (AC/AS/FC/US/SSC...), mapping speciali (Inter, Milan, Juventus, ecc.), fallback ultimo token.
+3. Match diretto esatto ordine-indipendente se il titolo playlist contiene esplicitamente le due parti separate da `vs`.
+4. Fallback fuzzy: il titolo della playlist deve contenere almeno un alias per Team A e uno per Team B (con o senza sottotoken, configurabile).
+
+Log fuzzy (se `STREAMED_MATCH_DEBUG=1`):
+`[STREAMED][MATCH][FUZZ] teams 'milan' 'inter' title='Serie A - Inter vs AC Milan [ECHO]'`
+
+### Matching Single-Entity / Tournament
+Usato quando non si trovano due squadre chiare. Esempi: `Qatar Airways Azerbaijan GP : Practice 1`, `Roland Garros - Day 3`.
+
+1. Identificazione evento single-entity se contiene almeno una keyword (gp, grand prix, formula 1, motogp, qualifying, roland garros, wimbledon, atp, wta, masters, cup, champions league, ecc.).
+2. Costruzione bag di token significativi (>2 caratteri) dal segmento principale del nome evento (prima di ` - League`).
+3. Un titolo playlist è accettato se contiene almeno `STREAMED_MIN_KEYWORD_HITS` di quei token (default 2). Soglia minima reale 1.
+4. Log debug (se attivo):
+`[STREAMED][MATCH][FUZZ][SINGLE] hits=3 title='Azerbaijan GP Practice 1 HD' event='⏰ 10:30 : Qatar Airways Azerbaijan GP vs Practice 1 - Motorsport 19/09' tokens=['azerbaijan','practice','gp',...]`
+
+### Finestre Temporali
+| Fase | Finestra | Descrizione |
+|------|----------|-------------|
+| Pre-start fetch | da `start - PRE_START` a `start` | Inizio matching prima dell'evento |
+| Post-start fetch | `start` → `start + POST_FETCH` | Continua a cercare nuove varianti |
+| Keep window | `start + POST_FETCH` → `start + POST_KEEP` | Mantiene ma non aggiunge dopo keep se già popolato |
+
+Default: PRE_START=15, POST_FETCH=10, POST_KEEP=20 (minuti).
+
+### Ordinamento Finale Streams
+1. `[P🐽D]`
+2. Vavoo
+3. Originali dinamici
+4. `[Strd] ...`
+
+### Variabili Ambiente Streamed (Aggiornate)
+| Variabile | Default | Descrizione |
+|-----------|---------|-------------|
+| `STREAMED_ENABLE` | 0 | Abilita polling/enrichment |
+| `STREAMED_POLL_INTERVAL_MS` | 60000 | Intervallo polling (>=30000) |
+| `STREAMED_PLAYLIST_URL` | https://world-proxifier.xyz/streamed/playlist.m3u8 | URL playlist |
+| `STREAMED_CACHE_TTL_SEC` | 60 | Cache locale M3U |
+| `STREAMED_PRE_START_WINDOW_MIN` | 15 | Finestra pre-start |
+| `STREAMED_POST_START_FETCH_WINDOW_MIN` | 10 | Finestra fetch dopo start |
+| `STREAMED_POST_START_KEEP_MIN` | 20 | Mantieni fino a |
+| `STREAMED_MIN_KEYWORD_HITS` | 2 | Soglia keyword per single-entity (min 1) |
+| `STREAMED_MATCH_DEBUG` | 0 | 1 abilita log match fuzzy |
+| `STREAMED_ALLOW_SUBTOKEN` | 1 | 0 richiede match parola intera; 1 permette sottostringhe |
+| `STREAMED_UA` | browser UA | Header User-Agent |
+| `STREAMED_REFERER` | https://embedsports.top/ | Header Referer |
+| `STREAMED_ORIGIN` | https://embedsports.top | Header Origin |
+| `STREAMED_PLAYLIST_HEADERS` | – | Extra headers `K:V;K2:V2` |
+| `STREAMED_FETCH_RETRIES` | 3 | Tentativi fetch |
+| `STREAMED_PROPAGATE_HEADERS` | 0 | 1 = propaga eventuali header estratti nel link stream finale |
+| `STREAMED_HEADER_MODE` | url_params | Modalità propagazione (solo `url_params` supportata ora) |
+| `STREAMED_HEADER_PARAM_PREFIX` | h_ | Prefisso parametri query header (es: `h_Origin=`) |
+| `DYNAMIC_FILE` | autodetect | Path file dinamico |
+| `PYTHON_BIN` | python3 | Binario script |
+
+### Force Mode
+| Metodo | Come |
+|--------|------|
+| Query Param | `/streamed/reload?force=1` |
+| Env | `STREAMED_FORCE=1 python3 streamed_channels.py` |
+| CLI | `python3 streamed_channels.py --force` |
+
+In force mode ignora le finestre, prova a matchare TUTTI gli eventi (`[STREAMED][INJECT][FORCE]`).
+
+### Deduplicate & Cache
+* Evita duplicati per URL o titolo completo `[Strd] ...`.
+* Riconosce e converte eventuali vecchi titoli `[Streamed]` → `[Strd]` senza duplicare.
+* Cache disco `/tmp/streamed_playlist_cache.json`.
+
+### Robustezza Fetch
+Browser-like headers, DNS log, retry con backoff, fallback `requests`, cache TTL.
+
+### Rigenerazione Eventi
+Ogni `/live/update` resetta gli stream `[Strd]`; serve un nuovo ciclo polling / reload per reiniettarli.
+
+### Propagazione Header Playback (Opzionale)
+Alcuni flussi necessitano header HTTP specifici (Origin, Referer, User-Agent) per funzionare correttamente quando aperti direttamente da un player.
+
+Quando `STREAMED_PROPAGATE_HEADERS=1` e la playlist M3U contiene direttive `#EXTVLCOPT:http-<header>=<valore>`, questi header vengono incorporati nell'URL finale come parametri di query:
+
+Esempio URL trasformato:
+```
+https://cdn.example.xyz/abcd/index.m3u8?h_Origin=https%3A%2F%2Fembedsports.top&h_Referer=https%3A%2F%2Fembedsports.top%2F&h_User-Agent=Mozilla%2F5.0...
+```
+
+Dettagli:
+* Modalità attuale: `STREAMED_HEADER_MODE=url_params` (unica implementata).
+* Prefisso configurabile: `STREAMED_HEADER_PARAM_PREFIX` (default `h_`).
+* Viene anche aggiunto il campo `xHeaders` nello stream (metadato) con la mappa originale per client che vogliono ricostruire gli header.
+* Nessuna logica lato server di re-fetch con header al momento: il player deve gestire (o ignorare) i parametri.
+
+Motivazione: evitare un proxy interno dedicato finché non strettamente necessario, mantenendo link diretti ma auto-descrittivi.
+
+#### Variabili Coinvolte
+| Variabile | Effetto |
+|-----------|---------|
+| `STREAMED_PROPAGATE_HEADERS=1` | Abilita trasformazione URL con parametri header |
+| `STREAMED_HEADER_MODE=url_params` | Usa parametri di query (futuro: `proxy`) |
+| `STREAMED_HEADER_PARAM_PREFIX=h_` | Cambia prefisso (`h_Origin`, `h_Referer`, ecc.) |
+
+#### Esempio JSON Enriched (Estratto)
+```json
+{
+    "id": "evt123",
+    "name": "⏰ 20:45 : Inter vs Milan - Serie A 19/09",
+    "streams": [
+        { "title": "[P🐽D] SKY SPORT", "url": "https://.../sky.m3u8" },
+        { "title": "[Strd] Inter vs Milan HD", "url": "https://edge.cdn/foo/index.m3u8?h_Origin=https%3A%2F%2Fembedsports.top&h_Referer=https%3A%2F%2Fembedsports.top%2F", "xHeaders": { "Origin": "https://embedsports.top", "Referer": "https://embedsports.top/" } }
+    ]
+}
+```
+
+#### Caveat & Best Practice
+* Alcuni player ignorano parametri informativi: se un flusso non parte, prova un player esterno (VLC) o l'uso del proxy MFP.
+* Non inserire header sensibili (token auth) — diventano visibili nel link.
+* Se l'URL originale aveva query params, vengono preservati e merge-ati.
+* In caso di conflitto di chiavi, l'ultima scrittura (header propagato) prevale.
+
+#### Strategia Fallback (Futura)
+Se emergono molti player che non rispettano i parametri, verrà introdotta una modalità `STREAMED_HEADER_MODE=proxy` che:
+1. Riconosce parametri `h_*`.
+2. Effettua fetch server-side con header reali.
+3. Risponde con passthrough (senza esporre header al client).
+
+Attualmente questa modalità NON è implementata per ridurre complessità e latenza.
+
+#### Troubleshooting Rapido
+| Sintomo | Possibile Causa | Azione |
+|--------|-----------------|--------|
+| Stream `[Strd]` non parte, altri sì | Player ignora header | Testa con VLC / abilita proxy MFP |
+| Header non appaiono in URL | `STREAMED_PROPAGATE_HEADERS` non impostato | Esporta variabile a `1` e reinietta (reload/force) |
+| Parametri duplicati | Prefisso cambiato più volte | Uniforma `STREAMED_HEADER_PARAM_PREFIX` |
+| Troppi parametri lunghi | User-Agent molto esteso | Usa UA più corto tramite `STREAMED_UA` |
+
+---
+
+---
+## ⏱️ Scheduler & Watcher Recap (PD + Streamed)
+
+| Meccanismo | Orari / Intervallo (Europe/Rome) | Cosa fa | Coinvolge |
+|------------|----------------------------------|---------|-----------|
+| Live.py cron interno | Ogni 2h: 08:10,10:10,...,06:10 | Rigenera eventi dinamici + post-processing `[P🐽D]` | Dynamic + PD |
+| Purge fisico | 02:05 | Rimuove eventi giorno precedente dal file | Dynamic |
+| Reload sicurezza | 02:30 | Ricarica cache addon | Dynamic |
+| Watcher unificato | `WATCH_INTERVAL_MS` (default 5m) | Rileva mtime cambiato e ricarica in memoria statici/dinamici | Static + Dynamic |
+| Streamed poller | `STREAMED_POLL_INTERVAL_MS` (default 60s) se abilitato | Aggiunge `[Streamed]` durante finestre | Streamed |
+| `/streamed/reload` | On demand | Singolo arricchimento Streamed | Streamed |
+| `/streamed/reload?force=1` | On demand | Forza arricchimento completo | Streamed |
+| `/live/update` | On demand | Rigenera + PD injection (poi serve run Streamed) | PD + Dynamic |
+| `/live/reload` | On demand | Ricarica file già arricchito | Dynamic |
+| `/static/reload` | On demand | Ricarica canali statici (pdUrlF compresi) | Static + PD |
+
+Note:
+* Gli stream `[P🐽D]` sono persistiti nel file rigenerato a ogni `/live/update` (non serve un endpoint dedicato PD).
+* Gli stream `[Streamed]` non sono persistiti tra rigenerazioni: ogni nuova rigenerazione richiede un nuovo ciclo Streamed.
+* Force mode Streamed è pensato solo per test / validazione; in produzione lasciare alla logica temporale per evitare clutter.
+
+---
+## 🆕 Integrazioni Recenti (Sintesi Rapida)
+
+| Feature | Dettagli | Ordering Impatto |
+|---------|----------|------------------|
+| RBTV / RB77 | Nuova sorgente playlist italiana (poll ~120s). Filtra solo titoli con token IT (italiano/italia/italy/ital/ita/ it ). Persistenza per evento. Prefisso `[RB77🇮🇹]` + simbolo dinamico (🚫 / 🔴). | Inserito dopo blocco `[P🐽D]` + cluster 🇮🇹 e prima di `[Strd]`. |
+| PD Relax Competizioni | Per Serie A/B/C, coppe, F1, MotoGP, Tennis, Volley ecc: ignorato brand allowlist; richiesti team match (o single-entity) + token italiano nel broadcaster. Altre competizioni: brand + token IT obbligatori. (Nessun simbolo dinamico per PD). | Mantiene blocco iniziale in cima agli stream evento. |
+| Streamed `[Strd]` | Aggiunti simboli dinamici (🚫 >10m prima, 🔴 da -10m in poi). Persistenza fuori discovery conservata + refresh simboli. | Continua a posizionarsi dopo RB77. |
+| Simboli Dinamici | Applicati solo a RB77 e Strd (🚫 / 🔴). | Non altera logica ordering, solo titoli (PD escluso). |
+
+### Stato Simboli
+* 🚫 = evento non ancora in finestra di start (mancano >10 minuti)
+* 🔴 = evento imminente (<10 minuti) o già iniziato
+
+### Ordine Finale Streams per Evento
+1. `[P🐽D]` (con simboli)
+2. 🇮🇹 altri stream prioritari (se presenti)
+3. `[RB77🇮🇹]`
+4. `[Strd]`
+5. Restanti dinamici / leftover
+
+### Variabili Chiave Nuove / Modificate
+| Variabile | Default | Uso |
+|-----------|---------|-----|
+| `RBTV_PLAYLIST_URL` | https://world-proxifier.xyz/rbtv/playlist.m3u8 | Sorgente RB77 |
+| `RBTV_DISCOVERY_BEFORE_MIN` | 15 | Minuti prima start per discovery RB77 |
+| `RBTV_DISCOVERY_AFTER_MIN` | 10 | Minuti dopo start per discovery RB77 |
+| `RBTV_FORCE` | (off) | Ignora finestre RB77 |
+| `STREAMED_POLL_INTERVAL_MS` | 120000 (se aggiornato in addon) | Cadenza polling playlist Streamed |
+
+### Nota Fallback PD (Eventi)
+Definito un secondo URL identico di backup (non ancora usato automaticamente): se la sorgente primaria eventi risultasse indisponibile si può estendere lo script PD per provarlo come fallback.
+
+---
+
+---
   
 ---
 
