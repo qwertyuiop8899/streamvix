@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.0...v1.2.1) (2025-09-20)
+
+
+### Bug Fixes
+
+* rb77 streamed ([d8300a9](https://github.com/qwertyuiop8899/streamvix/commit/d8300a954426d37c805b6454a238e7764b232f53))
+
 ## [1.2.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.18...v1.2.0) (2025-09-19)
 
 
