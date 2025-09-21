@@ -41,12 +41,16 @@ const NO_DYNAMIC_CACHE: boolean = (() => {
     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
   } catch { return true; }
 })();
-// Flag per disabilitare il filtro runtime su date (di default ON: usa sempre il JSON così com'è)
+// Flag per disabilitare il filtro runtime su date.
+// CAMBIO: default ora = OFF (0) così il comportamento "purge automatico" torna quello atteso:
+//   - Prima delle 08:00 Rome: mantieni anche eventi di ieri (grace)
+//   - Dopo le 08:00 Rome: rimuovi ieri (salvo KEEP_YESTERDAY=1)
+// Se qualcuno vuole mantenere il vecchio comportamento (nessun filtro runtime), deve impostare esplicitamente DYNAMIC_DISABLE_RUNTIME_FILTER=1.
 const DISABLE_RUNTIME_FILTER: boolean = (() => {
   try {
-    const v = (process?.env?.DYNAMIC_DISABLE_RUNTIME_FILTER ?? '1').toString().toLowerCase();
+    const v = (process?.env?.DYNAMIC_DISABLE_RUNTIME_FILTER ?? '0').toString().toLowerCase();
     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
-  } catch { return true; }
+  } catch { return false; }
 })();
 // Flag per mantenere anche gli eventi di IERI (utile se l'orario/UTC causa slittamenti di data)
 const KEEP_YESTERDAY: boolean = (() => {
@@ -364,6 +368,12 @@ export function purgeOldDynamicEvents(): { before: number; after: number; remove
     // Invalida cache
     dynamicCache = null;
     const after = filtered.length;
+    try {
+      // Logging diagnostico dettagliato
+      const removed = before - after;
+      const removedDetail = { before, after, removed, graceActive: isBeforeGrace, keepYesterdayFlag: KEEP_YESTERDAY };
+      console.log('[DynamicChannels][PURGE] result', removedDetail);
+    } catch {}
     return { before, after, removed: before - after };
   } catch (e) {
     console.error('❌ purgeOldDynamicEvents error:', e);
