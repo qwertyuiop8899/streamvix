@@ -39,7 +39,8 @@ AFTER_MIN = int(os.environ.get('RBTV_DISCOVERY_AFTER_MIN','10'))
 DYNAMIC_FILE = os.environ.get('DYNAMIC_FILE') or '/tmp/dynamic_channels.json'
 PERSIST_FILE = '/tmp/rbtv_streams_persist.json'
 FORCE_MODE = (os.environ.get('RBTV_FORCE') or '').lower() in {'1','true','on','yes','force'} or any(a in {'-f','--force'} for a in sys.argv[1:])
-PREFIX_BASE = '[RB77🇮🇹]'
+PREFIX_BASE_ITA = '[RB77🇮🇹]'
+PREFIX_BASE_FALLBACK = '[RB77]'
 STATUS_THRESHOLD_MIN = 10
 
 # --- Language filtering configuration ---
@@ -50,6 +51,18 @@ LANG_INCLUDE = [t.strip().lower() for t in (os.environ.get('RBTV_LANG_KEYWORDS')
 LANG_EXCLUDE = [t.strip().lower() for t in (os.environ.get('RBTV_EXCLUDE_KEYWORDS')
                  or 'english,inglese,spanish,espanol,español,french,francais,deutsch,german,portuguese,portugues,português,arab,arabo,turk,turco,russian,russo,polish,polacco,greek,greco,serb,serbo,croat,croato,alban,albanese,brazil,brasil,portugal').split(',') if t.strip()]
 STRICT_MODE = (os.environ.get('RBTV_STRICT') or '').lower() in {'1','true','yes','on','strict'}
+LENIENT_TEXT_ITALIAN = (os.environ.get('RBTV_LENIENT_TEXT_ITALIAN') or '').lower() in {'1','true','yes','on'}
+
+# Fetch tuning (nuovi parametri)
+RAW_ATTEMPTS = int(os.environ.get('RBTV_FETCH_ATTEMPTS', '3') or '3')
+RAW_TIMEOUT = float(os.environ.get('RBTV_FETCH_TIMEOUT', '15') or '15')  # seconds per attempt
+FAST_FORCE = (os.environ.get('RBTV_FAST_FORCE') or '').lower() in {'1','true','yes','on'}
+if FAST_FORCE and ('force' in sys.argv or (os.environ.get('RBTV_FORCE') or '').lower() in {'1','true','on','yes','force'}):
+    # Modalità test veloce: un solo tentativo con timeout ridotto
+    RAW_ATTEMPTS = min(RAW_ATTEMPTS, 1)
+    RAW_TIMEOUT = min(RAW_TIMEOUT, 5.0)
+LOG_FETCH_DEBUG = (os.environ.get('RBTV_DEBUG_FETCH') or '').lower() in {'1','true','yes','on'}
+FALLBACK_ALLOW_SD = (os.environ.get('RBTV_FALLBACK_ALLOW_SD') or '').lower() in {'1','true','yes','on'}
 
 # Pre-compile inclusive regex patterns. We treat special tokens:
 #  - '[ita]' bracket tag
@@ -107,8 +120,7 @@ def norm_team(name: str) -> str:
     toks = cleaned
     if not toks:
         return ''
-    base = toks[-1]
-    # basic synonyms mapping (Serie A / B / C + comuni)
+    # synonyms mapping (Serie A/B/C + comuni)
     synonyms = {
         'internazionale': 'inter', 'inter': 'inter',
         'juventus': 'juve', 'juve': 'juve',
@@ -116,8 +128,19 @@ def norm_team(name: str) -> str:
         'bologna': 'bologna', 'cagliari': 'cagliari', 'empoli': 'empoli', 'lecce': 'lecce', 'torino': 'torino',
         'verona': 'verona', 'hellas': 'verona', 'napoli': 'napoli', 'roma': 'roma', 'lazio': 'lazio',
         'milan': 'milan', 'reggiana': 'reggiana', 'catanzaro': 'catanzaro', 'palermo': 'palermo', 'cesena': 'cesena',
-        'monza': 'monza', 'como': 'como', 'pisa': 'pisa', 'parma': 'parma', 'brescia': 'brescia', 'spezia': 'spezia'
+        'monza': 'monza', 'como': 'como', 'pisa': 'pisa', 'parma': 'parma', 'brescia': 'brescia', 'spezia': 'spezia',
+        'virtus': 'virtus', 'entella': 'entella'
     }
+    tokset = set(toks)
+    # Special composite cases first
+    if {'inter','milan'} <= tokset:
+        return 'inter'  # "Inter Milan" deve combaciare con "Inter" / "Internazionale"
+    # Try priority order: if any token maps directly choose earliest meaningful
+    for t in toks:
+        if t in synonyms:
+            return synonyms[t]
+    # fallback to last token
+    base = toks[-1]
     return synonyms.get(base, base)
 
 def _all_team_tokens(raw: str) -> set[str]:
@@ -168,8 +191,9 @@ def status_symbol(now: datetime.datetime, start: datetime.datetime) -> str:
         return '🚫'
     return '🔴'
 
-def build_prefix(now: datetime.datetime, start: datetime.datetime) -> str:
-    return f"{PREFIX_BASE}{status_symbol(now, start)}"
+def build_prefix(now: datetime.datetime, start: datetime.datetime, italian: bool) -> str:
+    base = PREFIX_BASE_ITA if italian else PREFIX_BASE_FALLBACK
+    return f"{base}{status_symbol(now, start)}"
 
 def is_single_entity(title: str) -> bool:
     t = title.lower()
@@ -204,48 +228,67 @@ def _build_request(url: str) -> urllib.request.Request:
     return urllib.request.Request(url, headers=headers, method='GET')
 
 def _download_playlist(url: str) -> str | None:
-    attempts = int(os.environ.get('RBTV_FETCH_RETRIES', '3'))
+    attempts = max(1, RAW_ATTEMPTS)
+    timeout = max(2.0, RAW_TIMEOUT)
     last_err: Exception | None = None
     for i in range(1, attempts + 1):
         try:
+            start_ts = time.time()
             req = _build_request(url)
-            with urllib.request.urlopen(req, timeout=15) as r:
-                raw = r.read().decode('utf-8', 'replace')
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                raw_bytes = r.read()
+            dur_ms = int((time.time() - start_ts) * 1000)
+            raw = raw_bytes.decode('utf-8', 'replace')
+            if LOG_FETCH_DEBUG:
+                print(f"[RBTV][FETCH][DBG] attempt={i} status=OK ms={dur_ms} bytes={len(raw_bytes)} has_extm3u={('#EXTM3U' in raw)}")
             if raw and '#EXTM3U' in raw:
                 return raw
         except Exception as e:
             last_err = e
             print(f"[RBTV][FETCH][WARN] attempt={i}/{attempts} err={e}")
-            time.sleep(min(2.5, i))
-    # fallback: prova requests se disponibile
-    try:
-        import requests  # type: ignore
-        req_headers = { 'User-Agent': os.environ.get('RBTV_UA','Mozilla/5.0'), 'Referer': os.environ.get('RBTV_REFERER','https://embedsports.top/') }
-        resp = requests.get(url, headers=req_headers, timeout=15)
-        if resp.ok and '#EXTM3U' in resp.text:
-            return resp.text
-    except Exception as e:
-        print(f"[RBTV][FETCH][FALLBACK][ERR] {e}")
+            if i < attempts:
+                time.sleep(min(2.5, i))
+    # fallback: prova requests se disponibile (solo se non FAST_FORCE o se esplicitamente abilitato)
+    if not FAST_FORCE:
+        try:
+            import requests  # type: ignore
+            req_headers = {
+                'User-Agent': os.environ.get('RBTV_UA','Mozilla/5.0'),
+                'Referer': os.environ.get('RBTV_REFERER','https://embedsports.top/'),
+                'Accept': '*/*',
+                'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
+                'Connection': 'keep-alive'
+            }
+            rstart = time.time()
+            resp = requests.get(url, headers=req_headers, timeout=timeout)
+            dur_ms = int((time.time()-rstart)*1000)
+            if LOG_FETCH_DEBUG:
+                print(f"[RBTV][FETCH][REQ] code={resp.status_code} ms={dur_ms} bytes={len(resp.text)}")
+            if resp.ok and '#EXTM3U' in resp.text:
+                return resp.text
+        except Exception as e:
+            print(f"[RBTV][FETCH][FALLBACK][ERR] {e}")
     if last_err:
         print(f"[RBTV][FETCH][ERR] giving up: {last_err}")
-        # Final fallback: try invoking curl if present (some containers have better CA bundle there)
-        try:
-            import subprocess, shlex
-            cmd = os.environ.get('RBTV_CURL_CMD', f"curl -L --max-time 20 -A 'Mozilla/5.0 (RBTVCurl)' -H 'Referer: https://embedsports.top/' --fail --silent --show-error {shlex.quote(url)}")
-            start_ts = time.time()
-            r = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=25)
-            if r.returncode == 0:
-                txt = r.stdout.decode('utf-8','replace')
-                if '#EXTM3U' in txt:
-                    dur = int((time.time()-start_ts)*1000)
-                    print(f"[RBTV][FETCH][CURL][OK] ms={dur} bytes={len(txt)}")
-                    return txt
-                else:
-                    print(f"[RBTV][FETCH][CURL][WARN] no #EXTM3U in output rc=0 bytes={len(txt)}")
+    # Final fallback: try invoking curl if present (curl spesso bypassa problemi SSL in container)
+    try:
+        import subprocess, shlex
+        curl_timeout = int(min(25, timeout + 10))
+        cmd = os.environ.get('RBTV_CURL_CMD', f"curl -L --max-time {curl_timeout} -A 'Mozilla/5.0 (RBTVCurl)' -H 'Referer: https://embedsports.top/' --fail --silent --show-error {shlex.quote(url)}")
+        start_ts = time.time()
+        r = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=curl_timeout+5)
+        if r.returncode == 0:
+            txt = r.stdout.decode('utf-8','replace')
+            if '#EXTM3U' in txt:
+                dur = int((time.time()-start_ts)*1000)
+                print(f"[RBTV][FETCH][CURL][OK] ms={dur} bytes={len(txt)}")
+                return txt
             else:
-                print(f"[RBTV][FETCH][CURL][ERR] rc={r.returncode} stderr={r.stderr.decode('utf-8','replace')[:180]}")
-        except Exception as e2:
-            print(f"[RBTV][FETCH][CURL][EXC] {e2}")
+                print(f"[RBTV][FETCH][CURL][WARN] no #EXTM3U rc=0 bytes={len(txt)}")
+        else:
+            print(f"[RBTV][FETCH][CURL][ERR] rc={r.returncode} stderr={r.stderr.decode('utf-8','replace')[:180]}")
+    except Exception as e2:
+        print(f"[RBTV][FETCH][CURL][EXC] {e2}")
     return None
 
 def _is_italian(title: str) -> bool:
@@ -253,9 +296,17 @@ def _is_italian(title: str) -> bool:
     # Accept ANY variant (HDD *, SD, VDO, MOVISTAR ecc.) ONLY if at least one bracket tag contains an Italian token
     bracket_tags = re.findall(r'\[[^\]]+\]', title)
     if not bracket_tags:
+        # Possibile modalità lenient se non ci sono tag ma testo contiene parola piena 'italian' / 'italiano'
+        if LENIENT_TEXT_ITALIAN and re.search(r'\bitalian(?:o|a)?\b', tl) and 'digital' not in tl:
+            return True
         return False
     tag_join = ' '.join(bracket_tags).lower()
     if not re.search(r'\b(ita|italy|italia|italiano|ital)\b', tag_join):
+        # Se non c'è il token italiano nei tag, in modalità lenient accettiamo se nel testo principale compare 'Italian Serie'
+        if LENIENT_TEXT_ITALIAN:
+            core_no_tags = TAG_SUFFIX.sub('', tl)
+            if re.search(r'\bitalian\b.*\bserie\b', core_no_tags) and 'digital' not in core_no_tags:
+                return True
         return False
     # Fast negative filter first
     if EXCLUDE_REGEX and EXCLUDE_REGEX.search(tl):
@@ -292,10 +343,13 @@ def fetch_playlist() -> List[Dict[str,Any]]:
             pass
         raw = _download_playlist(FALLBACK_URL)
     if not raw:
+        if LOG_FETCH_DEBUG:
+            print('[RBTV][FETCH][EMPTY] playlist download failed (raw is None)')
         return []
     lines = [l.strip() for l in raw.splitlines() if l.strip()]
     out: List[Dict[str,Any]] = []
     i = 0
+    italian_count = 0
     while i < len(lines):
         if lines[i].startswith('#EXTINF'):
             title = lines[i].split(',', 1)[-1].strip()
@@ -303,9 +357,15 @@ def fetch_playlist() -> List[Dict[str,Any]]:
             if i + 1 < len(lines) and lines[i + 1].startswith('http'):
                 url = lines[i + 1].strip()
                 i += 1
-            if url and _is_italian(title):
+            if url:
                 out.append({'title': title, 'url': url})
+                if _is_italian(title):
+                    italian_count += 1
         i += 1
+    if LOG_FETCH_DEBUG:
+        print(f"[RBTV][FETCH][PARSE] total_lines={len(lines)} entries={len(out)} italian_tagged={italian_count}")
+        if italian_count == 0:
+            print('[RBTV][FETCH][NO_MATCH] Nessun titolo con tag italiano trovato (STRICT_MODE=' + ('1' if STRICT_MODE else '0') + ') -- fallback pronto se categoria target')
     return out
 
 def load_dynamic():
@@ -356,6 +416,8 @@ def enrich():
     now = now_utc()
     playlist = fetch_playlist()
     if not playlist:
+        if LOG_FETCH_DEBUG:
+            print('[RBTV][ABORT] Nessuna entry utilizzabile (playlist vuota o nessun match lingua)')
         return
     # Optional variant limiting: we may have multiple variants (HDD A, HDD B, SD, VDO)
     max_variants_env = os.environ.get('RBTV_MAX_VARIANTS')
@@ -409,21 +471,23 @@ def enrich():
             # fuori discovery: solo restore se necessario
             if not within and not FORCE_MODE:
                 # Update symbol on existing RB77 streams if present
-                sym_pref = build_prefix(now, dt)
+                # update only RB prefixes (both ita + fallback)
+                sym_pref_ita = build_prefix(now, dt, True)
+                sym_pref_fallback = build_prefix(now, dt, False)
                 updated_any = False
                 for s in ev_streams:
                     if isinstance(s, dict):
                         tt = s.get('title','')
-                        if tt.startswith(PREFIX_BASE):
+                        if tt.startswith(PREFIX_BASE_ITA) or tt.startswith(PREFIX_BASE_FALLBACK):
                             # Replace dynamic symbol part
-                            # Pattern: [RB77🇮🇹]<emoji>
-                            new_head = sym_pref
+                            is_ita = tt.startswith(PREFIX_BASE_ITA)
+                            new_head = sym_pref_ita if is_ita else sym_pref_fallback
                             # Remove existing head token up to first space after emoji if present
                             rest = tt
-                            # Identify old prefix base + possible emoji
-                            if tt.startswith(PREFIX_BASE):
-                                # Strip base
-                                rest_part = tt[len(PREFIX_BASE):]
+                            if is_ita:
+                                rest_part = tt[len(PREFIX_BASE_ITA):]
+                            else:
+                                rest_part = tt[len(PREFIX_BASE_FALLBACK):]
                                 # remove leading emoji + space patterns
                                 rest_part = re.sub(r'^[^ ]+\s*', '', rest_part)
                                 rest = rest_part
@@ -434,7 +498,7 @@ def enrich():
                 if updated_any:
                     ev['streams'] = ev_streams
                     changed = True
-                if any(str(t).startswith(PREFIX_BASE) for t in existing_titles):
+                if any(str(t).startswith(PREFIX_BASE_ITA) or str(t).startswith(PREFIX_BASE_FALLBACK) for t in existing_titles):
                     continue
                 ev_id = str(ev.get('id'))
                 stored = persist.get(ev_id,{}).get('streams') if ev_id in persist else None
@@ -449,7 +513,7 @@ def enrich():
                     it_end = pd_end
                     for j in range(pd_end,len(ev_streams)):
                         t = str(ev_streams[j].get('title','')) if isinstance(ev_streams[j],dict) else ''
-                        if '🇮🇹' in t and not t.startswith(PREFIX_BASE):
+                        if '🇮🇹' in t and not (t.startswith(PREFIX_BASE_ITA) or t.startswith(PREFIX_BASE_FALLBACK)):
                             it_end = j+1
                         else:
                             break
@@ -469,9 +533,9 @@ def enrich():
                         # Update symbol on restore
                         if isinstance(rs, dict):
                             rs_title = rs.get('title','')
-                            head = build_prefix(now, dt)
+                            head = build_prefix(now, dt, True if rs.get('title','').startswith(PREFIX_BASE_ITA) else False)
                             # Remove any old base prefix occurrences
-                            rs_core = re.sub(r'^\[RB77🇮🇹\][^ ]*\s*', '', rs_title)
+                            rs_core = re.sub(r'^\[RB77(?:🇮🇹)?\][^ ]*\s*', '', rs_title)
                             rs['title'] = f"{head} {rs_core}".strip()
                         ev_streams.insert(insert_idx, rs)
                         insert_idx += 1
@@ -515,6 +579,11 @@ def enrich():
             summary_enabled = (os.environ.get('RBTV_DEBUG_SUMMARY') or '').lower() in {'1','true','yes','on'}
             allow_partial = (os.environ.get('RBTV_ALLOW_PARTIAL') or '').lower() in {'1','true','yes','on'}
             stat_counts = {'exact':0,'partial':0,'single_side':0,'fuzzy':0}
+            italian_candidates = []
+            fallback_candidates = []  # all matching (non-italian) for potential fallback
+            # esteso 'volley' oltre 'volleyball'
+            target_cats = {'seriea','serieb','seriec','tennis','f1','motogp','volleyball','volley'}
+            event_cat = (ev.get('category') or '').lower()
             for pl in playlist:
                 pt1,pt2 = extract_teams(pl['title'])
                 good = False
@@ -563,15 +632,41 @@ def enrich():
                     if debug_match:
                         print(f"[RBTV][DEBUG][SKIP] title='{pl['title']}' reason={reason}")
                     continue
+                # classified as matching candidate
+                is_italian_pl = _is_italian(pl['title'])
+                if is_italian_pl:
+                    italian_candidates.append(pl)
                 else:
-                    if summary_enabled:
-                        if reason == 'exact': stat_counts['exact'] += 1
-                        elif reason == 'partial': stat_counts['partial'] += 1
-                        elif reason == 'single_side': stat_counts['single_side'] += 1
-                        elif reason.startswith('fuzzy_pair_ok'): stat_counts['fuzzy'] += 1
+                    fallback_candidates.append(pl)
+                if summary_enabled:
+                    if reason == 'exact': stat_counts['exact'] += 1
+                    elif reason == 'partial': stat_counts['partial'] += 1
+                    elif reason == 'single_side': stat_counts['single_side'] += 1
+                    elif reason.startswith('fuzzy_pair_ok'): stat_counts['fuzzy'] += 1
+            # Decide which list to use
+            chosen_list = []
+            italian_mode = False
+            if italian_candidates:
+                chosen_list = italian_candidates
+                italian_mode = True
+            elif event_cat in target_cats and fallback_candidates:
+                # fallback: use all non-italian variants except clearly low quality (SD/LOW)
+                filtered = [pl for pl in fallback_candidates if not re.search(r'\b(SD|LOW)\b', pl['title'], re.IGNORECASE)]
+                if not filtered and FALLBACK_ALLOW_SD:
+                    # Se l'unica variante è SD o LOW e l'utente ha abilitato l'override, usala
+                    filtered = fallback_candidates
+                    if LOG_FETCH_DEBUG:
+                        print(f"[RBTV][FALLBACK][ALLOW_SD] event={ev.get('id')} cat={event_cat} includo variante SD/LOW per mancanza di alternative")
+                chosen_list = filtered
+                italian_mode = False
+                if LOG_FETCH_DEBUG:
+                    print(f"[RBTV][FALLBACK] event={ev.get('id')} cat={event_cat} no_italian_variants using_non_sd count={len(chosen_list)} total_non_it={len(fallback_candidates)}")
+            else:
+                chosen_list = italian_candidates  # empty or non-target category: only italians (possibly none)
+            for pl in chosen_list:
                 final_url = pl['url']
                 display_title = pl['title']
-                prefix = build_prefix(now, dt)
+                prefix = build_prefix(now, dt, italian_mode)
                 new_title = f"{prefix} {display_title}"
                 if final_url in existing_urls or new_title in existing_titles:
                     continue
@@ -585,11 +680,10 @@ def enrich():
                 it_end = pd_end
                 for j in range(pd_end,len(ev_streams)):
                     t = str(ev_streams[j].get('title','')) if isinstance(ev_streams[j],dict) else ''
-                    if '🇮🇹' in t and not t.startswith(PREFIX_BASE):
+                    if '🇮🇹' in t and not (t.startswith(PREFIX_BASE_ITA) or t.startswith(PREFIX_BASE_FALLBACK)):
                         it_end = j+1
                     else:
                         break
-                # find first [Strd]
                 strd_start = len(ev_streams)
                 for k in range(it_end,len(ev_streams)):
                     t = str(ev_streams[k].get('title','')) if isinstance(ev_streams[k],dict) else ''
@@ -601,16 +695,16 @@ def enrich():
                 existing_urls.add(final_url); existing_titles.add(new_title)
                 added_this += 1
             if summary_enabled and (added_this or any(stat_counts.values())):
-                print(f"[RBTV][SUMMARY] event={ev.get('id')} added={added_this} counts={stat_counts} fuzzy_thr={fuzzy_thresh}")
+                print(f"[RBTV][SUMMARY] event={ev.get('id')} added={added_this} ita_mode={italian_mode} counts={stat_counts} fuzzy_thr={fuzzy_thresh}")
             if added_this:
                 ev['streams'] = ev_streams
                 # persist only RB entries
                 ev_id = str(ev.get('id'))
-                stored_rb = [s for s in ev_streams if isinstance(s,dict) and str(s.get('title','')).startswith(PREFIX_BASE)]
+                stored_rb = [s for s in ev_streams if isinstance(s,dict) and (str(s.get('title','')).startswith(PREFIX_BASE_ITA) or str(s.get('title','')).startswith(PREFIX_BASE_FALLBACK))]
                 persist[ev_id] = {'ts': int(time.time()), 'streams': stored_rb}
                 persist_changed = True
                 added_total += added_this
-                print(f"[RBTV][INJECT]{'[FORCE]' if FORCE_MODE else ''} event={ev.get('id')} added={added_this} mode={'SINGLE' if single_mode else 'DUO'}")
+                print(f"[RBTV][INJECT]{'[FORCE]' if FORCE_MODE else ''} event={ev.get('id')} added={added_this} mode={'SINGLE' if single_mode else 'DUO'} ita_mode={italian_mode}")
         except Exception as e:
             print(f"[RBTV][ERR] event loop: {e}")
             continue
