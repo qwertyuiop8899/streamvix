@@ -24,8 +24,8 @@ Istanza ElfHosted a pagamento CON Mediaflo Proxy incluso (Per Eventi Sportivi)
 * **📡 Supporto Eventi Sportivi:** Eventi sportivi aggiornati ogni giorno.
 * **🔗 Integrazione Perfetta:** Si integra meravigliosamente con l'interfaccia di Stremio per un'esperienza utente fluida.
 * **🌐 Proxy Unificato:** Un solo proxy MFP per tutti i contenuti (film, serie, anime, TV).
-* **⚡ Modalità FAST Dinamica:** Eventi Live con URL dirette senza passare dall'extractor (toggle runtime) tutte etichettate `[Player Esterno]`.
-* **🎯 Limite & Priorità Estrazioni:** In modalità extractor applica CAP di concorrenza e priorità per sorgenti italiane.
+* **⚡ Modalità FAST Dinamica:** Eventi Live con URL dirette senza passare dall'extractor (toggle runtime) con prefisso `[Player Esterno]` applicato SOLO ai flussi generici (non `[Strd]`, non RB77, non `[P🐽D]`).
+* **🎯 Limite & Priorità Estrazioni:** In modalità extractor applica CAP di concorrenza e priorità per sorgenti italiane (leftover senza prefisso addizionale).
 * **📡 Supporto Live TV:** Canali TV italiani e Eventi Sportivi visibili senza Mediaflow Proxy, scegliere i canali [Vavoo] o con 🏠.
 * **🔓 Supporto Stream Senza Mediaflow Proxy:** Canali TV italiani e Eventi Sportivi, Film e Serie TV, scegliere gli stream con 🔓 per avviarli senza aver bisogno di un MediaflowProx. (Nota Bene, per avviare gli stream senza proxy ci potrebbe essere bisogno di un player esterno o VLC, prova con il player di default, se non va usa un player esterno tipo VLC)
 
@@ -72,14 +72,14 @@ Modalità disponibili:
     - Attiva con variabile `FAST_DYNAMIC=1` oppure runtime `/admin/mode?fast=1`.
     - Salta completamente l'extractor e usa immediatamente le URL presenti nel JSON.
     - Nessun limite di concorrenza, tutte le sorgenti vengono esposte come stream diretti.
-    - Ogni stream FAST è etichettato con prefisso `[Player Esterno]` (l'emoji 🇮🇹 resta se il titolo normalizzato lo richiede).
+    - Prefisso `[Player Esterno]` aggiunto solo se il titolo non inizia già con `[Strd]`, `[RB77`, `[P🐽D]`, `[🌍dTV]`.
 2. Extractor (predefinita se `FAST_DYNAMIC=0`):
     - Ogni URL dinamica passa per la risoluzione (se configurato proxy MFP) prima di essere mostrata.
-    - Applica un CAP di concorrenza pari a `DYNAMIC_EXTRACTOR_CONC` (default 10) per limitare numero di richieste simultanee all'extractor.
-    - Le sorgenti oltre il CAP vengono comunque esposte come leftover diretti con etichetta `[Player Esterno]` (non estratti) così da non perderle.
+    - Applica un CAP di concorrenza pari a `DYNAMIC_EXTRACTOR_CONC` (default 10).
+    - Le sorgenti oltre il CAP (leftover) vengono esposte dirette e ricevono `[Player Esterno]` solo se non già nel set speciale `[Strd]/RB77/PD/dTV`.
     - Priorità: prima i titoli che matchano `(it|ita|italy)`, poi `(italian|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)`, infine gli altri.
 
-Suggerimento: imposta `DYNAMIC_EXTRACTOR_CONC=1` per test: vedrai esattamente 2 stream (1 estratto + 1 leftover `[Player Esterno]`).
+Suggerimento: imposta `DYNAMIC_EXTRACTOR_CONC=1` per test: vedrai esattamente 2 stream (1 estratto + 1 leftover diretto).
 
 ### 🧪 Esempio rapido test locale (curl)
 
@@ -127,10 +127,13 @@ Se vuoi modificare solo la finestra di visibilità estesa fino a una certa ora, 
 
 ### 🏷️ Etichette Stream Dinamici
 
-* `[Player Esterno]` =
-    - In modalità FAST: prefisso sempre presente su tutti i flussi (tutti diretti).
-    - In modalità extractor: prefisso solo sui leftover (flussi oltre il CAP non estratti). Il primo blocco di flussi (fino al CAP) non ha il prefisso a meno che non provenga già così dal sorgente.
-* Emoji 🇮🇹 = titolo o sorgente italiana riconosciuta automaticamente.
+| Prefisso / Emoji | Condizione |
+|------------------|-----------|
+| `[Player Esterno]` | Aggiunto a flussi FAST / leftover generic non già marcati `[Strd]`, `[RB77…]`, `[P🐽D]`, `[🌍dTV]` |
+| `[Strd]` | Stream provenienti da playlist Streamed |
+| `[RB77🇮🇹]` / `[RB77]` | Flussi RBTV italiani / fallback |
+| `[P🐽D]` | Broadcaster playlist PD |
+| Emoji 🇮🇹 | Riconoscimento sorgente/titolo italiano |
 
 ### 🔁 Endpoints Utili Riepilogo
 
@@ -141,6 +144,8 @@ Se vuoi modificare solo la finestra di visibilità estesa fino a una certa ora, 
 | `/live/purge` | Purge fisico file eventi vecchi |
 | `/admin/mode?fast=1` | Abilita FAST dinamico |
 | `/admin/mode?fast=0` | Torna extractor |
+| `/rbtv/reload` | Avvia arricchimento RBTV in finestra |
+| `/rbtv/reload?force=1` | Forza RBTV (ignora finestre) |
 
 ### 🌍 Variabili Ambiente Rilevanti (Estese)
 
@@ -260,19 +265,23 @@ Variabili:
 | `RBTV_DEBUG_SUMMARY` | 0 | Riepilogo per evento (conteggio exact/partial/single/fuzzy) |
 | `RBTV_MAX_VARIANTS` | 0 | Limita numero varianti per stesso incontro (scoring HDD B > HDD A > VDO > SD) |
 
-### Simboli Dinamici
-| Simbolo | Significato |
-|---------|-------------|
+### Prefissi, Simboli & Fallback
+| Elemento | Significato |
+|----------|-------------|
+| `[RB77🇮🇹]` | Variante con tag lingua italiana riconosciuta |
+| `[RB77]` | Fallback (nessuna variante italiana trovata per competizioni target) |
 | 🚫 | Mancano >10 minuti allo start evento |
 | 🔴 | Evento imminente (≤10 min) o iniziato |
 
-Aggiornati anche fuori discovery per flussi già persistiti.
+Fallback: se (a) l'evento appartiene a categorie target (Serie A/B/C, F1, MotoGP, Tennis, Volleyball) e (b) non è stata trovata NESSUNA variante italiana → vengono iniettate tutte le varianti NON SD (filtrando titoli contenenti `SD`/`LOW`). Se almeno una variante italiana è trovata, SOLO quelle italiane sono iniettate (nessun mixing fallback).
 
-### Ordinamento Configurato
-Gli stream `[RB77🇮🇹]` si inseriscono:
-1. Dopo blocco iniziale `[P🐽D]` (broadcaster ufficiali) + eventuali altri 🇮🇹 non RB77 già presenti all’inizio.
-2. Prima dei flussi `[Strd]`.
-3. Prima di eventuali leftover dinamici.
+Ordinamento:
+1. Blocchi `[P🐽D]` + cluster 🇮🇹 preesistente
+2. Blocchi RB77 (`[RB77🇮🇹]` oppure fallback `[RB77]`)
+3. `[Strd]`
+4. Leftover dinamici
+
+Aggiornamento simboli (🚫/🔴) anche fuori discovery per stream persistiti.
 
 ### Persistenza
 File cache: `/tmp/rbtv_streams_persist.json` contiene per-evento i flussi RB77 già scoperti; se il file dinamico viene rigenerato gli stessi stream vengono reiniettati (con prefisso aggiornato) purché l’evento esista ancora.
