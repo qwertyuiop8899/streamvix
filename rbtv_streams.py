@@ -228,6 +228,24 @@ def _download_playlist(url: str) -> str | None:
         print(f"[RBTV][FETCH][FALLBACK][ERR] {e}")
     if last_err:
         print(f"[RBTV][FETCH][ERR] giving up: {last_err}")
+        # Final fallback: try invoking curl if present (some containers have better CA bundle there)
+        try:
+            import subprocess, shlex
+            cmd = os.environ.get('RBTV_CURL_CMD', f"curl -L --max-time 20 -A 'Mozilla/5.0 (RBTVCurl)' -H 'Referer: https://embedsports.top/' --fail --silent --show-error {shlex.quote(url)}")
+            start_ts = time.time()
+            r = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=25)
+            if r.returncode == 0:
+                txt = r.stdout.decode('utf-8','replace')
+                if '#EXTM3U' in txt:
+                    dur = int((time.time()-start_ts)*1000)
+                    print(f"[RBTV][FETCH][CURL][OK] ms={dur} bytes={len(txt)}")
+                    return txt
+                else:
+                    print(f"[RBTV][FETCH][CURL][WARN] no #EXTM3U in output rc=0 bytes={len(txt)}")
+            else:
+                print(f"[RBTV][FETCH][CURL][ERR] rc={r.returncode} stderr={r.stderr.decode('utf-8','replace')[:180]}")
+        except Exception as e2:
+            print(f"[RBTV][FETCH][CURL][EXC] {e2}")
     return None
 
 def _is_italian(title: str) -> bool:
