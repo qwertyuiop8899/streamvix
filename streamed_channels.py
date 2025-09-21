@@ -281,6 +281,23 @@ def fetch_playlist() -> List[Dict[str,Any]]:
     if not raw:
         if last_err:
             print(f"[STREAMED][FETCH][ERR] giving up: {last_err}")
+        # Final curl fallback like RBTV
+        try:
+            import subprocess, shlex
+            cmd = os.environ.get('STREAMED_CURL_CMD', f"curl -L --max-time 20 -A 'Mozilla/5.0 (StreamedCurl)' -H 'Referer: https://embedsports.top/' --fail --silent --show-error {shlex.quote(PLAYLIST_URL)}")
+            t0 = time.time()
+            r = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=25)
+            if r.returncode == 0:
+                txt = r.stdout.decode('utf-8','replace')
+                if '#EXTM3U' in txt:
+                    print(f"[STREAMED][FETCH][CURL][OK] ms={int((time.time()-t0)*1000)} bytes={len(txt)}")
+                    raw = txt
+                else:
+                    print(f"[STREAMED][FETCH][CURL][WARN] rc=0 but no #EXTM3U bytes={len(txt)}")
+            else:
+                print(f"[STREAMED][FETCH][CURL][ERR] rc={r.returncode} stderr={r.stderr.decode('utf-8','replace')[:200]}")
+        except Exception as e2:
+            print(f"[STREAMED][FETCH][CURL][EXC] {e2}")
         return []
     try:
         with open(CACHE_FILE,'w',encoding='utf-8') as f:
