@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.1...v1.2.2) (2025-09-21)
+
+
+### Bug Fixes
+
+* try fix strv rbtv ([8993879](https://github.com/qwertyuiop8899/streamvix/commit/899387932a8fc405406fa0aa1dcd9196b7ffa2b7))
+
 ## [1.2.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.0...v1.2.1) (2025-09-20)
 
 
