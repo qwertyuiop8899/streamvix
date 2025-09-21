@@ -2142,11 +2142,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (!e || !e.url) continue;
                             let t = (e.title || 'Stream').trim();
                             if (!t) t = 'Stream';
-                            if (!t.startsWith('[Player Esterno]')) t = `[Player Esterno] ${t}`;
-                            // Non wrappare in extractor/video: pubblica l'URL originale
+                            t = t.replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim();
+                            // Aggiungi prefisso [Player Esterno] salvo casi speciali (STREAMED / RB77 / PD / dTV)
+                            if (!/^\[(Strd|RB77|P🐽D|🌍dTV)/.test(t)) t = `[Player Esterno] ${t}`;
                             streams.push({ url: e.url, title: t });
                         }
-                        debugLog(`[DynamicStreams][FAST] restituiti ${streams.length} stream diretti (senza extractor) con etichetta`);
+                        debugLog(`[DynamicStreams][FAST] restituiti ${streams.length} stream diretti (senza extractor) con etichetta condizionale 'Player Esterno'`);
                         dynamicHandled = true;
                     } else if ((channel as any)._dynamic && Array.isArray((channel as any).dynamicDUrls) && (channel as any).dynamicDUrls.length) {
                         debugLog(`[DynamicStreams] EXTRACTOR branch attiva (FAST_DYNAMIC disattivato) canale=${channel.id}`);
@@ -2213,11 +2214,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 let t = (e.title || 'Stream').trim();
                                 if (!t) t = 'Stream';
                                 t = t.replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim();
-                // Non wrappare in extractor/video: tieni URL originale
-                streams.push({ url: e.url, title: `[Player Esterno] ${t}` });
+                                if (!/^\[(Strd|RB77|P🐽D|🌍dTV)/.test(t)) t = `[Player Esterno] ${t}`;
+                                streams.push({ url: e.url, title: t });
                                 appended++;
                             }
-                            debugLog(`[DynamicStreams][EXTRACTOR] appended ${appended}/${extraFast.length} leftover direct streams (CAP=${CAP})`);
+                            debugLog(`[DynamicStreams][EXTRACTOR] appended ${appended}/${extraFast.length} leftover direct streams (CAP=${CAP}) con etichetta condizionale 'Player Esterno'`);
                         }
                         debugLog(`[DynamicStreams][EXTRACTOR] Resolved ${resolved.length}/${entries.length} streams in ${Date.now() - startDyn}ms (conc=${CONCURRENCY})`);
                         dynamicHandled = true;
@@ -3414,6 +3415,46 @@ app.get('/streamed/reload', async (req: Request, res: Response) => {
             });
             child.on('error', (e: any) => {
                 console.log('[STREAMED][RELOAD][ERR]', e?.message || e);
+            });
+        });
+        // Ricarica dynamic in memoria se il file è stato modificato
+        try { invalidateDynamicChannels(); loadDynamicChannels(true); } catch {}
+        const took = Date.now() - started;
+        const clip = (s: string) => s && s.length > 1200 ? s.slice(-1200) : s;
+        return res.json({ ok: true, force, ms: took, stdout: clip(execResult.stdout), stderr: clip(execResult.stderr) });
+    } catch (e: any) {
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
+// ================= RBTV FORCED RELOAD ENDPOINT =====================
+// GET /rbtv/reload?token=XYZ&force=1
+// Esegue rbtv_streams.py una volta (opzionalmente con modalità force che ignora le finestre temporali)
+app.get('/rbtv/reload', async (req: Request, res: Response) => {
+    try {
+        const requiredToken = process?.env?.RBTV_RELOAD_TOKEN;
+        const provided = (req.query.token as string) || '';
+        if (requiredToken && provided !== requiredToken) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+        const force = 'force' in req.query && String(req.query.force).toLowerCase() !== '0';
+        const scriptPath = path.join(__dirname, '..', 'rbtv_streams.py');
+        if (!fs.existsSync(scriptPath)) {
+            return res.status(404).json({ ok: false, error: 'rbtv_streams.py not found' });
+        }
+        const pythonBin = process.env.PYTHON_BIN || 'python3';
+        const env: any = { ...process.env };
+        try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
+        if (force) env.RBTV_FORCE = '1';
+        const started = Date.now();
+        const { execFile } = require('child_process');
+        const execResult = await new Promise<{ stdout: string; stderr: string; code: number }>(resolve => {
+            const child = execFile(pythonBin, [scriptPath, force ? '--force' : ''], { env }, (err: any, stdout: string, stderr: string) => {
+                resolve({ stdout, stderr, code: err && typeof err.code === 'number' ? err.code : 0 });
+            });
+            child.on('error', (e: any) => {
+                console.log('[RBTV][RELOAD][ERR]', e?.message || e);
             });
         });
         // Ricarica dynamic in memoria se il file è stato modificato
