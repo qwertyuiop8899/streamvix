@@ -482,7 +482,7 @@ function decodeStaticUrl(url: string): string {
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "7.8.23",
+    version: "7.5.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -3508,6 +3508,35 @@ function startServer(basePort: number, attempts = 0) {
 }
 const basePort = parseInt(process.env.PORT || '7860', 10);
 startServer(basePort);
+
+// ================= STARTUP AUTO-PURGE CHECK =====================
+// Esegue un controllo una sola volta ~20s dopo l'avvio per:
+//  - Forzare un loadDynamicChannels(true) (applicando il filtro runtime se abilitato)
+//  - Loggare quanti eventi sono stati rimossi rispetto al file grezzo
+//  - Evitare sorprese se l'utente non ha impostato variabili env (comportamento di default atteso)
+setTimeout(() => {
+    try {
+        const dynPath = getDynamicFilePath();
+        const beforeRaw = (() => {
+            try {
+                if (!dynPath || !fs.existsSync(dynPath)) return 0;
+                const raw = JSON.parse(fs.readFileSync(dynPath,'utf-8'));
+                return Array.isArray(raw) ? raw.length : 0;
+            } catch { return 0; }
+        })();
+        // Forza reload applicando eventuale filtro runtime
+        const filtered = loadDynamicChannels(true);
+        const after = filtered.length;
+        if (beforeRaw && after <= beforeRaw) {
+            console.log(`[STARTUP][PURGE-CHECK] path=${dynPath} before=${beforeRaw} afterFilter=${after} removed=${beforeRaw-after}`);
+        } else {
+            console.log(`[STARTUP][PURGE-CHECK] path=${dynPath} count=${after} (no removals or file empty)`);
+        }
+    } catch (e: any) {
+        console.log('[STARTUP][PURGE-CHECK][ERR]', e?.message || e);
+    }
+}, 20000);
+// ================================================================
 
 // Funzione per assicurarsi che le directory di cache esistano
 function ensureCacheDirectories(): void {
