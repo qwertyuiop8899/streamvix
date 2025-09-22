@@ -59,7 +59,6 @@ StreamViX uses a **unified proxy system** that simplifies configuration:
 - `MFP_PSW`: Password of the MFP proxy
 - `TMDB_API_KEY`: TMDB API key for metadata (OPTIONAL)
 - `ANIMEUNITY_ENABLED`: Enable AnimeUnity (true/false)
-- `ANIMESATURN_ENABLED`: Enable AnimeSaturn (true/false)
 - `Enable MPD Streams`: (true/false) Not working, leave false
 - `Enable Live TV`: Enable to view live TV (true/false)
   
@@ -157,7 +156,6 @@ If you want to extend visibility until a certain hour just set `DYNAMIC_PURGE_HO
   
 ---
 
-## ⚙️ Installation
 
 You can install StreamViX only locally, on a home server or on a non-flagged VPN or with smartdns to view animeunity. 
 For the rest, animesaturn and vixsrc also work on Huggingface, but they have started banning StreamViX, so at your own risk.

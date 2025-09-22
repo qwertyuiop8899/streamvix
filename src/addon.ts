@@ -698,6 +698,207 @@ let globalAddonInterface: any;
 let globalRouter: any;
 let lastDisableLiveTvFlag: boolean | undefined;
 
+// === Lightweight watcher state for static tv_channels.json reload ===
+let _staticFilePath: string | null = null;
+let _staticFileLastMtime = 0;
+let _staticFileLastHash = '';
+function _computeHash(buf: Buffer): string { try { return crypto.createHash('md5').update(buf).digest('hex'); } catch { return ''; } }
+function _resolveStaticPath(): string {
+    if (_staticFilePath && fs.existsSync(_staticFilePath)) return _staticFilePath;
+    const candidates = [
+        path.join(__dirname, '..', 'config', 'tv_channels.json'),
+        path.join(process.cwd(), 'config', 'tv_channels.json'),
+        path.join(__dirname, 'config', 'tv_channels.json')
+    ];
+    for (const c of candidates) { if (fs.existsSync(c)) { _staticFilePath = c; return c; } }
+    return candidates[0];
+}
+function _loadStaticChannelsIfChanged(force = false) {
+    try {
+        const p = _resolveStaticPath();
+        if (!fs.existsSync(p)) return;
+        const st = fs.statSync(p);
+        const mtime = st.mtimeMs;
+        if (!force && mtime === _staticFileLastMtime) return; // quick check
+        const raw = fs.readFileSync(p);
+        const h = _computeHash(raw);
+        if (!force && mtime === _staticFileLastMtime && h === _staticFileLastHash) return;
+        const parsed = JSON.parse(raw.toString('utf-8'));
+        if (!Array.isArray(parsed)) return;
+        staticBaseChannels = parsed;
+        _staticFileLastMtime = mtime;
+        _staticFileLastHash = h;
+        // Count pdUrlF present
+        let pdCount = 0; let total = parsed.length;
+        for (const c of parsed) if (c && c.pdUrlF) pdCount++;
+        console.log(`[TV][RELOAD] staticBaseChannels reloaded: total=${total} pdUrlF=${pdCount} mtime=${new Date(mtime).toISOString()} hash=${h.slice(0,12)}`);
+    } catch (e) {
+        console.warn('[TV][RELOAD] errore reload static tv_channels:', (e as any)?.message || e);
+    }
+}
+// WATCH UNIFICATO: controlla sia static (tv_channels.json) che dynamic (dynamic_channels.json)
+//   - Intervallo configurabile con WATCH_INTERVAL_MS (fallback: TV_STATIC_WATCH_INTERVAL_MS / DYNAMIC_WATCH_INTERVAL_MS / 300000)
+//   - Static: usa _loadStaticChannelsIfChanged (già fa hash/mtime e log solo se cambia)
+//   - Dynamic: calcola mtime+hash e se cambia invalida+reload
+(() => {
+    try {
+        const intervalMs = parseInt(process.env.WATCH_INTERVAL_MS || process.env.TV_STATIC_WATCH_INTERVAL_MS || process.env.DYNAMIC_WATCH_INTERVAL_MS || '300000', 10); // default 5m
+        let lastDynMtime = 0; let lastDynHash = '';
+        function checkDynamicOnce() {
+            try {
+                const p = getDynamicFilePath();
+                if (!p || !fs.existsSync(p)) return;
+                const st = fs.statSync(p);
+                const raw = fs.readFileSync(p);
+                const h = _computeHash(raw);
+                if (st.mtimeMs !== lastDynMtime || h !== lastDynHash) {
+                    const oldShort = lastDynHash.slice(0,8);
+                    lastDynMtime = st.mtimeMs; lastDynHash = h;
+                    invalidateDynamicChannels();
+                    const dyn = loadDynamicChannels(true);
+                    console.log(`[WATCH][DYN] reload (changed) oldHash=${oldShort} newHash=${h.slice(0,8)} count=${dyn.length}`);
+                }
+            } catch (e) {
+                console.warn('[WATCH][DYN] errore controllo dynamic:', (e as any)?.message || e);
+            }
+        }
+        function loop() {
+            try {
+                _loadStaticChannelsIfChanged(false);
+                checkDynamicOnce();
+            } finally {
+                // next tick gestito da setInterval
+            }
+        }
+        // primo giro: forziamo static + dynamic
+        setTimeout(() => { _loadStaticChannelsIfChanged(true); checkDynamicOnce(); }, 1500);
+        setInterval(loop, Math.max(60000, intervalMs));
+        console.log(`[WATCH] unificato attivo ogni ${Math.max(60000, intervalMs)}ms (default 5m)`);
+    } catch (e) {
+        console.log('[WATCH] init failed', (e as any)?.message || e);
+    }
+})();
+
+// (RIMOSSO) watcher dinamico separato (ora unificato sopra)
+// === STREAMED playlist enrichment (spawns external python script) ===
+(() => {
+    try {
+        // Auto-enable STREAMED enrichment if the user hasn't explicitly set STREAMED_ENABLE.
+        // Rationale: we want the enrichment active by default (was originally introduced for a test phase).
+        let enableRaw = (process.env.STREAMED_ENABLE || '').toString().toLowerCase();
+        if (!enableRaw) {
+            // default ON in absence of explicit value so that the enrichment always runs unless explicitly disabled
+            enableRaw = '1';
+            process.env.STREAMED_ENABLE = '1';
+            console.log('[STREAMED][INIT] abilitazione automatica');
+        }
+        const enable = enableRaw;
+        if (!['1','true','on','yes'].includes(enable)) return;
+    const intervalMs = Math.max(30000, parseInt(process.env.STREAMED_POLL_INTERVAL_MS || '120000', 10)); // default 120s (allineato a RBTV)
+        const pythonBin = process.env.PYTHON_BIN || 'python3';
+        const scriptPath = path.join(__dirname, '..', 'streamed_channels.py');
+        if (!fs.existsSync(scriptPath)) { console.log('[STREAMED][INIT] script non trovato', scriptPath); return; }
+        function runOnce(tag: string) {
+            const env: any = { ...process.env };
+            // Propaga percorso dynamic se usato
+            try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
+            const t0 = Date.now();
+            const child = spawn(pythonBin, [scriptPath], { env });
+            let out = ''; let err = '';
+            child.stdout.on('data', d => { out += d.toString(); });
+            child.stderr.on('data', d => { err += d.toString(); });
+            child.on('close', code => {
+                const ms = Date.now() - t0;
+                if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[STREAMED][OUT]', l));
+                if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[STREAMED][ERR]', l));
+                console.log(`[STREAMED][RUN] done code=${code} ms=${ms}`);
+            });
+        }
+        // Force headers + force mode for initial test run (Bologna vs Genoa) unless user explicitly disables
+        const initialEnv = { ...process.env };
+        if (!initialEnv.STREAMED_FORCE) initialEnv.STREAMED_FORCE = '1';
+        if (!initialEnv.STREAMED_PROPAGATE_HEADERS) initialEnv.STREAMED_PROPAGATE_HEADERS = '1';
+        // Kick an immediate run (slight delay to allow Live.py generation) with forced env
+        setTimeout(()=>{
+            const t0 = Date.now();
+            try { initialEnv.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
+            const child = spawn(pythonBin, [scriptPath], { env: initialEnv });
+            let out=''; let err='';
+            child.stdout.on('data', d=> out+=d.toString());
+            child.stderr.on('data', d=> err+=d.toString());
+            child.on('close', code => {
+                const ms = Date.now() - t0;
+                if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[STREAMED][OUT][INIT]', l));
+                if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[STREAMED][ERR][INIT]', l));
+                console.log(`[STREAMED][RUN][INIT] done code=${code} ms=${ms}`);
+            });
+        }, 5000);
+        setInterval(()=>runOnce('loop'), intervalMs);
+        console.log('[STREAMED][INIT] abilitato poll ogni', intervalMs,'ms');
+    } catch (e) {
+        console.log('[STREAMED][INIT][ERR]', (e as any)?.message || e);
+    }
+})();
+
+// === RBTV (RB77) playlist enrichment ===
+(() => {
+    try {
+        let enableRaw = (process.env.RBTV_ENABLE || '').toString().toLowerCase();
+        if (!enableRaw) {
+            enableRaw = '1';
+            process.env.RBTV_ENABLE = '1';
+            console.log('[RBTV][INIT] abilitazione automatica');
+        }
+        if (!['1','true','on','yes'].includes(enableRaw)) return;
+        const pythonBin = process.env.PYTHON_BIN || 'python3';
+        const scriptPath = path.join(__dirname, '..', 'rbtv_streams.py');
+        if (!fs.existsSync(scriptPath)) { console.log('[RBTV][INIT] script non trovato', scriptPath); return; }
+        const intervalMs = Math.max(60000, parseInt(process.env.RBTV_POLL_INTERVAL_MS || '120000', 10)); // default 120s
+        function runOnce(tag: string) {
+            const env: any = { ...process.env };
+            try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
+            const t0 = Date.now();
+            const child = spawn(pythonBin, [scriptPath], { env });
+            let out=''; let err='';
+            child.stdout.on('data', d=> out+=d.toString());
+            child.stderr.on('data', d=> err+=d.toString());
+            child.on('close', code => {
+                const ms = Date.now() - t0;
+                if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[RBTV][OUT]', l));
+                if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[RBTV][ERR]', l));
+                console.log(`[RBTV][RUN] done code=${code} ms=${ms}`);
+            });
+        }
+        // Primo giro forzato (RBTV_FORCE=1) ritardato per lasciare generare Live.py, simile a STREAMED_FORCE
+        setTimeout(()=> {
+            try {
+                const initialEnv: any = { ...process.env };
+                if (!initialEnv.RBTV_FORCE) initialEnv.RBTV_FORCE = '1'; // forza discovery iniziale
+                try { initialEnv.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
+                const t0 = Date.now();
+                const child = spawn(pythonBin, [scriptPath], { env: initialEnv });
+                let out=''; let err='';
+                child.stdout.on('data', d=> out+=d.toString());
+                child.stderr.on('data', d=> err+=d.toString());
+                child.on('close', code => {
+                    const ms = Date.now() - t0;
+                    if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[RBTV][OUT][INIT]', l));
+                    if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[RBTV][ERR][INIT]', l));
+                    console.log(`[RBTV][RUN][INIT] done code=${code} ms=${ms}`);
+                });
+            } catch (e) {
+                console.log('[RBTV][INIT][FORCE][ERR]', (e as any)?.message || e);
+            }
+        }, 7000);
+        setInterval(()=> runOnce('loop'), intervalMs);
+        console.log('[RBTV][INIT] poll ogni', intervalMs, 'ms');
+    } catch (e) {
+        console.log('[RBTV][INIT][ERR]', (e as any)?.message || e);
+    }
+})();
+
+// (RIMOSSO) Adaptive windows: sostituito da watcher semplice costante.
+
 // =====================================
 // [P🐽D] STARTUP DIAGNOSTICS (container parity)
 // Attivabile con env: DIAG_PD=1 (default ON per ora salvo DIAG_PD=0)
@@ -1100,6 +1301,26 @@ try {
                     const livePath = path.join(__dirname, '../Live.py');
                     const fs = require('fs');
                     if (fs.existsSync(livePath)) {
+                        try {
+                            const st = fs.statSync(livePath);
+                            console.log('[Live.py][DIAG] path=', livePath, 'size=', st.size, 'mtime=', new Date(st.mtimeMs || st.mtime).toISOString());
+                        } catch {}
+                        // individua interpreti python disponibili
+                        const candidateBins = [process.env.PYTHON_BIN, 'python3', 'python', 'py'].filter(Boolean) as string[];
+                        let chosen: string | null = null;
+                        for (const b of candidateBins) {
+                            try {
+                                const { spawnSync } = require('child_process');
+                                const r = spawnSync(b, ['-V'], { timeout: 4000 });
+                                if (r.status === 0 && String(r.stdout || r.stderr).toLowerCase().includes('python')) {
+                                    chosen = b; console.log('[Live.py][DIAG] interpreter ok ->', b, 'version:', (r.stdout || r.stderr).toString().trim());
+                                    break;
+                                }
+                            } catch {}
+                        }
+                        if (!chosen) {
+                            console.warn('[Live.py][DIAG] nessun interprete Python funzionante trovato tra', candidateBins.join(','));
+                        }
                         const trySpawn = (py: string) => {
                             try {
                                 const child = require('child_process').spawn(py, [livePath], { detached: true, stdio: 'ignore' });
@@ -1108,7 +1329,11 @@ try {
                                 return true;
                             } catch { return false; }
                         };
-                        if (!trySpawn('python3')) trySpawn('python');
+                        if (chosen) {
+                            if (!trySpawn(chosen)) console.warn('[Live.py][DIAG] spawn fallita con', chosen);
+                        } else {
+                            if (!trySpawn('python3')) trySpawn('python');
+                        }
                     } else {
                         console.log('[Live.py] non trovato, skip');
                     }
@@ -1917,11 +2142,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (!e || !e.url) continue;
                             let t = (e.title || 'Stream').trim();
                             if (!t) t = 'Stream';
-                            if (!t.startsWith('[Player Esterno]')) t = `[Player Esterno] ${t}`;
-                            // Non wrappare in extractor/video: pubblica l'URL originale
+                            t = t.replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim();
+                            // Aggiungi prefisso [Player Esterno] salvo casi speciali (STREAMED / RB77 / PD / dTV)
+                            if (!/^\[(Strd|RB77|P🐽D|🌍dTV)/.test(t)) t = `[Player Esterno] ${t}`;
                             streams.push({ url: e.url, title: t });
                         }
-                        debugLog(`[DynamicStreams][FAST] restituiti ${streams.length} stream diretti (senza extractor) con etichetta`);
+                        debugLog(`[DynamicStreams][FAST] restituiti ${streams.length} stream diretti (senza extractor) con etichetta condizionale 'Player Esterno'`);
                         dynamicHandled = true;
                     } else if ((channel as any)._dynamic && Array.isArray((channel as any).dynamicDUrls) && (channel as any).dynamicDUrls.length) {
                         debugLog(`[DynamicStreams] EXTRACTOR branch attiva (FAST_DYNAMIC disattivato) canale=${channel.id}`);
@@ -1988,11 +2214,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 let t = (e.title || 'Stream').trim();
                                 if (!t) t = 'Stream';
                                 t = t.replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim();
-                // Non wrappare in extractor/video: tieni URL originale
-                streams.push({ url: e.url, title: `[Player Esterno] ${t}` });
+                                if (!/^\[(Strd|RB77|P🐽D|🌍dTV)/.test(t)) t = `[Player Esterno] ${t}`;
+                                streams.push({ url: e.url, title: t });
                                 appended++;
                             }
-                            debugLog(`[DynamicStreams][EXTRACTOR] appended ${appended}/${extraFast.length} leftover direct streams (CAP=${CAP})`);
+                            debugLog(`[DynamicStreams][EXTRACTOR] appended ${appended}/${extraFast.length} leftover direct streams (CAP=${CAP}) con etichetta condizionale 'Player Esterno'`);
                         }
                         debugLog(`[DynamicStreams][EXTRACTOR] Resolved ${resolved.length}/${entries.length} streams in ${Date.now() - startDyn}ms (conc=${CONCURRENCY})`);
                         dynamicHandled = true;
@@ -3127,7 +3353,21 @@ app.get('/live/update', async (req: Request, res: Response) => {
                 mtime: dynStats.mtimeMs ? new Date(dynStats.mtimeMs).toISOString() : null
             },
             liveStdout: clip(liveStdout),
-            liveStderr: clip(liveStderr)
+            liveStderr: clip(liveStderr),
+            // eventsRaw: ritorna gli eventi dinamici "grezzi" come richiesto.
+            // Per evitare payload eccessivi si può passare ?truncate=1 per includere solo campi chiave.
+            eventsRaw: (() => {
+                const wantTrunc = 'truncate' in req.query && req.query.truncate !== '0';
+                if (!Array.isArray(dyn)) return [];
+                if (!wantTrunc) return dyn; // full objects
+                return dyn.map(ev => ({
+                    id: ev.id,
+                    name: ev.name,
+                    eventStart: ev.eventStart,
+                    category: ev.category,
+                    streamsCount: Array.isArray(ev.streams) ? ev.streams.length : 0
+                }));
+            })()
         });
     } catch (e: any) {
         return res.status(500).json({ ok: false, error: e?.message || String(e) });
@@ -3144,6 +3384,118 @@ app.get('/live/reload', (_: Request, res: Response) => {
         res.json({ ok: true, dynamicCount: dyn.length });
     } catch (e: any) {
         res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
+// ================= STREAMED FORCED RELOAD ENDPOINT =====================
+// GET /streamed/reload?token=XYZ&force=1
+// Esegue streamed_channels.py una volta (opzionalmente con modalità force che ignora le finestre temporali)
+app.get('/streamed/reload', async (req: Request, res: Response) => {
+    try {
+        const requiredToken = process?.env?.STREAMED_RELOAD_TOKEN;
+        const provided = (req.query.token as string) || '';
+        if (requiredToken && provided !== requiredToken) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+        const force = 'force' in req.query && String(req.query.force).toLowerCase() !== '0';
+        const scriptPath = path.join(__dirname, '..', 'streamed_channels.py');
+        if (!fs.existsSync(scriptPath)) {
+            return res.status(404).json({ ok: false, error: 'streamed_channels.py not found' });
+        }
+        const pythonBin = process.env.PYTHON_BIN || 'python3';
+        const env: any = { ...process.env };
+        try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
+        if (force) env.STREAMED_FORCE = '1';
+        const started = Date.now();
+        const { execFile } = require('child_process');
+        const execResult = await new Promise<{ stdout: string; stderr: string; code: number }>(resolve => {
+            const child = execFile(pythonBin, [scriptPath, force ? '--force' : ''], { env }, (err: any, stdout: string, stderr: string) => {
+                resolve({ stdout, stderr, code: err && typeof err.code === 'number' ? err.code : 0 });
+            });
+            child.on('error', (e: any) => {
+                console.log('[STREAMED][RELOAD][ERR]', e?.message || e);
+            });
+        });
+        // Ricarica dynamic in memoria se il file è stato modificato
+        try { invalidateDynamicChannels(); loadDynamicChannels(true); } catch {}
+        const took = Date.now() - started;
+        const clip = (s: string) => s && s.length > 1200 ? s.slice(-1200) : s;
+        return res.json({ ok: true, force, ms: took, stdout: clip(execResult.stdout), stderr: clip(execResult.stderr) });
+    } catch (e: any) {
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
+// ================= RBTV FORCED RELOAD ENDPOINT =====================
+// GET /rbtv/reload?token=XYZ&force=1
+// Esegue rbtv_streams.py una volta (opzionalmente con modalità force che ignora le finestre temporali)
+app.get('/rbtv/reload', async (req: Request, res: Response) => {
+    try {
+        const requiredToken = process?.env?.RBTV_RELOAD_TOKEN;
+        const provided = (req.query.token as string) || '';
+        if (requiredToken && provided !== requiredToken) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+        const force = 'force' in req.query && String(req.query.force).toLowerCase() !== '0';
+        const scriptPath = path.join(__dirname, '..', 'rbtv_streams.py');
+        if (!fs.existsSync(scriptPath)) {
+            return res.status(404).json({ ok: false, error: 'rbtv_streams.py not found' });
+        }
+        const pythonBin = process.env.PYTHON_BIN || 'python3';
+        const env: any = { ...process.env };
+        try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
+        if (force) env.RBTV_FORCE = '1';
+        const started = Date.now();
+        const { execFile } = require('child_process');
+        const execResult = await new Promise<{ stdout: string; stderr: string; code: number }>(resolve => {
+            const child = execFile(pythonBin, [scriptPath, force ? '--force' : ''], { env }, (err: any, stdout: string, stderr: string) => {
+                resolve({ stdout, stderr, code: err && typeof err.code === 'number' ? err.code : 0 });
+            });
+            child.on('error', (e: any) => {
+                console.log('[RBTV][RELOAD][ERR]', e?.message || e);
+            });
+        });
+        // Ricarica dynamic in memoria se il file è stato modificato
+        try { invalidateDynamicChannels(); loadDynamicChannels(true); } catch {}
+        const took = Date.now() - started;
+        const clip = (s: string) => s && s.length > 1200 ? s.slice(-1200) : s;
+        return res.json({ ok: true, force, ms: took, stdout: clip(execResult.stdout), stderr: clip(execResult.stderr) });
+    } catch (e: any) {
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
+// ================= MANUAL STATIC CHANNELS RELOAD ===============
+// GET /static/reload?token=XYZ (token optional if STATIC_RELOAD_TOKEN set)
+// Forza il ricaricamento di config/tv_channels.json (anche se mtime identico) e restituisce statistiche
+app.get('/static/reload', (req: Request, res: Response) => {
+    try {
+        const requiredToken = process?.env?.STATIC_RELOAD_TOKEN;
+        const provided = (req.query.token as string) || '';
+        if (requiredToken && provided !== requiredToken) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+        const beforeHash = _staticFileLastHash;
+        const beforeMtime = _staticFileLastMtime;
+        _loadStaticChannelsIfChanged(true); // forza reload
+        const changed = (_staticFileLastHash !== beforeHash) || (_staticFileLastMtime !== beforeMtime);
+        let pdCount = 0;
+        for (const c of staticBaseChannels) if (c && (c as any).pdUrlF) pdCount++;
+        const total = staticBaseChannels.length;
+        console.log(`[TV][RELOAD][API] /static/reload changed=${changed} total=${total} pdUrlF=${pdCount} hash=${_staticFileLastHash.slice(0,12)}`);
+        return res.json({
+            ok: true,
+            changed,
+            total,
+            pdUrlF: pdCount,
+            mtime: _staticFileLastMtime ? new Date(_staticFileLastMtime).toISOString() : null,
+            hash: _staticFileLastHash,
+        });
+    } catch (e: any) {
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
     }
 });
 // =============================================================
@@ -3197,6 +3549,35 @@ function startServer(basePort: number, attempts = 0) {
 }
 const basePort = parseInt(process.env.PORT || '7860', 10);
 startServer(basePort);
+
+// ================= STARTUP AUTO-PURGE CHECK =====================
+// Esegue un controllo una sola volta ~20s dopo l'avvio per:
+//  - Forzare un loadDynamicChannels(true) (applicando il filtro runtime se abilitato)
+//  - Loggare quanti eventi sono stati rimossi rispetto al file grezzo
+//  - Evitare sorprese se l'utente non ha impostato variabili env (comportamento di default atteso)
+setTimeout(() => {
+    try {
+        const dynPath = getDynamicFilePath();
+        const beforeRaw = (() => {
+            try {
+                if (!dynPath || !fs.existsSync(dynPath)) return 0;
+                const raw = JSON.parse(fs.readFileSync(dynPath,'utf-8'));
+                return Array.isArray(raw) ? raw.length : 0;
+            } catch { return 0; }
+        })();
+        // Forza reload applicando eventuale filtro runtime
+        const filtered = loadDynamicChannels(true);
+        const after = filtered.length;
+        if (beforeRaw && after <= beforeRaw) {
+            console.log(`[STARTUP][PURGE-CHECK] path=${dynPath} before=${beforeRaw} afterFilter=${after} removed=${beforeRaw-after}`);
+        } else {
+            console.log(`[STARTUP][PURGE-CHECK] path=${dynPath} count=${after} (no removals or file empty)`);
+        }
+    } catch (e: any) {
+        console.log('[STARTUP][PURGE-CHECK][ERR]', e?.message || e);
+    }
+}, 20000);
+// ================================================================
 
 // Funzione per assicurarsi che le directory di cache esistano
 function ensureCacheDirectories(): void {
