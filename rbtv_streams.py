@@ -503,28 +503,37 @@ def enrich():
                 ev_id = str(ev.get('id'))
                 stored = persist.get(ev_id,{}).get('streams') if ev_id in persist else None
                 if stored:
-                    # insertion point (after PD + 🇮🇹 cluster, prima di [Strd])
-                    pd_end = 0
-                    for i,s in enumerate(ev_streams):
-                        if isinstance(s,dict) and str(s.get('title','')).startswith('[P🐽D]'):
-                            pd_end = i+1
+                    # New ordering specification:
+                    # 1. Cluster prioritario = Vavoo (+MFP), [P🐽D], 🇮🇹 channels (flag) nell'ordine in cui compaiono a testa
+                    # 2. RB77 sempre subito dopo il cluster
+                    # 3. Se esistono già [Strd], questi devono restare DOPO RB77 (quindi inseriamo prima del primo [Strd])
+                    def _is_vavoo(st):
+                        if not isinstance(st, dict): return False
+                        t = str(st.get('title',''))
+                        u = str(st.get('url',''))
+                        return u.startswith('vavoo://') or t.startswith('[🏠]')
+                    def _is_pd(st):
+                        return isinstance(st, dict) and str(st.get('title','')).startswith('[P🐽D]')
+                    def _is_italian_flag(st):
+                        return isinstance(st, dict) and ('🇮🇹' in str(st.get('title','')))
+                    def _is_strd(st):
+                        return isinstance(st, dict) and str(st.get('title','')).startswith('[Strd]')
+                    # calcola fine cluster
+                    cluster_end = 0
+                    for idx,s in enumerate(ev_streams):
+                        if _is_vavoo(s) or _is_pd(s) or _is_italian_flag(s):
+                            cluster_end = idx + 1
                         else:
                             break
-                    it_end = pd_end
-                    for j in range(pd_end,len(ev_streams)):
-                        t = str(ev_streams[j].get('title','')) if isinstance(ev_streams[j],dict) else ''
-                        if '🇮🇹' in t and not (t.startswith(PREFIX_BASE_ITA) or t.startswith(PREFIX_BASE_FALLBACK)):
-                            it_end = j+1
-                        else:
+                    # primo Strd dopo cluster (se presente) – RB77 deve stare prima
+                    first_strd = None
+                    for idx in range(cluster_end, len(ev_streams)):
+                        if _is_strd(ev_streams[idx]):
+                            first_strd = idx
                             break
-                    # Skip over existing RBTV if any (shouldn't since we restore) but ensure we insert before [Strd]
-                    strd_start = it_end
-                    for k in range(it_end,len(ev_streams)):
-                        t = str(ev_streams[k].get('title','')) if isinstance(ev_streams[k],dict) else ''
-                        if t.startswith('[Strd]'):
-                            strd_start = k
-                            break
-                    insert_idx = strd_start
+                    # Se Strd esiste ma (per errore) compare prima del cluster_end, lo ignoriamo (verrà riordinato altrove)
+                    insert_idx = first_strd if first_strd is not None else cluster_end
+                    # Se cluster vuoto e nessun Strd: RB77 in testa (insert_idx=0 già ok)
                     restored = 0
                     for rs in stored:
                         u = rs.get('url'); tt = rs.get('title')
@@ -670,27 +679,30 @@ def enrich():
                 new_title = f"{prefix} {display_title}"
                 if final_url in existing_urls or new_title in existing_titles:
                     continue
-                # insertion point before [Strd]
-                pd_end = 0
-                for i,s in enumerate(ev_streams):
-                    if isinstance(s,dict) and str(s.get('title','')).startswith('[P🐽D]'):
-                        pd_end = i+1
+                # Nuovo calcolo indice inserimento RB77 (vedi specifica sopra)
+                def _is_vavoo(st):
+                    if not isinstance(st, dict): return False
+                    t = str(st.get('title',''))
+                    u = str(st.get('url',''))
+                    return u.startswith('vavoo://') or t.startswith('[🏠]')
+                def _is_pd(st):
+                    return isinstance(st, dict) and str(st.get('title','')).startswith('[P🐽D]')
+                def _is_italian_flag(st):
+                    return isinstance(st, dict) and ('🇮🇹' in str(st.get('title','')))
+                def _is_strd(st):
+                    return isinstance(st, dict) and str(st.get('title','')).startswith('[Strd]')
+                cluster_end = 0
+                for idx,s in enumerate(ev_streams):
+                    if _is_vavoo(s) or _is_pd(s) or _is_italian_flag(s):
+                        cluster_end = idx + 1
                     else:
                         break
-                it_end = pd_end
-                for j in range(pd_end,len(ev_streams)):
-                    t = str(ev_streams[j].get('title','')) if isinstance(ev_streams[j],dict) else ''
-                    if '🇮🇹' in t and not (t.startswith(PREFIX_BASE_ITA) or t.startswith(PREFIX_BASE_FALLBACK)):
-                        it_end = j+1
-                    else:
+                first_strd = None
+                for idx in range(cluster_end, len(ev_streams)):
+                    if _is_strd(ev_streams[idx]):
+                        first_strd = idx
                         break
-                strd_start = len(ev_streams)
-                for k in range(it_end,len(ev_streams)):
-                    t = str(ev_streams[k].get('title','')) if isinstance(ev_streams[k],dict) else ''
-                    if t.startswith('[Strd]'):
-                        strd_start = k
-                        break
-                insert_idx = strd_start
+                insert_idx = first_strd if first_strd is not None else cluster_end
                 ev_streams.insert(insert_idx, {'url': final_url, 'title': new_title})
                 existing_urls.add(final_url); existing_titles.add(new_title)
                 added_this += 1
