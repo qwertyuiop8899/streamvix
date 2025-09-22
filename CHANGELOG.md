@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.3...v1.2.4) (2025-09-22)
+
+
+### Bug Fixes
+
+* add spso ([11a5d56](https://github.com/qwertyuiop8899/streamvix/commit/11a5d5681af0f9a17b0c450d0ce183600b8096ae))
+* bump version ([3d4fa4a](https://github.com/qwertyuiop8899/streamvix/commit/3d4fa4a327641ae24fd0f63769f5c6cb6bee3821))
+
 ## [1.2.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.2...v1.2.3) (2025-09-22)
 
 
