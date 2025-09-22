@@ -824,9 +824,9 @@ function _loadStaticChannelsIfChanged(force = false) {
             try { initialEnv.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
             const child = spawn(pythonBin, [scriptPath], { env: initialEnv });
             let out=''; let err='';
-            child.stdout.on('data', d=> out+=d.toString());
-            child.stderr.on('data', d=> err+=d.toString());
-            child.on('close', code => {
+            child.stdout.on('data', (d: any)=> out+=d.toString());
+            child.stderr.on('data', (d: any)=> err+=d.toString());
+            child.on('close', (code: any) => {
                 const ms = Date.now() - t0;
                 if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[STREAMED][OUT][INIT]', l));
                 if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[STREAMED][ERR][INIT]', l));
@@ -878,9 +878,9 @@ function _loadStaticChannelsIfChanged(force = false) {
                 const t0 = Date.now();
                 const child = spawn(pythonBin, [scriptPath], { env: initialEnv });
                 let out=''; let err='';
-                child.stdout.on('data', d=> out+=d.toString());
-                child.stderr.on('data', d=> err+=d.toString());
-                child.on('close', code => {
+                child.stdout.on('data', (d: any)=> out+=d.toString());
+                child.stderr.on('data', (d: any)=> err+=d.toString());
+                child.on('close', (code: any) => {
                     const ms = Date.now() - t0;
                     if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[RBTV][OUT][INIT]', l));
                     if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[RBTV][ERR][INIT]', l));
@@ -894,6 +894,62 @@ function _loadStaticChannelsIfChanged(force = false) {
         console.log('[RBTV][INIT] poll ogni', intervalMs, 'ms');
     } catch (e) {
         console.log('[RBTV][INIT][ERR]', (e as any)?.message || e);
+    }
+})();
+
+// === SPSO (SportsOnline) playlist enrichment ===
+(() => {
+    try {
+        let enableRaw = (process.env.SPSO_ENABLE || '').toString().toLowerCase();
+        if (!enableRaw) {
+            enableRaw = '1';
+            process.env.SPSO_ENABLE = '1';
+            console.log('[SPSO][INIT] abilitazione automatica');
+        }
+        if (!['1','true','on','yes'].includes(enableRaw)) return;
+        const pythonBin = process.env.PYTHON_BIN || 'python3';
+        const scriptPath = path.join(__dirname, '..', 'spso_streams.py');
+        if (!fs.existsSync(scriptPath)) { console.log('[SPSO][INIT] script non trovato', scriptPath); return; }
+        const intervalMs = Math.max(60000, parseInt(process.env.SPSO_POLL_INTERVAL_MS || '120000', 10));
+        function runOnce(tag: string) {
+            const env: any = { ...process.env };
+            try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
+            const t0 = Date.now();
+            const child = spawn(pythonBin, [scriptPath], { env });
+            let out=''; let err='';
+            child.stdout.on('data', d=> out+=d.toString());
+            child.stderr.on('data', d=> err+=d.toString());
+            child.on('close', code => {
+                const ms = Date.now() - t0;
+                if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[SPSO][OUT]', l));
+                if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[SPSO][ERR]', l));
+                console.log(`[SPSO][RUN] done code=${code} ms=${ms}`);
+            });
+        }
+        setTimeout(()=> {
+            try {
+                const initialEnv: any = { ...process.env };
+                if (!initialEnv.SPSO_FORCE) initialEnv.SPSO_FORCE = '1';
+                try { initialEnv.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
+                const t0 = Date.now();
+                const child = spawn(pythonBin, [scriptPath], { env: initialEnv });
+                let out=''; let err='';
+                child.stdout.on('data', d=> out+=d.toString());
+                child.stderr.on('data', d=> err+=d.toString());
+                child.on('close', code => {
+                    const ms = Date.now() - t0;
+                    if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[SPSO][OUT][INIT]', l));
+                    if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[SPSO][ERR][INIT]', l));
+                    console.log(`[SPSO][RUN][INIT] done code=${code} ms=${ms}`);
+                });
+            } catch (e) {
+                console.log('[SPSO][INIT][FORCE][ERR]', (e as any)?.message || e);
+            }
+        }, 9000); // dopo RBTV per non sovrapporsi all'iniziale RBTV run
+        setInterval(()=> runOnce('loop'), intervalMs);
+        console.log('[SPSO][INIT] poll ogni', intervalMs, 'ms');
+    } catch (e) {
+        console.log('[SPSO][INIT][ERR]', (e as any)?.message || e);
     }
 })();
 
@@ -2143,8 +2199,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             let t = (e.title || 'Stream').trim();
                             if (!t) t = 'Stream';
                             t = t.replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim();
-                            // Aggiungi prefisso [Player Esterno] salvo casi speciali (STREAMED / RB77 / PD / dTV)
-                            if (!/^\[(Strd|RB77|P🐽D|🌍dTV)/.test(t)) t = `[Player Esterno] ${t}`;
+                            // Aggiungi prefisso [Player Esterno] salvo casi speciali (Strd / RB77 / SPSO / PD / dTV)
+                            // Include SPSO e consente [Strd] senza spazio successivo
+                            if (!/^\[(Strd|RB77|SPSO|P🐽D|🌍dTV)\b/.test(t)) t = `[Player Esterno] ${t}`;
                             streams.push({ url: e.url, title: t });
                         }
                         debugLog(`[DynamicStreams][FAST] restituiti ${streams.length} stream diretti (senza extractor) con etichetta condizionale 'Player Esterno'`);
@@ -2214,7 +2271,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 let t = (e.title || 'Stream').trim();
                                 if (!t) t = 'Stream';
                                 t = t.replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim();
-                                if (!/^\[(Strd|RB77|P🐽D|🌍dTV)/.test(t)) t = `[Player Esterno] ${t}`;
+                                if (!/^\[(Strd|RB77|SPSO|P🐽D|🌍dTV)\b/.test(t)) t = `[Player Esterno] ${t}`;
                                 streams.push({ url: e.url, title: t });
                                 appended++;
                             }
@@ -3458,6 +3515,45 @@ app.get('/rbtv/reload', async (req: Request, res: Response) => {
             });
         });
         // Ricarica dynamic in memoria se il file è stato modificato
+        try { invalidateDynamicChannels(); loadDynamicChannels(true); } catch {}
+        const took = Date.now() - started;
+        const clip = (s: string) => s && s.length > 1200 ? s.slice(-1200) : s;
+        return res.json({ ok: true, force, ms: took, stdout: clip(execResult.stdout), stderr: clip(execResult.stderr) });
+    } catch (e: any) {
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
+// ================= SPSO FORCED RELOAD ENDPOINT =====================
+// GET /spso/reload?token=XYZ&force=1
+// Esegue spso_streams.py una volta (modalità force opzionale)
+app.get('/spso/reload', async (req: Request, res: Response) => {
+    try {
+        const requiredToken = process?.env?.SPSO_RELOAD_TOKEN;
+        const provided = (req.query.token as string) || '';
+        if (requiredToken && provided !== requiredToken) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+        const force = 'force' in req.query && String(req.query.force).toLowerCase() !== '0';
+        const scriptPath = path.join(__dirname, '..', 'spso_streams.py');
+        if (!fs.existsSync(scriptPath)) {
+            return res.status(404).json({ ok: false, error: 'spso_streams.py not found' });
+        }
+        const pythonBin = process.env.PYTHON_BIN || 'python3';
+        const env: any = { ...process.env };
+        try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
+        if (force) env.SPSO_FORCE = '1';
+        const started = Date.now();
+        const { execFile } = require('child_process');
+        const execResult = await new Promise<{ stdout: string; stderr: string; code: number }>(resolve => {
+            const child = execFile(pythonBin, [scriptPath, force ? '--force' : ''], { env }, (err: any, stdout: string, stderr: string) => {
+                resolve({ stdout, stderr, code: err && typeof err.code === 'number' ? err.code : 0 });
+            });
+            child.on('error', (e: any) => {
+                console.log('[SPSO][RELOAD][ERR]', e?.message || e);
+            });
+        });
         try { invalidateDynamicChannels(); loadDynamicChannels(true); } catch {}
         const took = Date.now() - started;
         const clip = (s: string) => s && s.length > 1200 ? s.slice(-1200) : s;
