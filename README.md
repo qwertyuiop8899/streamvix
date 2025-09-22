@@ -107,6 +107,7 @@ Se in futuro vuoi riattivare la logica di filtro per data:
 - `DYNAMIC_DISABLE_RUNTIME_FILTER=0` abilita il filtro runtime.
 - `DYNAMIC_PURGE_HOUR` (default `8`): ora (Europe/Rome) dopo cui gli eventi del giorno precedente NON vengono più mostrati a catalogo.
 - `DYNAMIC_KEEP_YESTERDAY` (default `0`): se `1`, mantiene visibili anche gli eventi di ieri fino al purge fisico.
+- `DYNAMIC_EVENT_MAX_AGE_HOURS` (default `0` disabilitato): se > 0, rimuove (runtime filter + purge fisico) qualsiasi evento il cui `eventStart` è più vecchio di N ore rispetto all'orario corrente (Europe/Rome). Esempio: impostando `DYNAMIC_EVENT_MAX_AGE_HOURS=8` un evento iniziato alle 10:00 sparirà dopo le 18:00 anche se è ancora “oggi”.
 
 Aspettative quando riattivi il filtro:
 
@@ -154,6 +155,7 @@ Se vuoi modificare solo la finestra di visibilità estesa fino a una certa ora, 
 | `FAST_DYNAMIC` | 0 | 1 = usa URL dirette dinamiche |
 | `DYNAMIC_EXTRACTOR_CONC` | 10 | Limite richieste extractor (CAP). Con CAP=1 ottieni 1 estratto + 1 leftover |
 | `DYNAMIC_PURGE_HOUR` | 8 | Ora (Rome) dopo cui gli eventi del giorno precedente spariscono dal catalogo |
+| `DYNAMIC_EVENT_MAX_AGE_HOURS` | 0 | Se >0, età massima (ore) di un evento dopo l'inizio prima di essere rimosso |
 | `DYNAMIC_DISABLE_RUNTIME_FILTER` | 1 | 1 = non filtrare per data (usa JSON as-is); 0 = abilita filtro giorno |
 | `DYNAMIC_KEEP_YESTERDAY` | 0 | 1 = con filtro attivo, mantiene anche gli eventi di ieri |
 
