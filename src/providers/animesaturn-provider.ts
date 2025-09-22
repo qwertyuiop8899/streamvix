@@ -181,15 +181,13 @@ function normalizeTitleForSearch(title: string): string {
     '-': '',
     'Ore dake Level Up na Ken': 'Solo Leveling',
     'Lupin the Third: The Woman Called Fujiko Mine': 'Lupin III - La donna chiamata Fujiko Mine ',
-    'Slam Dunk: National Domination! Sakuragi Hanamichi': 'Slam Dunk: Zenkoku Seiha Da! Sakuragi Hanamichi',
     "Slam Dunk: Roar!! Basket Man Spiriy": "Slam Dunk: Hoero Basketman-damashii! Hanamichi to Rukawa no Atsuki Natsu",
     "Parasyte: The Maxim": "Kiseijuu",
     "Attack on Titan OAD": "L'attacco dei Giganti: Il taccuino di Ilse Sub ITA",
     "Fullmetal Alchemist: Brotherhood": "Fullmetal Alchemist Brotherhood",
     "Slam Dunk: Roar!! Basket Man Spirit": "Slam Dunk: Hoero Basketman-damashii! Hanamichi to Rukawa no Atsuki Natsu",
-
-
-
+    "Slam Dunk: Shohoku Maximum Crisis! Burn Sakuragi Hanamichi": "Slam Dunk: Shouhoku Saidai no Kiki! Moero Sakuragi Hanamichi",
+    "Slam Dunk: National Domination! Sakuragi Hanamichi": "Slam Dunk: Zenkoku Seiha Da! - Sakuragi Hanamichi",
 
 
     // Qui puoi aggiungere altre normalizzazioni custom

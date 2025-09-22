@@ -41,12 +41,16 @@ const NO_DYNAMIC_CACHE: boolean = (() => {
     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
   } catch { return true; }
 })();
-// Flag per disabilitare il filtro runtime su date (di default ON: usa sempre il JSON così com'è)
+// Flag per disabilitare il filtro runtime su date.
+// CAMBIO: default ora = OFF (0) così il comportamento "purge automatico" torna quello atteso:
+//   - Prima delle 08:00 Rome: mantieni anche eventi di ieri (grace)
+//   - Dopo le 08:00 Rome: rimuovi ieri (salvo KEEP_YESTERDAY=1)
+// Se qualcuno vuole mantenere il vecchio comportamento (nessun filtro runtime), deve impostare esplicitamente DYNAMIC_DISABLE_RUNTIME_FILTER=1.
 const DISABLE_RUNTIME_FILTER: boolean = (() => {
   try {
-    const v = (process?.env?.DYNAMIC_DISABLE_RUNTIME_FILTER ?? '1').toString().toLowerCase();
+    const v = (process?.env?.DYNAMIC_DISABLE_RUNTIME_FILTER ?? '0').toString().toLowerCase();
     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
-  } catch { return true; }
+  } catch { return false; }
 })();
 // Flag per mantenere anche gli eventi di IERI (utile se l'orario/UTC causa slittamenti di data)
 const KEEP_YESTERDAY: boolean = (() => {
@@ -54,6 +58,17 @@ const KEEP_YESTERDAY: boolean = (() => {
   const v = (process?.env?.DYNAMIC_KEEP_YESTERDAY ?? '0').toString().toLowerCase();
     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
   } catch { return true; }
+})();
+
+// Nuova opzione: età massima evento (in ore) dopo l'orario di inizio, oltre la quale l'evento viene rimosso
+// Se 0 (default) => disabilitato. Consigliato 8 per richiesta "purge fallback dopo 8h dallo start".
+const EVENT_MAX_AGE_HOURS: number = (() => {
+  try {
+    const raw = (process?.env?.DYNAMIC_EVENT_MAX_AGE_HOURS || '0').toString().trim();
+    const n = parseInt(raw, 10);
+    if (!isNaN(n) && n > 0 && n < 72) return n; // hard cap 72h per sicurezza
+    return 0;
+  } catch { return 0; }
 })();
 
 function resolveDynamicFile(): string {
@@ -217,6 +232,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       const purgeThreshold = new Date(nowRome);
       purgeThreshold.setHours(purgeHourValue, 0, 0, 0);
       // Calcola stringa data di oggi e di ieri in Europe/Rome
+      const maxAgeMs = EVENT_MAX_AGE_HOURS > 0 ? EVENT_MAX_AGE_HOURS * 60 * 60 * 1000 : 0;
       const datePartRome = (iso?: string): string | null => {
         if (!iso) return null;
         try {
@@ -239,10 +255,22 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       yRomeTmp.setDate(yRomeTmp.getDate() - 1);
       const yesterdayRome = datePartRome(yRomeTmp.toISOString()) || '';
       let removedPrevDay = 0;
+      let removedExpiredAge = 0;
       const filtered: DynamicChannel[] = data.filter(ch => {
         if (!ch.eventStart) return true; // keep if undated
         const chDate = datePartRome(ch.eventStart);
         if (!chDate) return true;
+        // Rimozione per età (prima di tutto): se evento iniziato ed è passato oltre maxAge (in tz Rome)
+        if (maxAgeMs > 0) {
+          try {
+            const startUtc = new Date(ch.eventStart); // ISO di origine in UTC
+            const ageMs = nowRome.getTime() - startUtc.getTime();
+            if (ageMs > maxAgeMs) {
+              removedExpiredAge++;
+              return false;
+            }
+          } catch { /* ignore */ }
+        }
         if (nowRome < purgeThreshold) return true; // within grace period
         // Mantieni eventi di OGGI; opzionalmente mantieni anche IERI (per evitare drop falsi positivi)
         let keep = chDate >= todayRome;
@@ -264,6 +292,9 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       if (removedPrevDay) {
         const hh = purgeHourValue.toString().padStart(2, '0');
         try { console.log(`🧹 runtime filter: rimossi ${removedPrevDay} eventi del giorno precedente (dopo le ${hh}:00 Rome)`); } catch {}
+      }
+      if (removedExpiredAge && EVENT_MAX_AGE_HOURS > 0) {
+        try { console.log(`⏱️ runtime filter: rimossi ${removedExpiredAge} eventi oltre ${EVENT_MAX_AGE_HOURS}h dallo start`); } catch {}
       }
       return filtered;
     }
@@ -301,6 +332,7 @@ export function purgeOldDynamicEvents(): { before: number; after: number; remove
     if (!Array.isArray(data)) return { before: 0, after: 0, removed: 0 };
     const before = data.length;
     const nowRome = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+    const maxAgeMs = EVENT_MAX_AGE_HOURS > 0 ? EVENT_MAX_AGE_HOURS * 60 * 60 * 1000 : 0;
     const datePartRome = (iso?: string): string | null => {
       if (!iso) return null;
       try {
@@ -349,6 +381,16 @@ export function purgeOldDynamicEvents(): { before: number; after: number; remove
         if (age > TWO_DAYS_MS) return false; // elimina dopo 2 giorni
         return true;
       }
+  // Se impostata la max age, elimina se oltre soglia
+  if (maxAgeMs > 0) {
+    try {
+      const start = Date.parse(ch.eventStart);
+      if (!isNaN(start)) {
+        const age = nowMs - start;
+        if (age > maxAgeMs) return false;
+      }
+    } catch { /* ignore */ }
+  }
   const chDate = datePartRome(ch.eventStart);
   if (!chDate) return true;
   // Mantieni oggi; opzionalmente mantieni anche ieri
@@ -364,6 +406,12 @@ export function purgeOldDynamicEvents(): { before: number; after: number; remove
     // Invalida cache
     dynamicCache = null;
     const after = filtered.length;
+    try {
+      // Logging diagnostico dettagliato
+      const removed = before - after;
+      const removedDetail = { before, after, removed, graceActive: isBeforeGrace, keepYesterdayFlag: KEEP_YESTERDAY, maxAgeHours: EVENT_MAX_AGE_HOURS };
+      console.log('[DynamicChannels][PURGE] result', removedDetail);
+    } catch {}
     return { before, after, removed: before - after };
   } catch (e) {
     console.error('❌ purgeOldDynamicEvents error:', e);

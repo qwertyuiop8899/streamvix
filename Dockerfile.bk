@@ -1,5 +1,5 @@
 # Scegli un'immagine Node.js di base
-FROM node:20-slim
+FROM node:20-slim 
 
 ARG CACHE_BUST=23
 RUN echo "Cache bust: $CACHE_BUST"
@@ -53,6 +53,7 @@ RUN chown node:node /start
 USER node
 
 ENTRYPOINT ["node", "/start"]
+
 
 
 

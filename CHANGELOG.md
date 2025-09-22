@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.2.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.2...v1.2.3) (2025-09-22)
+
+
+### Bug Fixes
+
+* old events ([66e948a](https://github.com/qwertyuiop8899/streamvix/commit/66e948aa31c1daa37462dd3c37d57263b8b81420))
+* rbtv non ita ([2db7557](https://github.com/qwertyuiop8899/streamvix/commit/2db755792de07c6ce32579781cbd2552fd768776))
+
+## [1.2.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.1...v1.2.2) (2025-09-21)
+
+
+### Bug Fixes
+
+* try fix strv rbtv ([8993879](https://github.com/qwertyuiop8899/streamvix/commit/899387932a8fc405406fa0aa1dcd9196b7ffa2b7))
+
+## [1.2.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.0...v1.2.1) (2025-09-20)
+
+
+### Bug Fixes
+
+* rb77 streamed ([d8300a9](https://github.com/qwertyuiop8899/streamvix/commit/d8300a954426d37c805b6454a238e7764b232f53))
+
+## [1.2.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.18...v1.2.0) (2025-09-19)
+
+
+### Features
+
+* **normalize:** add "Slam Dunk: National Domination! Sakuragi Hanamichi" ([c31d041](https://github.com/qwertyuiop8899/streamvix/commit/c31d041005125da8f97216ebde6d456fc5c1bf21))
+
+
+### Bug Fixes
+
+* pd channels ([41b1c8d](https://github.com/qwertyuiop8899/streamvix/commit/41b1c8d6c7fbd443dbd10b47142dc17a9c561896))
+
 ## [1.1.18](https://github.com/qwertyuiop8899/streamvix/compare/v1.1.17...v1.1.18) (2025-09-19)
 
 
