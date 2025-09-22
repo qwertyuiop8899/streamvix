@@ -41,6 +41,7 @@ PERSIST_FILE = '/tmp/rbtv_streams_persist.json'
 FORCE_MODE = (os.environ.get('RBTV_FORCE') or '').lower() in {'1','true','on','yes','force'} or any(a in {'-f','--force'} for a in sys.argv[1:])
 PREFIX_BASE_ITA = '[RB77🇮🇹]'
 PREFIX_BASE_FALLBACK = '[RB77]'
+SOCCER_EMOJI = '⚽'
 STATUS_THRESHOLD_MIN = 10
 
 # --- Language filtering configuration ---
@@ -193,7 +194,7 @@ def status_symbol(now: datetime.datetime, start: datetime.datetime) -> str:
 
 def build_prefix(now: datetime.datetime, start: datetime.datetime, italian: bool) -> str:
     base = PREFIX_BASE_ITA if italian else PREFIX_BASE_FALLBACK
-    return f"{base}{status_symbol(now, start)}"
+    return f"{base} {SOCCER_EMOJI} {status_symbol(now, start)}"
 
 def is_single_entity(title: str) -> bool:
     t = title.lower()
@@ -488,10 +489,10 @@ def enrich():
                                 rest_part = tt[len(PREFIX_BASE_ITA):]
                             else:
                                 rest_part = tt[len(PREFIX_BASE_FALLBACK):]
-                                # remove leading emoji + space patterns
-                                rest_part = re.sub(r'^[^ ]+\s*', '', rest_part)
-                                rest = rest_part
-                            new_title = f"{new_head} {rest}".strip()
+                            # rimuovi eventuale simbolo precedente + testo evento: manteniamo solo ultima variante tra []
+                            variant_tags = re.findall(r'\[[^\]]+\]', rest_part)
+                            variant = variant_tags[-1] if variant_tags else rest_part
+                            new_title = f"{new_head} {variant}".strip()
                             if new_title != tt:
                                 s['title'] = new_title
                                 updated_any = True
@@ -676,7 +677,10 @@ def enrich():
                 final_url = pl['url']
                 display_title = pl['title']
                 prefix = build_prefix(now, dt, italian_mode)
-                new_title = f"{prefix} {display_title}"
+                # Estrarre solo variante finale (es: [HDD A], [SD], [VDO])
+                variant_tags = re.findall(r'\[[^\]]+\]', display_title)
+                variant = variant_tags[-1] if variant_tags else display_title
+                new_title = f"{prefix} {variant}".strip()
                 if final_url in existing_urls or new_title in existing_titles:
                     continue
                 # Nuovo calcolo indice inserimento RB77 (vedi specifica sopra)
