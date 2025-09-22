@@ -24,7 +24,7 @@ Istanza ElfHosted a pagamento CON Mediaflo Proxy incluso (Per Eventi Sportivi)
 * **📡 Supporto Eventi Sportivi:** Eventi sportivi aggiornati ogni giorno.
 * **🔗 Integrazione Perfetta:** Si integra meravigliosamente con l'interfaccia di Stremio per un'esperienza utente fluida.
 * **🌐 Proxy Unificato:** Un solo proxy MFP per tutti i contenuti (film, serie, anime, TV).
-* **⚡ Modalità FAST Dinamica:** Eventi Live con URL dirette senza passare dall'extractor (toggle runtime) con prefisso `[Player Esterno]` applicato SOLO ai flussi generici (non `[Strd]`, non RB77, non `[P🐽D]`).
+* **⚡ Modalità FAST Dinamica:** Eventi Live con URL dirette senza passare dall'extractor (toggle runtime) con prefisso `[Player Esterno]` applicato SOLO ai flussi generici (non `[Strd]`, non RB77, non `[SPSO]`, non `[P🐽D]`).
 * **🎯 Limite & Priorità Estrazioni:** In modalità extractor applica CAP di concorrenza e priorità per sorgenti italiane (leftover senza prefisso addizionale).
 * **📡 Supporto Live TV:** Canali TV italiani e Eventi Sportivi visibili senza Mediaflow Proxy, scegliere i canali [Vavoo] o con 🏠.
 * **🔓 Supporto Stream Senza Mediaflow Proxy:** Canali TV italiani e Eventi Sportivi, Film e Serie TV, scegliere gli stream con 🔓 per avviarli senza aver bisogno di un MediaflowProx. (Nota Bene, per avviare gli stream senza proxy ci potrebbe essere bisogno di un player esterno o VLC, prova con il player di default, se non va usa un player esterno tipo VLC)
@@ -72,11 +72,11 @@ Modalità disponibili:
     - Attiva con variabile `FAST_DYNAMIC=1` oppure runtime `/admin/mode?fast=1`.
     - Salta completamente l'extractor e usa immediatamente le URL presenti nel JSON.
     - Nessun limite di concorrenza, tutte le sorgenti vengono esposte come stream diretti.
-    - Prefisso `[Player Esterno]` aggiunto solo se il titolo non inizia già con `[Strd]`, `[RB77`, `[P🐽D]`, `[🌍dTV]`.
+    - Prefisso `[Player Esterno]` aggiunto solo se il titolo non inizia già con `[Strd]`, `[RB77`, `[SPSO]`, `[P🐽D]`, `[🌍dTV]`.
 2. Extractor (predefinita se `FAST_DYNAMIC=0`):
     - Ogni URL dinamica passa per la risoluzione (se configurato proxy MFP) prima di essere mostrata.
     - Applica un CAP di concorrenza pari a `DYNAMIC_EXTRACTOR_CONC` (default 10).
-    - Le sorgenti oltre il CAP (leftover) vengono esposte dirette e ricevono `[Player Esterno]` solo se non già nel set speciale `[Strd]/RB77/PD/dTV`.
+    - Le sorgenti oltre il CAP (leftover) vengono esposte dirette e ricevono `[Player Esterno]` solo se non già nel set speciale `[Strd]/RB77/SPSO/PD/dTV`.
     - Priorità: prima i titoli che matchano `(it|ita|italy)`, poi `(italian|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)`, infine gli altri.
 
 Suggerimento: imposta `DYNAMIC_EXTRACTOR_CONC=1` per test: vedrai esattamente 2 stream (1 estratto + 1 leftover diretto).
@@ -130,9 +130,10 @@ Se vuoi modificare solo la finestra di visibilità estesa fino a una certa ora, 
 
 | Prefisso / Emoji | Condizione |
 |------------------|-----------|
-| `[Player Esterno]` | Aggiunto a flussi FAST / leftover generic non già marcati `[Strd]`, `[RB77…]`, `[P🐽D]`, `[🌍dTV]` |
+| `[Player Esterno]` | Aggiunto a flussi FAST / leftover generic non già marcati `[Strd]`, `[RB77…]`, `[SPSO]`, `[P🐽D]`, `[🌍dTV]` |
 | `[Strd]` | Stream provenienti da playlist Streamed |
 | `[RB77🇮🇹]` / `[RB77]` | Flussi RBTV italiani / fallback |
+| `[SPSO]` | Varianti playlist SportSOnline (solo tag variante) |
 | `[P🐽D]` | Broadcaster playlist PD |
 | Emoji 🇮🇹 | Riconoscimento sorgente/titolo italiano |
 
@@ -145,8 +146,12 @@ Se vuoi modificare solo la finestra di visibilità estesa fino a una certa ora, 
 | `/live/purge` | Purge fisico file eventi vecchi |
 | `/admin/mode?fast=1` | Abilita FAST dinamico |
 | `/admin/mode?fast=0` | Torna extractor |
+| `/streamed/reload` | Avvia arricchimento Streamed in finestra |
+| `/streamed/reload?force=1` | Forza Streamed (ignora finestre) |
 | `/rbtv/reload` | Avvia arricchimento RBTV in finestra |
 | `/rbtv/reload?force=1` | Forza RBTV (ignora finestre) |
+| `/spso/reload` | Avvia arricchimento SPSO (SportSOnline) |
+| `/spso/reload?force=1` | Forza SPSO (placeholder future finestre) |
 
 ### 🌍 Variabili Ambiente Rilevanti (Estese)
 
@@ -280,8 +285,9 @@ Fallback: se (a) l'evento appartiene a categorie target (Serie A/B/C, F1, MotoGP
 Ordinamento:
 1. Blocchi `[P🐽D]` + cluster 🇮🇹 preesistente
 2. Blocchi RB77 (`[RB77🇮🇹]` oppure fallback `[RB77]`)
-3. `[Strd]`
-4. Leftover dinamici
+3. `[SPSO]`
+4. `[Strd]`
+5. Leftover dinamici
 
 Aggiornamento simboli (🚫/🔴) anche fuori discovery per stream persistiti.
 
@@ -309,6 +315,54 @@ File cache: `/tmp/rbtv_streams_persist.json` contiene per-evento i flussi RB77 g
 * De-duplicazione tra eventi invertiti (A vs B / B vs A) selezionando evento primario.
 * Lista sinonimi estesa (Serie B/C) caricabile da file esterno.
 * Modalità “audit” che salva CSV con motivazioni di skip.
+
+---
+## ⚽ Integrazione Playlist SportSOnline (SPSO `[SPSO]`)
+
+La sorgente SPSO (`spso_streams.py`) aggiunge varianti addizionali provenienti dalla playlist SportSOnline.
+
+### Caratteristiche
+* Titolo minimale: `[SPSO] ⚽ [HDD A]` (solo prefisso + emoji + ultima variante tra parentesi quadre originaria).
+* Nessun nome evento ripetuto (riduce lunghezza UI).
+* Ordering fisso: dopo RB77 / prima di `[Strd]`.
+* Matching squadre con separatore ` x ` (es. `Napoli x Pisa`).
+* Persistenza locale: `/tmp/spso_streams_persist.json` per reiniezione post rigenerazione dinamici.
+* Filtro lingua opzionale (disattivo di default) attivabile con `SPSO_LANG_FILTER=1`.
+* Nessun simbolo dinamico (🚫/🔴) per ora.
+
+### Endpoint
+| Endpoint | Descrizione |
+|----------|-------------|
+| `/spso/reload` | Fetch + arricchimento immediato playlist SPSO |
+| `/spso/reload?force=1` | Force mode (placeholder future finestre) |
+
+### Variabili Ambiente
+| Variabile | Default | Descrizione |
+|-----------|---------|-------------|
+| `SPSO_PLAYLIST_URL` | https://world-proxifier.xyz/sportsonline/playlist.m3u8 | URL principale |
+| `SPSO_FALLBACK_URL` | (stesso) | URL fallback |
+| `SPSO_FORCE` | 0 | Forza elaborazione (futuro: ignora finestre) |
+| `SPSO_FETCH_ATTEMPTS` | 3 | Tentativi download |
+| `SPSO_FETCH_TIMEOUT` | 12 | Timeout singolo (s) |
+| `SPSO_DEBUG_FETCH` | 0 | Log dettagli HTTP |
+| `SPSO_FAST_FORCE` | 0 | Percorso rapido se insieme a force |
+| `SPSO_LANG_FILTER` | 0 | Abilita filtro lingua |
+| `SPSO_LANG_KEYWORDS` | italiano,italia,italy,ita | Token accettati se filtro attivo |
+| `SPSO_UA` | (auto) | User-Agent personalizzato |
+
+### Ordering Recap (esteso)
+1. `[P🐽D]` / cluster 🇮🇹
+2. `[RB77🇮🇹]` / `[RB77]`
+3. `[SPSO]`
+4. `[Strd]`
+5. Altri dinamici / leftover
+
+### Troubleshooting Rapido
+| Sintomo | Causa | Azione |
+|---------|-------|--------|
+| Nessun stream `[SPSO]` | Playlist non raggiungibile | Verifica URL / abilita `SPSO_DEBUG_FETCH=1` |
+| Duplicati variante | Persist + nuova playlist con titoli quasi identici | Cancella `/tmp/spso_streams_persist.json` e reload |
+| Prefisso rimappato a `[Player Esterno]` | Regex addon non aggiornata (versione vecchia) | Aggiorna addon con patch whitelist `SPSO` |
 
 ---
 ## 🌊 Integrazione Playlist Streamed ([Strd])
@@ -490,6 +544,7 @@ Note:
 | PD Relax Competizioni | Per Serie A/B/C, coppe, F1, MotoGP, Tennis, Volley ecc: ignorato brand allowlist; richiesti team match (o single-entity) + token italiano nel broadcaster. Altre competizioni: brand + token IT obbligatori. (Nessun simbolo dinamico per PD). | Mantiene blocco iniziale in cima agli stream evento. |
 | Streamed `[Strd]` | Aggiunti simboli dinamici (🚫 >10m prima, 🔴 da -10m in poi). Persistenza fuori discovery conservata + refresh simboli. | Continua a posizionarsi dopo RB77. |
 | Simboli Dinamici | Applicati solo a RB77 e Strd (🚫 / 🔴). | Non altera logica ordering, solo titoli (PD escluso). |
+| SPSO `[SPSO]` | Playlist SportSOnline: varianti compatte `[SPSO] ⚽ [VARIANTE]`, nessun nome evento. Persistenza su file dedicato. | Posizionato tra RB77 e `[Strd]`. |
 
 ### Stato Simboli
 * 🚫 = evento non ancora in finestra di start (mancano >10 minuti)
@@ -499,8 +554,9 @@ Note:
 1. `[P🐽D]` (con simboli)
 2. 🇮🇹 altri stream prioritari (se presenti)
 3. `[RB77🇮🇹]`
-4. `[Strd]`
-5. Restanti dinamici / leftover
+4. `[SPSO]`
+5. `[Strd]`
+6. Restanti dinamici / leftover
 
 ### Variabili Chiave Nuove / Modificate
 | Variabile | Default | Uso |
