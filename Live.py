@@ -134,9 +134,22 @@ EXTRA_LOGOS = {
      
 }
 
+# Mappa mesi (nomi completi) + abbreviazioni comuni per evitare fallback di parsing
+# Il bug "Lazio vs Roma" nasce perché il day key usa "Sep" (abbreviazione) e la vecchia
+# mappa conteneva solo il nome completo -> month/day restavano None e si cadeva nel fallback
+# all'UTC now (data errata).
 MONTHS = {m: i for i, m in enumerate([
     'January','February','March','April','May','June','July','August',
     'September','October','November','December'], start=1)}
+# Aggiungi abbreviazioni (sia forma a 3 lettere sia variante 'Sept')
+_MONTHS_ABBR = {
+    'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+    'Jul': 7, 'Aug': 8, 'Sep': 9, 'Sept': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+}
+MONTHS.update(_MONTHS_ABBR)
+
+# Regex per rimuovere suffissi ordinali anche separati da spazi (normali o Unicode)
+_ORDINAL_SUFFIX_RX = re.compile(r'(\d{1,2})\s*(?:st|nd|rd|th)\b', re.IGNORECASE)
 
 TEAM_PREFIXES_REGEX = re.compile(
     r'^(?:A\.S\.|AS|A\.C\.|AC|SSC|S\.S\.C\.|SS|U\.S\.|US|U\.C\.|UC|F\.C\.|FC|'
@@ -201,10 +214,33 @@ def load_schedule() -> Dict[str, Any]:
     return resp.json()
 
 def clean_day_string(day: str) -> str:
-    day = day.replace(' - Schedule Time UK GMT', '')
-    for suf in ('st','nd','rd','th'):
-        day = re.sub(rf'(\d+){suf}', r'\1', day)
-    return day.strip()
+    """Normalizza la stringa giorno dal JSON remoto.
+
+    Operazioni:
+    1. Rimuove il suffisso fisso finale " - Schedule Time UK GMT" (se presente, case-insensitive).
+    2. Normalizza tutti gli spazi Unicode (categoria Zs) in spazio singolo ASCII.
+    3. Rimuove eventuali ZERO WIDTH SPACE.
+    4. Elimina i suffissi ordinali (st/nd/rd/th) anche se separati da spazi o NBSP dal numero.
+    5. Collassa spazi multipli.
+    """
+    if not isinstance(day, str):
+        return ''
+    # 1. Rimuovi suffisso fisso se presente
+    day = re.sub(r'\s*-\s*Schedule Time UK GMT\s*$', '', day, flags=re.IGNORECASE)
+
+    # 2. Normalizza spazi Unicode (category Zs -> ' ')
+    # Evitiamo import aggiuntivi: gestiamo manualmente i principali separatori conosciuti
+    # NBSP (\u00A0), NNBSP (\u202F), THIN (\u2009), HAIR (\u200A)
+    day = day.replace('\u00A0', ' ').replace('\u202F', ' ').replace('\u2009', ' ').replace('\u200A', ' ')
+    # 3. Rimuovi ZERO WIDTH SPACE
+    day = day.replace('\u200B', '')
+
+    # 4. Rimuovi suffissi ordinali robustamente
+    day = _ORDINAL_SUFFIX_RX.sub(r'\1', day)
+
+    # 5. Collassa spazi multipli ed elimina bordi
+    day = re.sub(r'\s+', ' ', day).strip()
+    return day
 
 def parse_event_datetime(day_str: str, time_uk: str) -> datetime.datetime:
     day_clean = clean_day_string(day_str)
