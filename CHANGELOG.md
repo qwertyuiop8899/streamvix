@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.2...v1.2.3) (2025-09-22)
+
+
+### Bug Fixes
+
+* old events ([66e948a](https://github.com/qwertyuiop8899/streamvix/commit/66e948aa31c1daa37462dd3c37d57263b8b81420))
+* rbtv non ita ([2db7557](https://github.com/qwertyuiop8899/streamvix/commit/2db755792de07c6ce32579781cbd2552fd768776))
+
 ## [1.2.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.1...v1.2.2) (2025-09-21)
 
 
