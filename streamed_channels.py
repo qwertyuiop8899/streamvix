@@ -61,7 +61,8 @@ if _force_env in {'1','true','on','yes','force'}:
 if any(a in ('--force','-f') for a in sys.argv[1:]):
     FORCE_MODE = True
 
-HDR_STREAMED_PREFIX = '[Strd] '
+HDR_STREAMED_PREFIX = '[Strd]'
+SOCCER_EMOJI = '⚽'
 STATUS_AHEAD = '🚫'  # >10m before start
 STATUS_LIVE = '🔴'    # within 10m before or after start
 
@@ -472,21 +473,18 @@ def enrich():
                         # Aggiorna simbolo dinamico sul titolo ripristinato
                         base_title = tt
                         # Rimuovi eventuali simboli precedenti dopo prefisso
-                        if base_title.startswith(HDR_STREAMED_PREFIX):
-                            rest = base_title[len(HDR_STREAMED_PREFIX):].lstrip()
-                        else:
-                            rest = base_title
-                        # Se inizia con status emoji rimuovi
+                        # Compatto: estrai ultima variante [TAG]
+                        rest = re.sub(r'^\[Strd\]\s*', '', base_title)
+                        rest = rest.strip()
+                        # rimuovi eventuale status iniziale
                         if rest.startswith(STATUS_AHEAD) or rest.startswith(STATUS_LIVE):
                             rest = rest[1:].lstrip()
-                        # Calcola nuovo simbolo rispetto al tempo attuale
+                        variant_tags = re.findall(r'\[[^\]]+\]', rest)
+                        variant = variant_tags[-1] if variant_tags else rest
                         sym = ''
                         if dt:
-                            if now < dt - datetime.timedelta(minutes=10):
-                                sym = STATUS_AHEAD
-                            else:
-                                sym = STATUS_LIVE
-                        new_title = f"{HDR_STREAMED_PREFIX}{sym} {rest}".strip()
+                            sym = STATUS_AHEAD if now < dt - datetime.timedelta(minutes=10) else STATUS_LIVE
+                        new_title = f"{HDR_STREAMED_PREFIX} {SOCCER_EMOJI} {sym} {variant}".strip()
                         ps['title'] = new_title
                         streams_list.insert(insert_idx, ps)
                         insert_idx += 1  # preserve persisted order
@@ -539,7 +537,9 @@ def enrich():
                         sym = STATUS_AHEAD
                     else:
                         sym = STATUS_LIVE
-                new_title = f"{HDR_STREAMED_PREFIX}{sym} {display_title}".strip()
+                variant_tags = re.findall(r'\[[^\]]+\]', display_title)
+                variant = variant_tags[-1] if variant_tags else display_title
+                new_title = f"{HDR_STREAMED_PREFIX} {SOCCER_EMOJI} {sym} {variant}".strip()
                 if final_url in existing_urls or new_title in existing_titles:
                     continue
                 # Build stream object (header propagation forced now if headers exist)
