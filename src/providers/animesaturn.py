@@ -37,33 +37,37 @@ def safe_ascii_header(value: str) -> str:
     return ''.join(c if 32 <= ord(c) < 127 else '?' for c in value)
 
 def handle_challenge(resp: requests.Response, session: requests.Session, original_headers: dict) -> bool:
-    """Gestisce pagina challenge ASFast impostando cookie e seguendo redirect opzionale.
-    Restituisce True se un pattern challenge è stato gestito, False altrimenti."""
+    """Gestisce pagina challenge ASFast/ASFast1-Cd impostando cookie e seguendo eventuale redirect.
+    Ritorna True se viene trovato e impostato un cookie challenge."""
     try:
         text = resp.text
-        # Il sito fornisce document.cookie="ASFast-..." senza backslash; adattiamo regex flessibile
-        cookie_match = re.search(r'document.cookie="(ASFast-[^=]+=[^";]+)', text)
+        # Pattern più permissivo: cattura sia ASFast-XYZ= sia ASFast1-Cd=
+        cookie_match = re.search(r'document.cookie="((?:ASFast1?-)[^=]+=[^";\s]+)', text)
         if cookie_match:
-            cookie_kv = cookie_match.group(1)
+            cookie_kv = cookie_match.group(1).strip()
             if '=' in cookie_kv:
                 name, value = cookie_kv.split('=', 1)
                 host = urllib.parse.urlparse(BASE_URL).hostname
                 if host:
-                    session.cookies.set(name, value, domain=host)
-                    # Imposta anche su www.<host>
-                    if not host.startswith('www.'):
-                        session.cookies.set(name, value, domain='www.' + host)
-                debug(f"handle_challenge: impostato cookie {name}")
-        # Redirect opzionale
-        redir = re.search(r'window\\.location\\.href\s*=\s*\"([^\"]+)\"', text)
+                    for d in {host, ('www.' + host if not host.startswith('www.') else host)}:
+                        try:
+                            session.cookies.set(name, value, domain=d)
+                        except Exception as ce:
+                            debug(f"handle_challenge: errore set cookie su {d}: {ce}")
+                    debug(f"handle_challenge: impostato cookie {name}={value[:8]}... su {host}")
+        # Gestione redirect (alcuni challenge rimandano a http://www.)
+        redir = re.search(r'location.href=\"([^\"]+)\"', text)
         if redir:
             url = redir.group(1)
+            # Forza https se necessario
+            if url.startswith('http://'):
+                url = url.replace('http://', 'https://')
             debug(f"handle_challenge: follow redirect -> {url}")
             try:
                 session.get(url, headers=original_headers, timeout=(5, 10))
             except Exception as e:
                 debug(f"handle_challenge: errore follow redirect: {e}")
-        return True if 'ASFast-' in text else False
+        return True if 'ASFast' in text else False
     except Exception as e:
         debug(f"handle_challenge exception: {e}")
         return False
@@ -110,7 +114,7 @@ def search_anime(query, session: Optional[requests.Session] = None):
                 is_probably_html = '<html' in body_start.lower() and 'json' not in ctype.lower()
                 # Bypass challenge: se status 202 o 200 HTML con script cookie
                 challenge_cookie = None
-                if (status == 202 or status == 200) and ('document.cookie="ASFast-' in resp.text):
+                if (status == 202 or status == 200) and ('document.cookie="ASFast' in resp.text):
                     if not challenge_saved:
                         try:
                             with open('challenge_page.html', 'w', encoding='utf-8') as fch:
@@ -136,7 +140,7 @@ def search_anime(query, session: Optional[requests.Session] = None):
                         debug("Challenge pattern rilevato ma non gestito (regex mismatch)")
 
                 if not error_to_raise:
-                    if status != 200:
+                    if status != 200 and 'document.cookie="ASFast' not in resp.text:
                         snippet = body_start.replace('\n', ' ')[:160]
                         error_to_raise = f"HTTP {status} non-200 snippet='{snippet}...'"
                     else:
@@ -188,7 +192,7 @@ def get_watch_url(episode_url, session: Optional[requests.Session] = None):
         session = SESSION
     print(f"[DEBUG] GET watch URL da: {episode_url}", file=sys.stderr)
     resp = session.get(episode_url, headers=HEADERS, timeout=TIMEOUT)
-    if (resp.status_code in (200,202)) and 'document.cookie="ASFast-' in resp.text:
+    if (resp.status_code in (200,202)) and 'document.cookie="ASFast' in resp.text:
         handled = handle_challenge(resp, session, HEADERS)
         if handled:
             try:
@@ -255,7 +259,7 @@ def extract_mp4_url(watch_url, session: Optional[requests.Session] = None):
         session = SESSION
     print(f"[DEBUG] Analisi URL: {watch_url}", file=sys.stderr)
     resp = session.get(watch_url, headers=HEADERS, timeout=TIMEOUT)
-    if (resp.status_code in (200,202)) and 'document.cookie="ASFast-' in resp.text:
+    if (resp.status_code in (200,202)) and 'document.cookie="ASFast' in resp.text:
         handled = handle_challenge(resp, session, HEADERS)
         if handled:
             try:
@@ -366,17 +370,36 @@ def extract_mp4_url(watch_url, session: Optional[requests.Session] = None):
 def get_episodes_list(anime_url, session: Optional[requests.Session] = None):
     if session is None:
         session = SESSION
-    resp = session.get(anime_url, headers=HEADERS, timeout=TIMEOUT)
-    # Gestione challenge come nelle altre funzioni
-    if (resp.status_code in (200,202)) and 'document.cookie="ASFast-' in resp.text:
-        handled = handle_challenge(resp, session, HEADERS)
-        if handled:
-            try:
-                resp = session.get(anime_url, headers=HEADERS, timeout=TIMEOUT)
-            except Exception as e:
-                debug(f"get_episodes_list retry errore: {e}")
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
+    # Retry robusto per mitigare ConnectionResetError / reset TLS
+    attempts = 0
+    max_attempts = 4
+    last_exc = None
+    while attempts < max_attempts:
+        try:
+            # Alcuni reset avvengono con keep-alive: forziamo header Connection
+            headers = dict(HEADERS)
+            headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            headers["Connection"] = "close" if attempts > 0 else "keep-alive"
+            headers["Referer"] = BASE_URL + "/"
+            resp = session.get(anime_url, headers=headers, timeout=(5, TIMEOUT))
+            if (resp.status_code in (200,202)) and 'document.cookie="ASFast' in resp.text:
+                handled = handle_challenge(resp, session, headers)
+                if handled:
+                    resp = session.get(anime_url, headers=headers, timeout=(5, TIMEOUT))
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "html.parser")
+            break
+        except requests.exceptions.ConnectionError as ce:
+            last_exc = ce
+            debug(f"get_episodes_list ConnectionError attempt={attempts+1}: {ce}")
+        except Exception as e:
+            last_exc = e
+            debug(f"get_episodes_list generic error attempt={attempts+1}: {e}")
+        attempts += 1
+        time.sleep(0.6 * attempts)
+    else:
+        # Exhausted attempts
+        raise last_exc if last_exc else RuntimeError("get_episodes_list fallita senza eccezione specifica")
     episodes = []
     for a in soup.select("a.bottone-ep"):
         title = a.get_text(strip=True)
@@ -429,7 +452,7 @@ def search_anime_by_title_or_malid(title, mal_id, session: Optional[requests.Ses
                 debug(f"fetch_with_challenge errore rete ({attempts}): {e}")
                 return None
             status = r.status_code
-            if (status == 202 or status == 200) and 'document.cookie="ASFast-' in r.text and attempts < max_challenge:
+            if (status == 202 or status == 200) and 'document.cookie="ASFast' in r.text and attempts < max_challenge:
                 debug(f"fetch_with_challenge challenge detail status={status} url={url}")
                 handled = handle_challenge(r, session, headers)
                 attempts += 1
