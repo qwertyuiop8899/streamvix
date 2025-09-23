@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-AnimeSaturn MP4 Link Extractor
+AnimeSaturn MP4 Link Extractor 
 Estrae il link MP4 diretto dagli episodi di animesaturn.cx
 Dipendenze: requests, beautifulsoup4 (pip install requests beautifulsoup4)
 """
