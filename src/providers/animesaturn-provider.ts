@@ -189,7 +189,6 @@ function normalizeTitleForSearch(title: string): string {
     "Slam Dunk: Shohoku Maximum Crisis! Burn Sakuragi Hanamichi": "Slam Dunk: Shouhoku Saidai no Kiki! Moero Sakuragi Hanamichi",
     "Slam Dunk: National Domination! Sakuragi Hanamichi": "Slam Dunk: Zenkoku Seiha Da! - Sakuragi Hanamichi",
 
-
     // Qui puoi aggiungere altre normalizzazioni custom
   };
   let normalized = title;
@@ -232,6 +231,11 @@ export class AnimeSaturnProvider {
       args.push('--mal-id', malId);
     }
     let results: AnimeSaturnResult[] = await invokePythonScraper(args);
+    // Fallback: se la ricerca con MAL ID non restituisce nulla, riprova senza MAL ID
+    if (malId && results.length === 0) {
+      console.log('[AnimeSaturn] Nessun risultato con MAL ID, retry senza mal-id');
+      results = await invokePythonScraper(['search', '--query', title]);
+    }
     // Se la ricerca trova solo una versione e il titolo contiene apostrofi, riprova con l'apostrofo tipografico
     if (results.length <= 1 && title.includes("'")) {
       const titleTypo = title.replace(/'/g, '’');
@@ -398,6 +402,12 @@ export class AnimeSaturnProvider {
     console.log(`[AnimeSaturn] MAL ID passato a searchAllVersions:`, malId ? malId : '(nessuno)');
     let animeVersions = await this.searchAllVersions(normalizedTitle, malId);
     animeVersions = filterAnimeResults(animeVersions, normalizedTitle, malId);
+    // Fallback MAL -> loose: se filtrando con MAL non troviamo nulla, riprova senza malId
+    if (malId && animeVersions.length === 0) {
+      console.log('[AnimeSaturn] Nessun risultato dopo filtro con MAL ID, ritento ricerca loose');
+      animeVersions = await this.searchAllVersions(normalizedTitle);
+      animeVersions = filterAnimeResults(animeVersions, normalizedTitle);
+    }
     if (!animeVersions.length) {
       console.warn('[AnimeSaturn] Nessun risultato trovato per il titolo:', normalizedTitle);
       return { streams: [] };
@@ -405,18 +415,23 @@ export class AnimeSaturnProvider {
     const streams: StreamForStremio[] = [];
     for (const { version, language_type } of animeVersions) {
       const episodes: AnimeSaturnEpisode[] = await invokePythonScraper(['get_episodes', '--anime-url', version.url]);
+      if (!episodes || episodes.length === 0) {
+        console.warn(`[AnimeSaturn] Nessun episodio ottenuto per ${version.title} (URL=${version.url}). Skip versione.`);
+        continue;
+      }
       console.log(`[AnimeSaturn] Episodi trovati per ${version.title}:`, episodes.map(e => e.title));
       let targetEpisode: AnimeSaturnEpisode | undefined;
       if (isMovie) {
         targetEpisode = episodes[0];
         console.log(`[AnimeSaturn] Selezionato primo episodio (movie):`, targetEpisode?.title);
       } else if (episodeNumber != null) {
+        // Pattern semplice originale: cerca E<number>, altrimenti include del numero
         targetEpisode = episodes.find(ep => {
           const match = ep.title.match(/E(\d+)/i);
-          if (match) {
-            return parseInt(match[1]) === episodeNumber;
-          }
-          return ep.title.includes(String(episodeNumber));
+            if (match) {
+              return parseInt(match[1]) === episodeNumber;
+            }
+            return ep.title.includes(String(episodeNumber));
         });
         console.log(`[AnimeSaturn] Episodio selezionato per E${episodeNumber}:`, targetEpisode?.title);
       } else {
