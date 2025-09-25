@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.3.0...v1.4.0) (2025-09-25)
+
+
+### Features
+
+* **normalize:** add "Attack on Titan: Final Season - The Final Chapters" ([2264fcb](https://github.com/qwertyuiop8899/streamvix/commit/2264fcbbbba449a922e9a0b47579a1a68e3e1eb6))
+
+
+### Bug Fixes
+
+* as normalization ([f4f839f](https://github.com/qwertyuiop8899/streamvix/commit/f4f839fcf44e467e0536dce1b9c4bf67da131f36))
+* aw fallback ([298909f](https://github.com/qwertyuiop8899/streamvix/commit/298909fda56a7b00bb30397c808e2ebded613dc7))
+
 ## [1.3.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.5...v1.3.0) (2025-09-25)
 
 
