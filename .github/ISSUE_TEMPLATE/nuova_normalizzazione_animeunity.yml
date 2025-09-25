@@ -1,7 +1,7 @@
 name: "🌐 Nuova normalizzazione titolo (AnimeUnity)"
 description: Proponi una coppia MAL → AnimeUnity da aggiungere alla funzione normalizeTitleForSearch
 title: "[NORMALIZZA AU]: "
-labels: ["normalizzazione-animeunity"]
+labels: ["normalizzazione", "normalizzazione-animeunity"]
 
 body:
   - type: markdown
