@@ -194,6 +194,15 @@ function normalizeTitleForSearch(title: string): string {
   const exactMap: Record<string,string> = {
     "Demon Slayer: Kimetsu no Yaiba - The Movie: Infinity Castle": "Demon Slayer: Kimetsu no Yaiba Infinity Castle",    
     "Attack on Titan: The Final Season - Final Chapters Part 2": "L'attacco dei Giganti: L'ultimo attacco",
+    'Ore dake Level Up na Ken': 'Solo Leveling',
+    'Lupin the Third: The Woman Called Fujiko Mine': 'Lupin III - La donna chiamata Fujiko Mine ',
+    "Slam Dunk: Roar!! Basket Man Spiriy": "Slam Dunk: Hoero Basketman-damashii! Hanamichi to Rukawa no Atsuki Natsu",
+    "Parasyte: The Maxim": "Kiseijuu",
+    "Attack on Titan OAD": "L'attacco dei Giganti: Il taccuino di Ilse",
+    "Fullmetal Alchemist: Brotherhood": "Fullmetal Alchemist Brotherhood",
+    "Slam Dunk: Roar!! Basket Man Spirit": "Slam Dunk: Hoero Basketman-damashii! Hanamichi to Rukawa no Atsuki Natsu",
+    "Slam Dunk: Shohoku Maximum Crisis! Burn Sakuragi Hanamichi": "Slam Dunk: Shouhoku Saidai no Kiki! Moero Sakuragi Hanamichi",
+    "Slam Dunk: National Domination! Sakuragi Hanamichi": "Slam Dunk: Zenkoku Seiha Da! - Sakuragi Hanamichi",
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
@@ -207,15 +216,6 @@ function normalizeTitleForSearch(title: string): string {
     'Attack on Titan': "L'attacco dei Giganti",
     'Season': '',
     'Shippuuden': 'Shippuden',
-    'Ore dake Level Up na Ken': 'Solo Leveling',
-    'Lupin the Third: The Woman Called Fujiko Mine': 'Lupin III - La donna chiamata Fujiko Mine ',
-    "Slam Dunk: Roar!! Basket Man Spiriy": "Slam Dunk: Hoero Basketman-damashii! Hanamichi to Rukawa no Atsuki Natsu",
-    "Parasyte: The Maxim": "Kiseijuu",
-    "Attack on Titan OAD": "L'attacco dei Giganti: Il taccuino di Ilse",
-    "Fullmetal Alchemist: Brotherhood": "Fullmetal Alchemist Brotherhood",
-    "Slam Dunk: Roar!! Basket Man Spirit": "Slam Dunk: Hoero Basketman-damashii! Hanamichi to Rukawa no Atsuki Natsu",
-    "Slam Dunk: Shohoku Maximum Crisis! Burn Sakuragi Hanamichi": "Slam Dunk: Shouhoku Saidai no Kiki! Moero Sakuragi Hanamichi",
-    "Slam Dunk: National Domination! Sakuragi Hanamichi": "Slam Dunk: Zenkoku Seiha Da! - Sakuragi Hanamichi",
     // << AUTO-INSERT-GENERIC >> (non rimuovere questo commento)
     // Qui puoi aggiungere altre normalizzazioni custom (legacy placeholder)
   };
