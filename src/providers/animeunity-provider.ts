@@ -193,6 +193,8 @@ const exactMap: Record<string,string> = {
 
 // ==== AUTO-NORMALIZATION-GENERIC-MAP-START ====
 const genericMap: Record<string,string> = {
+      "Attack on Titan: Final Season - The Final Chapters": "Attack on Titan Final Season THE FINAL CHAPTERS Special 1",
+
   // << AUTO-INSERT-GENERIC >> (non rimuovere questo commento)
   // Qui puoi aggiungere altre normalizzazioni custom
 };
