@@ -367,6 +367,12 @@ export class AnimeUnityProvider {
   async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false): Promise<{ streams: StreamForStremio[] }> {
     const normalizedTitle = normalizeTitleForSearch(title);
     console.log(`[AnimeUnity] Titolo normalizzato per ricerca: ${normalizedTitle}`);
+    // Se il titolo originale è una chiave dell'exactMap allora saltiamo qualsiasi filtro successivo:
+    // l'intento dell'utente è: se la ricerca parte da una chiave exactMap, NON applicare filterAnimeResults
+    const skipFilter = Object.prototype.hasOwnProperty.call(exactMap, title);
+    if (skipFilter) {
+      console.log(`[AnimeUnity][ExactMap] Skip filtro: titolo di input corrisponde a chiave exactMap -> "${title}"`);
+    }
     let animeVersions = await this.searchAllVersions(normalizedTitle);
     // Fallback: se non trova nulla, prova anche con titoli alternativi
     if (!animeVersions.length) {
@@ -411,7 +417,11 @@ export class AnimeUnityProvider {
         }
       }
     }
-    animeVersions = filterAnimeResults(animeVersions, normalizedTitle);
+    if (!skipFilter) {
+      animeVersions = filterAnimeResults(animeVersions, normalizedTitle);
+    } else {
+      console.log('[AnimeUnity][ExactMap] Uso risultati grezzi senza filtro (exactMap).');
+    }
     if (!animeVersions.length) {
       console.warn('[AnimeUnity] Nessun risultato trovato per il titolo:', normalizedTitle);
       return { streams: [] };
