@@ -206,29 +206,30 @@ function normalizeTitleForSearch(title: string): string {
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
-  let normalized = title;
-  if (exactMap[normalized]) {
-    normalized = exactMap[normalized];
+  // Se il titolo originale ha una mappatura esatta, usala e NON applicare altre normalizzazioni
+  const hasExact = Object.prototype.hasOwnProperty.call(exactMap, title);
+  let normalized = hasExact ? exactMap[title] : title;
+
+  if (!hasExact) {
+    // 2. Replacements generici (solo se non è stata applicata una exact per non corrompere l'output voluto)
+    // ==== AUTO-NORMALIZATION-GENERIC-MAP-START ====
+    const generic: Record<string,string> = {
+      'Attack on Titan': "L'attacco dei Giganti",
+      'Season': '',
+      'Shippuuden': 'Shippuden',
+      // << AUTO-INSERT-GENERIC >> (non rimuovere questo commento)
+      // Qui puoi aggiungere altre normalizzazioni custom (legacy placeholder)
+    };
+    // ==== AUTO-NORMALIZATION-GENERIC-MAP-END ====
+    for (const [k,v] of Object.entries(generic)) {
+      if (normalized.includes(k)) normalized = normalized.replace(k, v);
+    }
+    // 3. Cleanup leggero SOLO per casi non exact (evita di rimuovere trattini intenzionali della mappa esatta)
+    normalized = normalized.replace(/\s+-\s+/g,' ');
+    if (normalized.includes('Naruto:')) normalized = normalized.replace(':','');
+    // 4. Collassa spazi multipli
+    normalized = normalized.replace(/\s{2,}/g,' ').trim();
   }
-  // 2. Replacements generici (non devono rirompere la stringa già mappata)
-  // ==== AUTO-NORMALIZATION-GENERIC-MAP-START ====
-  const generic: Record<string,string> = {
-    'Attack on Titan': "L'attacco dei Giganti",
-    'Season': '',
-    'Shippuuden': 'Shippuden',
-    // << AUTO-INSERT-GENERIC >> (non rimuovere questo commento)
-    // Qui puoi aggiungere altre normalizzazioni custom (legacy placeholder)
-  };
-  // ==== AUTO-NORMALIZATION-GENERIC-MAP-END ====
-  for (const [k,v] of Object.entries(generic)) {
-    if (normalized.includes(k)) normalized = normalized.replace(k, v);
-  }
-  // 3. Rimozione pattern leggeri/spazi e cleanup (manteniamo i due punti per Demon Slayer finché non richiesto dal sito)
-  // Rimuovi singolo trattino preceduto da spazio solo se non fa parte di 'Kimetsu no Yaiba -' mapping già applicato
-  normalized = normalized.replace(/\s+-\s+/g,' ');
-  if (normalized.includes('Naruto:')) normalized = normalized.replace(':','');
-  // 4. Collassa spazi multipli
-  normalized = normalized.replace(/\s{2,}/g,' ').trim();
   return normalized;
 }
 
