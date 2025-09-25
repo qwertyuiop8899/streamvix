@@ -187,15 +187,16 @@ function filterAnimeResults(results: { version: AnimeUnitySearchResult; language
 
 // ==== AUTO-NORMALIZATION-EXACT-MAP-START ====
 const exactMap: Record<string,string> = {
-  // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
+
+    "Attack on Titan: Final Season - The Final Chapters": "Attack on Titan Final Season THE FINAL CHAPTERS Special 1",
+    "Attack on Titan: The Final Season - Final Chapters Part 2": "Attack on Titan Final Season THE FINAL CHAPTERS Special 2",   
+
+    // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
 
 // ==== AUTO-NORMALIZATION-GENERIC-MAP-START ====
 const genericMap: Record<string,string> = {
-      "Attack on Titan: Final Season - The Final Chapters": "Attack on Titan Final Season THE FINAL CHAPTERS Special 1",
-
-      "Attack on Titan: The Final Season - Final Chapters Part 2": "Attack on Titan Final Season THE FINAL CHAPTERS Special 2",
 
 
   // << AUTO-INSERT-GENERIC >> (non rimuovere questo commento)
