@@ -1,0 +1,55 @@
+name: "🌐 Nuova normalizzazione titolo (AnimeUnity)"
+description: Proponi una coppia MAL → AnimeUnity da aggiungere alla funzione normalizeTitleForSearch
+title: "[NORMALIZZA AU]: "
+labels: ["normalizzazione-animeunity"]
+
+automations:
+  # Facoltativo: puoi aggiungere assegnazioni automatiche in futuro
+  # - type: assign
+  #   users: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Compila i campi sottostanti seguendo l’esempio:
+        | Campo | Esempio |
+        |-------|---------|
+        | MAL English name | Attack on Titan: Final Season - The Final Chapters |
+        | AnimeUnity name | L'attacco dei Giganti Final Chapters Special 1 |
+
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ Non modificare le intestazioni "### MAL English name" e "### AnimeUnity name".
+        📝 Istruzioni MAL: cerca il titolo su https://myanimelist.net/ e usa l'English name ufficiale (grigio scuro sotto il principale se presente).
+        📝 Istruzioni AnimeUnity: cerca su AnimeUnity e copia il titolo così come appare (senza tag SUB ITA / (ITA) / (CR)).
+
+  - type: input
+    id: mal_name
+    attributes:
+      label: MAL English name
+      placeholder: "Attack on Titan: Final Season - The Final Chapters"
+    validations:
+      required: true
+
+  - type: input
+    id: au_name
+    attributes:
+      label: AnimeUnity name
+      placeholder: "L'attacco dei Giganti Final Chapters Special 1"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: conferme
+    attributes:
+      label: Conferme
+      options:
+        - label: Ho controllato che la coppia non sia già presente nel file
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        Al salvataggio dell'Issue verrà tentata la creazione automatica di una PR se i campi sono corretti.
