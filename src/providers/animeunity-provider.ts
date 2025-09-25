@@ -157,32 +157,23 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
 }
 
 function filterAnimeResults(results: { version: AnimeUnitySearchResult; language_type: string }[], englishTitle: string) {
+  // LOGICA LEGACY: accetta solo match esatti (base) + varianti (ita/cr)
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
   const base = norm(englishTitle);
-  // Primo passaggio: match esatto (come legacy)
-  const allowedExact = new Set([
+  const allowed = [
     base,
     `${base} (ita)`,
     `${base} (cr)`,
     `${base} (ita) (cr)`
-  ]);
-  const normalizedEntries = results.map(r => ({
-    raw: r,
-    norm: norm(r.version.name.replace(/\s*\([^)]*\)/g, m => m.toLowerCase()))
-  }));
-  let exactFiltered = normalizedEntries.filter(e => allowedExact.has(e.norm)).map(e => e.raw);
-  if (exactFiltered.length) {
-    console.log(`[UniversalTitle][Filter] Exact match results:`, exactFiltered.map(r => r.version.name));
-    return exactFiltered;
-  }
-  // Secondo passaggio: containment più permissivo (tipo AnimeSaturn)
-  const cleanedBase = base.replace(/\s*\(.*?\)/g, '');
-  const containFiltered = normalizedEntries.filter(e => {
-    let t = e.norm.replace(/\s*\(.*?\)/g, '');
-    return t.includes(cleanedBase) || cleanedBase.includes(t);
-  }).map(e => e.raw);
-  console.log(`[UniversalTitle][Filter] Containment results:`, containFiltered.map(r => r.version.name));
-  return containFiltered;
+  ];
+  const isAllowed = (title: string) => {
+    const t = norm(title.replace(/\s*\([^)]*\)/g, m => m.toLowerCase()));
+    return allowed.some(a => t === a);
+  };
+  const filtered = results.filter(r => isAllowed(r.version.name));
+  console.log(`[UniversalTitle][Filter][Legacy] Risultati prima del filtro:`, results.map(r => r.version.name));
+  console.log(`[UniversalTitle][Filter][Legacy] Risultati dopo il filtro:`, filtered.map(r => r.version.name));
+  return filtered;
 }
 
 // ==== AUTO-NORMALIZATION-EXACT-MAP-START ====
@@ -206,20 +197,29 @@ const genericMap: Record<string,string> = {
 
 // Funzione di normalizzazione per la ricerca (fase base + generic)
 function normalizeTitleForSearch(title: string): string {
+  // Se exact map colpisce il titolo originale, usiamo direttamente il valore e saltiamo tutto il resto.
+  if (Object.prototype.hasOwnProperty.call(exactMap, title)) {
+    const mapped = exactMap[title];
+    console.log(`[AnimeUnity][ExactMap] Hit: "${title}" -> "${mapped}"`);
+    return mapped;
+  }
+  // LOGICA LEGACY per i NON exact: usare un dizionario di replacements statico (come vecchio codice)
+  const replacements: Record<string, string> = {
+    'Season': '',
+    'Shippuuden': 'Shippuden',
+    '-': '',
+    'Ore dake Level Up na Ken': 'Solo Leveling',
+  };
   let normalized = title;
-  // Exact map: sostituzione completa se chiave coincide (case sensitive per controllabilità)
-  if (exactMap[normalized]) {
-    normalized = exactMap[normalized];
+  for (const [key, value] of Object.entries(replacements)) {
+    if (normalized.includes(key)) {
+      normalized = normalized.replace(new RegExp(key, 'gi'), value);
+    }
   }
-  // Generic map: sostituzioni non distruttive (solo prima occorrenza per chiave)
-  for (const [k,v] of Object.entries(genericMap)) {
-    if (normalized.includes(k)) normalized = normalized.replace(k, v);
+  if (normalized.includes('Naruto:')) {
+    normalized = normalized.replace(':', '');
   }
-  // Cleanup trattini isolati e spazi multipli
-  normalized = normalized.replace(/\s+-\s+/g,' ').replace(/\s{2,}/g,' ').trim();
-  // Caso specifico Naruto:
-  if (normalized.includes('Naruto:')) normalized = normalized.replace(':','');
-  return normalized;
+  return normalized.trim();
 }
 
 export class AnimeUnityProvider {
