@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.5...v1.3.0) (2025-09-25)
+
+
+### Features
+
+* **normalize:** add "Demon Slayer: Kimetsu no Yaiba - The Movie: Infinity Castle" ([6118b4b](https://github.com/qwertyuiop8899/streamvix/commit/6118b4b7e17919acf87e6d8af131001ebd6e517f))
+
+
+### Bug Fixes
+
+* animefix ([66ea106](https://github.com/qwertyuiop8899/streamvix/commit/66ea106cfc0ca1423d0f093e2c8fde375a634702))
+* domains update ([fe083d0](https://github.com/qwertyuiop8899/streamvix/commit/fe083d0989d7c387e4effa34d5cd3b63b0aa2b96))
+
 ## [1.2.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.2.4...v1.2.5) (2025-09-23)
 
 
