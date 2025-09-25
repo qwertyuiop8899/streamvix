@@ -15,14 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Esci se manca la label
+      - name: Skip se label non valida o è AnimeUnity
         if: |
           (!contains(github.event.issue.labels.*.name, 'normalizzazione') &&
            !contains(github.event.issue.labels.*.name, 'richiesta')) ||
+          contains(github.event.issue.labels.*.name, 'normalizzazione-animeunity') ||
           contains(github.event.issue.labels.*.name, 'normalizzazione-animeunity')
         run: |
-          echo "Label non applicabile a workflow AnimeSaturn (o manca label valida / presente label animeunity), esco"
-          exit 1
+          echo "Label non applicabile a workflow AnimeSaturn: step saltato (success)."
+          echo "skip=true" >> $GITHUB_ENV
+          exit 0
 
       - name: Debug issue body
         run: |
@@ -40,6 +42,7 @@ jobs:
           echo "AS_NAME_ENV=$AS_NAME" >> $GITHUB_ENV
           echo "Parsed MAL name: '$MAL_NAME'"
           echo "Parsed AS name: '$AS_NAME'"
+        if: env.skip != 'true'
 
       - name: Aggiungi riga di normalizzazione
         env:
@@ -47,6 +50,7 @@ jobs:
           AS_NAME: ${{ env.AS_NAME_ENV }}
         run: |
           python3 scripts/auto_normalize.py
+        if: env.skip != 'true'
 
       - name: Crea PR
         uses: peter-evans/create-pull-request@v6
@@ -68,4 +72,5 @@ jobs:
             - [ ] I test esistenti passano
             - [ ] Non rompe altre normalizzazioni
 
-            _Questa PR è stata generata automaticamente dalla Issue #${{ github.event.issue.number }}._ 
+            _Questa PR è stata generata automaticamente dalla Issue #${{ github.event.issue.number }}._
+        if: env.skip != 'true'
