@@ -70,6 +70,7 @@ interface AnimeUnityStreamData {
 }
 
 // Funzione universale per ottenere il titolo inglese da qualsiasi ID
+// Aggiunto fallback Kitsu diretto (titles.en) se manca MAL mapping, come in AnimeSaturn
 async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|'mal', tmdbApiKey?: string): Promise<string> {
   let malId: string | null = null;
   let tmdbId: string | null = null;
@@ -95,6 +96,21 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
     const mappingsResp = await (await fetch(`https://kitsu.io/api/edge/anime/${id}/mappings`)).json();
     const malMapping = mappingsResp.data?.find((m: any) => m.attributes.externalSite === 'myanimelist/anime');
     malId = malMapping?.attributes?.externalId?.toString() || null;
+    if (!malId) {
+      // Fallback: usa direttamente titles.en dal record principale se disponibile
+      try {
+        const kitsuMain = await (await fetch(`https://kitsu.io/api/edge/anime/${id}`)).json();
+        const enTitle = kitsuMain?.data?.attributes?.titles?.en;
+        if (enTitle) {
+          console.log(`[UniversalTitle][KitsuFallback] Titolo inglese diretto da Kitsu (no MAL mapping): ${enTitle}`);
+          return enTitle;
+        } else {
+          console.warn(`[UniversalTitle][KitsuFallback] Nessun titles.en disponibile per Kitsu ${id}`);
+        }
+      } catch (e) {
+        console.warn(`[UniversalTitle][KitsuFallback] Errore recuperando titles.en per Kitsu ${id}:`, e);
+      }
+    }
   } else if (type === 'mal') {
     malId = id;
   }
@@ -143,42 +159,61 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
 function filterAnimeResults(results: { version: AnimeUnitySearchResult; language_type: string }[], englishTitle: string) {
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
   const base = norm(englishTitle);
-  const allowed = [
+  // Primo passaggio: match esatto (come legacy)
+  const allowedExact = new Set([
     base,
     `${base} (ita)`,
     `${base} (cr)`,
     `${base} (ita) (cr)`
-  ];
-  const isAllowed = (title: string) => {
-    const t = norm(title.replace(/\s*\([^)]*\)/g, match => match.toLowerCase()));
-    return allowed.some(a => t === a);
-  };
-  const filtered = results.filter(r => isAllowed(r.version.name));
-  console.log(`[UniversalTitle] Risultati prima del filtro:`, results.map(r => r.version.name));
-  console.log(`[UniversalTitle] Risultati dopo il filtro:`, filtered.map(r => r.version.name));
-  return filtered;
+  ]);
+  const normalizedEntries = results.map(r => ({
+    raw: r,
+    norm: norm(r.version.name.replace(/\s*\([^)]*\)/g, m => m.toLowerCase()))
+  }));
+  let exactFiltered = normalizedEntries.filter(e => allowedExact.has(e.norm)).map(e => e.raw);
+  if (exactFiltered.length) {
+    console.log(`[UniversalTitle][Filter] Exact match results:`, exactFiltered.map(r => r.version.name));
+    return exactFiltered;
+  }
+  // Secondo passaggio: containment più permissivo (tipo AnimeSaturn)
+  const cleanedBase = base.replace(/\s*\(.*?\)/g, '');
+  const containFiltered = normalizedEntries.filter(e => {
+    let t = e.norm.replace(/\s*\(.*?\)/g, '');
+    return t.includes(cleanedBase) || cleanedBase.includes(t);
+  }).map(e => e.raw);
+  console.log(`[UniversalTitle][Filter] Containment results:`, containFiltered.map(r => r.version.name));
+  return containFiltered;
 }
 
-// Funzione di normalizzazione custom per la ricerca
+// ==== AUTO-NORMALIZATION-EXACT-MAP-START ====
+const exactMap: Record<string,string> = {
+  // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
+};
+// ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
+
+// ==== AUTO-NORMALIZATION-GENERIC-MAP-START ====
+const genericMap: Record<string,string> = {
+  // << AUTO-INSERT-GENERIC >> (non rimuovere questo commento)
+  // Qui puoi aggiungere altre normalizzazioni custom
+};
+// ==== AUTO-NORMALIZATION-GENERIC-MAP-END ====
+
+// Funzione di normalizzazione per la ricerca (fase base + generic)
 function normalizeTitleForSearch(title: string): string {
-  const replacements: Record<string, string> = {
-    'Attack on Titan': "L'attacco dei Giganti",
-    'Season': '',
-    'Shippuuden': 'Shippuden',
-    '-': '',
-    'Ore dake Level Up na Ken': 'Solo Leveling',
-    // Qui puoi aggiungere altre normalizzazioni custom
-  };
   let normalized = title;
-  for (const [key, value] of Object.entries(replacements)) {
-    if (normalized.includes(key)) {
-      normalized = normalized.replace(new RegExp(key, 'gi'), value);
-    }
+  // Exact map: sostituzione completa se chiave coincide (case sensitive per controllabilità)
+  if (exactMap[normalized]) {
+    normalized = exactMap[normalized];
   }
-  if (normalized.includes('Naruto:')) {
-    normalized = normalized.replace(':', '');
+  // Generic map: sostituzioni non distruttive (solo prima occorrenza per chiave)
+  for (const [k,v] of Object.entries(genericMap)) {
+    if (normalized.includes(k)) normalized = normalized.replace(k, v);
   }
-  return normalized.trim();
+  // Cleanup trattini isolati e spazi multipli
+  normalized = normalized.replace(/\s+-\s+/g,' ').replace(/\s{2,}/g,' ').trim();
+  // Caso specifico Naruto:
+  if (normalized.includes('Naruto:')) normalized = normalized.replace(':','');
+  return normalized;
 }
 
 export class AnimeUnityProvider {
