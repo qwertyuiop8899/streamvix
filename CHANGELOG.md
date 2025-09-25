@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.5.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.4.0...v1.5.0) (2025-09-25)
+
+
+### Features
+
+* **normalize-au:** add "Attack on Titan: Final Season - The Final Chapters" ([995f397](https://github.com/qwertyuiop8899/streamvix/commit/995f3974c63c3ce701b7bc3f7e9e9edbdc22dd48))
+* **normalize-au:** add "Attack on Titan: The Final Season - Final Chapters Part 2" ([2ceabfb](https://github.com/qwertyuiop8899/streamvix/commit/2ceabfb8a2787bdb835ba752c15f4d212939d309))
+
+
+### Bug Fixes
+
+* attackoftitan last 2 films ([88dc16c](https://github.com/qwertyuiop8899/streamvix/commit/88dc16c9df00a727a9c052586da4c2635d219ae1))
+* AU AS match ([edc6a1c](https://github.com/qwertyuiop8899/streamvix/commit/edc6a1c68eb856ea547283e66106386dd86ab847))
+
 ## [1.4.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.3.0...v1.4.0) (2025-09-25)
 
 
