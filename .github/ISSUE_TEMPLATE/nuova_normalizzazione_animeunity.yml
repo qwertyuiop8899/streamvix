@@ -3,11 +3,6 @@ description: Proponi una coppia MAL → AnimeUnity da aggiungere alla funzione n
 title: "[NORMALIZZA AU]: "
 labels: ["normalizzazione-animeunity"]
 
-automations:
-  # Facoltativo: puoi aggiungere assegnazioni automatiche in futuro
-  # - type: assign
-  #   users: []
-
 body:
   - type: markdown
     attributes:
