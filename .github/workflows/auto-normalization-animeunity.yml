@@ -1,104 +1,69 @@
-#!/usr/bin/env python3
-"""Script di auto-normalizzazione per AnimeUnity.
+name: Crea PR da Issue di normalizzazione (AnimeUnity)
 
-Correzioni principali:
- - Heuristica stile AnimeSaturn: se mal_name contiene una chiave esistente di genericMap → inserisci in exactMap, altrimenti genericMap.
- - Rimozione backreference letterale (evita scrittura di \\g<0>).
- - Inserimento sicuro prima del marker mantenendo il commento marker.
- - Idempotenza (nessun duplicato se chiave già presente).
-"""
+on:
+  issues:
+    types: [opened, edited]
 
-import os, re, json, sys
+jobs:
+  generate-pr-animeunity:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
 
-mal_name = os.environ.get("MAL_NAME")
-au_name = os.environ.get("AU_NAME")
+    steps:
+      - uses: actions/checkout@v4
 
-if not mal_name or not au_name:
-    print("Error: MAL or AnimeUnity name is empty. Exiting.")
-    sys.exit(1)
+      - name: Esci se manca la label dedicata
+        if: |
+          !contains(github.event.issue.labels.*.name, 'normalizzazione-animeunity') &&
+          !contains(github.event.issue.labels.*.name, 'richiesta-animeunity')
+        run: |
+          echo "Etichetta animeunity mancante, esco"
+          exit 1
 
-provider_path = "src/providers/animeunity-provider.ts"
-try:
-    with open(provider_path, "r", encoding="utf-8") as f:
-        content = f.read()
-except FileNotFoundError:
-    print("Provider file not found.")
-    sys.exit(1)
+      - name: Debug issue body
+        run: |
+          echo "BODY="
+          echo "${{ github.event.issue.body }}"
 
-# Idempotenza: se la chiave esiste già (exact o generic) non fare nulla
-existing_pattern = re.compile(rf"['\"]{re.escape(mal_name)}['\"]\s*:")
-if existing_pattern.search(content):
-    print("Mapping already exists, nothing to do.")
-    sys.exit(0)
+      - id: parse
+        run: |
+          MAL_NAME=$(echo "${{ github.event.issue.body }}" | awk '/^### MAL English name/{getline; while($0 ~ /^ *$/){getline}; print $0}')
+          AU_NAME=$(echo "${{ github.event.issue.body }}" | awk '/^### AnimeUnity name/{getline; while($0 ~ /^ *$/){getline}; print $0}')
+          echo "Estratto MAL_NAME: $MAL_NAME"
+          echo "Estratto AU_NAME: $AU_NAME"
+          echo "mal_name=$MAL_NAME" >> $GITHUB_OUTPUT
+          echo "au_name=$AU_NAME" >> $GITHUB_OUTPUT
+          echo "MAL_NAME_ENV=$MAL_NAME" >> $GITHUB_ENV
+          echo "AU_NAME_ENV=$AU_NAME" >> $GITHUB_ENV
 
-new_line = f"    {json.dumps(mal_name)}: {json.dumps(au_name)},"
+      - name: Aggiungi riga di normalizzazione AnimeUnity
+        env:
+          MAL_NAME: ${{ env.MAL_NAME_ENV }}
+          AU_NAME: ${{ env.AU_NAME_ENV }}
+        run: |
+          python3 scripts/auto_normalize_animeunity.py
 
-def insert_before_marker(text: str, marker_regex: str) -> tuple[str,int]:
-    pattern = re.compile(marker_regex, re.MULTILINE)
-    m = pattern.search(text)
-    if not m:
-        return text, 0
-    # Mantieni l'indentazione del marker se presente nel gruppo 1
-    indent = m.group(1) if m.lastindex else ''
-    insertion = f"{indent}{new_line}\n" + text[m.start():m.end()]
-    return text[:m.start()] + insertion + text[m.end():], 1
+      - name: Crea PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "feat(normalize-au): add \"${{ steps.parse.outputs.mal_name }}\""
+          branch: "normalizza-au-${{ github.event.issue.number }}"
+          title: "Normalizzazione AnimeUnity: ${{ steps.parse.outputs.mal_name }}"
+          body: |
+            ## 🔗 Nuova normalizzazione AnimeUnity
 
-"""Heuristica (parità con AnimeSaturn):
-Se mal_name contiene (case insensitive) una chiave già in genericMap (diversa da sé) → esegue inserimento in exactMap (titolo più specifico/completo).
-Altrimenti va in genericMap.
-"""
+            | Campo | Valore |
+            |-------|--------|
+            | **MAL English name** | ${{ steps.parse.outputs.mal_name }} |
+            | **AnimeUnity name** | ${{ steps.parse.outputs.au_name }} |
 
-target_exact = False
+            ### Checklist
+            - [ ] Compilazione corretta secondo Issue
+            - [ ] I test esistenti passano
+            - [ ] Non rompe altre normalizzazioni
 
-# Estrai la sezione generic per ricavare le chiavi esistenti
-generic_section_match = re.search(
-    r"AUTO-NORMALIZATION-GENERIC-MAP-START[\s\S]*?AUTO-NORMALIZATION-GENERIC-MAP-END",
-    content
-)
-generic_keys: list[str] = []
-if generic_section_match:
-    sec = generic_section_match.group(0)
-    generic_keys = [k[1] for k in re.findall(r"^\s*(['\"])(.+?)\1:\s*", sec, re.MULTILINE)]
-
-lower_mal = mal_name.lower()
-for gk in generic_keys:
-    if gk and gk != mal_name and gk.lower() in lower_mal:
-        target_exact = True
-        break
-
-print(
-    f"Heuristica: generic_keys={len(generic_keys)} → target={'exactMap' if target_exact else 'genericMap'}"
-)
-
-updated = content
-replacements = 0
-
-if target_exact:
-    updated, replacements = insert_before_marker(updated, r"(\s*)//\s*<<\s*AUTO-INSERT-EXACT\s*>>")
-    if replacements == 0:
-        print("Marker EXACT non trovato: abort.")
-else:
-    # Prova marker principale generic
-    updated, replacements = insert_before_marker(updated, r"(\s*)//\s*<<\s*AUTO-INSERT-GENERIC\s*>>")
-    if replacements == 0:
-        print("Marker GENERIC non trovato, provo commento placeholder")
-        updated, replacements = insert_before_marker(updated, r"(\s*)//\s*Qui puoi aggiungere altre normalizzazioni custom")
-    if replacements == 0:
-        print("Placeholder non trovato, provo fine blocco GENERIC")
-        # Inserisci prima dell'END (non abbiamo indentazione sicura, usiamo semplice regex)
-        end_pattern = re.compile(r"//\s*==== AUTO-NORMALIZATION-GENERIC-MAP-END ====")
-        m = end_pattern.search(updated)
-        if m:
-            updated = updated[:m.start()] + f"{new_line}\n" + updated[m.start():]
-            replacements = 1
-
-if replacements == 0:
-    print("Error: nessun marker trovato per l'inserimento. Verifica i commenti nel provider.")
-    snippet = '\n'.join([line for line in content.splitlines() if 'AUTO-INSERT' in line or 'AUTO-NORMALIZATION' in line])
-    print('Snippet markers trovati:\n' + snippet)
-    sys.exit(1)
-
-with open(provider_path, "w", encoding="utf-8") as f:
-    f.write(updated)
-
-print(f"Successfully added normalization: {new_line.strip()} in {'exactMap' if target_exact else 'genericMap'}")
+            _Questa PR è stata generata automaticamente dalla Issue #${{ github.event.issue.number }}._
