@@ -6,7 +6,7 @@ import { KitsuProvider } from './kitsu';
 import { getDomain } from '../utils/domains';
 import { checkIsAnimeById } from '../utils/animeGate';
 
-// Helper function to invoke the Python scraper 
+// Helper function to invoke the Python scraper
 async function invokePythonScraper(args: string[]): Promise<any> {
     const scriptPath = path.join(__dirname, 'animesaturn.py');
     const command = 'python3';
@@ -85,6 +85,21 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
     const mappingsResp = await (await fetch(`https://kitsu.io/api/edge/anime/${id}/mappings`)).json();
     const malMapping = mappingsResp.data?.find((m: any) => m.attributes.externalSite === 'myanimelist/anime');
     malId = malMapping?.attributes?.externalId?.toString() || null;
+    if (!malId) {
+      // Fallback Kitsu diretto: usa SOLO titles.en dal record principale
+      try {
+        const kitsuMain = await (await fetch(`https://kitsu.io/api/edge/anime/${id}`)).json();
+        const enTitle = kitsuMain?.data?.attributes?.titles?.en;
+        if (enTitle) {
+          console.log(`[UniversalTitle][KitsuFallback] Titolo inglese diretto da Kitsu (no MAL mapping): ${enTitle}`);
+          return enTitle;
+        } else {
+          console.warn(`[UniversalTitle][KitsuFallback] Nessun titles.en disponibile per Kitsu ${id}`);
+        }
+      } catch (e) {
+        console.warn(`[UniversalTitle][KitsuFallback] Errore recuperando titles.en per Kitsu ${id}:`, e);
+      }
+    }
   } else if (type === 'mal') {
     malId = id;
   }
@@ -177,11 +192,11 @@ function normalizeTitleForSearch(title: string): string {
   // 1. Mappature esatte inserire qui titoli che hanno in mal i - (devono avvenire prima per evitare che le sostituzioni generiche rovinino la chiave)
   // ==== AUTO-NORMALIZATION-EXACT-MAP-START ====
   const exactMap: Record<string,string> = {
-    "Demon Slayer: Kimetsu no Yaiba - The Movie: Infinity Castle": "Demon Slayer: Kimetsu no Yaiba Infinity Castle",    "Attack on Titan: Final Season - The Final Chapters": "L'attacco dei Giganti: L'ultimo attacco",
-
+    "Demon Slayer: Kimetsu no Yaiba - The Movie: Infinity Castle": "Demon Slayer: Kimetsu no Yaiba Infinity Castle",    
+    "Attack on Titan: The Final Season - Final Chapters Part 2": "L'attacco dei Giganti: L'ultimo attacco",
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
-  // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
+  // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
   let normalized = title;
   if (exactMap[normalized]) {
     normalized = exactMap[normalized];
@@ -202,6 +217,7 @@ function normalizeTitleForSearch(title: string): string {
     "Slam Dunk: Shohoku Maximum Crisis! Burn Sakuragi Hanamichi": "Slam Dunk: Shouhoku Saidai no Kiki! Moero Sakuragi Hanamichi",
     "Slam Dunk: National Domination! Sakuragi Hanamichi": "Slam Dunk: Zenkoku Seiha Da! - Sakuragi Hanamichi",
     // << AUTO-INSERT-GENERIC >> (non rimuovere questo commento)
+    // Qui puoi aggiungere altre normalizzazioni custom (legacy placeholder)
   };
   // ==== AUTO-NORMALIZATION-GENERIC-MAP-END ====
   for (const [k,v] of Object.entries(generic)) {
