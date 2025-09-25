@@ -174,33 +174,45 @@ function filterAnimeResults(
 
 // Funzione di normalizzazione custom per la ricerca
 function normalizeTitleForSearch(title: string): string {
-  const replacements: Record<string, string> = {
+  // 1. Mappature esatte inserire qui titoli che hanno in mal i - (devono avvenire prima per evitare che le sostituzioni generiche rovinino la chiave)
+  // ==== AUTO-NORMALIZATION-EXACT-MAP-START ====
+  const exactMap: Record<string,string> = {
+    "Demon Slayer: Kimetsu no Yaiba - The Movie: Infinity Castle": "Demon Slayer: Kimetsu no Yaiba Infinity Castle",
+    // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
+  };
+  // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
+  let normalized = title;
+  if (exactMap[normalized]) {
+    normalized = exactMap[normalized];
+  }
+  // 2. Replacements generici (non devono rirompere la stringa già mappata)
+  // ==== AUTO-NORMALIZATION-GENERIC-MAP-START ====
+  const generic: Record<string,string> = {
     'Attack on Titan': "L'attacco dei Giganti",
     'Season': '',
     'Shippuuden': 'Shippuden',
-    '-': '',
     'Ore dake Level Up na Ken': 'Solo Leveling',
     'Lupin the Third: The Woman Called Fujiko Mine': 'Lupin III - La donna chiamata Fujiko Mine ',
     "Slam Dunk: Roar!! Basket Man Spiriy": "Slam Dunk: Hoero Basketman-damashii! Hanamichi to Rukawa no Atsuki Natsu",
     "Parasyte: The Maxim": "Kiseijuu",
-    "Attack on Titan OAD": "L'attacco dei Giganti: Il taccuino di Ilse Sub ITA",
+    "Attack on Titan OAD": "L'attacco dei Giganti: Il taccuino di Ilse",
     "Fullmetal Alchemist: Brotherhood": "Fullmetal Alchemist Brotherhood",
     "Slam Dunk: Roar!! Basket Man Spirit": "Slam Dunk: Hoero Basketman-damashii! Hanamichi to Rukawa no Atsuki Natsu",
     "Slam Dunk: Shohoku Maximum Crisis! Burn Sakuragi Hanamichi": "Slam Dunk: Shouhoku Saidai no Kiki! Moero Sakuragi Hanamichi",
     "Slam Dunk: National Domination! Sakuragi Hanamichi": "Slam Dunk: Zenkoku Seiha Da! - Sakuragi Hanamichi",
-    "Demon Slayer: Kimetsu no Yaiba - The Movie: Infinity Castle": "Demon Slayer: Kimetsu no Yaiba Infinity Castle",
-
-
-    // Qui puoi aggiungere altre normalizzazioni custom
+    // << AUTO-INSERT-GENERIC >> (non rimuovere questo commento)
   };
-  let normalized = title;
-  for (const [key, value] of Object.entries(replacements)) {
-    normalized = normalized.replace(key, value);
+  // ==== AUTO-NORMALIZATION-GENERIC-MAP-END ====
+  for (const [k,v] of Object.entries(generic)) {
+    if (normalized.includes(k)) normalized = normalized.replace(k, v);
   }
-  if (normalized.includes('Naruto:')) {
-    normalized = normalized.replace(':', '');
-  }
-  return normalized.trim();
+  // 3. Rimozione pattern leggeri/spazi e cleanup (manteniamo i due punti per Demon Slayer finché non richiesto dal sito)
+  // Rimuovi singolo trattino preceduto da spazio solo se non fa parte di 'Kimetsu no Yaiba -' mapping già applicato
+  normalized = normalized.replace(/\s+-\s+/g,' ');
+  if (normalized.includes('Naruto:')) normalized = normalized.replace(':','');
+  // 4. Collassa spazi multipli
+  normalized = normalized.replace(/\s{2,}/g,' ').trim();
+  return normalized;
 }
 
 // Funzione di normalizzazione caratteri speciali per titoli
@@ -402,6 +414,7 @@ export class AnimeSaturnProvider {
     const normalizedTitle = normalizeTitleForSearch(title);
     console.log(`[AnimeSaturn] Titolo normalizzato per ricerca: ${normalizedTitle}`);
     console.log(`[AnimeSaturn] MAL ID passato a searchAllVersions:`, malId ? malId : '(nessuno)');
+  console.log('[AnimeSaturn] Query inviata allo scraper (post-normalize):', normalizedTitle);
     let animeVersions = await this.searchAllVersions(normalizedTitle, malId);
     animeVersions = filterAnimeResults(animeVersions, normalizedTitle, malId);
     // Fallback MAL -> loose: se filtrando con MAL non troviamo nulla, riprova senza malId
