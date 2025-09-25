@@ -177,7 +177,8 @@ function normalizeTitleForSearch(title: string): string {
   // 1. Mappature esatte inserire qui titoli che hanno in mal i - (devono avvenire prima per evitare che le sostituzioni generiche rovinino la chiave)
   // ==== AUTO-NORMALIZATION-EXACT-MAP-START ====
   const exactMap: Record<string,string> = {
-    "Demon Slayer: Kimetsu no Yaiba - The Movie: Infinity Castle": "Demon Slayer: Kimetsu no Yaiba Infinity Castle",
+    "Demon Slayer: Kimetsu no Yaiba - The Movie: Infinity Castle": "Demon Slayer: Kimetsu no Yaiba Infinity Castle",    "Attack on Titan: Final Season - The Final Chapters": "L'attacco dei Giganti: L'ultimo attacco",
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
