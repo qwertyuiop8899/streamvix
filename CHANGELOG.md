@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.5.0...v1.5.1) (2025-09-26)
+
+
+### Bug Fixes
+
+* mpd ([b506850](https://github.com/qwertyuiop8899/streamvix/commit/b506850c1aa53564c4de96988aaad17ab1e4f6f2))
+
 ## [1.5.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.4.0...v1.5.0) (2025-09-25)
 
 
