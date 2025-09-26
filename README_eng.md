@@ -96,6 +96,34 @@ environment:
 ```
 
 Restart the container/process after changing `ADDON_BASE_URL` so it’s picked up.
+
+#### 🔍 Quick Verification ("Addon Base URL" Badge)
+
+On the installation/config landing page a **badge** now appears just above the VixSrc toggle showing:
+
+`Addon Base URL: <value>` (protocol stripped, e.g. `streamvix.mydomain.xyz`)
+
+This is the value the addon actually resolved at startup. Use it to confirm your environment variable is working.
+
+| Badge shows | Meaning | Action |
+|-------------|---------|--------|
+| Your domain/IP | OK configuration | None |
+| `streamvix.hayd.uk` but you expect yours | Fallback in use: env not read | Check env + restart |
+
+Fallback checklist:
+1. Variable spelled exactly `ADDON_BASE_URL` (uppercase) and NO trailing slash.  
+2. Container/process restarted after adding/modifying it.  
+3. You are opening the landing with the same public host you configured (not a different local IP).  
+4. No hidden characters / whitespace (retype if unsure).  
+5. You did NOT set the VixSrc site domain itself (ignored).  
+6. Reverse proxy forwards Host / X-Forwarded-* correctly (test direct port access if unsure).  
+
+If it still shows the fallback:
+* Print env: `docker compose exec <container> env | grep ADDON_BASE_URL`.
+* Ensure you haven’t declared it twice (compose + override).
+* Confirm you didn’t accidentally wrap it in quotes with spaces.
+
+Once the badge shows your domain the synthetic FHD pairing logic will reliably build `/vixsynthetic` URLs using your correct base.
   
 ### ⚡ Dynamic Events: FAST vs Extractor
 
