@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.5.1...v1.5.2) (2025-09-26)
+
+
+### Bug Fixes
+
+* bump version ([421d307](https://github.com/qwertyuiop8899/streamvix/commit/421d307efd09e0380aae9334dbd3162077b0a55f))
+* missing e1 logo ([31d6d62](https://github.com/qwertyuiop8899/streamvix/commit/31d6d626ab8efa31a3f20dbcd6fe929aad4ecd45))
+* vixhd ([fe936ae](https://github.com/qwertyuiop8899/streamvix/commit/fe936ae99f587cee8a1d1efe741b9c14defc96cb))
+
 ## [1.5.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.5.0...v1.5.1) (2025-09-26)
 
 
