@@ -62,6 +62,41 @@ StreamViX uses a **unified proxy system** that simplifies configuration:
 - `Enable MPD Streams`: (true/false) Not working, leave false
 - `Enable Live TV`: Enable to view live TV (true/false)
   
+### 🖥️ Environment Variable for Local / VPS (VixSrc FHD)
+
+To reliably obtain Full HD VixSrc streams (forced `&h=1` + synthetic endpoint) on **local or VPS/self‑hosted** installations you must set an environment variable telling the extractor what the publicly reachable BASE URL of your addon is.
+
+Set it (WITHOUT trailing slash):
+
+```
+ADDON_BASE_URL=https://your-domain-or-ip
+```
+
+Important notes:
+* No trailing slash (✅ `https://myaddon.example` ❌ `https://myaddon.example/`).
+* Only needed for local / VPS / Docker self‑host: public hosted instance (default `https://streamvix.hayd.uk`) already works without manual config.
+* If you don’t set it the addon falls back to `https://streamvix.hayd.uk`; streams will still work, but synthetic FHD building may not trigger correctly when accessed via a private/local hostname.
+* The variable is used to construct the internal `/vixsynthetic` endpoint (multi‑audio + best video) — without a correct base it cannot generate that URL.
+* Do NOT put the VixSrc domain itself (it will be ignored).
+
+Optional related flag:
+```
+VIX_DUAL=1
+```
+Forces the dual exposure (Direct/Proxy + Synthetic FHD variants) when you are running headless / legacy configs without the landing page FHD pill.
+
+Example environment block in `docker-compose.yml`:
+```yaml
+environment:
+    - ADDON_BASE_URL=https://streamvix.mydomain.xyz
+    - MFP_URL=https://mfp.mydomain.xyz
+    - MFP_PSW=supersecret
+    - VIX_DUAL=1        # optional
+    - TMDB_API_KEY=xxxxx
+```
+
+Restart the container/process after changing `ADDON_BASE_URL` so it’s picked up.
+  
 ### ⚡ Dynamic Events: FAST vs Extractor
 
 Dynamic sports events are loaded from the file `config/dynamic_channels.json` generated periodically by `Live.py`.
