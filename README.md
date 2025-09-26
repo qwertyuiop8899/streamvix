@@ -96,7 +96,32 @@ environment:
 ```
 
 Se cambi `ADDON_BASE_URL` riavvia il container / processo per far sì che venga letto all'avvio.
-  
+
+#### 🔍 Verifica Rapida (Badge "Addon Base URL")
+
+Nella pagina di installazione / configurazione dell'addon (landing) ora è mostrato un **badge** subito sopra il toggle VixSrc con il testo:
+
+`Addon Base URL: <valore>` (protocollo rimosso, es: `streamvix.miodominio.xyz`)
+
+Questo valore è quello che l'addon ha realmente risolto all'avvio. Usalo per verificare che la tua variabile d'ambiente sia attiva.
+
+| Cosa vedi nel badge | Significato | Azione |
+|---------------------|------------|--------|
+| Il tuo dominio/IP | OK, configurazione corretta | Nessuna |
+| `streamvix.hayd.uk` ma ti aspetti altro | Fallback attivo: `ADDON_BASE_URL` non letta | Controlla variabile + riavvio |
+
+Checklist quando resta il fallback:
+1. Variabile scritta correttamente (maiuscole esatte, niente slash finale).  
+2. Hai riavviato il container / processo dopo averla aggiunta o modificata.  
+3. Stai aprendo la landing usando esattamente l'host pubblico configurato (non un IP locale diverso).  
+4. Nessun carattere strano o spazio invisibile (ricopia a mano se dubbio).  
+5. Non hai usato il dominio di VixSrc (non valido come base).  
+6. Reverse proxy passa gli header Host / X-Forwarded-* corretti (se dubbi prova accesso diretto alla porta per confronto).  
+
+Se dopo il riavvio il badge continua a mostrare il fallback ma sei certo dei punti sopra, prova a:
+* Stampare le variabili con `docker compose exec <container> env | grep ADDON_BASE_URL`.
+* Verificare che non esistano doppi `ADDON_BASE_URL` in compose / override.
+
 ### ⚡ Eventi Dinamici: FAST vs Extractor
 
 Gli eventi sportivi dinamici vengono caricati dal file `config/dynamic_channels.json` generato periodicamente da `Live.py`.
