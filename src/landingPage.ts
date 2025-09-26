@@ -272,6 +272,12 @@ button:active {
 .preset-btn:hover { background:#5c3780; }
 .preset-btn:active { transform:scale(.95); }
 .preset-btn.active { background:#00c16e; border-color:#00c16e; box-shadow:0 0 10px rgba(0,193,110,0.7); }
+/* VixSrc Local/Dual pill styles (restored) */
+.vix-pill { display:inline-block; padding:2px 8px; margin-left:6px; font-size:0.6rem; font-weight:700; border:1px solid #8c52ff; border-radius:14px; background:#4d2d66; letter-spacing:0.05em; opacity:0.85; transition:background .2s, color .2s, opacity .2s; user-select:none; cursor:pointer; }
+.vix-pill.on { background:#00c16e; border-color:#00c16e; color:#fff; opacity:1; box-shadow:0 0 8px rgba(0,193,110,0.6); }
+.vix-pill.off { background:#333; color:#bbb; }
+.vix-pill.disabled { filter:grayscale(100%); opacity:.35; cursor:not-allowed; }
+.vix-pill input { display:none; }
 `
 
 function landingTemplate(manifest: any) {
@@ -312,7 +318,7 @@ function landingTemplate(manifest: any) {
 					// Skip only personalTmdbKey (custom placement); mediaflowMaster & localMode will be moved later
 					if (key === 'personalTmdbKey') return; // removed from UI
 					// Custom pretty toggle for known keys
-					const toggleMap: any = {
+						const toggleMap: any = {
 						'disableVixsrc': { title: 'VixSrc 🍿 - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci MFP per abilitare)</span>', invert: true },
 						'disableLiveTv': { title: 'Live TV 📺 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Molti canali hanno bisogno di MFP)</span>', invert: true },
 						'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci MFP per abilitare)</span>', invert: false },
@@ -327,32 +333,48 @@ function landingTemplate(manifest: any) {
 							'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
 							'mediaflowMaster': { title: 'MediaflowProxy 🔄', invert: false },
 					}
-					if (toggleMap[key]) {
+						if (toggleMap[key]) {
 						const t = toggleMap[key];
 						// Determine checked from elem.default boolean if provided; default visually ON
 						const hasDefault = (typeof (elem as any).default === 'boolean');
 						// For inverted toggles (disable*), show ON when default=false (i.e., feature enabled)
 						let isChecked = hasDefault ? (t.invert ? !((elem as any).default as boolean) : !!(elem as any).default) : true;
 						// Force Eurostreaming OFF by default (unless explicit default true)
-						if (key === 'eurostreamingEnabled' && !hasDefault) isChecked = false;
+							if (key === 'eurostreamingEnabled' && !hasDefault) isChecked = false;
 						const checkedAttr = isChecked ? ' checked' : '';
 						const extraAttr = key==='mediaflowMaster' ? ' data-master-mfp="1"' : '';
 						const extraAttrTmdb = key==='personalTmdbKey' ? ' data-personal-tmdb="1"' : '';
-						options += `
-						<div class="form-element"${extraAttr}${extraAttrTmdb}>
-							<div class="toggle-row" data-toggle-row="${key}">
-								<span class="toggle-title">${t.title}</span>
-								<div class="toggle-right">
-									<span class="toggle-off">OFF</span>
-									<label class="switch">
-										<input type="checkbox" id="${key}" name="${key}" data-config-key="${key}" data-invert="${t.invert ? 'true' : 'false'}"${checkedAttr} />
-										<span class="slider"></span>
+							// Inject Local checkbox ONLY for VixSrc row (between title and main toggle)
+							let extraLocal = '';
+							if (key === 'disableVixsrc') {
+								// Restore Local & Dual pills (no addonBase field)
+								extraLocal = `
+								<span id="localPill" class="vix-pill off" title="Flusso diretto (senza MediaflowProxy)">
+									<label style="cursor:pointer;">
+										<input type="checkbox" id="vixLocal" name="vixLocal" data-config-key="vixLocal" />LOCAL
 									</label>
-									<span class="toggle-on">ON</span>
+								</span>
+								<span id="dualPill" class="vix-pill off" title="Mostra anche la variante 1080p forzata (FHD)">
+									<label style="cursor:pointer;">
+										<input type="checkbox" id="vixDual" name="vixDual" data-config-key="vixDual" />FHD
+									</label>
+								</span>`;
+							}
+							options += `
+							<div class="form-element"${extraAttr}${extraAttrTmdb}>
+								<div class="toggle-row" data-toggle-row="${key}">
+									<span class="toggle-title">${t.title}${extraLocal}</span>
+									<div class="toggle-right">
+										<span class="toggle-off">OFF</span>
+										<label class="switch">
+											<input type="checkbox" id="${key}" name="${key}" data-config-key="${key}" data-invert="${t.invert ? 'true' : 'false'}"${checkedAttr} />
+											<span class="slider"></span>
+										</label>
+										<span class="toggle-on">ON</span>
+									</div>
 								</div>
 							</div>
-						</div>
-						`
+							`
 					} else {
 						// Support boolean default as well as legacy 'checked'
 						const isChecked = (typeof (elem as any).default === 'boolean')
@@ -435,6 +457,7 @@ function landingTemplate(manifest: any) {
 							config[key] = el.value;
 						}
 					});
+					// (Reverted) no addonBase injection in legacy version
 					// tmdbApiKey always kept (UI hidden)
 					return config;
 				};
@@ -451,13 +474,14 @@ function landingTemplate(manifest: any) {
 					var toggleRows = (mainForm).querySelectorAll('[data-toggle-row]');
 					var setRowState = function(row){
 						if (!row) return;
-						var input = row.querySelector('input[type="checkbox"]');
+						// Only consider the MAIN provider toggle (data-config-key) not the Local pill checkbox
+						var input = row.querySelector('input[type="checkbox"][data-config-key]');
 						if (!input) return;
 						if (input.checked) { row.classList.add('is-on'); } else { row.classList.remove('is-on'); }
 					};
 					toggleRows.forEach(function(row){
 						setRowState(row);
-						var input = row.querySelector('input[type="checkbox"]');
+						var input = row.querySelector('input[type="checkbox"][data-config-key]');
 						if (input) input.addEventListener('change', function(){ setRowState(row); });
 					});
 
@@ -564,6 +588,8 @@ function landingTemplate(manifest: any) {
 						}
 						if (vixsrcRow) setRowState(vixsrcRow);
 					}
+					// Sync Local pill availability when VixSrc gating changes
+					try { if (typeof updateLocalAvailability === 'function') updateLocalAvailability(); } catch(e) {}
 
 					// CB01 toggle gating (richiede MFP attivo e credenziali come AnimeUnity)
 					if (cb01El){
@@ -589,6 +615,70 @@ function landingTemplate(manifest: any) {
 				if (mfpMaster){ mfpMaster.addEventListener('change', function(){ syncMfp(); updateLink(); }); syncMfp(); }
 				if (mfpUrlInput) { mfpUrlInput.addEventListener('input', function(){ syncMfp(); updateLink(); }); }
 				if (mfpPwdInput) { mfpPwdInput.addEventListener('input', function(){ syncMfp(); updateLink(); }); }
+				// Local checkbox (direct VixSrc) triggers link update
+				try {
+					var vixLocalCb = document.getElementById('vixLocal');
+					var localPill = document.getElementById('localPill');
+					var vixDualCb = document.getElementById('vixDual');
+					var dualPill = document.getElementById('dualPill');
+					function syncLocalPill(){
+						if (localPill && vixLocalCb){
+							if (vixLocalCb.checked){ localPill.classList.remove('off'); localPill.classList.add('on'); }
+							else { localPill.classList.remove('on'); localPill.classList.add('off'); }
+						}
+						if (dualPill && vixDualCb){
+							if (vixDualCb.checked){ dualPill.classList.remove('off'); dualPill.classList.add('on'); }
+							else { dualPill.classList.remove('on'); dualPill.classList.add('off'); }
+						}
+					}
+					function updateLocalAvailability(){
+						try {
+							var vixsrcToggle = document.getElementById('disableVixsrc');
+							var localPillEl = document.getElementById('localPill');
+							var localCb = document.getElementById('vixLocal');
+							var dualPillEl = document.getElementById('dualPill');
+							var dualCb = document.getElementById('vixDual');
+							if (!vixsrcToggle) return;
+							var providerOn = vixsrcToggle.checked && !vixsrcToggle.disabled; // checked => provider enabled (invert semantics handled elsewhere)
+							function handle(elCb, elPill){
+								if (!elCb || !elPill) return;
+								if (!providerOn){
+									elCb.checked = false;
+									elCb.disabled = true;
+									elPill.classList.add('disabled');
+								} else {
+									elCb.disabled = false;
+									elPill.classList.remove('disabled');
+								}
+							}
+							handle(localCb, localPillEl);
+							handle(dualCb, dualPillEl);
+							syncLocalPill();
+						} catch(e) { console.warn('updateLocalAvailability failed', e); }
+					}
+					if (vixLocalCb) vixLocalCb.addEventListener('change', function(){ syncLocalPill(); updateLink(); });
+					if (vixDualCb) vixDualCb.addEventListener('change', function(){ syncLocalPill(); updateLink(); });
+					syncLocalPill();
+					updateLocalAvailability();
+					var vixsrcToggleEl = document.getElementById('disableVixsrc');
+					if (vixsrcToggleEl) vixsrcToggleEl.addEventListener('change', function(){ updateLocalAvailability(); updateLink(); });
+				} catch(e) {}
+				// Ensure MediaflowProxy block remains right after presets block (already moved earlier) and before provider toggles
+				try {
+					var presetBlock = document.getElementById('presetInstallations');
+					var mediaflowToggle = document.getElementById('mediaflowMaster');
+					if (presetBlock && mediaflowToggle){
+						var mediaWrap = mediaflowToggle.closest('.form-element');
+						var formEl = presetBlock.closest('form');
+						if (mediaWrap && formEl){
+							var afterPreset = presetBlock.parentNode;
+							// Insert mediaWrap immediately after preset container's parent wrapper
+							if (afterPreset && afterPreset.nextSibling !== mediaWrap){
+								afterPreset.parentNode.insertBefore(mediaWrap, afterPreset.nextSibling);
+							}
+						}
+					}
+				} catch(e) { console.warn('Mediaflow reposition failed', e); }
 				// Live TV subgroup: show TvTap & Vavoo toggles only if Live TV enabled
 				var liveTvToggle = document.getElementById('disableLiveTv'); // invert semantics
 				var liveSub = document.getElementById('liveTvSubToggles');
@@ -628,11 +718,11 @@ function landingTemplate(manifest: any) {
 				// Reorder provider toggles in requested order without altering other logic
 				try {
 					var orderIds = [
-						'disableLiveTv',        // Live TV
-						'disableVixsrc',         // VixSrc
+						'disableLiveTv',        // Live TV first
+						'disableVixsrc',         // VixSrc directly under Live TV block
 						'cb01Enabled',           // CB01
 						'guardahdEnabled',       // GuardaHD
-						'streamingwatchEnabled', // StreamingWatch spostato subito sotto GuardaHD
+						'streamingwatchEnabled', // StreamingWatch
 						'guardaserieEnabled',    // GuardaSerie
 						'eurostreamingEnabled',  // Eurostreaming
 						'animeunityEnabled',     // Anime Unity
