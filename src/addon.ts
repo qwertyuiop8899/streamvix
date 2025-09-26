@@ -3183,7 +3183,25 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 // ✅ CORRETTO: Annotazioni di tipo esplicite per Express
 app.get('/', (_: Request, res: Response) => {
-    const manifest = loadCustomConfig();
+    const manifest: any = loadCustomConfig();
+    try {
+        // Resolve addon base exactly like extractor fallback chain
+        const envBase = process.env.ADDON_BASE_URL || process.env.STREAMVIX_ADDON_BASE || '';
+        const DEFAULT_ADDON_BASE = 'https://streamvix.hayd.uk';
+        let resolved = '';
+        if (manifest && typeof manifest === 'object' && manifest.addonBase) {
+            resolved = String(manifest.addonBase);
+        }
+        if (!resolved && envBase && envBase.startsWith('http')) {
+            resolved = envBase.replace(/\/$/, '');
+        }
+        if (!resolved) {
+            resolved = DEFAULT_ADDON_BASE; // final fallback (mirrors extractor.ts logic)
+        }
+        manifest.__resolvedAddonBase = resolved; // inject for landing page display only (not part of config serialization)
+    } catch (e) {
+        console.warn('[Landing] addonBase resolution failed:', (e as any)?.message || e);
+    }
     const landingHTML = landingTemplate(manifest);
     res.setHeader('Content-Type', 'text/html');
     res.send(landingHTML);
