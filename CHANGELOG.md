@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.5.2...v1.5.3) (2025-09-26)
+
+
+### Bug Fixes
+
+* landing missing info ([2e5e14d](https://github.com/qwertyuiop8899/streamvix/commit/2e5e14d5108438fe4aa4eb2a1dd9a4678ec48851))
+
 ## [1.5.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.5.1...v1.5.2) (2025-09-26)
 
 
