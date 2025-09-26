@@ -1318,7 +1318,7 @@
     "id": "eurosport1",
     "type": "tv",
     "name": "Eurosport 1",
-    "poster": "hhttps://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_1.svg",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_1.svg",
     "description": "Eurosport 1",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MSkvbWFuaWZlc3QubXBkJmtleV9pZD00NmU1NTljMmY5ZjY0NWNlOGQ4MGM3ZmEyMDQ0NmJkYiZrZXk9NTk3ZDIxNGQ2NjM0MmVlMDQyYmNjZmZlYjE2NWU3NTA=",
     "staticUrlD": "https://dlhd.dad/watch.php?id=878",
