@@ -62,6 +62,41 @@ StreamViX utilizza un **sistema di proxy unificato** che semplifica la configura
 - `Enable MPD Streams`: (true/false) Non funzionanti lasciare false
 - `Enable Live TV`: Abilita per vedere live tv (true/false)
   
+### 🖥️ Variabile Ambiente per Installazioni Locali / VPS (FHD VixSrc)
+
+Per ottenere correttamente i flussi VixSrc in Full HD (forzatura `&h=1` + endpoint synthetic) nelle installazioni **locali o su VPS** è necessario impostare una variabile d'ambiente che dica all'estrattore qual è la BASE URL pubblicamente raggiungibile del tuo addon.
+
+Imposta (SENZA lo slash finale):
+
+```
+ADDON_BASE_URL=https://tuo-dominio-o-ip
+```
+
+Note importanti:
+* Nessuno slash finale (✅ `https://mioaddon.example` ❌ `https://mioaddon.example/`).
+* Serve solo su installazioni locali / VPS / Docker self‑host: le istanze pubbliche già integrate (es. quella di default `https://streamvix.hayd.uk`) non richiedono configurazione manuale.
+* Se non la imposti, l'addon userà il fallback interno `https://streamvix.hayd.uk` e i flussi funzioneranno comunque, ma nelle installazioni dietro IP locale/pubby NAT potresti non ottenere il synthetic FHD.
+* La variabile viene usata per costruire l'endpoint interno `/vixsynthetic` (multi‑lingua + best video) — senza un BASE corretto non può generare quell'URL.
+* Non inserire il dominio di VixSrc stesso (verrà ignorato).
+
+Opzionale correlato:
+```
+VIX_DUAL=1
+```
+Abilita il pairing (Direct/Proxy + varianti Synthetic FHD) anche quando la pill “FHD” è disattivata in landing perché stai usando una configurazione legacy o script headless.
+
+Esempio blocco environment in `docker-compose.yml`:
+```yaml
+environment:
+    - ADDON_BASE_URL=https://streamvix.miodominio.xyz
+    - MFP_URL=https://mfp.miodominio.xyz
+    - MFP_PSW=supersecret
+    - VIX_DUAL=1        # opzionale
+    - TMDB_API_KEY=xxxxx
+```
+
+Se cambi `ADDON_BASE_URL` riavvia il container / processo per far sì che venga letto all'avvio.
+  
 ### ⚡ Eventi Dinamici: FAST vs Extractor
 
 Gli eventi sportivi dinamici vengono caricati dal file `config/dynamic_channels.json` generato periodicamente da `Live.py`.
