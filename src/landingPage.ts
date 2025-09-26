@@ -367,7 +367,7 @@ function landingTemplate(manifest: any) {
 									<div class="toggle-right">
 										<span class="toggle-off">OFF</span>
 										<label class="switch">
-											<input type="checkbox" id="${key}" name="${key}" data-config-key="${key}" data-invert="${t.invert ? 'true' : 'false'}"${checkedAttr} />
+											<input type="checkbox" id="${key}" name="${key}" data-config-key="${key}" data-main-toggle="1" data-invert="${t.invert ? 'true' : 'false'}"${checkedAttr} />
 											<span class="slider"></span>
 										</label>
 										<span class="toggle-on">ON</span>
@@ -429,6 +429,9 @@ function landingTemplate(manifest: any) {
 					<p style="margin:0 0 0.5rem 0; font-size:0.95rem; color:#c9b3ff; font-weight:600; text-align:center;">Opzioni Live TV</p>
 					<!-- TvTap & Vavoo toggles will already be present in form; this container just groups them visually -->
 				</div>
+				${manifest.__resolvedAddonBase ? (() => { const _raw = manifest.__resolvedAddonBase; const _host = _raw.replace(/^https?:\/\//,''); const _isFallback = /streamvix\.hayd\.uk/.test(_raw); return `<div id="svxAddonBaseBadge" style="text-align:center; margin:-0.25rem 0 1.1rem 0;">
+					<span style=\"display:inline-block; padding:0.35rem 0.75rem; background:rgba(0,0,0,0.45); border:1px solid rgba(140,82,255,0.65); border-radius:14px; font-size:0.70rem; letter-spacing:0.05em; font-weight:600; color:#c9b3ff;\" title=\"Addon Base URL risolta all'avvio\">Addon Base URL per Vix FHD: <span style='color:#00c16e;'>${_host}</span><a href=\"https://github.com/qwertyuiop8899/StreamViX/blob/main/README.md\" target=\"_blank\" style=\"text-decoration:none; margin-left:6px; color:#8c52ff;\">📖 README</a></span>
+				</div>` })() : ''}
 			</form>
 
 			<div class="separator"></div>
@@ -474,14 +477,14 @@ function landingTemplate(manifest: any) {
 					var toggleRows = (mainForm).querySelectorAll('[data-toggle-row]');
 					var setRowState = function(row){
 						if (!row) return;
-						// Only consider the MAIN provider toggle (data-config-key) not the Local pill checkbox
-						var input = row.querySelector('input[type="checkbox"][data-config-key]');
+						// Use only the main toggle inside the right-hand switch area
+						var input = row.querySelector('input[type="checkbox"][data-main-toggle="1"]');
 						if (!input) return;
 						if (input.checked) { row.classList.add('is-on'); } else { row.classList.remove('is-on'); }
 					};
 					toggleRows.forEach(function(row){
 						setRowState(row);
-						var input = row.querySelector('input[type="checkbox"][data-config-key]');
+						var input = row.querySelector('input[type="checkbox"][data-main-toggle="1"]');
 						if (input) input.addEventListener('change', function(){ setRowState(row); });
 					});
 
