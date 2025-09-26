@@ -1318,7 +1318,7 @@
     "id": "eurosport1",
     "type": "tv",
     "name": "Eurosport 1",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Eurosport_1_Logo_2015.svg/1024px-Eurosport_1_Logo_2015.svg.png",
+    "poster": "hhttps://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_1.svg",
     "description": "Eurosport 1",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MSkvbWFuaWZlc3QubXBkJmtleV9pZD00NmU1NTljMmY5ZjY0NWNlOGQ4MGM3ZmEyMDQ0NmJkYiZrZXk9NTk3ZDIxNGQ2NjM0MmVlMDQyYmNjZmZlYjE2NWU3NTA=",
     "staticUrlD": "https://dlhd.dad/watch.php?id=878",
@@ -1334,7 +1334,7 @@
     "id": "eurosport2",
     "type": "tv",
     "name": "Eurosport 2",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Eurosport_2_Logo_2015.png",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_2.svg",
     "description": "Eurosport 2",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MikvbWFuaWZlc3QubXBkJmtleV9pZD1lODM3MjI4M2E1MjM0NDRjODQ2NDZjNDE3MmIxYmMwZiZrZXk9OTY5YTkwZTFhMWE2NDI0YTY4ZmU0YjVkNzc2MzY4ZWM=",
     "staticUrlD": "https://dlhd.dad/watch.php?id=879",
@@ -1343,6 +1343,54 @@
     ],
     "epgChannelIds": [
       "eurosport2.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "eurosport3",
+    "type": "tv",
+    "name": "Eurosport 3",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_3.svg",
+    "description": "Eurosport 3",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MykvbWFuaWZlc3QubXBkJmtleV9pZD0xZTIzOThiMGVlYjA0ODI5YjQ3MTFlMTRiNGE5MTI0NCZrZXk9MTFlMjY2NTllYmZlY2Y2YTIyZWQ1NmRhMzQwNDQ4Y2Q=",
+    "epgChannelIds": [
+      "eurosport3.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "eurosport4",
+    "type": "tv",
+    "name": "Eurosport 4",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_4.svg",
+    "description": "Eurosport 4",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NCkvbWFuaWZlc3QubXBkJmtleV9pZD05ZGQ3YmU3OWU0NGY0ZDA4YTkxZWM1ZDE1NTNmMTdiOCZrZXk9OGE2MjM2OWY4MWE0YjZlNWYyZDQ4NDZmN2JkNWU3ZDE=",
+    "epgChannelIds": [
+      "eurosport4.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "eurosport5",
+    "type": "tv",
+    "name": "Eurosport 5",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_5.svg",
+    "description": "Eurosport 5",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NSkvbWFuaWZlc3QubXBkJmtleV9pZD1iNDhlN2U2ZDk2ZGE0NzlkYTY1ZTQzNWNlNjVmYWViMSZrZXk9NDhjNzAzODc5Y2U0ZGVlZGI1YTIxMjRhMzBhMTNiYzQ==",
+    "epgChannelIds": [
+      "eurosport5.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "eurosport6",
+    "type": "tv",
+    "name": "Eurosport 6",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_6.svg",
+    "description": "Eurosport 6",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NikvbWFuaWZlc3QubXBkJmtleV9pZD1lYWQxYzU2N2EzZGY0ODYxOTc5OWIyZTc4YjE4ZmRmYSZrZXk9MWRlOWQ5YWY1NjUxMjk2YWE2NzkxMzk3OWFkOGM2OTQ==",
+    "epgChannelIds": [
+      "eurosport6.it"
     ],
     "category": "sport"
   },
@@ -1548,7 +1596,7 @@
     "name": "Dazn 1",
     "poster": "https://i.pinimg.com/736x/7e/78/4b/7e784b0cacc3ed5732b937ad8c466a77.jpg",
     "description": "Dazn 1",
-    "staticUrlMpd": "aHR0cHM6Ly9hYmU2Zmp4YWFhYWFhYWFtYzRwZzU1ZWtjeXF6NC5vdHRlLmxpdmUuY2Yud3cuYWl2LWNkbi5uZXQvZHViLW5pdHJvL2xpdmUvY2xpZW50cy9kYXNoL2VuYy9sZ2s4a3BwY2xjL291dC92MS9mNTExNzNiNmIwNjI0YTQzODYzNThhYjhkZmVlMjU3Zi9jZW5jLm1wZCZrZXlfaWQ9ODI3MmJmNmJhNDZmMjNmOWRhNTI3MDA1N2I2ZTAyOGEma2V5PTc0YWU3MGRkMTBiNGJiMzhlZDZmZmU4NDNmM2UyY2Nk",
+    "staticUrlMpd": "aHR0cHM6Ly9hYmxzdGI1YWFhYWFhYWFtYzRwZzU1ZWtjeXF6NC5vdHRlLmxpdmUuY2Yud3cuYWl2LWNkbi5uZXQvZHViLW5pdHJvL2xpdmUvZGFzaC9lbmMvbGdrOGtwcGNsYy9vdXQvdjEvZjUxMTczYjZiMDYyNGE0Mzg2MzU4YWI4ZGZlZTI1N2YvY2VuYy5tcGQma2V5X2lkPTgyNzJiZjZiYTQ2ZjIzZjlkYTUyNzAwNTdiNmUwMjhhJmtleT03NGFlNzBkZDEwYjRiYjM4ZWQ2ZmZlODQzZjNlMmNjZA==",
     "staticUrlD": "https://dlhd.dad/watch.php?id=877",
     "vavooNames": [
       "DAZN 1"
