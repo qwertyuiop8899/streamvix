@@ -47,6 +47,7 @@ interface AddonConfig {
     tvtapProxyEnabled?: boolean; // true = NO proxy (link diretto TvTap), false = usa proxy se disponibile
     vavooNoMfpEnabled?: boolean; // true = mostra stream Vavoo clean (🏠 / Vavoo🔓), false = nascondi
     cb01Enabled?: boolean; // abilita provider CB01 (Mixdrop only)
+    vixLocal?: boolean; // abilita visualizzazione stream diretto VixSrc (checkbox Local)
 }
 
 function debugLog(...args: any[]) {
@@ -2383,13 +2384,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                             streams.push({
                                 url: proxyUrl,
-                                title: `[📽️FHD] ${channel.name} [ITA]`
+                                title: `[📽️] ${channel.name} [ITA]`
                             });
                             debugLog(`Aggiunto staticUrl2 Proxy (MFP): ${proxyUrl}`);
                         } else {
                             streams.push({
                                 url: decodedUrl,
-                                title: `[❌Proxy][📽️FHD] ${channel.name} [ITA]`
+                                title: `[❌Proxy][📽️] ${channel.name} [ITA]`
                             });
                             debugLog(`Aggiunto staticUrl2 Direct: ${decodedUrl}`);
                         }
@@ -2887,8 +2888,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const finalConfig: ExtractorConfig = {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                                 mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL,
-                                mfpPsw: config.mediaFlowProxyPassword || process.env.MFP_PSW
+                                mfpPsw: config.mediaFlowProxyPassword || process.env.MFP_PSW,
+                                vixLocal: !!config.vixLocal,
+                                vixDual: !!(config as any)?.vixDual,
+                                addonBase: (config as any)?.addonBase || ( () => {
+                                    try {
+                                        const proto = (process.env.EXTERNAL_PROTOCOL || 'https');
+                                        const host = (process.env.EXTERNAL_HOST || process.env.HOST || process.env.VERCEL_URL || '').replace(/\/$/,'');
+                                        if (host) return `${proto}://${host}`;
+                                        return '';
+                                    } catch { return ''; }
+                                })()
                             };
+                            console.log('[VixSrc][ParallelConfig]', { vixLocal: finalConfig.vixLocal, vixDual: finalConfig.vixDual, addonBase: finalConfig.addonBase });
                             const res: VixCloudStreamInfo[] | null = await getStreamContent(id, type, finalConfig);
                             if (!res) return { streams: [] };
                             const fmtBytes = (n: number): string => {
@@ -3036,7 +3048,17 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const finalConfig: ExtractorConfig = {
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL,
-                        mfpPsw: config.mediaFlowProxyPassword || process.env.MFP_PSW
+                        mfpPsw: config.mediaFlowProxyPassword || process.env.MFP_PSW,
+                        vixLocal: !!config.vixLocal,
+                        vixDual: !!(config as any)?.vixDual,
+                        addonBase: (config as any)?.addonBase || (()=>{
+                            try {
+                                const proto = (process.env.EXTERNAL_PROTOCOL || 'https');
+                                const host = (process.env.EXTERNAL_HOST || process.env.HOST || process.env.VERCEL_URL || '').replace(/\/$/,'');
+                                if (host) return `${proto}://${host}`;
+                                return '';
+                            } catch { return ''; }
+                        })()
                     };
 
                     const res: VixCloudStreamInfo[] | null = await getStreamContent(id, type, finalConfig);
@@ -3054,21 +3076,24 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (st.streamUrl == null) continue;
 
                             // Costruisci il title: mantieni il nome invariato, e SOLO per VixSrc aggiungi sotto la riga 💾 size
-                            let adjustedName = st.name || '';
-                            // Inserisci bullet prima di [ITA] se presente e non già preceduto da bullet
-                            adjustedName = adjustedName.replace(/\s*•\s*\[ITA\]$/i, ' • [ITA]');
-                            adjustedName = adjustedName.replace(/\s*\[ITA\]$/i, ' • [ITA]');
-                            let finalTitle = adjustedName;
+                            let adjustedVariant = st.name || '';
+                            adjustedVariant = adjustedVariant.replace(/\s*•\s*\[ITA\]$/i, ' • [ITA]');
+                            adjustedVariant = adjustedVariant.replace(/\s*\[ITA\]$/i, ' • [ITA]');
+                            let finalTitle = adjustedVariant;
                             if (typeof st.sizeBytes === 'number') {
                                 const sizeLabel = st.sizeBytes > 0 ? fmtBytes(st.sizeBytes) : '?';
-                                finalTitle = `${adjustedName}\n💾 ${sizeLabel}`;
+                                finalTitle = `${adjustedVariant}\n💾 ${sizeLabel}`;
                             }
 
-                            console.log(`Adding stream with title: "${finalTitle}"`);
+                            // Nome mostrato nella lista: includi prefisso provider per mantenere reorder, più variante distinta
+                            const providerPrefix = 'StreamViX Vx';
+                            const streamName = `${providerPrefix} | ${adjustedVariant}`.trim();
+
+                            console.log(`Adding VixSrc stream variant: name="${streamName}" title="${finalTitle}" url=${st.streamUrl.split('?')[0]}`);
 
                             allStreams.push({
                                 title: finalTitle,
-                                name: 'StreamViX Vx',
+                                name: streamName,
                                 url: st.streamUrl,
                                 behaviorHints: {
                                     notWebReady: true,
@@ -3080,6 +3105,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                 }
 
+                // Reorder: ensure VixSrc (StreamViX Vx) streams always first
+                try {
+                    const vix: Stream[] = [];
+                    const others: Stream[] = [];
+                    for (const s of allStreams) {
+                        const n = (s as any)?.name || (s as any)?.title || '';
+                        if (typeof n === 'string' && /StreamViX\s+Vx/i.test(n)) vix.push(s); else others.push(s);
+                    }
+                    if (vix.length) {
+                        // mutate in place (allStreams is const reference)
+                        allStreams.splice(0, allStreams.length, ...vix, ...others);
+                    }
+                } catch(e) { /* silent */ }
                 console.log(`✅ Total streams returned: ${allStreams.length}`);
                 return { streams: allStreams };
             } catch (error) {
@@ -3203,6 +3241,126 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
         res.json(fallback);
+    }
+});
+
+// Endpoint sintetico: genera mini-master con sola variante video massima e traccia AUDIO italiana
+app.get('/vixsynthetic', async (req: Request, res: Response) => {
+    try {
+        const src = typeof req.query.src === 'string' ? req.query.src : '';
+        if (!src) return res.status(400).send('#EXTM3U\n# Missing src');
+        const langPref = ((req.query.lang as string) || 'it').toLowerCase();
+        const multiFlag = (()=>{
+            const m = String(req.query.multi||'').toLowerCase();
+            if (['1','true','on','yes','all'].includes(m)) return true;
+            if (String(req.query.languages||'').toLowerCase()==='all') return true;
+            return false;
+        })();
+        if (multiFlag) console.log('[vixsynthetic] multi-language mode attivo');
+        const r = await fetch(src, { headers: { 'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, */*' } as any });
+        if (!r.ok) return res.status(502).send('#EXTM3U\n# Upstream error');
+        const text = await r.text();
+        // Se non è master, restituisci com'è
+        if (!/#EXT-X-STREAM-INF:/i.test(text)) {
+            res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+            return res.send(text);
+        }
+        const lines = text.split(/\r?\n/);
+        interface Variant { url: string; height: number; bandwidth: number; info: string; };
+        const variants: Variant[] = [];
+        const media: { line: string; attrs: Record<string,string>; }[] = [];
+        const parseAttrs = (l: string): Record<string,string> => {
+            const out: Record<string,string> = {}; l.replace(/([A-Z0-9-]+)=(("[^"]+")|([^,]+))/g, (_m, k, v) => { const val = String(v).replace(/^"|"$/g,''); out[k]=val; return ''; }); return out;
+        };
+        for (let i=0;i<lines.length;i++) {
+            const l = lines[i];
+            if (l.startsWith('#EXT-X-MEDIA:')) {
+                media.push({ line: l, attrs: parseAttrs(l) });
+            }
+            if (l.startsWith('#EXT-X-STREAM-INF:')) {
+                const info = l;
+                const next = lines[i+1] || '';
+                if (!next || next.startsWith('#')) continue;
+                const attrs = parseAttrs(info);
+                let h = 0; let bw = 0;
+                if (attrs['RESOLUTION']) {
+                    const m = attrs['RESOLUTION'].match(/(\d+)x(\d+)/); if (m) h = parseInt(m[2],10)||0;
+                }
+                if (attrs['BANDWIDTH']) bw = parseInt(attrs['BANDWIDTH'],10)||0;
+                // Resolve relative
+                let vUrl = next.trim();
+                try { vUrl = new URL(vUrl, src).toString(); } catch {}
+                variants.push({ url: vUrl, height: h, bandwidth: bw, info });
+            }
+        }
+        if (!variants.length) {
+            res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+            return res.send(text);
+        }
+        variants.sort((a,b)=> (b.height - a.height) || (b.bandwidth - a.bandwidth));
+        const best = variants[0];
+        const header: string[] = ['#EXTM3U'];
+        const copyTags = ['#EXT-X-VERSION','#EXT-X-INDEPENDENT-SEGMENTS'];
+        for (const t of copyTags) { if (text.includes(t)) header.push(t); }
+
+        if (multiFlag) {
+            // In modalità multi includiamo tutte le righe #EXT-X-MEDIA (AUDIO e SUBTITLES) e manteniamo il GROUP-ID originale.
+            const audioGroupsEncountered: Set<string> = new Set();
+            const subtitleGroupsEncountered: Set<string> = new Set();
+            for (const m of media) {
+                const type = (m.attrs['TYPE']||'').toUpperCase();
+                if (type === 'AUDIO') {
+                    header.push(m.line);
+                    if (m.attrs['GROUP-ID']) audioGroupsEncountered.add(m.attrs['GROUP-ID']);
+                } else if (type === 'SUBTITLES') {
+                    header.push(m.line);
+                    if (m.attrs['GROUP-ID']) subtitleGroupsEncountered.add(m.attrs['GROUP-ID']);
+                }
+            }
+            // Forziamo la variante best ad usare il primo gruppo audio se presente
+            let streamInf = best.info;
+            if (audioGroupsEncountered.size) {
+                const firstAudio = [...audioGroupsEncountered][0];
+                if (/AUDIO="/.test(streamInf)) streamInf = streamInf.replace(/AUDIO="[^"]+"/, `AUDIO="${firstAudio}"`);
+                else streamInf = streamInf.replace('#EXT-X-STREAM-INF:', `#EXT-X-STREAM-INF:AUDIO="${firstAudio}",`);
+            }
+            header.push(streamInf);
+            header.push(best.url);
+        } else {
+            // Modalità singola (compatibile precedente): seleziona solo la traccia richiesta (langPref)
+            let chosenGroup: string | null = null;
+            let chosenMediaLine: string | null = null;
+            for (const m of media) {
+                const type = (m.attrs['TYPE']||'').toUpperCase();
+                if (type !== 'AUDIO') continue;
+                const lang = (m.attrs['LANGUAGE']||'').toLowerCase();
+                const name = (m.attrs['NAME']||'').toLowerCase();
+                if (lang === langPref || name.includes(langPref)) {
+                    chosenGroup = m.attrs['GROUP-ID'] || null;
+                    chosenMediaLine = m.line;
+                    break;
+                }
+            }
+            if (!chosenGroup && media.length) {
+                const firstAudio = media.find(m=> (m.attrs['TYPE']||'').toUpperCase()==='AUDIO');
+                if (firstAudio) { chosenGroup = firstAudio.attrs['GROUP-ID']||null; chosenMediaLine = firstAudio.line; }
+            }
+            if (chosenMediaLine && chosenGroup) header.push(chosenMediaLine);
+            let streamInf = best.info;
+            if (chosenGroup) {
+                if (/AUDIO="/.test(streamInf)) streamInf = streamInf.replace(/AUDIO="[^"]+"/, `AUDIO="${chosenGroup}"`);
+                else streamInf = streamInf.replace('#EXT-X-STREAM-INF:', `#EXT-X-STREAM-INF:AUDIO="${chosenGroup}",`);
+            }
+            header.push(streamInf);
+            header.push(best.url);
+        }
+        const mini = header.join('\n') + '\n';
+        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+        res.setHeader('Cache-Control', 'no-store');
+        res.send(mini);
+    } catch (e) {
+        console.error('[vixsynthetic] error:', (e as any)?.message || e);
+        res.status(500).send('#EXTM3U\n# internal error');
     }
 });
 

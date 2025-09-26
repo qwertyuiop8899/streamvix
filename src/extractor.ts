@@ -15,6 +15,12 @@ export interface ExtractorConfig {
   tmdbApiKey?: string;
   mfpUrl?: string;
   mfpPsw?: string;
+  // When true (set via landing page "Local" checkbox) include direct stream variant (🔓)
+  vixLocal?: boolean;
+  // Base URL of the addon (protocol+host) to build synthetic endpoints
+  addonBase?: string;
+  // When true, expose BOTH automatic master (o proxy) and forced 1080p ITA synthetic stream
+  vixDual?: boolean;
 }
 
 export interface VixCloudStreamInfo {
@@ -110,15 +116,27 @@ export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string): 
 
 // 1. Aggiungi la funzione di verifica dei TMDB ID
 async function checkTmdbIdOnVixSrc(tmdbId: string, type: ContentType): Promise<boolean> {
+  const skipFlag = (() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const env: any = (global as any)?.process?.env || (typeof process !== 'undefined' ? (process as any).env : {});
+      const v = String(env.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase();
+      return ['1','true','on','yes','y'].includes(v);
+    } catch { return false; }
+  })();
   const vixSrcApiType = type === 'movie' ? 'movie' : 'tv'; // VixSrc usa 'tv' per le serie
   const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}?lang=it`;
 
   try {
     console.log(`VIX_CHECK: Checking TMDB ID ${tmdbId} of type ${vixSrcApiType} against VixSrc list: ${listUrl}`);
-    const response = await fetch(listUrl);
+    const response = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect)', 'Accept': 'application/json' } });
     if (!response.ok) {
       console.error(`VIX_CHECK: Failed to fetch VixSrc list for type ${vixSrcApiType}, status: ${response.status}`);
-      return false; // Se non possiamo ottenere la lista, assumiamo che non esista per sicurezza
+      if (skipFlag) {
+        console.warn('VIX_CHECK: Skip flag attivo -> continuo nonostante status non OK');
+        return true;
+      }
+      return false;
     }
     const data = await response.json();
     // L'API restituisce un array di oggetti, ognuno con una proprietà 'id' che è l'ID TMDB
@@ -128,22 +146,49 @@ async function checkTmdbIdOnVixSrc(tmdbId: string, type: ContentType): Promise<b
       return exists;
     } else {
       console.error(`VIX_CHECK: VixSrc list for type ${vixSrcApiType} is not in the expected format.`);
-      return false;
+      return skipFlag ? (console.warn('VIX_CHECK: formato inatteso ma skip attivo -> true'), true) : false;
     }
   } catch (error) {
     console.error(`VIX_CHECK: Error checking TMDB ID ${tmdbId} on VixSrc:`, error);
-    return false; // In caso di errore, assumiamo che non esista
+    if (skipFlag) {
+      console.warn('VIX_CHECK: errore ma skip attivo -> continuo');
+      return true;
+    }
+    // Retry una volta se non skip
+    try {
+      await new Promise(r=>setTimeout(r,400));
+      console.log('VIX_CHECK: retry fetch list');
+      const response2 = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect Retry)', 'Accept': 'application/json' } });
+      if (response2.ok) {
+        const d2 = await response2.json();
+        if (Array.isArray(d2)) {
+          const ex2 = d2.some((item: any) => item.tmdb_id && item.tmdb_id.toString() === tmdbId.toString());
+          console.log(`VIX_CHECK: Retry result -> ${ex2}`);
+          return ex2;
+        }
+      }
+    } catch {/* ignore secondary */}
+    return false; // fallback finale
   }
 }
 
 // Verifica se uno specifico episodio (S/E) esiste su VixSrc
 async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: number): Promise<boolean> {
+  const skipFlag = (() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const env: any = (global as any)?.process?.env || (typeof process !== 'undefined' ? (process as any).env : {});
+      const v = String(env.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase();
+      return ['1','true','on','yes','y'].includes(v);
+    } catch { return false; }
+  })();
   const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
   try {
     console.log(`VIX_EP_CHECK: Checking TMDB ID ${tmdbId} S${season}E${episode} against VixSrc episode list: ${listUrl}`);
-    const response = await fetch(listUrl);
+    const response = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect)', 'Accept': 'application/json' } });
     if (!response.ok) {
       console.error(`VIX_EP_CHECK: Failed to fetch VixSrc episode list, status: ${response.status}`);
+      if (skipFlag) { console.warn('VIX_EP_CHECK: Skip attivo -> continuo'); return true; }
       return false;
     }
     const data = await response.json();
@@ -156,9 +201,24 @@ async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: num
       return exists;
     }
     console.error('VIX_EP_CHECK: Episode list format not as expected');
-    return false;
+    return skipFlag ? (console.warn('VIX_EP_CHECK: formato inatteso ma skip -> true'), true) : false;
   } catch (error) {
     console.error(`VIX_EP_CHECK: Error checking episode on VixSrc for TMDB ${tmdbId} S${season}E${episode}:`, error);
+    if (skipFlag) { console.warn('VIX_EP_CHECK: errore ma skip -> true'); return true; }
+    // retry una volta
+    try {
+      await new Promise(r=>setTimeout(r,400));
+      console.log('VIX_EP_CHECK: retry fetch episode list');
+      const r2 = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect Retry)', 'Accept': 'application/json' } });
+      if (r2.ok) {
+        const d2 = await r2.json();
+        if (Array.isArray(d2)) {
+          const ex2 = d2.some((item: any) => item && item.tmdb_id?.toString() === tmdbId.toString() && Number(item.s) === Number(season) && Number(item.e) === Number(episode));
+          console.log(`VIX_EP_CHECK: Retry result -> ${ex2}`);
+          return ex2;
+        }
+      }
+    } catch {/* ignore */}
     return false;
   }
 }
@@ -179,8 +239,13 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
     if (!tmdbId) return null;
     const existsOnVixSrc = await checkTmdbIdOnVixSrc(tmdbId, type);
     if (!existsOnVixSrc) {
-      console.log(`TMDB ID ${tmdbId} for movie not found in VixSrc list. Skipping.`);
-      return null;
+      const skip = ['1','true','on','yes','y'].includes(String((global as any)?.process?.env?.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase());
+      if (!skip) {
+        console.log(`TMDB ID ${tmdbId} for movie not found in VixSrc list. Skipping.`);
+        return null;
+      } else {
+        console.warn(`TMDB ID ${tmdbId} non trovato ma skip attivo -> continuo`);
+      }
     }
     return `${VIXCLOUD_SITE_ORIGIN}/movie/${tmdbId}/`;
   }
@@ -207,14 +272,19 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
     return null;
   }
   const existsOnVixSrc = await checkTmdbIdOnVixSrc(tmdbSeriesId, type);
-  if (!existsOnVixSrc) {
+  const skipSeries = ['1','true','on','yes','y'].includes(String((global as any)?.process?.env?.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase());
+  if (!existsOnVixSrc && !skipSeries) {
     console.log(`TMDB ID ${tmdbSeriesId} for series not found in VixSrc list. Skipping.`);
     return null;
+  } else if (!existsOnVixSrc && skipSeries) {
+    console.warn(`TMDB ID ${tmdbSeriesId} series non trovato ma skip attivo -> continuo`);
   }
   const epExists = await checkEpisodeOnVixSrc(tmdbSeriesId, seasonNum, episodeNum);
-  if (!epExists) {
+  if (!epExists && !skipSeries) {
     console.log(`VIX_EP_CHECK: Episode not found on VixSrc for TMDB ${tmdbSeriesId} S${seasonNum}E${episodeNum}. Skipping.`);
     return null;
+  } else if (!epExists && skipSeries) {
+    console.warn(`VIX_EP_CHECK: episodio non trovato ma skip attivo -> continuo`);
   }
   return `${VIXCLOUD_SITE_ORIGIN}/tv/${tmdbSeriesId}/${seasonNum}/${episodeNum}/`;
 }
@@ -222,6 +292,53 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
 export async function getStreamContent(id: string, type: ContentType, config: ExtractorConfig): Promise<VixCloudStreamInfo[] | null> {
   // Log config safely without exposing password
   console.log(`Extracting stream for ${id} (${type}) with config:`, { ...config, mfpPsw: config.mfpPsw ? '***' : undefined });
+  console.log('[VixSrc][BuildMarker] version=early-direct-v2');
+  console.log('[VixSrc][Debug] addonBase initial =', config.addonBase, 'vixDual=', !!config.vixDual, 'vixLocal=', !!config.vixLocal);
+
+  // ------------------------------------------------------------------
+  // Environment fallbacks (useful if user non ha ancora reinstallato
+  // con landing aggiornata che inietta addonBase / vixDual)
+  // ------------------------------------------------------------------
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const env: any = (global as any)?.process?.env || (typeof process !== 'undefined' ? (process as any).env : {});
+    if (!config.addonBase) {
+      const envBase = env.ADDON_BASE_URL || env.STREAMVIX_ADDON_BASE || '';
+      if (envBase.startsWith('http') && !envBase.includes(domains.vixsrc)) {
+        config.addonBase = envBase.replace(/\/$/, '');
+        console.log('[VixSrc][Debug] addonBase fallback da ENV =', config.addonBase);
+      } else if (envBase) {
+        console.log('[VixSrc][Warn] addonBase ENV ignorato (vuoto o contiene dominio VixSrc):', envBase);
+      }
+    }
+    if (config.vixDual !== true) {
+      const dualFlag = String(env.VIX_DUAL || env.VIXSRC_DUAL || env.STREAMVIX_DUAL || '').toLowerCase();
+      if (['1','true','on','yes','y'].includes(dualFlag)) {
+        config.vixDual = true;
+        console.log('[VixSrc][Debug] vixDual abilitato via ENV');
+      }
+    }
+  } catch (e) {
+    console.warn('[VixSrc][EnvFallback] errore lettura ENV:', (e as any)?.message || e);
+  }
+  // Re-log dopo eventuali fallback
+  if (!config.addonBase) {
+    console.log('[VixSrc][Debug] addonBase ancora assente dopo fallback ENV');
+    // Ultimo fallback: applica default hard-coded richiesto dall'utente
+    // Solo se ancora assente e per evitare derivazioni errate dal dominio sorgente.
+    const DEFAULT_ADDON_BASE = 'https://streamvix.hayd.uk';
+    try {
+      if (!config.addonBase) {
+        config.addonBase = DEFAULT_ADDON_BASE;
+        console.log('[VixSrc][Debug] addonBase default applicato =', config.addonBase);
+      }
+    } catch (e) {
+      console.warn('[VixSrc][Debug] impossibile applicare default addonBase:', (e as any)?.message || e);
+    }
+  }
+  if (config.vixDual) {
+    console.log('[VixSrc][Debug] Modalità DUAL attiva (env o landing)');
+  }
 
   // First, get the target URL on vixsrc.to (this is needed for both proxy and direct modes)
   const targetUrl = await getUrl(id, type, config);
@@ -287,9 +404,10 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       return null;
     }
 
-    const cleanedMfpUrl = mfpUrl.endsWith('/') ? mfpUrl.slice(0, -1) : mfpUrl;
-    const proxyStreamUrl = `${cleanedMfpUrl}/extractor/video?host=VixCloud&redirect_stream=true&api_password=${mfpPsw}&d=${encodeURIComponent(url)}`;
-    console.log(`Proxy mode active. Generated proxy URL for ${id}: ${proxyStreamUrl}`);
+  const cleanedMfpUrl = mfpUrl.endsWith('/') ? mfpUrl.slice(0, -1) : mfpUrl;
+  // Prima richiesta: redirect_stream=false per ottenere JSON completo
+  const baseApi = `${cleanedMfpUrl}/extractor/video?host=VixCloud&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(url)}`;
+  console.log(`[VixSrc][Proxy] FETCH JSON: ${baseApi}`);
 
   // Nuova funzione asincrona per ottenere l'URL m3u8 finale
     async function getActualStreamUrl(proxyUrl: string): Promise<string> {
@@ -396,8 +514,9 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     }
 
     // Ottieni l'URL m3u8 finale
-  let finalStreamUrl = await getActualStreamUrl(proxyStreamUrl);
-    console.log(`Final m3u8 URL: ${finalStreamUrl}`);
+    // Usa la funzione per comporre a partire dalla risposta debug
+    let finalStreamUrl = await getActualStreamUrl(baseApi.replace('redirect_stream=false','redirect_stream=false'));
+    console.log(`[VixSrc][Proxy] Final m3u8 URL ricostruito: ${finalStreamUrl}`);
 
     // Prova ad estrarre la dimensione (bytes) dalla pagina VixSrc
     let sizeBytes: number | undefined = undefined;
@@ -506,6 +625,15 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       if (scriptContent.includes("window.canPlayFHD = true")) {
         finalStreamUrl += "&h=1";
       }
+      else {
+        // fallback: controlla pattern alternativo (spazi, doppio apice, ecc.)
+        if (/window\.canPlayFHD\s*=\s*true/.test(scriptContent)) {
+          finalStreamUrl += "&h=1";
+          console.log('[VixSrc][Direct] FHD flag rilevato via regex fallback, aggiunto &h=1');
+        } else {
+          console.log('[VixSrc][Direct] FHD non disponibile (nessun canPlayFHD=true nel player script)');
+        }
+      }
 
       // --- Inizio della nuova logica per il titolo ---
 
@@ -557,6 +685,24 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       console.log(`Final stream name: "${determinedName}"`);
       console.log(`Final stream URL: "${finalStreamUrl}"`); // Aggiungi questo log per l'URL
 
+      // --- Forza variante 1080p se il link è un master playlist (Opzione A) ---
+      try {
+        if (finalStreamUrl.includes('/playlist/')) {
+          console.log('[VixSrc][Direct][VariantForce] Rilevato possibile master, parsing...');
+          const forcedUrl = await forceHighestVariant(finalStreamUrl);
+          if (forcedUrl && forcedUrl !== finalStreamUrl) {
+            console.log('[VixSrc][Direct][VariantForce] Sostituito master con variante massima:', forcedUrl);
+            finalStreamUrl = forcedUrl;
+          } else if (forcedUrl === finalStreamUrl) {
+            console.log('[VixSrc][Direct][VariantForce] Già variante singola (nessun cambio)');
+          } else {
+            console.log('[VixSrc][Direct][VariantForce] Parsing fallito, mantengo originale');
+          }
+        }
+      } catch (e) {
+        console.warn('[VixSrc][Direct][VariantForce] Fallita la forzatura variante:', (e as any)?.message || e);
+      }
+
       return {
         name: determinedName,
         streamUrl: finalStreamUrl,
@@ -576,13 +722,307 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     }
   }
 
-  // --- Logica principale: SOLO PROXY per VixSrc ---
+  // Direct mode now controlled ONLY by runtime config (checkbox "Local"), not by env.
+  const directModeEnabled = !!config.vixLocal;
+
+  const streams: VixCloudStreamInfo[] = [];
+
+  // Nuova strategia: 1) tenta SEMPRE direct parse (stile Kotlin) per ottenere HLS puro
+  //                   2) se MFP configurato crea versione proxata partendo dall'HLS diretto
+  //                   3) fallback al vecchio percorso proxy se direct fallisce
+  let directResult: VixCloudStreamInfo | null = null;
+  try {
+    console.log('[VixSrc][EarlyDirect] Tentativo parse diretto iniziale');
+    directResult = await getDirectStream(targetUrl, id, type, config);
+    if (directResult) {
+      // Non rinominare mai in FHD: mantenere naming originale
+      console.log('[VixSrc][EarlyDirect] OK', { base: directResult.streamUrl.split('?')[0], hasH1: /([?&])h=1/.test(directResult.streamUrl) });
+    } else {
+      console.log('[VixSrc][EarlyDirect] Nessun direct (null)');
+    }
+  } catch (e) {
+    console.error('[VixSrc][EarlyDirect] Errore direct parse:', (e as any)?.message || e);
+  }
+
+  const showDirect = directModeEnabled && !!directResult;
+  if (showDirect && directResult) {
+    // Direct naming: <Titolo> [ITA] 🔓
+    if (!/🔓/.test(directResult.name)) directResult.name = directResult.name.replace(/\s*🔓?$/,'') + ' 🔓';
+    streams.push(directResult);
+  }
+
+  // NON derivare addonBase dal dominio della playlist (porterebbe a tentare /vixsynthetic su vixsrc.to)
+  if (!config.addonBase) {
+    console.log('[VixSrc][Debug] addonBase assente: synthetic disabilitato (serve reinstall o ADDON_BASE_URL env)');
+  } else if (config.addonBase.includes(domains.vixsrc)) {
+    // Caso errato: addonBase punta al dominio sorgente VixSrc => endpoint synthetic non esiste lì
+    console.log('[VixSrc][Warn] addonBase punta a dominio VixSrc -> ignoro per synthetic:', config.addonBase);
+  }
+
+  // Se abbiamo un direct HLS e MFP è configurato, costruiamo un proxy che punti a QUEL HLS (non alla pagina web)
   if (config.mfpUrl && config.mfpPsw) {
-    console.log('VixSrc: Using proxy mode only');
-    const proxyStream = await getProxyStream(targetUrl, id, type, config);
-    return proxyStream ? [proxyStream] : null;
-  } else {
-    console.warn('VixSrc: Proxy MFP non configurato, nessun stream disponibile');
+    try {
+      // Se abbiamo già direct HLS, proviamo a proxarlo partendo dalla PAGINA (stessa logica) per ottenere header corretti
+      console.log('[VixSrc][ProxyStage] Invoco getProxyStream per costruire versione proxy');
+      const proxyVariant = await getProxyStream(targetUrl, id, type, config);
+      if (proxyVariant) {
+        // Forza anche per versione proxy se possibile
+        try {
+          if (proxyVariant.streamUrl.includes('/playlist/')) {
+            // Caso A: URL proxy già punta direttamente ad una playlist master (raro)
+            console.log('[VixSrc][Proxy][VariantForce] Rilevato possibile master diretto nel proxy URL');
+            const maybeForced = await forceHighestVariant(proxyVariant.streamUrl);
+            if (maybeForced && maybeForced !== proxyVariant.streamUrl) {
+              console.log('[VixSrc][Proxy][VariantForce] Sostituito master diretto con variante massima');
+              proxyVariant.streamUrl = maybeForced;
+            }
+          } else {
+            // Caso B: playlist master è nel parametro d= (destination_url)
+            try {
+              const urlObj = new URL(proxyVariant.streamUrl);
+              const dParam = urlObj.searchParams.get('d');
+              if (dParam && dParam.includes('/playlist/') && !/type=video/.test(dParam)) {
+                console.log('[VixSrc][Proxy][VariantForce] Master rilevato nel parametro d=, parsing...');
+                const forcedInner = await forceHighestVariant(dParam);
+                if (forcedInner && forcedInner !== dParam) {
+                  urlObj.searchParams.set('d', forcedInner);
+                  proxyVariant.streamUrl = urlObj.toString();
+                  console.log('[VixSrc][Proxy][VariantForce] Sostituito d= con variante massima');
+                } else if (forcedInner === dParam) {
+                  console.log('[VixSrc][Proxy][VariantForce] d= è già variante singola');
+                } else {
+                  console.log('[VixSrc][Proxy][VariantForce] Impossibile forzare d=, mantengo originale');
+                }
+              }
+            } catch (ie) { console.warn('[VixSrc][Proxy][VariantForce] Errore gestione d=', (ie as any)?.message || ie); }
+          }
+        } catch(e) { console.warn('[VixSrc][Proxy][VariantForce] Fallita forzatura:', (e as any)?.message || e); }
+        // Proxy naming: aggiungi lucchetto chiuso (🔒) se non presente
+        if (!/🔒/.test(proxyVariant.name)) proxyVariant.name = proxyVariant.name.replace(/\s*🔓?$/,'') + ' 🔒';
+        streams.push(proxyVariant);
+      }
+    } catch (e) {
+      console.error('[VixSrc][ProxyStage] Errore getProxyStream:', (e as any)?.message || e);
+    }
+  }
+
+  if (!streams.length) {
+    console.warn('[VixSrc] Nessuno stream ottenuto');
     return null;
+  }
+
+  // Ordina per: direct (se mostrato) prima del proxy
+  streams.sort((a,b)=> a.source === b.source ? 0 : (a.source === 'direct' ? -1 : 1));
+  // Nuova matrice assemblaggio finale secondo combinazioni Local/Dual
+  try {
+    if (!streams.length) return null;
+    const usableAddonBase = (config.addonBase && !config.addonBase.includes(domains.vixsrc)) ? config.addonBase : '';
+    const haveMfp = !!(config.mfpUrl && config.mfpPsw && streams.some(s=>s.source==='proxy'));
+    const haveDirect = streams.some(s=>s.source==='direct');
+
+    function buildSyntheticBase(masterUrl: string, referer: string): VixCloudStreamInfo | null {
+      if (!usableAddonBase) return null;
+      if (!/\/playlist\//.test(masterUrl)) return null;
+      const syntheticUrl = `${usableAddonBase.replace(/\/$/,'')}/vixsynthetic?src=${encodeURIComponent(masterUrl)}&lang=it&max=1`;
+  // Abilita modalità multilingua/sub automatiche (multi=1) per includere tutte le tracce disponibili
+  const syntheticFullUrl = syntheticUrl + '&multi=1';
+      // Naming rules:
+      // 1. Se c'è un direct stream e il master coincide -> usa il suo nome base + ' 🔓FHD'
+      // 2. Altrimenti, se non c'è direct ma c'è proxy, riusa il nome del proxy (senza eventuali icone) + ' 🔓FHD'
+      // 3. Fallback finale: 'Synthetic 🔓FHD'
+      const directRef = streams.find(s=>s.source==='direct');
+      if (haveDirect && directRef && masterUrl === directRef.streamUrl) {
+        return {
+          name: directRef.name.replace(/\s*🔓FHD?$/,'').replace(/\s*🔓$/,'') + ' 🔓FHD',
+          streamUrl: syntheticFullUrl,
+          referer,
+          source: 'direct'
+        };
+      }
+      const proxyRef = streams.find(s=>s.source==='proxy');
+      if (!haveDirect && proxyRef) {
+        const baseName = proxyRef.name
+          .replace(/\s*🔒\s*FHD$/,'')
+          .replace(/\s*🔒FHD$/,'')
+          .replace(/\s*🔒$/,'')
+          .replace(/\s*🔓FHD?$/,'')
+          .replace(/\s*🔓$/,'')
+          .trim();
+        return {
+          name: baseName + ' 🔓FHD',
+          streamUrl: syntheticFullUrl,
+          referer,
+          source: 'direct'
+        };
+      }
+      return {
+        name: 'Synthetic 🔓FHD',
+        streamUrl: syntheticFullUrl,
+        referer,
+        source: 'direct'
+      };
+    }
+
+    function buildSyntheticProxyWrapper(innerSynthetic: string, referer: string): VixCloudStreamInfo | null {
+      if (!haveMfp || !config.mfpUrl || !config.mfpPsw) return null;
+      const cleaned = config.mfpUrl.endsWith('/') ? config.mfpUrl.slice(0,-1) : config.mfpUrl;
+      const wrapper = `${cleaned}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(innerSynthetic)}&api_password=${encodeURIComponent(config.mfpPsw)}`;
+      return {
+        name: (()=>{
+          const proxyOrig = streams.find(s=>s.source==='proxy');
+          if (proxyOrig) return proxyOrig.name.replace(/\s*FHD$/,'').replace(/\s*🔒FHD$/,'').replace(/\s*🔒$/,'') + ' 🔒 FHD';
+          return 'Proxy FHD 🔒';
+        })(),
+        streamUrl: wrapper,
+        referer,
+        source: 'proxy'
+      };
+    }
+
+    const directStream = streams.find(s=>s.source==='direct') || null;
+    const proxyStream = streams.find(s=>s.source==='proxy') || null;
+
+    // Scenario logic
+    console.log('[VixSrc][Scenario] local=', !!config.vixLocal, 'dual=', !!config.vixDual, 'haveDirect=', !!directStream, 'haveProxy=', !!proxyStream, 'usableAddonBase=', !!usableAddonBase, 'haveMfp=', haveMfp);
+    if (config.vixLocal && !config.vixDual) {
+      // Scenario 1: Local ON, Dual OFF -> Direct + Proxy (già in streams) (nessun synthetic)
+      if (!config.vixDual) {
+        if (!usableAddonBase) {
+          console.log('[VixSrc][Scenario1] Synthetic assente: addonBase non disponibile (serve reinstall o env)');
+        } else {
+          console.log('[VixSrc][Scenario1] Synthetic disabilitato perché vixDual=false');
+        }
+      }
+      return [
+        ...(directStream ? [directStream] : []),
+        ...(proxyStream ? [proxyStream] : [])
+      ];
+    }
+    if (config.vixLocal && config.vixDual) {
+      // Scenario 2: Local ON, Dual ON -> Direct, Proxy, Synthetic Direct, Synthetic Proxy Wrapper
+      console.log('[VixSrc][Scenario2] Attivo: tenterò creazione synthetic + wrapper');
+      const result: VixCloudStreamInfo[] = [];
+      if (directStream) result.push(directStream);
+      if (proxyStream) result.push(proxyStream);
+      // Sorgente per synthetic direct: preferisci direct master, se no master dal proxy (d=)
+      let masterForSynthetic: string | null = null;
+      if (directStream && /\/playlist\//.test(directStream.streamUrl)) masterForSynthetic = directStream.streamUrl;
+      if (!masterForSynthetic && proxyStream) {
+        try {
+          const urlObj = new URL(proxyStream.streamUrl);
+          const dParam = urlObj.searchParams.get('d');
+          if (dParam && /\/playlist\//.test(dParam)) masterForSynthetic = dParam;
+        } catch {/* ignore */}
+      }
+      if (masterForSynthetic) {
+        const synDirect = buildSyntheticBase(masterForSynthetic, directStream ? directStream.referer : (proxyStream? proxyStream.referer : ''));
+        if (synDirect) result.push(synDirect);
+        if (synDirect) {
+          const synProxy = buildSyntheticProxyWrapper(synDirect.streamUrl, proxyStream ? proxyStream.referer : synDirect.referer);
+          if (synProxy) result.push(synProxy);
+        }
+      } else {
+        console.log('[VixSrc][Synthetic] Nessun master disponibile per creare synthetic (Scenario 2)');
+      }
+      return result;
+    }
+    if (!config.vixLocal && config.vixDual) {
+      // Scenario 3: Local OFF, Dual ON -> solo synthetic direct + synthetic proxy wrapper
+      console.log('[VixSrc][Scenario3] Attivo: solo synthetic + wrapper');
+      const result: VixCloudStreamInfo[] = [];
+      let masterForSynthetic: string | null = null;
+      // Prova direct (anche se non mostrato), se non c'è usa proxy d=
+      if (directStream && /\/playlist\//.test(directStream.streamUrl)) masterForSynthetic = directStream.streamUrl;
+      if (!masterForSynthetic && proxyStream) {
+        try {
+          const u = new URL(proxyStream.streamUrl);
+          const dParam = u.searchParams.get('d');
+          if (dParam && /\/playlist\//.test(dParam)) masterForSynthetic = dParam;
+        } catch {/* ignore */}
+      }
+      if (masterForSynthetic) {
+        const synDirect = buildSyntheticBase(masterForSynthetic, directStream ? directStream.referer : (proxyStream? proxyStream.referer : ''));
+        if (synDirect) result.push(synDirect);
+        if (synDirect) {
+          const synProxy = buildSyntheticProxyWrapper(synDirect.streamUrl, proxyStream ? proxyStream.referer : synDirect.referer);
+          if (synProxy) result.push(synProxy);
+        }
+      } else {
+        console.log('[VixSrc][Synthetic] Nessun master disponibile per creare synthetic (Scenario 3)');
+      }
+      return result;
+    }
+    // Scenario 4: Local OFF, Dual OFF -> solo proxy classico
+    if (!config.vixLocal && !config.vixDual) {
+      if (!config.vixDual) {
+        if (!usableAddonBase) {
+          console.log('[VixSrc][Scenario4] Synthetic assente: addonBase non disponibile');
+        } else {
+          console.log('[VixSrc][Scenario4] Synthetic disabilitato perché vixDual=false');
+        }
+      }
+      return proxyStream ? [proxyStream] : null;
+    }
+    return streams; // fallback generico (non dovrebbe arrivarci)
+  } catch (e) {
+    console.warn('[VixSrc][Synthetic] Errore gestione streams (matrice):', (e as any)?.message || e);
+    return streams.slice(0,1);
+  }
+}
+
+// Helper: forza variante 1080p (o la massima disponibile) da un master playlist HLS (passato come URL)
+async function forceHighestVariant(masterUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(masterUrl, { headers: { 'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, */*' }});
+    if (!res.ok) {
+      console.warn('[VariantForce] Impossibile scaricare master playlist:', res.status);
+      return null;
+    }
+    const text = await res.text();
+    // Se il master contiene gruppi AUDIO o SUBTITLES separati, evitare di forzare
+    // per non perdere tracce audio / sottotitoli (alcuni player non caricano audio
+    // se forniamo direttamente la variante video senza i gruppi dichiarati nel master)
+    const hasMediaGroups = /#EXT-X-MEDIA:.*TYPE=(AUDIO|SUBTITLES)/i.test(text);
+    if (hasMediaGroups) {
+      console.log('[VariantForce] Rilevati gruppi AUDIO/SUBTITLES: restituisco master (sarà eventualmente sintetizzato dopo)');
+      return masterUrl; // Non forziamo qui; synthetic endpoint gestirà estrazione mantenendo audio ITA
+    }
+    if (!/#EXT-X-STREAM-INF:/i.test(text)) {
+      // Non è un master (già una variante)
+      return masterUrl;
+    }
+    const lines = text.split(/\r?\n/);
+    interface Variant { url: string; height: number; bandwidth: number; raw: string; }
+    const variants: Variant[] = [];
+    for (let i=0; i<lines.length; i++) {
+      const l = lines[i];
+      if (l.startsWith('#EXT-X-STREAM-INF:')) {
+        const info = l;
+        const next = lines[i+1] || '';
+        if (!next || next.startsWith('#')) continue; // URL expected next line
+        const resMatch = info.match(/RESOLUTION=(\d+)x(\d+)/i);
+        const bwMatch = info.match(/BANDWIDTH=(\d+)/i);
+        const height = resMatch ? parseInt(resMatch[2], 10) : 0;
+        const bandwidth = bwMatch ? parseInt(bwMatch[1], 10) : 0;
+        variants.push({ url: resolvePlaylistUrl(masterUrl, next.trim()), height, bandwidth, raw: info });
+      }
+    }
+    if (!variants.length) return null;
+    // Ordina per altezza poi banda
+    variants.sort((a,b)=> (b.height - a.height) || (b.bandwidth - a.bandwidth));
+    const best = variants[0];
+    return best.url || null;
+  } catch (e) {
+    console.warn('[VariantForce] Errore parsing master:', (e as any)?.message || e);
+    return null;
+  }
+}
+
+// Risolve URL relativi rispetto al master
+function resolvePlaylistUrl(masterUrl: string, maybeRelative: string): string {
+  try {
+    return new URL(maybeRelative, masterUrl).toString();
+  } catch {
+    return maybeRelative;
   }
 }
