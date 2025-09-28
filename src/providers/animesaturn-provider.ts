@@ -217,6 +217,8 @@ function normalizeTitleForSearch(title: string): string {
       'Attack on Titan': "L'attacco dei Giganti",
       'Season': '',
       'Shippuuden': 'Shippuden',
+          "One Piece": "One Piece",
+
       // << AUTO-INSERT-GENERIC >> (non rimuovere questo commento)
       // Qui puoi aggiungere altre normalizzazioni custom (legacy placeholder)
     };
