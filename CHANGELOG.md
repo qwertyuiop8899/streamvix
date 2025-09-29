@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.5.3...v1.6.0) (2025-09-29)
+
+
+### Features
+
+* **normalize:** add "JoJo's Bizarre Adventure (2012)" ([daceffe](https://github.com/qwertyuiop8899/streamvix/commit/daceffe8bb85b54093d52b20162ee62f8ce1d336))
+* **normalize:** add "JoJo's Bizarre Adventure: Stardust Crusaders" ([ea1c2df](https://github.com/qwertyuiop8899/streamvix/commit/ea1c2dfd42109174e8cea2751d921b51402037b3))
+
+
+### Bug Fixes
+
+* add fix ([7cbb759](https://github.com/qwertyuiop8899/streamvix/commit/7cbb75906c3e3a053eb9b9145af367e8c7111a39))
+* bump version ([8407f6c](https://github.com/qwertyuiop8899/streamvix/commit/8407f6c817b76fc0224b9dd1e53932dfe230766b))
+* pig e vix ([d6ffcb1](https://github.com/qwertyuiop8899/streamvix/commit/d6ffcb130fc920542189bc006f5ec9530c3a2348))
+
 ## [1.5.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.5.2...v1.5.3) (2025-09-26)
 
 
