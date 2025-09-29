@@ -203,6 +203,8 @@ function normalizeTitleForSearch(title: string): string {
     "Slam Dunk: Roar!! Basket Man Spirit": "Slam Dunk: Hoero Basketman-damashii! Hanamichi to Rukawa no Atsuki Natsu",
     "Slam Dunk: Shohoku Maximum Crisis! Burn Sakuragi Hanamichi": "Slam Dunk: Shouhoku Saidai no Kiki! Moero Sakuragi Hanamichi",
     "Slam Dunk: National Domination! Sakuragi Hanamichi": "Slam Dunk: Zenkoku Seiha Da! - Sakuragi Hanamichi",
+    "JoJo's Bizarre Adventure (2012)": "Le Bizzarre Avventure di JoJo",
+    "JoJo's Bizarre Adventure: Stardust Crusaders": "Le Bizzarre Avventure di JoJo: Stardust Crusaders",
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
@@ -217,7 +219,6 @@ function normalizeTitleForSearch(title: string): string {
       'Attack on Titan': "L'attacco dei Giganti",
       'Season': '',
       'Shippuuden': 'Shippuden',
-          "JoJo's Bizarre Adventure: Stardust Crusaders": "Le Bizzarre Avventure di JoJo: Stardust Crusaders",
 
       // << AUTO-INSERT-GENERIC >> (non rimuovere questo commento)
       // Qui puoi aggiungere altre normalizzazioni custom (legacy placeholder)
