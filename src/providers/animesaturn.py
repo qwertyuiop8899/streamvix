@@ -21,8 +21,21 @@ from typing import Optional
 with open(os.path.join(os.path.dirname(__file__), '../../config/domains.json'), encoding='utf-8') as f:
     DOMAINS = json.load(f)
 
-BASE_URL = f"https://{DOMAINS['animesaturn']}"
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+_RAW_DOMAIN = DOMAINS['animesaturn']
+BASE_URL = f"https://{_RAW_DOMAIN}"
+# Preferisci variante www (i redirect la usano) senza modificare file domini.
+if not _RAW_DOMAIN.startswith('www.'):
+    WWW_BASE_URL = f"https://www.{_RAW_DOMAIN}"
+else:
+    WWW_BASE_URL = BASE_URL
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+COMMON_HEADERS = {
+    "User-Agent": USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1"
+}
 HEADERS = {"User-Agent": USER_AGENT}
 SESSION = requests.Session()  # sessione globale condivisa
 DEBUG_MODE = os.getenv("ANIMESATURN_DEBUG", "0") == "1"
@@ -36,25 +49,106 @@ def safe_ascii_header(value: str) -> str:
     """Rende sicuro un valore header rimpiazzando caratteri non ASCII."""
     return ''.join(c if 32 <= ord(c) < 127 else '?' for c in value)
 
+def _set_cookie_variants(session: requests.Session, name: str, value: str):
+    host_main = urllib.parse.urlparse(BASE_URL).hostname
+    if not host_main:
+        return
+    variants = {host_main}
+    if not host_main.startswith('www.'):
+        variants.add('www.' + host_main)
+    for d in variants:
+        try:
+            session.cookies.set(name, value, domain=d)
+        except Exception as ce:
+            debug(f"_set_cookie_variants errore {d}: {ce}")
+
+def _sanitize_redirect(url: str) -> str:
+    # Rimuovi :80 da URL https errati
+    if url.startswith('https://') and ':80/' in url:
+        return url.replace(':80/', '/')
+    return url
+
 def handle_challenge(resp: requests.Response, session: requests.Session, original_headers: dict) -> bool:
     """Gestisce pagina challenge ASFast/ASFast1-Cd impostando cookie e seguendo eventuale redirect.
     Ritorna True se viene trovato e impostato un cookie challenge."""
     try:
         text = resp.text
+        # 1) Tentativo semplice: pattern diretto document.cookie="ASFast...=VAL" (non ofuscato)
         # Pattern più permissivo: cattura sia ASFast-XYZ= sia ASFast1-Cd=
         cookie_match = re.search(r'document.cookie="((?:ASFast1?-)[^=]+=[^";\s]+)', text)
         if cookie_match:
             cookie_kv = cookie_match.group(1).strip()
             if '=' in cookie_kv:
                 name, value = cookie_kv.split('=', 1)
-                host = urllib.parse.urlparse(BASE_URL).hostname
-                if host:
-                    for d in {host, ('www.' + host if not host.startswith('www.') else host)}:
-                        try:
-                            session.cookies.set(name, value, domain=d)
-                        except Exception as ce:
-                            debug(f"handle_challenge: errore set cookie su {d}: {ce}")
-                    debug(f"handle_challenge: impostato cookie {name}={value[:8]}... su {host}")
+                _set_cookie_variants(session, name, value)
+                debug(f"handle_challenge: impostato cookie {name}={value[:10]}... (inline)")
+        else:
+            # 2) Caso ofuscato: cookie costruito con slowAES.decrypt + toHex e concatenazione
+            #   Esempio osservato (accorciato):
+            #   var _0xdb1b=["push",...,"YjM2MTQx...="]; ... b2=atob(_0xdb1b[7]), b1=toNumbers(b2),
+            #   c1=atob("ODJlYmY2..."), c2=toNumbers(c1), a3=toNumbers("e5b85d9a...");
+            #   document.cookie="ASFast1-Bq="+toHex(slowAES.decrypt(a3,2,b1,c2))+";  path=/";
+            if 'slowAES.decrypt' in text and 'toHex(slowAES.decrypt' in text:
+                try:
+                    # Estrai array _0xdb1b per ricavare indice 7 (chiave base64 ofuscata)
+                    arr_match = re.search(r'var\s+_0xdb1b=\[(.*?)\];', text, re.DOTALL)
+                    key_b64 = None
+                    if arr_match:
+                        # Split tenendo conto di possibili virgole; semplice perché valori sono stringhe senza virgole grezze
+                        raw_items = arr_match.group(1).split(',')
+                        items = []
+                        for it in raw_items:
+                            it = it.strip()
+                            if it.startswith('"') and it.endswith('"'):
+                                it = it[1:-1]
+                            # decodifica escape tipo \x59
+                            it_dec = bytes(it, 'utf-8').decode('unicode_escape')
+                            items.append(it_dec)
+                        if len(items) > 7:
+                            key_b64 = items[7]
+                    # Estrai c1 base64
+                    c1_match = re.search(r'c1=atob\("([A-Za-z0-9+/=]+)"\)', text)
+                    # Estrai a3 hex
+                    a3_match = re.search(r'a3=toNumbers\("([0-9a-fA-F]+)"\)', text)
+                    # Estrai nome cookie (ASFast1-XYZ) dal frammento document.cookie="ASFast1-...="+toHex(
+                    name_match = re.search(r'document.cookie="((?:ASFast1?-)[^=+]+)="\+toHex', text)
+                    if key_b64 and c1_match and a3_match and name_match:
+                        import base64
+                        from Crypto.Cipher import AES  # pycryptodome
+                        def to_numbers(hex_str: str):
+                            return [int(hex_str[i:i+2], 16) for i in range(0, len(hex_str), 2)]
+                        # key
+                        key_hex = base64.b64decode(key_b64).decode('utf-8')
+                        iv_hex = base64.b64decode(c1_match.group(1)).decode('utf-8')
+                        cipher_hex = a3_match.group(1)
+                        key_bytes = bytes(to_numbers(key_hex))
+                        iv_bytes = bytes(to_numbers(iv_hex))
+                        cipher_bytes = bytes(to_numbers(cipher_hex))
+                        # Mode 2 => CBC
+                        cipher = AES.new(key_bytes, AES.MODE_CBC, iv_bytes)
+                        plain = cipher.decrypt(cipher_bytes)
+                        # toHex in JS: concat ogni byte in hex (sempre lowercase, no delimitatori)
+                        cookie_value = ''.join(f'{b:02x}' for b in plain)
+                        cookie_name = name_match.group(1)
+                        _set_cookie_variants(session, cookie_name, cookie_value)
+                        debug(f"handle_challenge: cookie AES calcolato {cookie_name}={cookie_value[:16]}...")
+                except Exception as ce:
+                    debug(f"handle_challenge: errore decode AES challenge: {ce}")
+        # Se non trovato inline ma presenta script min.js prova fetch separato
+        if 'min.js' in text and 'ASFast' not in text:
+            try:
+                js_resp = session.get(WWW_BASE_URL + '/min.js', headers=original_headers, timeout=(5, 10))
+                if js_resp.status_code == 200:
+                    js_text = js_resp.text
+                    js_cookie = re.search(r'document.cookie="((?:ASFast1?-)[^=]+=[^";\s]+)', js_text)
+                    if js_cookie:
+                        kv = js_cookie.group(1)
+                        if '=' in kv:
+                            n,v = kv.split('=',1)
+                            _set_cookie_variants(session, n, v)
+                            debug(f"handle_challenge: impostato cookie {n} da min.js")
+            except Exception as e:
+                debug(f"handle_challenge: errore fetch min.js: {e}")
         # Gestione redirect (alcuni challenge rimandano a http://www.)
         redir = re.search(r'location.href=\"([^\"]+)\"', text)
         if redir:
@@ -62,6 +156,7 @@ def handle_challenge(resp: requests.Response, session: requests.Session, origina
             # Forza https se necessario
             if url.startswith('http://'):
                 url = url.replace('http://', 'https://')
+            url = _sanitize_redirect(url)
             debug(f"handle_challenge: follow redirect -> {url}")
             try:
                 session.get(url, headers=original_headers, timeout=(5, 10))
@@ -73,18 +168,32 @@ def handle_challenge(resp: requests.Response, session: requests.Session, origina
         return False
 
 
+def prime_session(session: requests.Session):
+    """Effettua richieste preliminari per ottenere cookie validi (homepage + www)."""
+    for host in {BASE_URL, WWW_BASE_URL}:
+        try:
+            r = session.get(host + '/', headers=COMMON_HEADERS, timeout=(5,10))
+            if (r.status_code in (200,202)) and 'document.cookie="ASFast' in r.text:
+                handle_challenge(r, session, COMMON_HEADERS)
+        except Exception as e:
+            debug(f"prime_session errore {host}: {e}")
+
 def search_anime(query, session: Optional[requests.Session] = None):
     """Ricerca anime tramite la barra di ricerca di AnimeSaturn, con paginazione"""
     # Usa sessione persistente per mantenere cookie e headers
     if session is None:
         # Usa sessione globale per conservare cookie challenge fra invocazioni
         session = SESSION
+    global BASE_URL  # necessario per eventuale switch host
     results = []
     page = 1
     # Modalità strict: se settata ANIMESATURN_STRICT=1 alza eccezioni invece di restituire lista vuota
     STRICT_MODE = os.getenv("ANIMESATURN_STRICT", "0") == "1"
     MAX_RETRIES = 2  # ritenta su errori transitori (rete / JSON decode / content-type errato)
     challenge_saved = False  # salviamo solo la prima pagina challenge
+    # Priming prima di iniziare
+    prime_session(session)
+    tried_www_switch = False
     while True:
         search_url = f"{BASE_URL}/index.php?search=1&key={query.replace(' ', '+')}&page={page}"
         referer_query = urllib.parse.quote_plus(query)
@@ -175,6 +284,12 @@ def search_anime(query, session: Optional[requests.Session] = None):
                 break
         # Fine while retry
         if not page_results:
+            if page == 1 and not tried_www_switch and BASE_URL != WWW_BASE_URL:
+                debug("Prima pagina vuota: provo switch host WWW")
+                BASE_URL = WWW_BASE_URL
+                prime_session(session)
+                tried_www_switch = True
+                continue
             break
         for item in page_results:
             results.append({
