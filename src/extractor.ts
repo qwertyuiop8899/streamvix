@@ -685,22 +685,33 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       console.log(`Final stream name: "${determinedName}"`);
       console.log(`Final stream URL: "${finalStreamUrl}"`); // Aggiungi questo log per l'URL
 
-      // --- Forza variante 1080p se il link è un master playlist (Opzione A) ---
+      // --- Variant forcing disabilitato: manteniamo sempre la master firmata ---
+      // Motivazione: le varianti (?type=video&rendition=1080p) rimuovono h=1, possono perdere tracce audio/sub e
+      // generano token differenti/non validi. Manteniamo solo la URL master con token,expires,(h=1) senza edge.
+      // (Se necessario in futuro, riattivare dietro flag.)
+
+      // Normalizzazione: rimuovi parametri inutili (edge, type, rendition) se comparissero già nella URL.
       try {
         if (finalStreamUrl.includes('/playlist/')) {
-          console.log('[VixSrc][Direct][VariantForce] Rilevato possibile master, parsing...');
-          const forcedUrl = await forceHighestVariant(finalStreamUrl);
-          if (forcedUrl && forcedUrl !== finalStreamUrl) {
-            console.log('[VixSrc][Direct][VariantForce] Sostituito master con variante massima:', forcedUrl);
-            finalStreamUrl = forcedUrl;
-          } else if (forcedUrl === finalStreamUrl) {
-            console.log('[VixSrc][Direct][VariantForce] Già variante singola (nessun cambio)');
+          const u = new URL(finalStreamUrl);
+          // Preserva solo token, expires, h (se presente), più eventuali altri parametri necessari futuri.
+          const token = u.searchParams.get('token');
+          const expires = u.searchParams.get('expires');
+          const h = u.searchParams.get('h');
+          u.search = '';
+          if (token) u.searchParams.set('token', token);
+          if (expires) u.searchParams.set('expires', expires);
+          if (h) u.searchParams.set('h', h);
+          const cleaned = u.toString();
+          if (cleaned !== finalStreamUrl) {
+            console.log('[VixSrc][Direct][Normalize] Pulito URL master =>', cleaned);
+            finalStreamUrl = cleaned;
           } else {
-            console.log('[VixSrc][Direct][VariantForce] Parsing fallito, mantengo originale');
+            console.log('[VixSrc][Direct][Normalize] URL master già pulita');
           }
         }
       } catch (e) {
-        console.warn('[VixSrc][Direct][VariantForce] Fallita la forzatura variante:', (e as any)?.message || e);
+        console.warn('[VixSrc][Direct][Normalize] Errore normalizzazione URL master:', (e as any)?.message || e);
       }
 
       return {
@@ -748,6 +759,24 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   if (showDirect && directResult) {
     // Direct naming: <Titolo> [ITA] 🔓
     if (!/🔓/.test(directResult.name)) directResult.name = directResult.name.replace(/\s*🔓?$/,'') + ' 🔓';
+    // Sanity: assicurati che l'URL direct sia pulito (token,expires,h=1 soli)
+    try {
+      if (directResult.streamUrl.includes('/playlist/')) {
+        const u = new URL(directResult.streamUrl);
+        const token = u.searchParams.get('token');
+        const expires = u.searchParams.get('expires');
+        const h = u.searchParams.get('h');
+        u.search = '';
+        if (token) u.searchParams.set('token', token);
+        if (expires) u.searchParams.set('expires', expires);
+        if (h) u.searchParams.set('h', h);
+        const cleaned = u.toString();
+        if (cleaned !== directResult.streamUrl) {
+          console.log('[VixSrc][Direct][FinalizeNormalize] URL direct ripulita =>', cleaned);
+          directResult.streamUrl = cleaned;
+        }
+      }
+    } catch {/* ignore */}
     streams.push(directResult);
   }
 
@@ -767,36 +796,31 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       const proxyVariant = await getProxyStream(targetUrl, id, type, config);
       if (proxyVariant) {
         // Forza anche per versione proxy se possibile
+        // Variant forcing disabilitato anche lato proxy: manteniamo master per garantire token/h=1.
         try {
-          if (proxyVariant.streamUrl.includes('/playlist/')) {
-            // Caso A: URL proxy già punta direttamente ad una playlist master (raro)
-            console.log('[VixSrc][Proxy][VariantForce] Rilevato possibile master diretto nel proxy URL');
-            const maybeForced = await forceHighestVariant(proxyVariant.streamUrl);
-            if (maybeForced && maybeForced !== proxyVariant.streamUrl) {
-              console.log('[VixSrc][Proxy][VariantForce] Sostituito master diretto con variante massima');
-              proxyVariant.streamUrl = maybeForced;
-            }
-          } else {
-            // Caso B: playlist master è nel parametro d= (destination_url)
+          const urlObj = new URL(proxyVariant.streamUrl);
+          const dParam = urlObj.searchParams.get('d');
+          if (dParam && dParam.includes('/playlist/')) {
             try {
-              const urlObj = new URL(proxyVariant.streamUrl);
-              const dParam = urlObj.searchParams.get('d');
-              if (dParam && dParam.includes('/playlist/') && !/type=video/.test(dParam)) {
-                console.log('[VixSrc][Proxy][VariantForce] Master rilevato nel parametro d=, parsing...');
-                const forcedInner = await forceHighestVariant(dParam);
-                if (forcedInner && forcedInner !== dParam) {
-                  urlObj.searchParams.set('d', forcedInner);
-                  proxyVariant.streamUrl = urlObj.toString();
-                  console.log('[VixSrc][Proxy][VariantForce] Sostituito d= con variante massima');
-                } else if (forcedInner === dParam) {
-                  console.log('[VixSrc][Proxy][VariantForce] d= è già variante singola');
-                } else {
-                  console.log('[VixSrc][Proxy][VariantForce] Impossibile forzare d=, mantengo originale');
-                }
+              const inner = new URL(dParam);
+              const token = inner.searchParams.get('token');
+              const expires = inner.searchParams.get('expires');
+              const h = inner.searchParams.get('h');
+              inner.search = '';
+              if (token) inner.searchParams.set('token', token);
+              if (expires) inner.searchParams.set('expires', expires);
+              if (h) inner.searchParams.set('h', h);
+              const cleanedInner = inner.toString();
+              if (cleanedInner !== dParam) {
+                urlObj.searchParams.set('d', cleanedInner);
+                proxyVariant.streamUrl = urlObj.toString();
+                console.log('[VixSrc][Proxy][Normalize] Pulito d= (rimosse rendition/edge/type)');
               }
-            } catch (ie) { console.warn('[VixSrc][Proxy][VariantForce] Errore gestione d=', (ie as any)?.message || ie); }
+            } catch {/* ignore parse errors */}
           }
-        } catch(e) { console.warn('[VixSrc][Proxy][VariantForce] Fallita forzatura:', (e as any)?.message || e); }
+        } catch (e) {
+          console.warn('[VixSrc][Proxy][Normalize] Errore normalizzazione proxy URL:', (e as any)?.message || e);
+        }
         // Proxy naming: aggiungi lucchetto chiuso (🔒) se non presente
         if (!/🔒/.test(proxyVariant.name)) proxyVariant.name = proxyVariant.name.replace(/\s*🔓?$/,'') + ' 🔒';
         streams.push(proxyVariant);
@@ -823,6 +847,18 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     function buildSyntheticBase(masterUrl: string, referer: string): VixCloudStreamInfo | null {
       if (!usableAddonBase) return null;
       if (!/\/playlist\//.test(masterUrl)) return null;
+      // Pulizia masterUrl anche qui (difensivo)
+      try {
+        const mu = new URL(masterUrl);
+        const token = mu.searchParams.get('token');
+        const expires = mu.searchParams.get('expires');
+        const h = mu.searchParams.get('h');
+        mu.search = '';
+        if (token) mu.searchParams.set('token', token);
+        if (expires) mu.searchParams.set('expires', expires);
+        if (h) mu.searchParams.set('h', h);
+        masterUrl = mu.toString();
+      } catch {/* ignore */}
       const syntheticUrl = `${usableAddonBase.replace(/\/$/,'')}/vixsynthetic?src=${encodeURIComponent(masterUrl)}&lang=it&max=1`;
   // Abilita modalità multilingua/sub automatiche (multi=1) per includere tutte le tracce disponibili
   const syntheticFullUrl = syntheticUrl + '&multi=1';
@@ -884,6 +920,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
 
     // Scenario logic
     console.log('[VixSrc][Scenario] local=', !!config.vixLocal, 'dual=', !!config.vixDual, 'haveDirect=', !!directStream, 'haveProxy=', !!proxyStream, 'usableAddonBase=', !!usableAddonBase, 'haveMfp=', haveMfp);
+  console.log('[VixSrc][VariantForce] DISABLED: utilizzo sempre master playlist pulita (token,expires,h).');
     if (config.vixLocal && !config.vixDual) {
       // Scenario 1: Local ON, Dual OFF -> Direct + Proxy (già in streams) (nessun synthetic)
       if (!config.vixDual) {
