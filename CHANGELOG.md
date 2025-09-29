@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.0...v1.6.1) (2025-09-29)
+
+
+### Bug Fixes
+
+* refactoring vix ([d9150ee](https://github.com/qwertyuiop8899/streamvix/commit/d9150eeda7ca40d07f055004f57dfdd9fcf7d6c2))
+
 ## [1.6.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.5.3...v1.6.0) (2025-09-29)
 
 
