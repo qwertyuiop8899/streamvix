@@ -40,9 +40,16 @@ from typing import List, Dict, Any, Tuple, Optional
 
 import requests, socket, urllib.request, time
 
-PLAYLIST_URL = "https://raw.githubusercontent.com/pigzillaaa/daddylive/refs/heads/main/daddylive-channels.m3u8"  # channels (static)
-EVENTS_PLAYLIST_URL = "https://raw.githubusercontent.com/pigzillaaa/daddylive/refs/heads/main/daddylive-events.m3u8"  # events (matches)
-FALLBACK_EVENTS_URL = "https://world-proxifier.xyz/daddylive/playlist.m3u8"  # fallback events if GitHub not reachable
+# ========================= UNIFIED COMBINED PLAYLIST SOURCES =========================
+# Ora esiste un unico file M3U che contiene sia canali (group-title contiene ITALY) che eventi live.
+# Strategia fetch:
+#   1. Tenta PRIMARY_COMBINED_URL (CDN)
+#   2. Se fallisce tenta SECONDARY_COMBINED_URL (raw GitHub)
+# Partizionamento:
+#   group-title contenente 'ITALY' (case-insensitive) => CANALE statico (aggiorniamo pdUrlF se esiste nel json)
+#   altrimenti => EVENTO per injection
+PRIMARY_COMBINED_URL = "https://world-proxifier.xyz/daddylive/playlist.m3u8"
+SECONDARY_COMBINED_URL = "https://raw.githubusercontent.com/pigzillaaa/daddylive/refs/heads/main/daddylive-channels-events.m3u8"
 
 # ---------------------------------------------------------------------------
 # Parsing M3U
@@ -110,14 +117,21 @@ def norm_team(raw: str) -> str:
     return TEAM_SYNONYMS.get(s, s)
 
 def extract_teams_from_title(title: str) -> Optional[Tuple[str, str]]:
-    # Expect something containing ' vs ' ignoring case
-    m = re.split(r"\bvs\b", title, flags=re.IGNORECASE)
-    if len(m) >= 2:
-        left = m[0].split(':')[-1].strip()  # drop competition prefixes like 'UEFA Champions League :' if present
-        right = m[1].strip()
-        # Remove trailing parenthetical part from right if present
-        right = re.sub(r"\s*\([^()]*\)\s*$", "", right).strip()
-        # Strip any trailing competition dash segment e.g. "- Premier League"
+    """Estrae TeamA, TeamB dal display playlist.
+    Pulizia:
+      - Rimuove broadcaster finale in quadre [ ... ]
+      - Rimuove orario finale tra parentesi (HH:MM ...)
+      - Elimina prefisso competizione prima del primo ':'
+      - Split su 'vs' (case-insensitive)
+    """
+    work = re.sub(r"\[[^\[\]]+\]\s*$", "", title).strip()
+    work = re.sub(r"\([^()]*\)\s*$", "", work).strip()
+    if ':' in work:
+        work = work.split(':', 1)[1].strip()
+    parts = re.split(r"\bvs\b", work, flags=re.IGNORECASE)
+    if len(parts) >= 2:
+        left = parts[0].strip()
+        right = parts[1].strip()
         left = re.sub(r"\s*-\s*[A-Za-z ].*$", "", left).strip()
         right = re.sub(r"\s*-\s*[A-Za-z ].*$", "", right).strip()
         return left, right
@@ -129,22 +143,15 @@ def teams_match(a: Tuple[str, str], b: Tuple[str, str]) -> bool:
     return ax == bx and '' not in ax
 
 def extract_channel_label_from_display(display: str) -> Optional[str]:
-    """Return broadcaster label.
-
-    Original playlist variant used parentheses (.. (SKY SPORT 252 IT)). Current
-    observed variant has no parentheses, broadcaster is the whole display string or
-    ends with country token ("Italy", "Spain", etc.). For our purposes we want a
-    concise channel/broadcaster indicator to show in [PD] title.
-
-    Strategy:
-      1. If parentheses exist -> use inside.
-      2. Else remove trailing country name (Italy/Spain/Poland/USA/France/Germany/Portugal/Israel/Croatia/Poland/Netherlands/UK) keeping rest.
-      3. If result becomes empty fallback to original display trimmed.
+    """Estrae label broadcaster per titolo stream PD.
+    Priorità: quadre finali -> parentesi finali -> rimozione country token.
     """
+    m_sq = re.search(r"\[([^\[\]]+)\]\s*$", display)
+    if m_sq:
+        return m_sq.group(1).strip()
     m = re.search(r"\(([^()]+)\)\s*$", display)
     if m:
         return m.group(1).strip()
-    # Remove trailing common country tokens
     base = re.sub(r"\b(Italy|Spain|Poland|France|Germany|Portugal|Israel|Croatia|USA|UK|Nederland|Netherlands)\b\s*$", "", display, flags=re.IGNORECASE).strip()
     return base or display.strip()
 
@@ -331,8 +338,8 @@ def inject_pd_streams(entries: List[Dict[str, Any]], playlist_entries: List[Dict
     allowed_broadcaster_events = 0
     for pe in playlist_entries:
         attrs = pe['attrs']
-        gtitle = attrs.get('group-title', '')
-        if gtitle == 'ITALY':
+        gtitle = (attrs.get('group-title') or '').upper()
+        if 'ITALY' in gtitle:
             continue
         display = pe['display']
         teams = extract_teams_from_title(display)
@@ -396,7 +403,7 @@ def inject_pd_streams(entries: List[Dict[str, Any]], playlist_entries: List[Dict
 
     for pe in playlist_entries:
         attrs = pe['attrs']
-        if attrs.get('group-title') == 'ITALY':
+        if 'ITALY' in (attrs.get('group-title') or '').upper():
             continue
         display = pe['display']
         channel_label = extract_channel_label_from_display(display) or ''
@@ -444,32 +451,14 @@ def run_post_live(dynamic_path: str | Path, tv_channels_path: str | Path, dry_ru
     print(f"[PD][PATH] dynamic={dynamic_p} exists={dynamic_p.exists()} size={dynamic_p.stat().st_size if dynamic_p.exists() else 'NA'}")
     print(f"[PD][PATH] tv_channels={tv_p} exists={tv_p.exists()} size={tv_p.stat().st_size if tv_p.exists() else 'NA'}")
 
-    # 1. Channels playlist (static enrichment)
-    try:
-        print(f"[PD][HTTP] GET channels playlist: {PLAYLIST_URL}")
-        ch_resp = requests.get(PLAYLIST_URL, timeout=25)
-        print(f"[PD][HTTP] channels status={ch_resp.status_code} bytes={len(ch_resp.text)}")
-        ch_resp.raise_for_status()
-        channels_entries = parse_m3u(ch_resp.text)
-        print(f"[PD][PARSE] channels entries={len(channels_entries)}")
-    except Exception as e:
-        print(f"[PD][ERR] Failed to download channels playlist: {e}")
-        traceback.print_exc()
-        channels_entries = []
-
-    if channels_entries:
-        update_static_channels(channels_entries, tv_p, dry_run=dry_run)
-    else:
-        print("[PD] Skipping static enrichment (no channels entries)")
-
-    # 2. Events playlist (dynamic injection)
+    # --- Unified combined playlist fetch ---
     def _dns_log(host: str, tag: str):
         try:
             ips = socket.gethostbyname_ex(host)[2]
             print(f"[PD][DNS][{tag}] {host} -> {','.join(ips)}")
         except Exception as _e:
             print(f"[PD][DNS][{tag}][ERR] {host} {_e}")
-    def _fetch_events(url: str) -> str | None:
+    def _fetch(url: str, tag: str) -> str | None:
         attempts = 3
         last_err = None
         headers = {
@@ -480,51 +469,66 @@ def run_post_live(dynamic_path: str | Path, tv_channels_path: str | Path, dry_ru
         }
         for i in range(1, attempts+1):
             try:
-                resp = requests.get(url, headers=headers, timeout=20)
+                resp = requests.get(url, headers=headers, timeout=25)
                 if resp.ok and '#EXTM3U' in resp.text:
+                    print(f"[PD][HTTP][{tag}] status={resp.status_code} bytes={len(resp.text)}")
                     return resp.text
                 last_err = RuntimeError(f"status={resp.status_code}")
             except Exception as ee:
                 last_err = ee
             time.sleep(min(2, i))
-        # fallback with urllib
+        # urllib fallback
         try:
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=20) as r:
+            with urllib.request.urlopen(req, timeout=25) as r:
                 raw = r.read().decode('utf-8','replace')
             if '#EXTM3U' in raw:
+                print(f"[PD][HTTP][{tag}][URLLIB] bytes={len(raw)}")
                 return raw
         except Exception as ee2:
             last_err = ee2
         if last_err:
-            print(f"[PD][FETCH][EVENTS][ERR] {last_err}")
+            print(f"[PD][FETCH][{tag}][ERR] {last_err}")
         return None
-    events_entries = []
+
+    combined_raw = None
     try:
-        print(f"[PD][HTTP] GET events playlist: {EVENTS_PLAYLIST_URL}")
+        host_p = urllib.request.urlparse(PRIMARY_COMBINED_URL).hostname
+        if host_p: _dns_log(host_p, 'PRIMARY')
+    except Exception:
+        pass
+    print(f"[PD][HTTP] GET combined playlist (primary): {PRIMARY_COMBINED_URL}")
+    combined_raw = _fetch(PRIMARY_COMBINED_URL, 'PRIMARY')
+    if not combined_raw:
+        print(f"[PD][HTTP][FALLBACK] trying combined secondary: {SECONDARY_COMBINED_URL}")
         try:
-            host = urllib.request.urlparse(EVENTS_PLAYLIST_URL).hostname
-            if host: _dns_log(host, 'PRIMARY')
+            host_s = urllib.request.urlparse(SECONDARY_COMBINED_URL).hostname
+            if host_s: _dns_log(host_s, 'SECONDARY')
         except Exception:
             pass
-        raw_events = _fetch_events(EVENTS_PLAYLIST_URL)
-        if not raw_events and FALLBACK_EVENTS_URL and FALLBACK_EVENTS_URL != EVENTS_PLAYLIST_URL:
-            print(f"[PD][HTTP][FALLBACK] trying events playlist fallback: {FALLBACK_EVENTS_URL}")
-            try:
-                host2 = urllib.request.urlparse(FALLBACK_EVENTS_URL).hostname
-                if host2: _dns_log(host2, 'FALLBACK')
-            except Exception:
-                pass
-            raw_events = _fetch_events(FALLBACK_EVENTS_URL)
-        if raw_events:
-            events_entries = parse_m3u(raw_events)
-            print(f"[PD][PARSE] events entries={len(events_entries)}")
-        else:
-            print("[PD][ERR] Events playlist fetch failed (primary + fallback)")
-    except Exception as e:
-        print(f"[PD][ERR] Failed events playlist logic: {e}")
-        traceback.print_exc()
+        combined_raw = _fetch(SECONDARY_COMBINED_URL, 'SECONDARY')
 
+    channels_entries: List[Dict[str, Any]] = []
+    events_entries: List[Dict[str, Any]] = []
+    if combined_raw:
+        all_entries = parse_m3u(combined_raw)
+        for e in all_entries:
+            gt = (e['attrs'].get('group-title') or '').upper()
+            if 'ITALY' in gt:
+                channels_entries.append(e)
+            else:
+                events_entries.append(e)
+        print(f"[PD][PARSE] combined entries={len(all_entries)} channels={len(channels_entries)} events={len(events_entries)}")
+    else:
+        print("[PD][ERR] Combined playlist fetch failed (primary + secondary)")
+
+    # Static enrichment
+    if channels_entries:
+        update_static_channels(channels_entries, tv_p, dry_run=dry_run)
+    else:
+        print("[PD] Skipping static enrichment (no ITALY channel entries)")
+
+    # Dynamic injection
     dynamic_events = load_dynamic(dynamic_p)
     print(f"[PD][STATE] dynamic_events={len(dynamic_events) if dynamic_events else 0} events_entries={len(events_entries) if events_entries else 0}")
     if dynamic_events and events_entries:
@@ -536,9 +540,10 @@ def run_post_live(dynamic_path: str | Path, tv_channels_path: str | Path, dry_ru
             print(f"[PD][ERR] Injection failed: {e}")
             traceback.print_exc()
     elif dynamic_events and not events_entries:
-        print("[PD][INFO] Events playlist empty -> no PD injections this run")
+        print("[PD][INFO] Combined playlist senza eventi -> no injection")
     else:
-        print("[PD][INFO] Dynamic file empty or not found, skipping injection")
+        if not dynamic_events:
+            print("[PD][INFO] Dynamic file empty or not found, skipping injection")
     print("[PD][END] run_post_live finished")
 
 
