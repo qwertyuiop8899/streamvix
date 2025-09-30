@@ -12,6 +12,22 @@ const TMDB_API_BASE_URL = "https://api.themoviedb.org/3";
 
 // --- End Configuration ---
 
+// Ensures playlist URLs have .m3u8 after numeric id: /playlist/12345 => /playlist/12345.m3u8
+function ensurePlaylistM3u8(raw: string): string {
+  try {
+    if (!raw.includes('/playlist/')) return raw;
+    const u = new URL(raw);
+    const parts = u.pathname.split('/');
+    const idx = parts.indexOf('playlist');
+    if (idx === -1 || idx === parts.length - 1) return raw;
+    const leaf = parts[idx + 1];
+    if (/\.m3u8$/i.test(leaf) || leaf.includes('.')) return raw;
+    parts[idx + 1] = leaf + '.m3u8';
+    u.pathname = parts.join('/');
+    return u.toString();
+  } catch { return raw; }
+}
+
 export interface ExtractorConfig {
   tmdbApiKey?: string;
   mfpUrl?: string;
@@ -625,6 +641,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       let finalStreamUrl = serverUrl.includes("?b=1")
         ? `${serverUrl}&token=${token}&expires=${expires}`
         : `${serverUrl}?token=${token}&expires=${expires}`;
+      finalStreamUrl = ensurePlaylistM3u8(finalStreamUrl);
 
       // Aggiungi &h=1 solo se disponibile
       if (scriptContent.includes("window.canPlayFHD = true")) {
@@ -819,7 +836,8 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         if (token) u.searchParams.set('token', token);
         if (expires) u.searchParams.set('expires', expires);
         if (h) u.searchParams.set('h', h);
-        const cleaned = u.toString();
+        let cleaned = u.toString();
+        cleaned = ensurePlaylistM3u8(cleaned);
         if (cleaned !== directResult.streamUrl) {
           console.log('[VixSrc][Direct][FinalizeNormalize] URL direct ripulita =>', cleaned);
           directResult.streamUrl = cleaned;
@@ -859,7 +877,8 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
               if (token) inner.searchParams.set('token', token);
               if (expires) inner.searchParams.set('expires', expires);
               if (h) inner.searchParams.set('h', h);
-              const cleanedInner = inner.toString();
+              let cleanedInner = inner.toString();
+              cleanedInner = ensurePlaylistM3u8(cleanedInner);
               if (cleanedInner !== dParam) {
                 urlObj.searchParams.set('d', cleanedInner);
                 proxyVariant.streamUrl = urlObj.toString();
@@ -1025,7 +1044,10 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
             if (/\/playlist\//.test(fallback.streamUrl) && !/[?&]h=1(?!\d)/.test(fallback.streamUrl)) {
               const u = new URL(fallback.streamUrl);
               u.searchParams.set('h','1');
-              fallback.streamUrl = u.toString();
+              fallback.streamUrl = ensurePlaylistM3u8(u.toString());
+            } else if (/\/playlist\//.test(fallback.streamUrl)) {
+              // Anche se già ha h=1 assicurati comunque del suffisso .m3u8
+              fallback.streamUrl = ensurePlaylistM3u8(fallback.streamUrl);
             }
           } catch {/* ignore */}
           result.push(fallback);
