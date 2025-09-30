@@ -136,8 +136,9 @@ export class EurostreamingProvider {
         if (!/\[ITA\]/i.test(line1)) line1 = line1.replace(/\s*\[(SUB )?ITA\]$/i,'').trim()+ ' • [ITA]';
       }
       const langTag = lang === 'sub' ? '[SUB ITA]' : '[ITA]';
-      const pct = (typeof s.match_pct === 'number' && s.match_pct >=0) ? ` • (${s.match_pct}%)` : '';
-      // Second line format: [LANG] • Player • (percentuale)
+  // Percentuale match rimossa (non richiesta più)
+  const pct = '';
+  // Second line format: [LANG] • Player (senza percentuale)
       // Regola: se l'URL contiene dominio mixdrop -> mostra "Mixdrop" altrimenti mantieni player originale (default Deltabit)
       let playerName = s.player ? s.player : 'Deltabit';
       let finalUrl = s.url;
@@ -157,7 +158,7 @@ export class EurostreamingProvider {
           playerName = 'Deltabit';
         }
       } catch { /* ignore parse */ }
-  const second = `${langTag} • ${playerName}${pct}`;
+  const second = `${langTag} • ${playerName}`;
       const title = `${line1}\n${second}`;
   if (seen.has(finalUrl)) continue;
   seen.add(finalUrl);
