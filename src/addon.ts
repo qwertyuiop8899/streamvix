@@ -2352,11 +2352,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             });
                             debugLog(`Aggiunto staticUrl Proxy (MFP): ${proxyUrl}`);
                         } else {
-                            streams.push({
-                                url: decodedUrl,
-                                title: `[❌Proxy][📺HD] ${channel.name} [ITA]`
-                            });
-                            debugLog(`Aggiunto staticUrl Direct: ${decodedUrl}`);
+                            // Richiesta: non mostrare stream senza proxy (titolo con [❌Proxy]) quando mancano credenziali MFP
+                            debugLog(`(NASCONDI) staticUrl Direct senza MFP: ${decodedUrl}`);
                         }
                     }
                     // staticUrl2 (solo se enableMpd è attivo)
@@ -2389,11 +2386,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             });
                             debugLog(`Aggiunto staticUrl2 Proxy (MFP): ${proxyUrl}`);
                         } else {
-                            streams.push({
-                                url: decodedUrl,
-                                title: `[❌Proxy][📽️] ${channel.name} [ITA]`
-                            });
-                            debugLog(`Aggiunto staticUrl2 Direct: ${decodedUrl}`);
+                            // Richiesta: nascondere versione direct senza MFP
+                            debugLog(`(NASCONDI) staticUrl2 Direct senza MFP: ${decodedUrl}`);
                         }
                     }
 
@@ -2427,11 +2421,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             });
                             debugLog(`Aggiunto staticUrlMpd Proxy (MFP): ${proxyUrl}`);
                         } else {
-                            streams.push({
-                                url: decodedUrl,
-                                title: `[❌Proxy][🎬MPD] ${channel.name} [ITA]`
-                            });
-                            debugLog(`Aggiunto staticUrlMpd Direct: ${decodedUrl}`);
+                            // Richiesta: nascondere versione direct senza MFP
+                            debugLog(`(NASCONDI) staticUrlMpd Direct senza MFP: ${decodedUrl}`);
                         }
                     }
 
@@ -2481,11 +2472,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 // Error; skip extractor/video fallback altogether
                             }
                         } else {
-                            streams.push({
-                                url: (channel as any).staticUrlD,
-                                title: `[❌Proxy][🌐D] ${channel.name} [ITA]`
-                            });
-                            debugLog(`Aggiunto staticUrlD Direct: ${(channel as any).staticUrlD}`);
+                            // Richiesta: nascondere versione direct senza MFP
+                            debugLog(`(NASCONDI) staticUrlD Direct senza MFP: ${(channel as any).staticUrlD}`);
                         }
                     }
                     // Vavoo
@@ -2549,10 +2537,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         url: vavooProxyUrl
                                     });
                                 } else {
-                                    streams.push({
-                                        title: `[❌Proxy]${streamTitle}`,
-                                        url
-                                    });
+                                    // Richiesta: nascondere stream Vavoo direct senza MFP
                                 }
                 vavooFoundUrls.push(url);
                                 // For each found link, also prepare a clean variant labeled per index (➡️ V-1, V-2, ...)
@@ -2587,10 +2572,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             url: vavooProxyUrl
                                         });
                                     } else {
-                                        streams.push({
-                                            title: `[❌Proxy]${streamTitle}`,
-                                            url
-                                        });
+                                        // Richiesta: nascondere stream Vavoo direct senza MFP
                                     }
                                     vavooFoundUrls.push(url);
                                     // Prepare clean variant per index as well
