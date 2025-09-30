@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.3...v1.6.4) (2025-09-30)
+
+
+### Bug Fixes
+
+* change logic landing ([b01123d](https://github.com/qwertyuiop8899/streamvix/commit/b01123d9120cbbeb90daaf1f6ea462f80fa9e0e7))
+* choice ([685acf0](https://github.com/qwertyuiop8899/streamvix/commit/685acf0da4f69f40888d5da9b0061b234efb8746))
+* hide tv with nomfp ([bded940](https://github.com/qwertyuiop8899/streamvix/commit/bded9407efc15f7252f623b7c55db1f000398a60))
+
 ## [1.6.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.2...v1.6.3) (2025-09-30)
 
 
