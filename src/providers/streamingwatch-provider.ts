@@ -7,7 +7,7 @@
  * Notes:
  *  - Toggle via config.enabled (like CB01 provider style)
  *  - Domain loaded dynamically from config/domains.json key "streamingwatch" (TTL handled by domains loader - 12h)
- *  - No MediaFlow wrapping: direct HLS -> unlocked stream (title: "StreamViX SW")
+ *  - No MediaFlow wrapping: direct HLS -> unlocked stream (raw title later unified centrally)
  *  - Movie & Series supported. Series slug pattern: stagione-{S}-episodio-{E} or stagione-{S}-episode-{E}, excluding trailing 0 variant ( ...episodio-{E}0 )
  *  - Nonce (admin_ajax_nonce) fetched from /contatto/ page and cached 30 minutes
  *  - Metadata resolution (optional): TMDb find endpoint (if tmdbApiKey passed) else IMDb <title> scrape fallback
