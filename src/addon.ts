@@ -484,7 +484,7 @@ function decodeStaticUrl(url: string): string {
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "7.14.23",
+    version: "7.12.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con VixSRC, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -3243,21 +3243,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     allStreams.sort((a,b)=> rank((a.name||a.title||'').toString()) - rank((b.name||b.title||'').toString()));
                 } catch {}
                 console.log(`✅ Total streams returned: ${allStreams.length}`);
-                try {
-                    console.log('🔍 Unified Streams Dump (final order):');
-                    allStreams.forEach((s, idx) => {
-                        const title = (s.title||'').toString();
-                        const lines = title.split('\n');
-                        const first = lines[0] || '';
-                        const provider = (s.name || providerLabel('generic')).toString();
-                        console.log(`[#${idx+1}] ${provider} :: ${first}`);
-                        console.log('      Full Title =>');
-                        lines.forEach(l=> console.log('        ' + l));
-                        console.log('      URL =>', (s as any).url || '(no url)');
-                    });
-                } catch (e) {
-                    console.warn('Unified Streams Dump failed:', (e as any)?.message || e);
-                }
                 return { streams: allStreams };
             } catch (error) {
                 console.error('Stream extraction failed:', error);
