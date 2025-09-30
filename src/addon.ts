@@ -484,7 +484,7 @@ function decodeStaticUrl(url: string): string {
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "7.12.23",
+    version: "7.14.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con VixSRC, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -3031,6 +3031,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 mfpPsw: config.mediaFlowProxyPassword || process.env.MFP_PSW,
                                 vixLocal: !!config.vixLocal,
                                 vixDual: !!(config as any)?.vixDual,
+                                // Propaga nuove checkbox per bridge interno
+                                vixDirect: (config as any)?.vixDirect === true,
+                                vixDirectFhd: (config as any)?.vixDirectFhd === true,
+                                vixProxy: (config as any)?.vixProxy === true,
+                                vixProxyFhd: (config as any)?.vixProxyFhd === true,
                                 addonBase: (config as any)?.addonBase || ( () => {
                                     try {
                                         const proto = (process.env.EXTERNAL_PROTOCOL || 'https');
@@ -3181,6 +3186,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         mfpPsw: config.mediaFlowProxyPassword || process.env.MFP_PSW,
                         vixLocal: !!config.vixLocal,
                         vixDual: !!(config as any)?.vixDual,
+                        vixDirect: (config as any)?.vixDirect === true,
+                        vixDirectFhd: (config as any)?.vixDirectFhd === true,
+                        vixProxy: (config as any)?.vixProxy === true,
+                        vixProxyFhd: (config as any)?.vixProxyFhd === true,
                         addonBase: (config as any)?.addonBase || ''
                     };
                     const res: VixCloudStreamInfo[] | null = await getStreamContent(id, type, finalConfig);
