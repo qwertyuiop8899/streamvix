@@ -1504,7 +1504,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             if (initialConfig && (initialConfig as any).disableLiveTv) {
                 const filtered = { ...manifest } as Manifest;
                 const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
-                filtered.catalogs = cats.filter(c => !(c && (c as any).id === 'streamvix_tv'));
+                filtered.catalogs = cats.filter((c: any) => !(c && (c as any).id === 'streamvix_tv'));
                 return filtered;
             }
         } catch {}
@@ -2859,7 +2859,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         return 'generic';
                     };
                     const unifyStreams = (original: Stream[], providerLabelName: string): Stream[] => {
-                        if (type === 'tv') return original; // Live TV untouched
+                        if (type === 'tv') return original; // Live TV untouched (no binge group logic)
                         const providerKey = reverseProviderKey(providerLabelName);
                         // Pre-scan for canonical base title (vixsrc) excluding synthetic placeholder names
                         let canonicalVixBase: string | null = null;
@@ -2997,7 +2997,58 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (sizeResLine) outLines.push(sizeResLine);
                             outLines.push(`🌐 Proxy (${proxyOn ? 'ON':'OFF'})`);
                             const unifiedTitle = outLines.join('\n');
-                            return { ...st, title: unifiedTitle, name: providerLabel(providerKey, isFhdOrDual) } as Stream;
+                            // ---------------- BINGE GROUP LOGIC (CUSTOM MAP) ----------------
+                            // Richiesta utente:
+                            // vixsrc: (invariato) vixsrc-(direct|directFHD|proxy|proxyFHD)
+                            // animeunity:  animeunity-std-ita | animeunity-std-sub
+                            // animeworld:  animeworld-std-ita | animeworld-std-sub
+                            // animesaturn: animesaturn-std-ita | animesaturn-std-sub
+                            // eurostreaming: eurostreaming-ita | eurostreaming-sub
+                            // cb01: cb01-std
+                            // guardahd: guardahd-std (tutti) | guardahd-prx (solo mixdrop)
+                            // streamingwatch: streamingwatch-std
+                            // guardaserie: guardaserie-std
+                            // Altri provider (fallback): providerKey-std
+                            // Nota: determinazione lingua basata su isSub (SUB vs ITA)
+                            let bingeGroup: string;
+                            if (providerKey === 'vixsrc') {
+                                // Manteniamo la logica esistente per le 4 varianti
+                                let variant = 'base';
+                                const isFhdVariant = isSynthetic || /FHD/i.test(rawTitle) || /1080p/i.test(rawTitle);
+                                if (isFhdVariant) variant = proxyOn ? 'proxyFHD' : 'directFHD';
+                                else variant = proxyOn ? 'proxy' : 'direct';
+                                bingeGroup = `${providerKey}-${variant}`;
+                            } else {
+                                switch (providerKey) {
+                                    case 'animeunity':
+                                    case 'animeworld':
+                                    case 'animesaturn':
+                                        bingeGroup = `${providerKey}-std-${isSub ? 'sub' : 'ita'}`;
+                                        break;
+                                    case 'eurostreaming':
+                                        bingeGroup = `eurostreaming-${isSub ? 'sub' : 'ita'}`;
+                                        break;
+                                    case 'cb01':
+                                        bingeGroup = 'cb01-std';
+                                        break;
+                                    case 'guardahd': {
+                                        // Identifica mixdrop (playerName o rawTitle)
+                                        const isMix = /mixdrop/i.test(playerName || '') || /mixdrop/i.test(rawTitle);
+                                        bingeGroup = isMix ? 'guardahd-prx' : 'guardahd-std';
+                                        break; }
+                                    case 'streamingwatch':
+                                        bingeGroup = 'streamingwatch-std';
+                                        break;
+                                    case 'guardaserie':
+                                        bingeGroup = 'guardaserie-std';
+                                        break;
+                                    default:
+                                        bingeGroup = `${providerKey}-std`;
+                                }
+                            }
+                            const existingHints = (st as any).behaviorHints || {};
+                            const mergedHints = { ...existingHints, bingeGroup };
+                            return { ...st, title: unifiedTitle, name: providerLabel(providerKey, isFhdOrDual), behaviorHints: mergedHints } as Stream;
                         });
                     };
                     const runProvider = async (name: string, enabled: boolean, handler: () => Promise<{ streams: Stream[] }>, streamName: string, isMixdropSensitive = false) => {
@@ -3359,7 +3410,7 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
         if (!Array.isArray((filtered as any).catalogs)) (filtered as any).catalogs = [];
         if (effectiveDisable) {
             const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
-            filtered.catalogs = cats.filter(c => !(c && (c as any).id === 'streamvix_tv'));
+            filtered.catalogs = cats.filter((c: any) => !(c && (c as any).id === 'streamvix_tv'));
         }
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Access-Control-Allow-Origin', '*');
