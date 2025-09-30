@@ -38,6 +38,11 @@ export interface ExtractorConfig {
   addonBase?: string;
   // When true, expose BOTH automatic master (o proxy) and forced 1080p ITA synthetic stream
   vixDual?: boolean;
+  // Nuove checkbox UI (visibilità) propagate qui così il bridge può funzionare
+  vixDirect?: boolean;
+  vixDirectFhd?: boolean;
+  vixProxy?: boolean;
+  vixProxyFhd?: boolean;
 }
 
 export interface VixCloudStreamInfo {
@@ -315,6 +320,30 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   console.log(`Extracting stream for ${id} (${type}) with config:`, { ...config, mfpPsw: config.mfpPsw ? '***' : undefined });
   console.log('[VixSrc][BuildMarker] version=early-direct-v2');
   console.log('[VixSrc][Debug] addonBase initial =', config.addonBase, 'vixDual=', !!config.vixDual, 'vixLocal=', !!config.vixLocal);
+
+  // -------------------------------------------------------------
+  // Bridge NUOVE checkbox (vixDirect, vixDirectFhd, vixProxy, vixProxyFhd)
+  // alle flag interne storiche (vixLocal, vixDual) SOLO per la logica
+  // di generazione. Il filtro visuale resta invariato dopo.
+  // - vixLocal deve essere true se l'utente vuole vedere QUALSIASI direct
+  //   (base o FHD) => vixDirect || vixDirectFhd
+  // - vixDual deve essere true se l'utente chiede QUALSIASI FHD
+  //   (directFhd o proxyFhd) per consentire generazione synthetic.
+  try {
+    const wantsDirect = (config as any).vixDirect === true || (config as any).vixDirectFhd === true;
+    const wantsAnyFhd = (config as any).vixDirectFhd === true || (config as any).vixProxyFhd === true;
+    // Applica solo se non già esplicitamente impostato (non sovrascrivere override env o landing legacy)
+    if (wantsDirect && config.vixLocal !== true) {
+      config.vixLocal = true;
+      console.log('[VixSrc][Bridge] vixLocal abilitato perché selezionato direct/directFHD');
+    }
+    if (wantsAnyFhd && config.vixDual !== true) {
+      config.vixDual = true;
+      console.log('[VixSrc][Bridge] vixDual abilitato perché selezionato qualche FHD (direct o proxy)');
+    }
+  } catch (e) {
+    console.warn('[VixSrc][Bridge] errore applicazione bridge nuove checkbox -> legacy:', (e as any)?.message || e);
+  }
 
   // ------------------------------------------------------------------
   // Environment fallbacks (useful if user non ha ancora reinstallato
@@ -804,6 +833,80 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     });
   }
 
+  // --- Filtro visualizzazione NON invasivo: applicato DOPO la logica originale ---
+  function finalizeAndFilter(list: VixCloudStreamInfo[]): VixCloudStreamInfo[] {
+    const f = {
+      direct: (config as any).vixDirect === true,
+      directFhd: (config as any).vixDirectFhd === true,
+      proxy: (config as any).vixProxy === true,
+      proxyFhd: (config as any).vixProxyFhd === true
+    };
+    const none = !f.direct && !f.directFhd && !f.proxy && !f.proxyFhd;
+    const variants = {
+      baseDirect: list.find(s => s.source==='direct' && !( (s as any).isSyntheticFhd || /FHD/.test(s.name) )),
+      directFhd: list.find(s => s.source==='direct' && ( (s as any).isSyntheticFhd || /FHD/.test(s.name) )),
+      baseProxy: list.find(s => s.source==='proxy' && !( (s as any).isSyntheticFhd || /FHD/.test(s.name) )),
+      proxyFhd: list.find(s => s.source==='proxy' && ( (s as any).isSyntheticFhd || /FHD/.test(s.name) ))
+    };
+    const available = Object.entries(variants).filter(([_,v])=>!!v).map(([k])=>k);
+    const mfpPresent = !!(config.mfpUrl && config.mfpPsw);
+    console.log('[VixSrc][Filter] Flags', f, 'MFP', mfpPresent, 'Available', available);
+    const out: VixCloudStreamInfo[] = []; const add=(v:VixCloudStreamInfo|undefined|null)=>{ if(v && !out.includes(v)) out.push(v); };
+
+    if (none) { // default
+      add(variants.baseProxy || variants.proxyFhd || variants.baseDirect || variants.directFhd);
+      return finalize(out);
+    }
+    // Solo Direct
+    if (f.direct && !f.directFhd && !f.proxy && !f.proxyFhd) {
+      add(variants.baseDirect || variants.directFhd || variants.baseProxy || variants.proxyFhd);
+      return finalize(out);
+    }
+    // Solo Direct FHD
+    if (!f.direct && f.directFhd && !f.proxy && !f.proxyFhd) {
+      add(variants.directFhd || variants.baseDirect || variants.proxyFhd || variants.baseProxy);
+      return finalize(out);
+    }
+    // Solo Proxy
+    if (!f.direct && !f.directFhd && f.proxy && !f.proxyFhd) {
+      if (mfpPresent) add(variants.baseProxy || variants.proxyFhd || variants.baseDirect || variants.directFhd);
+      else add(variants.baseDirect || variants.directFhd || variants.baseProxy || variants.proxyFhd);
+      return finalize(out);
+    }
+    // Solo Proxy FHD
+    if (!f.direct && !f.directFhd && !f.proxy && f.proxyFhd) {
+      if (mfpPresent) add(variants.proxyFhd || variants.baseProxy || variants.directFhd || variants.baseDirect);
+      else add(variants.directFhd || variants.baseDirect || variants.proxyFhd || variants.baseProxy);
+      return finalize(out);
+    }
+    // Direct + Proxy
+    if (f.direct && !f.directFhd && f.proxy && !f.proxyFhd) {
+      if (mfpPresent) { add(variants.baseDirect || variants.directFhd); add(variants.baseProxy || variants.proxyFhd); }
+      else { add(variants.baseDirect || variants.directFhd); }
+      return finalize(out);
+    }
+    // Direct FHD + Proxy FHD
+    if (!f.direct && f.directFhd && !f.proxy && f.proxyFhd) {
+      if (mfpPresent) { add(variants.directFhd || variants.baseDirect); add(variants.proxyFhd || variants.baseProxy); }
+      else { add(variants.directFhd || variants.baseDirect); }
+      return finalize(out);
+    }
+    // Tutte e 4
+    if (f.direct && f.directFhd && f.proxy && f.proxyFhd) {
+      if (mfpPresent) { add(variants.baseDirect || variants.directFhd); add(variants.directFhd); add(variants.baseProxy || variants.proxyFhd); add(variants.proxyFhd); }
+      else { add(variants.baseDirect || variants.directFhd); add(variants.directFhd); }
+      return finalize(out);
+    }
+    // Direct + Proxy FHD
+    if (f.direct && !f.directFhd && !f.proxy && f.proxyFhd) {
+      if (mfpPresent) { add(variants.baseDirect || variants.directFhd); add(variants.proxyFhd || variants.baseProxy); }
+      else { add(variants.baseDirect || variants.directFhd); add(variants.directFhd || variants.baseDirect); }
+      return finalize(out);
+    }
+    console.log('[VixSrc][Filter] Combinazione non riconosciuta, ritorno lista intera');
+    return finalize(list);
+  }
+
   // Nuova strategia: 1) tenta SEMPRE direct parse (stile Kotlin) per ottenere HLS puro
   //                   2) se MFP configurato crea versione proxata partendo dall'HLS diretto
   //                   3) fallback al vecchio percorso proxy se direct fallisce
@@ -969,7 +1072,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           console.log('[VixSrc][Scenario1] Synthetic disabilitato perché vixDual=false');
         }
       }
-      return finalize([
+      return finalizeAndFilter([
         ...(directStream ? [directStream] : []),
         ...(proxyStream ? [proxyStream] : [])
       ]);
@@ -1000,7 +1103,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       } else {
         console.log('[VixSrc][Synthetic] Nessun master disponibile per creare synthetic (Scenario 2)');
       }
-      return finalize(result);
+  return finalizeAndFilter(result);
     }
     if (!config.vixLocal && config.vixDual) {
       // Scenario 3: Local OFF, Dual ON -> solo synthetic direct + synthetic proxy wrapper
@@ -1056,7 +1159,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           console.log('[VixSrc][Scenario3][Fallback] Nessuno stream direct disponibile (directStream/directResult null)');
         }
       }
-      return finalize(result);
+  return finalizeAndFilter(result);
     }
     // Scenario 4: Local OFF, Dual OFF -> solo proxy classico
     if (!config.vixLocal && !config.vixDual) {
@@ -1067,12 +1170,17 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           console.log('[VixSrc][Scenario4] Synthetic disabilitato perché vixDual=false');
         }
       }
-      return proxyStream ? finalize([proxyStream]) : null;
+      if (proxyStream) return finalizeAndFilter([proxyStream]);
+      if (!proxyStream && directResult) {
+        console.log('[VixSrc][Scenario4][Fallback] Proxy assente -> uso directResult (visual)');
+        return finalizeAndFilter([{ ...directResult }]);
+      }
+  return null;
     }
-    return finalize(streams); // fallback generico
+    return finalizeAndFilter(streams); // fallback generico
   } catch (e) {
     console.warn('[VixSrc][Synthetic] Errore gestione streams (matrice):', (e as any)?.message || e);
-    return streams.slice(0,1);
+    return finalizeAndFilter(streams.slice(0,1));
   }
 }
 
