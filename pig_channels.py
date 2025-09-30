@@ -35,6 +35,8 @@ import json
 import re
 import sys
 import traceback
+import datetime
+import os
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 
@@ -50,6 +52,160 @@ import requests, socket, urllib.request, time
 #   altrimenti => EVENTO per injection
 PRIMARY_COMBINED_URL = "https://world-proxifier.xyz/daddylive/playlist.m3u8"
 SECONDARY_COMBINED_URL = "https://raw.githubusercontent.com/pigzillaaa/daddylive/refs/heads/main/daddylive-channels-events.m3u8"
+
+# ---------------------------------------------------------------------------
+# PD CACHE (persist PD streams across runs so that once found they remain)
+# ---------------------------------------------------------------------------
+# Persisted JSON structure (versioned):
+# {
+#   "version": 1,
+#   "entries": { key: { "streams": [ {url,title}, ...], "last_seen": epoch } },
+#   "saved_at": epoch
+# }
+# Key derivation aligns with team pair key (vs events) OR token set key (single events).
+# TTL: after this seconds without refresh entry is considered stale and NOT used for fallback.
+# Stale entries are pruned if last_seen > TTL * 2 for hygiene.
+PD_CACHE_VERSION = 1
+PD_CACHE_TTL_SECONDS = 12 * 3600  # 12h TTL (refresh window). PD entries older than this not used as fallback.
+PD_CACHE_FILENAME = "pd_cache.json"  # stored alongside dynamic file unless absolute path needed
+PD_PREFIX = '[P🐽D]'
+
+def _pd_cache_path(dynamic_path: Path) -> Path:
+    # Store cache next to dynamic file to keep scope local
+    return dynamic_path.parent / PD_CACHE_FILENAME
+
+def load_pd_cache(cache_path: Path) -> dict:
+    try:
+        if cache_path.exists():
+            raw = json.loads(cache_path.read_text(encoding='utf-8'))
+            if isinstance(raw, dict) and raw.get('version') == PD_CACHE_VERSION:
+                return raw
+    except Exception as e:
+        print(f"[PD][CACHE][WARN] Failed to load cache: {e}")
+    return { 'version': PD_CACHE_VERSION, 'entries': {}, 'saved_at': int(time.time()) }
+
+def save_pd_cache(cache_path: Path, cache: dict):
+    try:
+        cache['saved_at'] = int(time.time())
+        tmp = cache_path.with_suffix('.tmp')
+        tmp.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding='utf-8')
+        tmp.replace(cache_path)
+        print(f"[PD][CACHE] Saved cache entries={len(cache.get('entries',{}))} path={cache_path}")
+    except Exception as e:
+        print(f"[PD][CACHE][ERR] Save failed: {e}")
+
+def _now() -> int:
+    return int(time.time())
+
+def derive_event_key_from_dynamic(ev: Dict[str, Any]) -> Optional[str]:
+    """Derive stable key for dynamic event.
+    Prefer team pair (vs). Fallback to token set for single events (logic mirrors inject code).
+    """
+    name = ev.get('name','') or ''
+    teams = extract_teams_from_dynamic_name(name)
+    if teams:
+        # replicate team_pair_key logic inline (norm_team + sorted)
+        a, b = norm_team(teams[0]), norm_team(teams[1])
+        if a and b:
+            return '::'.join(sorted([a,b]))
+        return None
+    # Single-event tokens key (mirror build_single_key_from_playlist logic but on dynamic name)
+    core = re.sub(r"^⏰\s*\d{1,2}:\d{2}\s*:\s*", "", name)
+    core = core.split(' - ')[0]
+    base = core
+    if ':' in base:
+        base = base.split(':',1)[1].strip()
+    tokens = [t for t in re.split(r"[^A-Za-z0-9]+", base) if t]
+    if len(tokens) < 2:
+        return None
+    return '::'.join(sorted(set(t.lower() for t in tokens)))
+
+def extract_pd_streams(ev: Dict[str, Any]) -> List[Dict[str, Any]]:
+    out = []
+    for s in (ev.get('streams') or []):
+        if isinstance(s, dict) and isinstance(s.get('title'), str) and s.get('title').startswith(PD_PREFIX):
+            out.append(s)
+    return out
+
+def cache_prune(cache: dict):
+    entries = cache.get('entries', {})
+    if not isinstance(entries, dict):
+        cache['entries'] = {}
+        return
+    now = _now()
+    ttl2 = PD_CACHE_TTL_SECONDS * 2
+    to_del = [k for k,v in entries.items() if (now - v.get('last_seen',0)) > ttl2]
+    for k in to_del:
+        entries.pop(k, None)
+    if to_del:
+        print(f"[PD][CACHE] Pruned {len(to_del)} stale entries")
+    # Static map prune (optional hygiene)
+    static_map = cache.get('static') or {}
+    if isinstance(static_map, dict):
+        to_del_s = [k for k,v in static_map.items() if (now - v.get('last_seen',0)) > ttl2]
+        for k in to_del_s:
+            static_map.pop(k, None)
+        if to_del_s:
+            print(f"[PD][CACHE] Pruned {len(to_del_s)} stale static entries")
+
+def apply_pd_cache(dynamic_events: List[Dict[str, Any]], cache: dict, performed_injection: bool) -> None:
+    """Apply fallback PD streams from cache for events missing PD.
+    Update cache entries for events with fresh PD.
+    performed_injection indicates whether we attempted fresh injection this run; used only for logging context.
+    """
+    entries = cache.setdefault('entries', {})
+    now = _now()
+    used_fallback = 0
+    updated = 0
+    skipped_stale = 0
+    for ev in dynamic_events:
+        key = derive_event_key_from_dynamic(ev)
+        if not key:
+            continue
+        existing_pd = extract_pd_streams(ev)
+        if existing_pd:
+            # Update cache if different (by URL set) or refresh last_seen
+            cached = entries.get(key)
+            urls = sorted(s.get('url') for s in existing_pd if s.get('url'))
+            need_store = False
+            if not cached:
+                need_store = True
+            else:
+                cached_urls = sorted(s.get('url') for s in cached.get('streams', []) if s.get('url'))
+                if cached_urls != urls:
+                    need_store = True
+            entries[key] = { 'streams': existing_pd, 'last_seen': now }
+            if need_store:
+                updated += 1
+            continue
+        # No PD currently on event -> fallback attempt
+        cached = entries.get(key)
+        if not cached:
+            continue
+        age = now - cached.get('last_seen', 0)
+        if age > PD_CACHE_TTL_SECONDS:
+            skipped_stale += 1
+            continue
+        streams = ev.setdefault('streams', [])
+        existing_urls = { s.get('url') for s in streams if isinstance(s, dict) }
+        added_any = False
+        for s in cached.get('streams', []):
+            u = s.get('url')
+            if not u or u in existing_urls:
+                continue
+            # Insert at beginning to maintain PD priority
+            streams.insert(0, { 'url': u, 'title': s.get('title') })
+            existing_urls.add(u)
+            added_any = True
+        if added_any:
+            used_fallback += 1
+    if used_fallback:
+        print(f"[PD][CACHE] Fallback injected PD for {used_fallback} events (fresh_injection={'yes' if performed_injection else 'no'})")
+    if updated:
+        print(f"[PD][CACHE] Updated cache entries for {updated} events")
+    if skipped_stale:
+        print(f"[PD][CACHE] Skipped {skipped_stale} stale cache entries (age > TTL)")
+
 
 # ---------------------------------------------------------------------------
 # Parsing M3U
@@ -190,7 +346,7 @@ ITALIAN_CHANNEL_NAME_RE = re.compile(r"\b(Rai ?[0-9A-Z]?|Rai ?[A-Z][a-z]+|Sky ?S
 # Estendiamo il mapping preventivamente fino a 269 per coprire future assegnazioni
 SKY_CALCIO_SPECIAL_MAP = { str(n): f"Sky Sport {n}" for n in range(251, 270) }
 
-def update_static_channels(entries: List[Dict[str, Any]], tv_channels_path: Path, dry_run: bool) -> int:
+def update_static_channels(entries: List[Dict[str, Any]], tv_channels_path: Path, dry_run: bool, pd_cache: Optional[dict] = None) -> int:
     if not tv_channels_path.exists():
         print(f"[PD] tv_channels.json not found at {tv_channels_path}")
         return 0
@@ -210,6 +366,11 @@ def update_static_channels(entries: List[Dict[str, Any]], tv_channels_path: Path
         index.setdefault(norm_key(name), []).append(ch)
 
     updated = 0
+    restored = 0
+    cache_static = None
+    now = _now()
+    if pd_cache is not None:
+        cache_static = pd_cache.setdefault('static', {})  # key: norm_key(name) -> {pdUrlF, last_seen}
     attempted = 0
     italy_playlist_count = 0
     not_found_samples = []  # keep up to 15 samples of keys not found for diagnostics
@@ -260,12 +421,40 @@ def update_static_channels(entries: List[Dict[str, Any]], tv_channels_path: Path
             url = e['url']
             if not url:
                 continue
+            # If channel has no pdUrlF but cache has one (fresh) and playlist currently missing / different -> restore AFTER loop.
+            if old and url and old == url:
+                # Refresh cache last_seen if same
+                if cache_static is not None:
+                    cache_static[key] = { 'pdUrlF': old, 'last_seen': now }
+                continue
             if old != url:
                 ch['pdUrlF'] = url
                 updated += 1
-    if updated and not dry_run:
+                if cache_static is not None:
+                    cache_static[key] = { 'pdUrlF': url, 'last_seen': now }
+    # Restoration phase: if cache has pdUrlF for channels where playlist didn't yield a fresh update.
+    # Now we also OVERWRITE if existing pdUrlF differs from cached (cache treated as authoritative within TTL).
+    if cache_static is not None:
+        for ch in data:
+            k = norm_key(ch.get('name') or '')
+            if not k:
+                continue
+            entry = cache_static.get(k)
+            if not entry:
+                continue
+            age = now - entry.get('last_seen',0)
+            if age > PD_CACHE_TTL_SECONDS:
+                continue
+            cached_url = entry.get('pdUrlF')
+            current_url = ch.get('pdUrlF')
+            if cached_url and current_url != cached_url:
+                ch['pdUrlF'] = cached_url
+                restored += 1
+        if restored:
+            print(f"[PD][CACHE] Restored pdUrlF for {restored} static channels from cache")
+    if (updated or restored) and not dry_run:
         tv_channels_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
-    print(f"[PD] Static channels updated: {updated} / attempted matches {attempted} / ITALY playlist entries {italy_playlist_count} (changes{' not' if dry_run else ''} written)")
+    print(f"[PD] Static channels updated: {updated} (restored/overwritten {restored}) / attempted matches {attempted} / ITALY playlist entries {italy_playlist_count} (changes{' not' if dry_run else ''} written)")
     if not updated:
         print(f"[PD] Diagnostics: 0 updates. Showing up to {len(not_found_samples)} unmatched playlist entries (normalized key):")
         for sm in not_found_samples:
@@ -290,7 +479,16 @@ def save_dynamic(dynamic_path: Path, events: List[Dict[str, Any]], dry_run: bool
     if dry_run:
         print("[PD] Dry-run: dynamic file NOT written")
         return
-    dynamic_path.write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding='utf-8')
+    tmp_path = dynamic_path.with_name(dynamic_path.name + f".tmp-{int(datetime.datetime.utcnow().timestamp()*1000)}")
+    tmp_path.write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding='utf-8')
+    try:
+        os.replace(str(tmp_path), str(dynamic_path))
+    except Exception as e:
+        try:
+            tmp_path.unlink(missing_ok=True)  # type: ignore
+        except Exception:
+            pass
+        print(f"[PD][ERR] Atomic replace failed: {e}")
 
 def extract_teams_from_dynamic_name(name: str) -> Optional[Tuple[str, str]]:
     # dynamic 'name' format: "⏰ HH:MM : Team A vs Team B - League DD/MM"
@@ -450,6 +648,11 @@ def run_post_live(dynamic_path: str | Path, tv_channels_path: str | Path, dry_ru
     tv_p = Path(tv_channels_path)
     print(f"[PD][PATH] dynamic={dynamic_p} exists={dynamic_p.exists()} size={dynamic_p.stat().st_size if dynamic_p.exists() else 'NA'}")
     print(f"[PD][PATH] tv_channels={tv_p} exists={tv_p.exists()} size={tv_p.stat().st_size if tv_p.exists() else 'NA'}")
+    # Load PD cache early
+    cache_path = _pd_cache_path(dynamic_p)
+    pd_cache = load_pd_cache(cache_path)
+    cache_prune(pd_cache)
+    print(f"[PD][CACHE] Loaded entries={len(pd_cache.get('entries',{}))} path={cache_path}")
 
     # --- Unified combined playlist fetch ---
     def _dns_log(host: str, tag: str):
@@ -524,26 +727,37 @@ def run_post_live(dynamic_path: str | Path, tv_channels_path: str | Path, dry_ru
 
     # Static enrichment
     if channels_entries:
-        update_static_channels(channels_entries, tv_p, dry_run=dry_run)
+        update_static_channels(channels_entries, tv_p, dry_run=dry_run, pd_cache=pd_cache)
     else:
         print("[PD] Skipping static enrichment (no ITALY channel entries)")
 
     # Dynamic injection
     dynamic_events = load_dynamic(dynamic_p)
     print(f"[PD][STATE] dynamic_events={len(dynamic_events) if dynamic_events else 0} events_entries={len(events_entries) if events_entries else 0}")
+    performed_injection = False
     if dynamic_events and events_entries:
         try:
             inject_pd_streams(dynamic_events, events_entries, dry_run=dry_run)
-            save_dynamic(dynamic_p, dynamic_events, dry_run=dry_run)
-            print("[PD][DONE] Injection + save complete")
+            performed_injection = True
         except Exception as e:
             print(f"[PD][ERR] Injection failed: {e}")
             traceback.print_exc()
     elif dynamic_events and not events_entries:
-        print("[PD][INFO] Combined playlist senza eventi -> no injection")
+        print("[PD][INFO] Combined playlist senza eventi -> no injection (cache fallback may apply)")
     else:
         if not dynamic_events:
-            print("[PD][INFO] Dynamic file empty or not found, skipping injection")
+            print("[PD][INFO] Dynamic file empty or not found, skipping injection (cache bypass)")
+
+    # Apply PD cache (fallback & updates) BEFORE saving dynamic
+    if dynamic_events:
+        apply_pd_cache(dynamic_events, pd_cache, performed_injection=performed_injection)
+        # Save updated cache (unless dry-run)
+        if not dry_run:
+            save_pd_cache(cache_path, pd_cache)
+    # Persist dynamic (with injected or fallback PD)
+    if dynamic_events:
+        save_dynamic(dynamic_p, dynamic_events, dry_run=dry_run)
+        print("[PD][DONE] Save dynamic with PD (fresh or cached) complete")
     print("[PD][END] run_post_live finished")
 
 
