@@ -1,4 +1,5 @@
 import { ContentType } from "stremio-addon-sdk";
+import { buildUnifiedStreamName, providerLabel } from './utils/unifiedNames';
 import * as cheerio from "cheerio";
 import * as fs from 'fs';
 import * as path from 'path';
@@ -30,6 +31,10 @@ export interface VixCloudStreamInfo {
   source: 'proxy' | 'direct';
   // Optional: estimated content size in bytes (parsed from VixSrc page)
   sizeBytes?: number;
+  // True only for synthetic FHD (forced variant) streams (used for HD badge in addon layer)
+  isSyntheticFhd?: boolean;
+  // Original content base title (senza placeholder Synthetic/Proxy FHD) se disponibile
+  originalName?: string;
 }
 
 /**
@@ -544,7 +549,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     }
 
     return {
-      name: finalNameForProxy,
+      name: finalNameForProxy, // will be transformed later
       streamUrl: finalStreamUrl,
       referer: url,
       source: 'proxy',
@@ -715,7 +720,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       }
 
       return {
-        name: determinedName,
+        name: determinedName, // raw; unify later
         streamUrl: finalStreamUrl,
         referer: finalReferer,
         source: 'direct'
@@ -737,6 +742,50 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   const directModeEnabled = !!config.vixLocal;
 
   const streams: VixCloudStreamInfo[] = [];
+  // helper to apply unified naming when returning
+  function finalize(list: VixCloudStreamInfo[]): VixCloudStreamInfo[] {
+    return list.map(s => {
+      try {
+        const isFhd = /[?&]h=1/.test(s.streamUrl) || /FHD/.test(s.name) || !!config.vixDual;
+        const baseTitle = s.name
+          .replace(/\s*🔓FHD?$/,'')
+          .replace(/\s*🔒FHD?$/,'')
+          .replace(/\s*🔓$/,'')
+          .replace(/\s*🔒$/,'')
+          .replace(/\s*\[ITA\].*$/,'')
+          .replace(/\s*\[SUB\].*$/,'')
+          .trim();
+        const isSub = /\bSUB\b/i.test(s.name);
+        const proxyOn = s.source === 'proxy' || /mediaflow|proxy/i.test(s.streamUrl);
+        const sizeBytes = (s as any).sizeBytes as number|undefined;
+        const unified = buildUnifiedStreamName({
+          baseTitle: baseTitle || 'Titolo',
+          isSub,
+          sizeBytes,
+          playerName: undefined,
+          proxyOn,
+          provider: 'vixsrc',
+          isFhdOrDual: isFhd
+        });
+        // PATCH: aggiungi linea fissa "🎦 1080p" SOLO per stream synthetic FHD VixSrc (isSyntheticFhd true)
+        // Requisito: la linea deve comparire immediatamente sopra la linea Proxy e solo per questi casi.
+        if ((s as any).isSyntheticFhd) {
+          try {
+            const lines = unified.split('\n');
+            const proxyIdx = lines.findIndex(l => l.startsWith('🌐 Proxy '));
+            if (proxyIdx > 0) {
+              const already = lines.some(l => l.trim() === '🎦 1080p');
+              if (!already) {
+                lines.splice(proxyIdx, 0, '🎦 1080p');
+              }
+              return { ...s, name: lines.join('\n') };
+            }
+          } catch {/* ignore injection errors */}
+        }
+        return { ...s, name: unified };
+      } catch { return s; }
+    });
+  }
 
   // Nuova strategia: 1) tenta SEMPRE direct parse (stile Kotlin) per ottenere HLS puro
   //                   2) se MFP configurato crea versione proxata partendo dall'HLS diretto
@@ -848,83 +897,50 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     const haveMfp = !!(config.mfpUrl && config.mfpPsw && streams.some(s=>s.source==='proxy'));
     const haveDirect = streams.some(s=>s.source==='direct');
 
-    function buildSyntheticBase(masterUrl: string, referer: string): VixCloudStreamInfo | null {
+    const directStream = streams.find(s=>s.source==='direct') || null;
+    const proxyStream = streams.find(s=>s.source==='proxy') || null;
+
+    // Deriva un nome originale di contenuto da direct/proxy/directResult (prima riga, ripulita)
+    const deriveOriginalName = (): string | undefined => {
+      const cand = (directStream?.name || proxyStream?.name || directResult?.name || '').split('\n')[0];
+      if (!cand) return undefined;
+      return cand
+        .replace(/^\s*🎬\s*/,'')
+        .replace(/\s*•\s*\[?(ITA|SUB)\]?$/i,'')
+        .replace(/\s*\[?(ITA|SUB)\]?$/i,'')
+        .trim();
+    };
+    const originalName = deriveOriginalName();
+
+    // Synthetic helpers (scoped here so they can capture usableAddonBase / haveMfp / config)
+    const buildSyntheticBase = (masterUrl: string, referer: string): VixCloudStreamInfo | null => {
       if (!usableAddonBase) return null;
       if (!/\/playlist\//.test(masterUrl)) return null;
-      // Pulizia masterUrl anche qui (difensivo)
       try {
         const mu = new URL(masterUrl);
         const token = mu.searchParams.get('token');
         const expires = mu.searchParams.get('expires');
         const h = mu.searchParams.get('h');
-        mu.search = '';
+        mu.search='';
         if (token) mu.searchParams.set('token', token);
         if (expires) mu.searchParams.set('expires', expires);
         if (h) mu.searchParams.set('h', h);
         masterUrl = mu.toString();
       } catch {/* ignore */}
-      const syntheticUrl = `${usableAddonBase.replace(/\/$/,'')}/vixsynthetic?src=${encodeURIComponent(masterUrl)}&lang=it&max=1`;
-  // Abilita modalità multilingua/sub automatiche (multi=1) per includere tutte le tracce disponibili
-  const syntheticFullUrl = syntheticUrl + '&multi=1';
-      // Naming rules:
-      // 1. Se c'è un direct stream e il master coincide -> usa il suo nome base + ' 🔓FHD'
-      // 2. Altrimenti, se non c'è direct ma c'è proxy, riusa il nome del proxy (senza eventuali icone) + ' 🔓FHD'
-      // 3. Fallback finale: 'Synthetic 🔓FHD'
-      const directRef = streams.find(s=>s.source==='direct');
-      if (haveDirect && directRef && masterUrl === directRef.streamUrl) {
-        return {
-          name: directRef.name.replace(/\s*🔓FHD?$/,'').replace(/\s*🔓$/,'') + ' 🔓FHD',
-          streamUrl: syntheticFullUrl,
-          referer,
-          source: 'direct'
-        };
-      }
-      const proxyRef = streams.find(s=>s.source==='proxy');
-      if (!haveDirect && proxyRef) {
-        const baseName = proxyRef.name
-          .replace(/\s*🔒\s*FHD$/,'')
-          .replace(/\s*🔒FHD$/,'')
-          .replace(/\s*🔒$/,'')
-          .replace(/\s*🔓FHD?$/,'')
-          .replace(/\s*🔓$/,'')
-          .trim();
-        return {
-          name: baseName + ' 🔓FHD',
-          streamUrl: syntheticFullUrl,
-          referer,
-          source: 'direct'
-        };
-      }
-      return {
-        name: 'Synthetic 🔓FHD',
-        streamUrl: syntheticFullUrl,
-        referer,
-        source: 'direct'
-      };
-    }
-
-    function buildSyntheticProxyWrapper(innerSynthetic: string, referer: string): VixCloudStreamInfo | null {
+      const syntheticUrl = `${usableAddonBase.replace(/\/$/,'')}/vixsynthetic?src=${encodeURIComponent(masterUrl)}&lang=it&max=1&multi=1`;
+      return { name: 'Synthetic FHD', streamUrl: syntheticUrl, referer, source: 'direct', isSyntheticFhd: true, originalName };
+    };
+    const buildSyntheticProxyWrapper = (innerSynthetic: string, referer: string): VixCloudStreamInfo | null => {
       if (!haveMfp || !config.mfpUrl || !config.mfpPsw) return null;
       const cleaned = config.mfpUrl.endsWith('/') ? config.mfpUrl.slice(0,-1) : config.mfpUrl;
       const wrapper = `${cleaned}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(innerSynthetic)}&api_password=${encodeURIComponent(config.mfpPsw)}`;
-      return {
-        name: (()=>{
-          const proxyOrig = streams.find(s=>s.source==='proxy');
-          if (proxyOrig) return proxyOrig.name.replace(/\s*FHD$/,'').replace(/\s*🔒FHD$/,'').replace(/\s*🔒$/,'') + ' 🔒 FHD';
-          return 'Proxy FHD 🔒';
-        })(),
-        streamUrl: wrapper,
-        referer,
-        source: 'proxy'
-      };
-    }
+      return { name: 'Proxy FHD', streamUrl: wrapper, referer, source: 'proxy', isSyntheticFhd: true, originalName };
+    };
 
-    const directStream = streams.find(s=>s.source==='direct') || null;
-    const proxyStream = streams.find(s=>s.source==='proxy') || null;
+    console.log('[VixSrc][Scenario] local=', !!config.vixLocal, 'dual=', !!config.vixDual, 'haveDirect=', !!directStream, 'haveProxy=', !!proxyStream, 'usableAddonBase=', !!usableAddonBase, 'haveMfp=', haveMfp);
 
     // Scenario logic
-    console.log('[VixSrc][Scenario] local=', !!config.vixLocal, 'dual=', !!config.vixDual, 'haveDirect=', !!directStream, 'haveProxy=', !!proxyStream, 'usableAddonBase=', !!usableAddonBase, 'haveMfp=', haveMfp);
-  console.log('[VixSrc][VariantForce] DISABLED: utilizzo sempre master playlist pulita (token,expires,h).');
+    console.log('[VixSrc][VariantForce] DISABLED: utilizzo sempre master playlist pulita (token,expires,h).');
     if (config.vixLocal && !config.vixDual) {
       // Scenario 1: Local ON, Dual OFF -> Direct + Proxy (già in streams) (nessun synthetic)
       if (!config.vixDual) {
@@ -934,10 +950,10 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           console.log('[VixSrc][Scenario1] Synthetic disabilitato perché vixDual=false');
         }
       }
-      return [
+      return finalize([
         ...(directStream ? [directStream] : []),
         ...(proxyStream ? [proxyStream] : [])
-      ];
+      ]);
     }
     if (config.vixLocal && config.vixDual) {
       // Scenario 2: Local ON, Dual ON -> Direct, Proxy, Synthetic Direct, Synthetic Proxy Wrapper
@@ -965,7 +981,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       } else {
         console.log('[VixSrc][Synthetic] Nessun master disponibile per creare synthetic (Scenario 2)');
       }
-      return result;
+      return finalize(result);
     }
     if (!config.vixLocal && config.vixDual) {
       // Scenario 3: Local OFF, Dual ON -> solo synthetic direct + synthetic proxy wrapper
@@ -1018,7 +1034,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           console.log('[VixSrc][Scenario3][Fallback] Nessuno stream direct disponibile (directStream/directResult null)');
         }
       }
-      return result;
+      return finalize(result);
     }
     // Scenario 4: Local OFF, Dual OFF -> solo proxy classico
     if (!config.vixLocal && !config.vixDual) {
@@ -1029,14 +1045,16 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           console.log('[VixSrc][Scenario4] Synthetic disabilitato perché vixDual=false');
         }
       }
-      return proxyStream ? [proxyStream] : null;
+      return proxyStream ? finalize([proxyStream]) : null;
     }
-    return streams; // fallback generico (non dovrebbe arrivarci)
+    return finalize(streams); // fallback generico
   } catch (e) {
     console.warn('[VixSrc][Synthetic] Errore gestione streams (matrice):', (e as any)?.message || e);
     return streams.slice(0,1);
   }
 }
+
+// (Synthetic helpers defined inside scenario logic scope above)
 
 // Helper: forza variante 1080p (o la massima disponibile) da un master playlist HLS (passato come URL)
 async function forceHighestVariant(masterUrl: string): Promise<string | null> {
@@ -1094,3 +1112,6 @@ function resolvePlaylistUrl(masterUrl: string, maybeRelative: string): string {
     return maybeRelative;
   }
 }
+
+// Unified naming helper utilities
+// (Unified naming helpers now imported from utils/unifiedNames.ts)
