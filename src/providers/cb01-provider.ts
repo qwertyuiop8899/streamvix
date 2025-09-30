@@ -342,7 +342,8 @@ export class Cb01Provider {
   // Nuovo formato richiesto:
   // Linea 1: Nome completo file (con estensione) + [ITA]
   // Linea 2: "💾 <SIZE> Mixdrop [ITA]" (se size disponibile) altrimenti "💾 Mixdrop [ITA]"
-  let line1 = meta.file ? meta.file.trim() : 'StreamViX CB';
+  // Legacy placeholder 'StreamViX CB' removed: unified naming layer will append provider label.
+  let line1 = meta.file ? meta.file.trim() : 'File';
   // (Serie disabilitate, quindi ep ignorato; se riabilitate e si vuole aggiungere S/E si può reinserire qui)
   if(!/\[ITA\]/i.test(line1)) line1 += ' [ITA]';
   const line2 = meta.size ? `💾 ${meta.size} • Mixdrop • [ITA]` : '💾 Mixdrop • [ITA]';
