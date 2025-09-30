@@ -1,5 +1,6 @@
 import { addonBuilder, getRouter, Manifest, Stream } from "stremio-addon-sdk";
 import { getStreamContent, VixCloudStreamInfo, ExtractorConfig } from "./extractor";
+import { mapLegacyProviderName, buildUnifiedStreamName, providerLabel } from './utils/unifiedNames';
 import * as fs from 'fs';
 import { landingTemplate } from './landingPage';
 import * as path from 'path';
@@ -2861,19 +2862,176 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     const providerPromises: Promise<void>[] = [];
 
+                    // Map legacy streamName label (used for ordering) to internal provider key
+                    const reverseProviderKey = (label: string): string => {
+                        const l = label.toLowerCase();
+                        if (l.includes('vixsrc')) return 'vixsrc';
+                        if (l.includes('anime unity')) return 'animeunity';
+                        if (l.includes('anime saturn')) return 'animesaturn';
+                        if (l.includes('anime world')) return 'animeworld';
+                        if (l.includes('guardaserie')) return 'guardaserie';
+                        if (l.includes('guardahd')) return 'guardahd';
+                        if (l.includes('cb01')) return 'cb01';
+                        if (l.includes('streamingwatch')) return 'streamingwatch';
+                        if (l.includes('eurostreaming')) return 'eurostreaming';
+                        return 'generic';
+                    };
+                    const unifyStreams = (original: Stream[], providerLabelName: string): Stream[] => {
+                        if (type === 'tv') return original; // Live TV untouched
+                        const providerKey = reverseProviderKey(providerLabelName);
+                        // Pre-scan for canonical base title (vixsrc) excluding synthetic placeholder names
+                        let canonicalVixBase: string | null = null;
+                        if (providerKey === 'vixsrc') {
+                            for (const st of original) {
+                                const first = (st.title||'').toString().split('\n')[0];
+                                if (first && !/Synthetic FHD|Proxy FHD/i.test(first)) {
+                                    canonicalVixBase = first
+                                        .replace(/^\s*🎬\s*/, '')
+                                        .replace(/\[?(ITA|SUB)\]?/ig,'')
+                                        .replace(/🔒|🔓FHD?|🔓/g,'')
+                                        .replace(/\s*•\s*/g,' ')
+                                        .replace(/\s{2,}/g,' ')
+                                        .trim();
+                                    if (canonicalVixBase) break;
+                                }
+                            }
+                            // Se non trovato (tutte placeholder), prova a prendere originalName dai synthetic
+                            if (!canonicalVixBase) {
+                                for (const st of original) {
+                                    const orig = (st as any).originalName;
+                                    if (orig && typeof orig === 'string') { canonicalVixBase = orig; break; }
+                                }
+                            }
+                        }
+                        const hostMap: Record<string,string> = {
+                            'mixdrop':'Mixdrop', 'dropload':'Dropload', 'streamtape':'Streamtape', 'supervideo':'SuperVideo', 'doodstream':'Doodstream', 'deltabit':'Deltabit', 'delta bit':'Deltabit'
+                        };
+                        return original.map(st => {
+                            const url = (st as any).url || '';
+                            const rawTitle: string = (st.title || '').toString();
+                            const lines = rawTitle.split('\n');
+                            let baseLine = lines[0] || '';
+                            // Remove duplicated leading icons / tags
+                            baseLine = baseLine.replace(/^\s*🎬\s*/, '');
+                            for (let i=0;i<3;i++) baseLine = baseLine.replace(/^\s*\[[^\]]+\]\s*/,'').trim();
+                            // Strip language markers or bullet language artifacts from base line
+                            baseLine = baseLine
+                                .replace(/\s*[•▪]\s*\[?(ITA|SUB)\]?/ig,'')
+                                .replace(/\s*\b(ITA|SUB)\b/ig,'')
+                                .replace(/\s*•\s*\[SUB ITA\]/ig,'')
+                                .replace(/\s{2,}/g,' ') // collapse spaces
+                                .trim();
+                            // Replace synthetic placeholder names with canonical title
+                            if (providerKey === 'vixsrc' && /^(Synthetic FHD|Proxy FHD)$/i.test(baseLine)) {
+                                if (canonicalVixBase) {
+                                    baseLine = canonicalVixBase;
+                                } else if ((st as any).originalName) {
+                                    baseLine = (st as any).originalName;
+                                }
+                            }
+                            // Extra cleanup for VixSrc: rimuovi eventuali marker lingua / lock rimasti nel baseLine
+                            if (providerKey === 'vixsrc') {
+                                baseLine = baseLine
+                                    .replace(/\[?(ITA|SUB)\]?/ig,'')
+                                    .replace(/🔒|🔓FHD?|🔓/g,'')
+                                    .replace(/\s*•\s*/g,' ')
+                                    .replace(/\s{2,}/g,' ')
+                                    .trim();
+                            }
+                            // Cleanup universale aggiuntivo: rimuovi eventuali [ITA]/[SUB] residui attaccati senza spazio e lock icon per qualsiasi provider
+                            baseLine = baseLine
+                                .replace(/\[ITA\]/ig,'')
+                                .replace(/\[SUB\]/ig,'')
+                                .replace(/🔒|🔓FHD?|🔓/g,'')
+                                .replace(/\s{2,}/g,' ')
+                                .replace(/\s+$/,'')
+                                .trim();
+                            // Language detection (from whole raw title)
+                            const isSub = /\bsub\b|\[sub\]/i.test(rawTitle);
+                            // Proxy detection (broadened):
+                            //  - /proxy/ path segment
+                            //  - presence of api_password= (MediaFlow proxy wrapper)
+                            //  - extractor/video path (our mfp encapsulation pattern)
+                            //  - behaviorHints.proxyHeaders flag
+                            const proxyOn = /\/proxy\//i.test(url)
+                                || /api_password=/i.test(url)
+                                || /extractor\/video/i.test(url)
+                                || !!(st as any)?.behaviorHints?.proxyHeaders;
+                            // Player host detection (not for vixsrc)
+                            let playerName: string | undefined;
+                            let sizeHuman: string | undefined; // already formatted (e.g. 1.58Gb / 850MB)
+                            let resHuman: string | undefined;  // e.g. 1080p
+                            if (providerKey !== 'vixsrc') {
+                                const lowerAll = rawTitle.toLowerCase();
+                                for (const k of Object.keys(hostMap)) {
+                                    if (lowerAll.includes(k)) { playerName = hostMap[k]; break; }
+                                }
+                                // Try to parse existing size/res lines produced by extractors (line starting with 💾)
+                                // Patterns we expect from extractors: "💾 <SIZE> • <RES>", "💾 <SIZE>", "💾 <SIZE> • <somethingp>", or combined tokens separated by spaces or bullets.
+                                for (const l of lines) {
+                                    if (/^\s*💾/i.test(l)) {
+                                        // Remove leading icon
+                                        let rest = l.replace(/^\s*💾\s*/,'').trim();
+                                        // Split by separators (bullet • or whitespace)
+                                        const parts = rest.split(/\s*[•|]\s*|\s+/).filter(Boolean);
+                                        // Heuristics: first part maybe size (contains MB/GB), any part matching \d{3,4}p is resolution
+                                        for (const p of parts) {
+                                            if (!sizeHuman && /([0-9]+(?:\.[0-9]+)?\s*(?:GB|MB))/i.test(p)) sizeHuman = p.replace(/gb$/i,'GB').replace(/mb$/i,'MB');
+                                            if (!resHuman && /^(\d{3,4})p$/i.test(p)) resHuman = p.toLowerCase();
+                                        }
+                                    }
+                                }
+                            }
+                            // If resolution appears split like "1080p" inside raw title second line without 💾, catch it
+                            if (!resHuman) {
+                                const m = rawTitle.match(/\b(\d{3,4})p\b/);
+                                if (m) resHuman = m[1] + 'p';
+                            }
+                            // HD flag ONLY if synthetic flag propagated
+                            const isSynthetic = !!(st as any).isSyntheticFhd;
+                            const isFhdOrDual = providerKey === 'vixsrc' && isSynthetic;
+                            // Assemble lines manually per new spec:
+                            // 1 Title (🎬 prefix added later by builder or we add manually)
+                            // 2 Language line 🗣 [ITA|SUB]
+                            // 3 Player line ▶️ <Player> (if any)
+                            // 4 Size/Res line (💾 <SIZE> 🎦 <RES> | only if at least one present)
+                            // 5 Proxy line 🌐 Proxy (ON|OFF)
+                            // (Provider label removed from multiline)
+                            const outLines: string[] = [];
+                            outLines.push(`🎬 ${baseLine}`);
+                            outLines.push(`🗣 [${isSub ? 'SUB' : 'ITA'}]`);
+                            if (playerName) outLines.push(`▶️ ${playerName}`);
+                            // Build size/res combined line before proxy if present
+                            let sizeResLine = '';
+                            if (sizeHuman || resHuman) {
+                                if (sizeHuman && resHuman) {
+                                    sizeResLine = `💾 ${sizeHuman.replace(/B$/,'B')} 🎦 ${resHuman}`;
+                                } else if (sizeHuman) {
+                                    sizeResLine = `💾 ${sizeHuman.replace(/B$/,'B')}`;
+                                } else if (resHuman) {
+                                    sizeResLine = `🎦 ${resHuman}`; // resolution only
+                                }
+                            }
+                            if (sizeResLine) outLines.push(sizeResLine);
+                            outLines.push(`🌐 Proxy (${proxyOn ? 'ON':'OFF'})`);
+                            const unifiedTitle = outLines.join('\n');
+                            return { ...st, title: unifiedTitle, name: providerLabel(providerKey, isFhdOrDual) } as Stream;
+                        });
+                    };
                     const runProvider = async (name: string, enabled: boolean, handler: () => Promise<{ streams: Stream[] }>, streamName: string, isMixdropSensitive = false) => {
                         if (enabled) {
                             try {
                                 const result = await handler();
                                 if (result && result.streams) {
-                                    for (const s of result.streams) {
+                                    const prepared = result.streams.map(s => {
                                         if (isMixdropSensitive) {
                                             const isMixdrop = s.title ? /\b(mixdrop|streamtape)\b/i.test(s.title) : false;
-                                            allStreams.push({ ...s, name: isMixdrop ? streamName.replace(' 🔓', '') : streamName });
-                                        } else {
-                                            allStreams.push({ ...s, name: streamName });
+                                            return { ...s, name: isMixdrop ? streamName.replace(' 🔓', '') : streamName } as Stream;
                                         }
-                                    }
+                                        return { ...s, name: streamName } as Stream;
+                                    });
+                                    const unified = unifyStreams(prepared, streamName);
+                                    for (const u of unified) allStreams.push(u);
                                 }
                             } catch (error) {
                                 console.error(`🚨 ${name} error:`, error);
@@ -2919,10 +3077,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     const sizeLabel = st.sizeBytes > 0 ? fmtBytes(st.sizeBytes) : '?';
                                     finalTitle = `${adjustedName}\n💾 ${sizeLabel}`;
                                 }
-                                streams.push({ title: finalTitle, url: st.streamUrl, behaviorHints: { notWebReady: true, headers: { Referer: st.referer } } as any });
+                                streams.push({ title: finalTitle, url: st.streamUrl, behaviorHints: { notWebReady: true, headers: { Referer: st.referer } } as any, isSyntheticFhd: st.isSyntheticFhd, originalName: (st as any).originalName } as any);
                             }
                             return { streams };
-                        }, 'StreamViX Vx'));
+                        }, providerLabel('vixsrc')));
                     }
 
                     // AnimeUnity
@@ -2933,7 +3091,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (id.startsWith('tt')) return animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                         if (id.startsWith('tmdb:')) return animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                         return { streams: [] };
-                    }, 'StreamViX AU'));
+                    }, providerLabel('animeunity')));
 
                     // AnimeSaturn
                     providerPromises.push(runProvider('AnimeSaturn', animeSaturnEnabled, async () => {
@@ -2944,7 +3102,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (id.startsWith('tt')) return animeSaturnProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                         if (id.startsWith('tmdb:')) return animeSaturnProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                         return { streams: [] };
-                    }, 'StreamViX AS'));
+                    }, providerLabel('animesaturn')));
 
                     // AnimeWorld
                     providerPromises.push(runProvider('AnimeWorld', animeWorldEnabled, async () => {
@@ -2955,7 +3113,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (id.startsWith('tt')) return animeWorldProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                         if (id.startsWith('tmdb:')) return animeWorldProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                         return { streams: [] };
-                    }, 'StreamViX AW'));
+                    }, providerLabel('animeworld')));
 
                     // GuardaSerie
                     if (guardaSerieEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
@@ -2970,7 +3128,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (id.startsWith('tt')) return gsProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return gsProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             return { streams: [] };
-                        }, 'StreamViX GS 🔓'));
+                        }, providerLabel('guardaserie')));
                     }
 
                     // GuardaHD
@@ -2986,7 +3144,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (id.startsWith('tt')) return ghProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             return { streams: [] };
-                        }, 'StreamViX GH 🔓', true));
+                        }, providerLabel('guardahd'), true));
                     }
 
                     // CB01 (Mixdrop only)
@@ -3000,7 +3158,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return cbProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        }, 'StreamViX CB', true));
+                        }, providerLabel('cb01'), true));
                     }
 
                     // StreamingWatch (nuovo provider) - supporta film e serie
@@ -3012,7 +3170,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return swProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        }, 'StreamViX SW 🔓'));
+                        }, providerLabel('streamingwatch')));
                     }
 
                     // Eurostreaming
@@ -3026,99 +3184,80 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return esProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        }, 'StreamViX ES 🔓', true));
+                        }, providerLabel('eurostreaming'), true));
                     }
 
 
                     await Promise.all(providerPromises);
                 }
 
-                // Mantieni logica VixSrc per tutti gli altri ID (solo se non già eseguita in parallelo)
                 if (!vixsrcScheduled && !id.startsWith('kitsu:') && !id.startsWith('mal:') && !id.startsWith('tv:')) {
-                    console.log(`📺 Processing non-Kitsu or MAL ID with VixSrc: ${id}`);
-                    // Gate VixSrc by config flag (default ON if absent)
-                    try {
-                        const cfg3 = { ...configCache } as AddonConfig;
-                        if (cfg3.disableVixsrc === true) {
-                            console.log('⛔ VixSrc disabled by config.disableVixsrc=true');
-                            return { streams: allStreams };
-                        }
-                    } catch {}
-
+                    try { const cfg3 = { ...configCache } as AddonConfig; if (cfg3.disableVixsrc === true) return { streams: allStreams }; } catch {}
                     const finalConfig: ExtractorConfig = {
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL,
                         mfpPsw: config.mediaFlowProxyPassword || process.env.MFP_PSW,
                         vixLocal: !!config.vixLocal,
                         vixDual: !!(config as any)?.vixDual,
-                        addonBase: (config as any)?.addonBase || (()=>{
-                            try {
-                                const proto = (process.env.EXTERNAL_PROTOCOL || 'https');
-                                const host = (process.env.EXTERNAL_HOST || process.env.HOST || process.env.VERCEL_URL || '').replace(/\/$/,'');
-                                if (host) return `${proto}://${host}`;
-                                return '';
-                            } catch { return ''; }
-                        })()
+                        addonBase: (config as any)?.addonBase || ''
                     };
-
                     const res: VixCloudStreamInfo[] | null = await getStreamContent(id, type, finalConfig);
-
                     if (res) {
-                        // helper: compact bytes format (e.g., 123.4 MB)
-                        const fmtBytes = (n: number): string => {
-                            const units = ['B','KB','MB','GB','TB'];
-                            let v = n;
-                            let u = 0;
-                            while (v >= 1024 && u < units.length - 1) { v /= 1024; u++; }
-                            return `${v.toFixed(v >= 10 || u === 0 ? 0 : 1)} ${units[u]}`;
-                        };
                         for (const st of res) {
-                            if (st.streamUrl == null) continue;
-
-                            // Costruisci il title: mantieni il nome invariato, e SOLO per VixSrc aggiungi sotto la riga 💾 size
-                            let adjustedVariant = st.name || '';
-                            adjustedVariant = adjustedVariant.replace(/\s*•\s*\[ITA\]$/i, ' • [ITA]');
-                            adjustedVariant = adjustedVariant.replace(/\s*\[ITA\]$/i, ' • [ITA]');
-                            let finalTitle = adjustedVariant;
-                            if (typeof st.sizeBytes === 'number') {
-                                const sizeLabel = st.sizeBytes > 0 ? fmtBytes(st.sizeBytes) : '?';
-                                finalTitle = `${adjustedVariant}\n💾 ${sizeLabel}`;
+                            if (!st.streamUrl) continue;
+                            let rawBase = (st.name||'').replace(/\s*•\s*\[ITA\]$/i,'').replace(/\s*\[ITA\]$/i,'').trim();
+                            if (/^(Synthetic FHD|Proxy FHD)$/i.test(rawBase) && (st as any).originalName) {
+                                rawBase = (st as any).originalName;
                             }
-
-                            // Nome mostrato nella lista: includi prefisso provider per mantenere reorder, più variante distinta
-                            const providerPrefix = 'StreamViX Vx';
-                            const streamName = `${providerPrefix} | ${adjustedVariant}`.trim();
-
-                            console.log(`Adding VixSrc stream variant: name="${streamName}" title="${finalTitle}" url=${st.streamUrl.split('?')[0]}`);
-
-                            allStreams.push({
-                                title: finalTitle,
-                                name: streamName,
-                                url: st.streamUrl,
-                                behaviorHints: {
-                                    notWebReady: true,
-                                    headers: { "Referer": st.referer },
-                                },
+                            let unified = buildUnifiedStreamName({
+                                baseTitle: rawBase || 'VixSrc',
+                                isSub: /\bsub\b|\[sub\]/i.test(st.name||''),
+                                sizeBytes: undefined, // non includere size per coerenza esempio
+                                playerName: undefined,
+                                proxyOn: st.source === 'proxy',
+                                provider: 'vixsrc',
+                                isFhdOrDual: !!st.isSyntheticFhd
                             });
+                            const parts = unified.split('\n');
+                            if (parts.length && /^🤌\s/.test(parts[parts.length-1])) parts.pop();
+                            unified = parts.join('\n');
+                            allStreams.push({ title: unified, name: providerLabel('vixsrc', !!st.isSyntheticFhd), url: st.streamUrl, behaviorHints: { notWebReady: true, headers: { Referer: st.referer } } as any, originalName: (st as any).originalName });
                         }
-                        console.log(`📺 VixSrc streams found: ${res.length}`);
                     }
                 }
-
-                // Reorder: ensure VixSrc (StreamViX Vx) streams always first
+                // Global provider ordering (VixSrc first)
                 try {
-                    const vix: Stream[] = [];
-                    const others: Stream[] = [];
-                    for (const s of allStreams) {
-                        const n = (s as any)?.name || (s as any)?.title || '';
-                        if (typeof n === 'string' && /StreamViX\s+Vx/i.test(n)) vix.push(s); else others.push(s);
-                    }
-                    if (vix.length) {
-                        // mutate in place (allStreams is const reference)
-                        allStreams.splice(0, allStreams.length, ...vix, ...others);
-                    }
-                } catch(e) { /* silent */ }
+                    const rank = (n: string): number => {
+                        const l = n.toLowerCase();
+                        if (l.includes('vixsrc')) return 0;
+                        if (l.includes('anime unity')) return 1;
+                        if (l.includes('anime saturn')) return 2;
+                        if (l.includes('anime world')) return 3;
+                        if (l.includes('guardaserie')) return 4;
+                        if (l.includes('guardahd')) return 5;
+                        if (l.includes('cb01')) return 6;
+                        if (l.includes('streamingwatch')) return 7;
+                        if (l.includes('eurostreaming')) return 8;
+                        return 50;
+                    };
+                    allStreams.sort((a,b)=> rank((a.name||a.title||'').toString()) - rank((b.name||b.title||'').toString()));
+                } catch {}
                 console.log(`✅ Total streams returned: ${allStreams.length}`);
+                try {
+                    console.log('🔍 Unified Streams Dump (final order):');
+                    allStreams.forEach((s, idx) => {
+                        const title = (s.title||'').toString();
+                        const lines = title.split('\n');
+                        const first = lines[0] || '';
+                        const provider = (s.name || providerLabel('generic')).toString();
+                        console.log(`[#${idx+1}] ${provider} :: ${first}`);
+                        console.log('      Full Title =>');
+                        lines.forEach(l=> console.log('        ' + l));
+                        console.log('      URL =>', (s as any).url || '(no url)');
+                    });
+                } catch (e) {
+                    console.warn('Unified Streams Dump failed:', (e as any)?.message || e);
+                }
                 return { streams: allStreams };
             } catch (error) {
                 console.error('Stream extraction failed:', error);
@@ -3975,6 +4114,52 @@ setTimeout(() => {
     logLive('Scheduler Live eventi attivato');
     scheduleNextLiveRun();
 }, 5000);
+
+// ================== BOOTSTRAP LIVE RUN (se file mancante o vuoto) ==================
+setTimeout(async () => {
+    try {
+        const dynPath = getDynamicFilePath();
+        let needBootstrap = false;
+        try {
+            if (!fs.existsSync(dynPath)) needBootstrap = true; else {
+                const st = fs.statSync(dynPath);
+                if (st.size < 50) { // heuristica: file troppo piccolo per contenere array eventi
+                    needBootstrap = true;
+                }
+            }
+        } catch { needBootstrap = true; }
+        if (needBootstrap) {
+            logLive('BOOTSTRAP: dynamic_channels.json assente o vuoto -> eseguo Live.py immediato');
+            await executeLiveScript();
+            try {
+                const r = purgeOldDynamicEvents();
+                loadDynamicChannels(true);
+                logLive('BOOTSTRAP: purge post Live.py eseguito', r);
+            } catch (e: any) {
+                logLive('BOOTSTRAP: errore purge post Live.py', e?.message || String(e));
+            }
+        } else {
+            logLive('BOOTSTRAP: dynamic_channels.json presente, skip run iniziale');
+        }
+    } catch (e: any) {
+        logLive('BOOTSTRAP: errore controllo iniziale', e?.message || String(e));
+    }
+}, 8000);
+// ==============================================================================
+// Esecuzione automatica /live/update dopo 2 minuti dall'avvio per garantire prima popolazione dinamici
+setTimeout(async () => {
+    try {
+        console.log('[LIVE][AUTO-120s] Avvio aggiornamento iniziale forzato');
+        // Riutilizza executeLiveScript + purge come fa l'endpoint /live/update
+        const execRes = await (async () => { try { return await (executeLiveScript as any)(); } catch { return undefined; } })();
+        const purgeResult = purgeOldDynamicEvents();
+        loadDynamicChannels(true);
+        console.log('[LIVE][AUTO-120s] Completato', { purgeRemoved: purgeResult.removed, dynamicCount: loadDynamicChannels(true).length });
+    } catch (e: any) {
+        console.error('[LIVE][AUTO-120s][ERR]', e?.message || e);
+    }
+}, 120000);
+// ==============================================================================
 // ====================================================================
 
 // ================== AUTO PURGE SCHEDULER ============================
