@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.4...v1.6.5) (2025-09-30)
+
+
+### Bug Fixes
+
+* add binge ([1cdec43](https://github.com/qwertyuiop8899/streamvix/commit/1cdec43e6e28442ca1bb9b67ded407f7f642cecd))
+
 ## [1.6.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.3...v1.6.4) (2025-09-30)
 
 
