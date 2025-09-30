@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.2...v1.6.3) (2025-09-30)
+
+
+### Bug Fixes
+
+* enhance no mfp ([7f3eeda](https://github.com/qwertyuiop8899/streamvix/commit/7f3eeda757e9726dc0eafa5dfd26dfe0158396ae))
+
 ## [1.6.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.1...v1.6.2) (2025-09-30)
 
 
