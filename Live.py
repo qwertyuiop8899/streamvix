@@ -770,9 +770,21 @@ def main():
     dynamic_channels.sort(key=lambda e: (e['eventStart'], e['name'].lower()))
 
     os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
+    def _atomic_write_json(path_out: str, obj):
+        # Scrive in modo atomico: file temporaneo + rename
+        tmp_path = f"{path_out}.tmp-{int(datetime.datetime.utcnow().timestamp()*1000)}"
+        with open(tmp_path, 'w', encoding='utf-8') as ftmp:
+            json.dump(obj, ftmp, ensure_ascii=False, indent=2)
+        try:
+            os.replace(tmp_path, path_out)  # atomic su stessa FS
+        except Exception:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+            raise
     try:
-        with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
-            json.dump(dynamic_channels, f, ensure_ascii=False, indent=2)
+        _atomic_write_json(OUTPUT_FILE, dynamic_channels)
         print(f"Creati {included} eventi dinamici (su {total_events} analizzati) -> {OUTPUT_FILE}")
         # Stampa riepilogo categorie viste (debug)
         print("Categorie viste (dopo cleaning):")
