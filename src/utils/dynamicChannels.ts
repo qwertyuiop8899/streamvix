@@ -175,7 +175,36 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       return [];
     }
     const raw = fs.readFileSync(DYNAMIC_FILE, 'utf-8');
-    const data = JSON.parse(raw);
+    // Se file vuoto o quasi sicuramente in stato "troncato" da write non atomica, tenta recovery senza azzerare la cache precedente
+    if (raw.trim().length < 2) {
+      try { console.warn('[DynamicChannels] WARNING: file dinamico vuoto o troncato (<2 bytes), mantengo cache precedente se disponibile'); } catch {}
+      if (dynamicCache) return dynamicCache; // mantieni precedente
+      dynamicCache = [];
+      lastLoad = now;
+      return [];
+    }
+    let data: any;
+    try {
+      data = JSON.parse(raw);
+    } catch (perr) {
+      // Retry una volta dopo breve sleep sincrono (busy wait minimo) in caso di race (writer ancora in corso)
+      try {
+        const start = Date.now();
+        while (Date.now() - start < 25) {/* piccolo delay */}
+        const raw2 = fs.readFileSync(DYNAMIC_FILE, 'utf-8');
+        if (raw2.trim().length >= 2) {
+          data = JSON.parse(raw2);
+        } else {
+          throw perr;
+        }
+      } catch (retryErr) {
+        try { console.error('[DynamicChannels] Parse JSON fallita (anche dopo retry). Mantengo cache precedente.', (retryErr as any)?.message || retryErr); } catch {}
+        if (dynamicCache) return dynamicCache;
+        dynamicCache = [];
+        lastLoad = now;
+        return [];
+      }
+    }
     if (!Array.isArray(data)) {
       dynamicCache = [];
       lastLoad = now;
@@ -306,9 +335,22 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
   }
 }
 
+function atomicWrite(target: string, content: string) {
+  const dir = path.dirname(target);
+  const base = path.basename(target);
+  const tmp = path.join(dir, `.${base}.tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  fs.writeFileSync(tmp, content, 'utf-8');
+  try {
+    fs.renameSync(tmp, target); // atomic su stessa FS
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch {}
+    throw e;
+  }
+}
+
 export function saveDynamicChannels(channels: DynamicChannel[]): void {
   try {
-    fs.writeFileSync(DYNAMIC_FILE, JSON.stringify(channels, null, 2), 'utf-8');
+    atomicWrite(DYNAMIC_FILE, JSON.stringify(channels, null, 2));
     dynamicCache = channels;
     lastLoad = Date.now();
   } catch (e) {
@@ -402,7 +444,12 @@ export function purgeOldDynamicEvents(): { before: number; after: number; remove
   }
   return false; // rimuove se < ieri (o < oggi se KEEP_YESTERDAY è off)
     });
-    fs.writeFileSync(DYNAMIC_FILE, JSON.stringify(filtered, null, 2), 'utf-8');
+    try {
+      atomicWrite(DYNAMIC_FILE, JSON.stringify(filtered, null, 2));
+    } catch (wErr) {
+      console.error('[DynamicChannels][PURGE] atomic write failed, fallback direct write', (wErr as any)?.message || wErr);
+      try { fs.writeFileSync(DYNAMIC_FILE, JSON.stringify(filtered, null, 2), 'utf-8'); } catch {/* ignore */}
+    }
     // Invalida cache
     dynamicCache = null;
     const after = filtered.length;
