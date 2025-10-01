@@ -1,25 +1,42 @@
 #!/usr/bin/env python3
 """spso_streams.py
 
-Enrichment script for SportsOnline playlist adding Italian-labelled streams.
+Enrichment script per playlist SportsOnline, aggiunge stream etichettati con prefisso [SPSO].
 
-Differences vs rbtv_streams:
-  - Playlist URL: https://world-proxifier.xyz/sportsonline/playlist.m3u8 (override via SPSO_PLAYLIST_URL)
-  - Team separator uses ' x ' (lowercase x surrounded by spaces) instead of vs/v/VS.
-  - Tag prefix: [SPSO]
-  - Insert ordering: AFTER any RB77 entries (prefix [RB77 or [RB77🇮🇹]) and BEFORE first [Strd] entry. This also comes after initial cluster (Vavoo + [P🐽D] + 🇮🇹 flag) preserving existing ordering.
-  - Does not perform Italian filtering (playlist may already be scoped); optionally filter if SPSO_LANG_FILTER=1 like RBTV logic.
+Motivazione aggiornamento (caso reale: "Napoli vs Sporting CP"):
+    La versione originale falliva il match perché:
+        1. L'evento contiene extra (orario / lega / data) es: "⏰ 21:00 : Napoli vs Sporting CP - Champions League 01/10"
+        2. L'estrazione squadre non tagliava la parte dopo ' - ' ⇒ lato destro diventava "Sporting CP - Champions League 01/10".
+        3. La normalizzazione sceglieva solo l'ULTIMO token ("10") invece di "sporting".
+        4. Set confronto {napoli,10} ≠ {napoli,cp} ⇒ nessun match.
+
+Nuova strategia matching:
+    - Latinizzazione (rimozione accenti: Grêmio→Gremio, Škendija→Skendija, Köln→Koln)
+    - Extract: rimozione prefisso orario/emoj, tag finale [HD..], tronca dopo ' - ' (lega / competizione)
+    - Alias multipli per ciascuna squadra: full, primo, ultimo, ultime due parole, forma concatenata se due tokens, sinonimi (_SYNONYMS)
+    - Matching gerarchico:
+             a) Strict set (norm_team coppia) se entrambe le squadre estratte
+             b) Alias direct (event_team1 ∩ playlist_team1 AND event_team2 ∩ playlist_team2)
+             c) Alias cross (incrociato) per invertire ordine se necessario
+             d) Single entity fallback (parole chiave GP / MotoGP / tennis etc.)
+    - Ignora token finali puramente numerici nella normalizzazione base.
+    - Logging opzionale con SPSO_MATCH_DEBUG=1 per diagnosi (mostra MISS e ragione dei match trovati).
+
+Ordering invariato:
+    - Inserimento dopo cluster iniziale (Vavoo + [P🐽D] + 🇮🇹) + blocco RB77 e prima di primo [Strd].
 
 Environment:
-  SPSO_PLAYLIST_URL (default https://world-proxifier.xyz/sportsonline/playlist.m3u8)
-  SPSO_POLL_INTERVAL externally in addon.ts
-  SPSO_FORCE to force discovery ignoring windows (future use; currently we inject regardless of time windows)
-  DYNAMIC_FILE (default /tmp/dynamic_channels.json)
+    SPSO_PLAYLIST_URL  (default https://world-proxifier.xyz/sportsonline/playlist.m3u8)
+    SPSO_FALLBACK_URL  (default stesso URL)
+    SPSO_FORCE         (forza esecuzione) [non usato per finestre temporali attualmente]
+    DYNAMIC_FILE       (default /tmp/dynamic_channels.json)
+    SPSO_MATCH_DEBUG   (stampa dettagli di match/miss)
+    SPSO_LANG_FILTER / SPSO_LANG_KEYWORDS opzionali come versione precedente.
 
-Persistence file: /tmp/spso_streams_persist.json
+Persistenza: /tmp/spso_streams_persist.json
 """
 from __future__ import annotations
-import os, re, json, time, datetime, sys, urllib.request, socket
+import os, re, json, time, datetime, sys, urllib.request, socket, unicodedata
 from typing import List, Dict, Any, Tuple
 
 PLAYLIST_URL = os.environ.get('SPSO_PLAYLIST_URL','https://world-proxifier.xyz/sportsonline/playlist.m3u8')
@@ -36,7 +53,8 @@ LANG_INCLUDE = [t.strip().lower() for t in (os.environ.get('SPSO_LANG_KEYWORDS')
 INCLUDE_REGEX = re.compile('|'.join(re.escape(t) for t in LANG_INCLUDE), re.IGNORECASE) if LANG_FILTER and LANG_INCLUDE else None
 
 # Team separator pattern uses ' x ' ; we also fallback to RBTV style if not found
-SEP_X = re.compile(r'\b([A-Za-z0-9 .\-]+?)\s+x\s+([A-Za-z0-9 .\-]+?)\b')
+# Separatore ' x ' gestito via split semplice (supporta accenti). Regex precedente perdeva lettere accentate.
+SEP_X = re.compile(r'\s+x\s+', re.IGNORECASE)
 VS_FALLBACK = re.compile(r'\b(vs?|vs\.|v)\b', re.IGNORECASE)
 TAG_SUFFIX = re.compile(r'\[[^\]]+\]\s*$')
 WORD_CLEAN = re.compile(r'[^a-z0-9]+')
@@ -46,29 +64,73 @@ SINGLE_KEYWORDS = ['grand prix','gp','formula 1','f1','motogp','qualifying','pra
 def now_utc():
     return datetime.datetime.now(datetime.timezone.utc)
 
+def _latinize(txt: str) -> str:
+    return ''.join(c for c in unicodedata.normalize('NFKD', txt) if not unicodedata.combining(c))
+
+_SYNONYMS = {
+    'internazionale': 'inter', 'inter': 'inter', 'juventus': 'juve', 'juve': 'juve', 'napoli': 'napoli',
+    'sporting cp': 'sporting', 'sporting clube': 'sporting', 'sporting': 'sporting',
+    'psg': 'psg', 'paris': 'psg', 'paris saint germain': 'psg', 'saint-germain': 'psg', 'paris sg': 'psg',
+    'manchester city': 'city', 'man city': 'city', 'mancity': 'city', 'city': 'city',
+    'atletico madrid': 'atletico', 'atlético madrid': 'atletico', 'athletic club': 'athletic', 'athletic bilbao': 'athletic',
+    'crvena zvezda': 'zvezda', 'red star': 'zvezda', 'köln': 'koln', 'koln': 'koln',
+    'bayer leverkusen': 'leverkusen', 'fc porto': 'porto', 'porto': 'porto'
+}
+
 def norm_team(name: str) -> str:
-    n = name.lower().strip()
+    n = _latinize(name).lower().strip()
     n = WORD_CLEAN.sub(' ', n)
     toks = [t for t in n.split() if t]
-    synonyms = {
-        'internazionale': 'inter', 'inter': 'inter', 'juventus': 'juve', 'juve': 'juve', 'napoli': 'napoli',
-        'milan': 'milan', 'pisa': 'pisa', 'roma': 'roma', 'lazio': 'lazio'
-    }
+    if not toks:
+        return ''
+    full = ' '.join(toks)
+    if full in _SYNONYMS:
+        return _SYNONYMS[full]
+    # Evita token numerici finali come identificatore principale
+    filtered = [t for t in toks if not t.isdigit()]
+    base_tokens = filtered or toks
+    last = base_tokens[-1]
+    if last in _SYNONYMS:
+        return _SYNONYMS[last]
+    return last
+
+def team_aliases(name: str) -> set[str]:
+    n = _latinize(name).lower()
+    n = WORD_CLEAN.sub(' ', n).strip()
+    toks = [t for t in n.split() if t]
+    if not toks:
+        return set()
+    aliases: set[str] = set()
+    full = ' '.join(toks)
+    aliases.add(full)
+    if full in _SYNONYMS:
+        aliases.add(_SYNONYMS[full])
+    # primi / ultimi
+    aliases.add(toks[0])
+    aliases.add(toks[-1])
+    if len(toks) >= 2:
+        aliases.add(' '.join(toks[-2:]))
+    if len(toks) == 2:
+        aliases.add(''.join(toks))  # mancity, redstar
     for t in toks:
-        if t in synonyms:
-            return synonyms[t]
-    return toks[-1] if toks else ''
+        if t in _SYNONYMS:
+            aliases.add(_SYNONYMS[t])
+    return {a for a in aliases if a and not a.isdigit()}
 
 def extract_teams(title: str) -> Tuple[str|None,str|None]:
     core = TAG_SUFFIX.sub('', title).strip()
-    # Prefer ' x ' separator
-    m = SEP_X.search(core)
-    if m:
-        left = m.group(1).strip()
-        right = m.group(2).strip()
-        if left and right:
-            return left, right
-    # Fallback to RBTV style vs detection (last occurrence)
+    # Rimuove prefisso orario / emoji (es "⏰ 21:00 : ") se presente
+    core = re.sub(r'^.+?:\s+', '', core) if ' : ' in core else core
+    # Tronca dopo ' - ' (lega / competizione / data)
+    if ' - ' in core:
+        core = core.split(' - ', 1)[0].strip()
+    low = core.lower()
+    if ' x ' in low:
+        parts = core.split(' x ', 1)
+        if len(parts) == 2:
+            l, r = parts[0].strip(), parts[1].strip()
+            if l and r:
+                return l, r
     matches = list(VS_FALLBACK.finditer(core))
     if matches:
         mv = matches[-1]
@@ -312,19 +374,33 @@ def enrich():
                     single_mode = True
                 else:
                     continue
+            ev_alias_1 = team_aliases(t1) if t1 else set()
+            ev_alias_2 = team_aliases(t2) if t2 else set()
             ev_norm = {norm_team(t1), norm_team(t2)} if not single_mode and t1 and t2 else set()
+            debug_match = (os.environ.get('SPSO_MATCH_DEBUG') or '').lower() in {'1','true','on','yes'}
             added_this = 0
             for pl in playlist:
                 pt1,pt2 = extract_teams(pl['title'])
                 match_ok = False
+                reason = ''
                 if single_mode:
-                    match_ok = is_single_entity(pl['title'])
+                    if is_single_entity(pl['title']):
+                        match_ok = True; reason = 'single'
                 else:
                     if pt1 and pt2:
                         pls = {norm_team(pt1), norm_team(pt2)}
-                        if pls == ev_norm:
-                            match_ok = True
+                        if pls == ev_norm and '' not in pls:
+                            match_ok = True; reason = 'strict'
+                        else:
+                            p1a = team_aliases(pt1)
+                            p2a = team_aliases(pt2)
+                            direct = (ev_alias_1 & p1a) and (ev_alias_2 & p2a)
+                            cross  = (ev_alias_1 & p2a) and (ev_alias_2 & p1a)
+                            if direct or cross:
+                                match_ok = True; reason = 'alias-direct' if direct else 'alias-cross'
                 if not match_ok:
+                    if debug_match:
+                        print(f"[SPSO][MATCH][MISS] ev='{name}' pl='{pl['title']}' ev1={list(ev_alias_1)[:5]} ev2={list(ev_alias_2)[:5]}")
                     continue
                 final_url = pl['url']
                 # Estrarre solo la parte variante (es: [HDD A], [HDD B], [SD], [VDO], ecc.) se presente
@@ -345,6 +421,8 @@ def enrich():
                 persist_changed = True
                 added_total += added_this
                 print(f"[SPSO][INJECT]{'[FORCE]' if FORCE_MODE else ''} event={ev.get('id')} added={added_this} mode={'SINGLE' if single_mode else 'DUO'}")
+            elif debug_match and not added_this:
+                print(f"[SPSO][MATCH][NONE] ev='{name}' nessun match playlist")
         except Exception as e:
             print(f"[SPSO][ERR] event loop: {e}")
             continue
