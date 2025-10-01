@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.8...v1.6.9) (2025-10-01)
+
+
+### Bug Fixes
+
+* order strd ([1d99f32](https://github.com/qwertyuiop8899/streamvix/commit/1d99f32e7e83b74a4e2af37e34b4efbe042a0547))
+
 ## [1.6.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.7...v1.6.8) (2025-10-01)
 
 
