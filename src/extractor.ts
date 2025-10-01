@@ -891,7 +891,8 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       if (h) mu.searchParams.set('h', h);
       masterUrl = mu.toString();
     } catch {/* ignore */}
-    const syntheticUrl = `${usableAddonBase.replace(/\/$/,'')}/vixsynthetic?src=${encodeURIComponent(masterUrl)}&lang=it&max=1&multi=1`;
+  // Aggiunto suffisso .m3u8 per compatibilità con player HLS che richiedono estensione
+  const syntheticUrl = `${usableAddonBase.replace(/\/$/,'')}/vixsynthetic.m3u8?src=${encodeURIComponent(masterUrl)}&lang=it&max=1&multi=1`;
     const directRef = streams.find(s=>s.source==='direct');
     if (haveDirect && directRef && masterUrl === directRef.streamUrl) {
       return { name: directRef.name.replace(/\s*🔓FHD?$/,'').replace(/\s*🔓$/,'') + ' 🔓FHD', streamUrl: syntheticUrl, referer, source: 'direct', isSyntheticFhd: true, originalName: directRef.name };
