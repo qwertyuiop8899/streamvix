@@ -447,32 +447,6 @@ def enrich():
             streams = ev.get('streams') or []
             existing_urls = { s.get('url') for s in streams if isinstance(s, dict) }
             existing_titles = { s.get('title') for s in streams if isinstance(s, dict) }
-            # Helper per riordinare blocco [Strd] (Italiani prima)
-            def _reorder_strd_block(streams_list: List[Dict[str,Any]]):
-                # Trova primo indice blocco [Strd]
-                start = None
-                for idx,s in enumerate(streams_list):
-                    if isinstance(s, dict) and str(s.get('title','')).startswith(HDR_STREAMED_PREFIX):
-                        start = idx
-                        break
-                if start is None:
-                    return
-                end = start
-                while end < len(streams_list):
-                    t = str(streams_list[end].get('title','')) if isinstance(streams_list[end], dict) else ''
-                    if t.startswith(HDR_STREAMED_PREFIX):
-                        end += 1
-                    else:
-                        break
-                block = streams_list[start:end]
-                # partiziona: italiani (contengono bandiera) prima
-                ita = [s for s in block if '🇮🇹' in str(s.get('title',''))]
-                other = [s for s in block if '🇮🇹' not in str(s.get('title',''))]
-                if not ita or not other:
-                    return  # già ordinato o tutto omogeneo
-                new_block = ita + other
-                streams_list[start:end] = new_block
-
             # Retention: fuori discovery ma vogliamo mantenere ciò che avevamo.
             if not FORCE_MODE and not within_discovery:
                 # Se abbiamo già stream [Strd] nulla da fare.
@@ -531,10 +505,9 @@ def enrich():
                         existing_titles.add(new_title)
                         restored += 1
                     if restored:
-                        _reorder_strd_block(streams_list)
                         ev['streams'] = streams_list
                         changed = True
-                        print(f"[STREAMED][RESTORE] event={ev.get('id')} restored={restored} reordered_strd=1")
+                        print(f"[STREAMED][RESTORE] event={ev.get('id')} restored={restored}")
                 # Nessuna discovery fuori finestra
                 continue
             added_this_event = 0
@@ -643,20 +616,20 @@ def enrich():
                 existing_titles.add(new_title)
                 added_this_event += 1
             if added_this_event:
-                _reorder_strd_block(streams)
                 ev['streams'] = streams
                 added_total += added_this_event
                 changed = True
                 mode_tag = 'SINGLE' if single_mode else 'DUO'
-                # Aggiorna persistenza (salva già con ordine riordinato)
+                # Aggiorna persistenza
                 ev_id = str(ev.get('id'))
+                # Salva solo gli stream [Strd] dell'evento corrente
                 persisted_streams = [s for s in streams if isinstance(s, dict) and str(s.get('title','')).startswith(HDR_STREAMED_PREFIX)]
                 persist[ev_id] = {
                     'ts': int(time.time()),
                     'streams': persisted_streams
                 }
                 persist_changed = True
-                print(f"[STREAMED][INJECT]{'[FORCE]' if FORCE_MODE else ''} event={ev.get('id')} added={added_this_event} mode={mode_tag} reordered_strd=1")
+                print(f"[STREAMED][INJECT]{'[FORCE]' if FORCE_MODE else ''} event={ev.get('id')} added={added_this_event} mode={mode_tag}")
 
         except Exception as e:
             print(f"[STREAMED][ERR] event loop: {e}")
