@@ -16,7 +16,7 @@ Istanza ElfHosted a pagamento CON Mediaflo Proxy incluso (Per Eventi Sportivi)
 
 ## ✨ Funzionalità Principali 
 
-* **✅ Supporto Film:** Trova flussi streaming per i film utilizzando il loro ID TMDB.
+* **✅ Supporto Film:** Trova flussi streaming per i film utilizzando il loro ID TMDB. 
 * **📺 Supporto Serie TV:** Trova flussi per ogni episodio di una serie TV, basandosi su ID TMDB in formato stagione/episodio.
 * **🇪🇺 Eurostreaming (ES) Episodi:** Integrazione sperimentale per episodi tramite pulsante toggle (titolo StreamViX ES) con estrazione Python dedicata.
 * **⛩️ Supporto Anime:** Trova flussi per ogni episodio di una determinato Anime, ora supporta ricerca sia da cinemeta, sia da tmdb che da kitsu.
@@ -771,6 +771,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
