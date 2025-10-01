@@ -3429,7 +3429,8 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
 });
 
 // Endpoint sintetico: genera mini-master con sola variante video massima e traccia AUDIO italiana
-app.get('/vixsynthetic', async (req: Request, res: Response) => {
+// Supporta sia /vixsynthetic che /vixsynthetic.m3u8 per compatibilità player
+app.get(['/vixsynthetic','/vixsynthetic.m3u8'], async (req: Request, res: Response) => {
     try {
         const src = typeof req.query.src === 'string' ? req.query.src : '';
         if (!src) return res.status(400).send('#EXTM3U\n# Missing src');
