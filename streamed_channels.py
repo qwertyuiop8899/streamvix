@@ -31,6 +31,8 @@ Ordering override (custom request):
         1. Eventuali stream [P🐽D] di testa
         2. La prima sequenza contigua di stream con bandiera italiana ("🇮🇹")
     In questo modo restano prima le sorgenti prioritarie / italiane e gli [Strd] seguono immediatamente.
+Priorità intra-[Strd]: all'interno del blocco [Strd] gli stream con bandiera italiana ("🇮🇹") vengono riordinati in testa
+    mantenendo però la posizione globale del blocco rispetto agli altri gruppi (PD / IT / RB77 / resto).
 Header propagation: attivata sempre se la playlist fornisce #EXTVLCOPT.
 Core header injection: se mancano aggiungiamo Origin / Referer / User-Agent.
 Strategia semplificata (nessuna variabile di modalità): per ogni stream iniettiamo sempre:
@@ -421,6 +423,30 @@ def enrich():
     persist = _load_persist()
     persist_changed = False
 
+    # Helper: reorder ALL [Strd] streams globally so that:
+    #   1) All [Strd] remain after their original earliest position (don't move block earlier than first [Strd])
+    #   2) Within [Strd] block: 🇮🇹 flagged first (relative order preserved inside each subgroup)
+    def _reorder_all_strd(streams_list: List[Dict[str,Any]]):
+        def _is_strd(obj: Any) -> bool:
+            if not isinstance(obj, dict):
+                return False
+            t = str(obj.get('title',''))
+            return t.startswith(HDR_STREAMED_PREFIX) or t.startswith(LEGACY_PREFIX)
+        indices = [i for i,s in enumerate(streams_list) if _is_strd(s)]
+        if not indices:
+            return
+        first = indices[0]
+        # Extract strd entries keeping original order
+        strd_entries = [streams_list[i] for i in indices]
+        # Remove them from list (reverse order to keep indices valid)
+        for i in reversed(indices):
+            del streams_list[i]
+        ita = [s for s in strd_entries if '🇮🇹' in str(s.get('title',''))]
+        other = [s for s in strd_entries if '🇮🇹' not in str(s.get('title',''))]
+        reordered = ita + other
+        for offset, s in enumerate(reordered):
+            streams_list.insert(first + offset, s)
+
     for ev in data:
         try:
             ev_start_iso = ev.get('eventStart')
@@ -505,9 +531,10 @@ def enrich():
                         existing_titles.add(new_title)
                         restored += 1
                     if restored:
+                        _reorder_all_strd(streams_list)
                         ev['streams'] = streams_list
                         changed = True
-                        print(f"[STREAMED][RESTORE] event={ev.get('id')} restored={restored}")
+                        print(f"[STREAMED][RESTORE] event={ev.get('id')} restored={restored} reordered_strd_global")
                 # Nessuna discovery fuori finestra
                 continue
             added_this_event = 0
@@ -616,6 +643,7 @@ def enrich():
                 existing_titles.add(new_title)
                 added_this_event += 1
             if added_this_event:
+                _reorder_all_strd(streams)
                 ev['streams'] = streams
                 added_total += added_this_event
                 changed = True
