@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.5...v1.6.6) (2025-10-01)
+
+
+### Bug Fixes
+
+* fhd direct ([4b0664f](https://github.com/qwertyuiop8899/streamvix/commit/4b0664f1c528c38a5c9239a7c58c0cb83b603f64))
+* fhd direct extr ([4479f8d](https://github.com/qwertyuiop8899/streamvix/commit/4479f8dc700a4eb624f3dc2ce3b0b34298e264c9))
+
 ## [1.6.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.4...v1.6.5) (2025-09-30)
 
 
