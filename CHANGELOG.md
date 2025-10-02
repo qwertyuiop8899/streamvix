@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.11](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.10...v1.6.11) (2025-10-02)
+
+
+### Bug Fixes
+
+* add dd nomfp ([86f3e58](https://github.com/qwertyuiop8899/streamvix/commit/86f3e5852c6d0c617508d3e59498a93334e63547))
+* bump version ([f04526f](https://github.com/qwertyuiop8899/streamvix/commit/f04526f1b9ab878de3c85c7b132a439f03aca839))
+
 ## [1.6.10](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.9...v1.6.10) (2025-10-01)
 
 
