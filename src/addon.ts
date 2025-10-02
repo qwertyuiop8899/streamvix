@@ -2183,7 +2183,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         const CAP = Math.min(Math.max(1, isNaN(capRaw) ? 10 : capRaw), 50);
                         if (entries.length > CAP) {
                             const tier1Regex = /\b(it|ita|italy|italia)\b/i;
-                            const tier2Regex = /\b(italian|italiano|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)\b/i;
+                            // Aggiunto vavoo e p🐽d per mantenerli nel taglio CAP (richiesta visibilità)
+                            const tier2Regex = /\b(italian|italiano|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai|vavoo|strd|rbtv|rb77|spso|pd)\b|p🐽d/i;
                             const tier1: typeof entries = [];
                             const tier2: typeof entries = [];
                             const others: typeof entries = [];
@@ -2196,6 +2197,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             entries = [...tier1, ...tier2, ...others].slice(0, CAP);
                             debugLog(`[DynamicStreams][FAST] limit ${CAP} applied tier1=${tier1.length} tier2=${tier2.length} total=${(channel as any).dynamicDUrls.length}`);
                         }
+                        const fastStartIndex = streams.length; // indice da cui iniziano gli stream FAST
                         for (const e of entries) {
                             if (!e || !e.url) continue;
                             let t = (e.title || 'Stream').trim();
@@ -2205,6 +2207,37 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             // Include SPSO e consente [Strd] senza spazio successivo
                             if (!/^\[(Strd|RB77|SPSO|P🐽D|🌍dTV)\b/.test(t)) t = `[Player Esterno] ${t}`;
                             streams.push({ url: e.url, title: t });
+                        }
+                        // Duplicazione CF per canali italiani nel ramo FAST (logica analoga a EXTRACTOR)
+                        try {
+                            const cfPrefix = 'https://proxy.stremio.dpdns.org/manifest.m3u8?url=';
+                            const itaRegex = /\b(it|ita|italy|italia|italian|italiano)$/i;
+                            const addedFast = streams.slice(fastStartIndex); // solo quelli appena aggiunti
+                            const enrichedFast: { url: string; title: string }[] = [];
+                            for (const s of addedFast) {
+                                if (!s || !s.url) continue;
+                                // Normalizza bandiera se manca ma titolo finisce con IT/ita...
+                                if (!s.title.startsWith('🇮🇹')) {
+                                    const bare = s.title.replace(/^\[Player Esterno\]\s*/,'').trim();
+                                    if (itaRegex.test(bare)) {
+                                        s.title = `🇮🇹 ${bare}`; // aggiorna in place
+                                    }
+                                }
+                            }
+                            for (const s of addedFast) {
+                                enrichedFast.push(s as any);
+                                if (!s.title.startsWith('🇮🇹')) continue; // solo italiani
+                                if (s.url.startsWith(cfPrefix)) continue; // già proxy
+                                if (!/dlhd\.dad\/watch\.php\?id=\d+/i.test(s.url)) continue; // solo link dlhd.dad originali
+                                const proxyUrl = cfPrefix + s.url;
+                                if (streams.some(x => x.url === proxyUrl)) continue; // evita duplicati globali
+                                const dupTitle = s.title.replace(/^🇮🇹\s*/, '🇮🇹🔄 ');
+                                enrichedFast.push({ url: proxyUrl, title: dupTitle });
+                            }
+                            // Sostituisci la sezione FAST con arricchita (mantieni parte precedente invariata)
+                            streams.splice(fastStartIndex, addedFast.length, ...enrichedFast);
+                        } catch (e) {
+                            // silenzia errori duplicazione fast
                         }
                         debugLog(`[DynamicStreams][FAST] restituiti ${streams.length} stream diretti (senza extractor) con etichetta condizionale 'Player Esterno'`);
                         dynamicHandled = true;
@@ -2221,7 +2254,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (entries.length > CAP) {
                             // Tiered priority: tier1 strictly (it|ita|italy) first, then tier2 broader providers, then rest
                             const tier1Regex = /\b(it|ita|italy|italia)\b/i;
-                            const tier2Regex = /\b(italian|italiano|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)\b/i;
+                            // Aggiunto vavoo e p🐽d per evitare esclusione dal CAP
+                            const tier2Regex = /\b(italian|italiano|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai|vavoo|strd|rbtv|rb77|spso|pd)\b|p🐽d/i;
                             const tier1: typeof entries = [];
                             const tier2: typeof entries = [];
                             const others: typeof entries = [];
@@ -2250,7 +2284,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 if (itaRegex.test(providerTitle) && !providerTitle.startsWith('🇮🇹')) providerTitle = `🇮🇹 ${providerTitle}`;
                                 try {
                                     const r = await resolveDynamicEventUrl(d.url, providerTitle, mfpUrl, mfpPsw);
-                                    resolved.push(r);
+                                    // Conserva indice ed originale per fallback duplicazione CF
+                                    (resolved as any).push({ ...r, _idx: i, _orig: d.url });
                                 } catch (e) {
                                     debugLog('[DynamicStreams] extractor errore singolo stream:', (e as any)?.message || e);
                                 }
@@ -2263,7 +2298,50 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (itaA !== itaB) return itaA - itaB;
                             return a.title.localeCompare(b.title);
                         });
-                        for (const r of resolved) streams.push(r);
+                        // (rimosso logging dettagliato RESOLVED per produzione)
+                        // Duplica gli stream italiani (non ancora estratti) con variante proxy CF
+                        // Regola: solo quelli che iniziano con bandiera italiana e NON già duplicati
+                        const cfPrefix = 'https://proxy.stremio.dpdns.org/manifest.m3u8?url=';
+                        const enriched: { url: string; title: string }[] = [];
+                        for (const rAny of resolved as any[]) {
+                            const r = rAny as any;
+                            enriched.push(r); // originale estratto (MFP / o direct se fallback)
+                            try {
+                                // Non duplicare se l'URL è già un proxy CF o se NON è italiano
+                                if (!r.title.startsWith('🇮🇹')) continue;
+                                if (r.url.startsWith(cfPrefix)) continue;
+                                // Heuristic: se l'URL contiene già /proxy/hls/manifest.m3u8 (MFP) allora saltiamo: vogliamo solo duplicare l'ORIGINALE pre-extractor.
+                                // Tuttavia qui r.url è già il risultato di resolveDynamicEventUrl (che incapsula MFP). Quindi per rispettare richiesta "prima di mfp"
+                                // proviamo a ricostruire la url originale se possibile: se contiene parametro d= decodifichiamo quello.
+                                let originalCandidate = r.url;
+                                try {
+                                    const u = new URL(r.url);
+                                    const dParam = u.searchParams.get('d');
+                                    if (dParam) originalCandidate = decodeURIComponent(dParam);
+                                } catch {}
+                                // Fallback: se manca d= usa l'originale salvato (_orig)
+                                if (!/dlhd\.dad\/watch\.php\?id=\d+/i.test(originalCandidate) && r._orig && /dlhd\.dad\/watch\.php\?id=\d+/i.test(r._orig)) {
+                                    originalCandidate = r._orig;
+                                }
+                                // (rimosso log dettaglio CHECK)
+                                // Solo se l'originale sembra un link dlhd.dad/watch.php?id=...
+                                if (!/dlhd\.dad\/watch\.php\?id=\d+/i.test(originalCandidate)) continue;
+                                const proxyUrl = cfPrefix + originalCandidate;
+                                // Evita duplicati se già presente
+                                if (enriched.some(e => e.url === proxyUrl)) continue;
+                                // Titolo: aggiungi 🔄 attaccato alla bandiera (senza spazio) mantenendo resto identico
+                                let cfTitle = r.title;
+                                if (cfTitle.startsWith('🇮🇹 ') && !cfTitle.startsWith('🇮🇹🔄')) {
+                                    cfTitle = '🇮🇹🔄' + cfTitle.slice('🇮🇹'.length); // rimuove lo spazio dopo bandiera sostituendo con 🔄
+                                    cfTitle = cfTitle.replace('🇮🇹🔄 ', '🇮🇹🔄 '); // garantisce un singolo spazio dopo la sequenza
+                                } else if (cfTitle.startsWith('🇮🇹') && !cfTitle.startsWith('🇮🇹🔄')) {
+                                    // Caso già senza spazio
+                                    cfTitle = cfTitle.replace(/^🇮🇹/, '🇮🇹🔄');
+                                }
+                                enriched.push({ url: proxyUrl, title: cfTitle });
+                            } catch {}
+                        }
+                        for (const r of enriched) streams.push(r);
                         // Append leftover entries (beyond CAP) as direct FAST (no extractor) to still expose them
             if (extraFast.length) {
                             const leftoversToShow = CAP === 1 ? extraFast.slice(0, 1) : extraFast;
@@ -2427,6 +2505,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
 
                     // staticUrlD
+                    // Prima: variante CF (Cloudflare/proxy already-built) se presente
+                    if ((channel as any).staticUrlD_CF && mfpUrl && mfpPsw) {
+                        try {
+                            // Usa direttamente l'URL CF già pronto (è già un manifest m3u8 proxy con parametro d=<originale>)
+                            const cfUrl = (channel as any).staticUrlD_CF;
+                            streams.push({
+                                url: cfUrl,
+                                title: `[🌐D_CF] ${channel.name} [ITA]`
+                            });
+                            debugLog(`Aggiunto staticUrlD_CF diretto: ${cfUrl}`);
+                        } catch (e) {
+                            debugLog(`Errore gestione staticUrlD_CF: ${e}`);
+                        }
+                    }
                     if ((channel as any).staticUrlD) {
                         if (mfpUrl && mfpPsw) {
                             // Nuova logica: chiama extractor/video con redirect_stream=false, poi costruisci il link proxy/hls/manifest.m3u8
