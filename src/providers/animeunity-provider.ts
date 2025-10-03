@@ -190,6 +190,10 @@ const exactMap: Record<string,string> = {
 const genericMap: Record<string,string> = {
 
 
+      "Attack on Titan OAD": " Attack on Titan OVA",
+
+
+
   // << AUTO-INSERT-GENERIC >> (non rimuovere questo commento)
   // Qui puoi aggiungere altre normalizzazioni custom
 };
