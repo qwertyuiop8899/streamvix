@@ -23,7 +23,7 @@ export function formatBytesHuman(b?: number): string {
 
 export function providerLabel(provider: string, isFhd?: boolean): string {
   switch (provider) {
-    case 'vixsrc': return `🤌 VixSrc 🍿${isFhd ? ' 🅷🅳' : ''}`;
+    case 'vixsrc': return `🤌 VixSrc 🍿${isFhd ? ' 🅵🅷🅳' : ''}`;
     case 'animeunity': return '🤌 Anime Unity ⛩️';
     case 'animesaturn': return '🤌 Anime Saturn 🪐';
     case 'animeworld': return '🤌 Anime World 🌍';
