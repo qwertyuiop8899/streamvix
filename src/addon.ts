@@ -484,7 +484,7 @@ function decodeStaticUrl(url: string): string {
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "7.16.23",
+    version: "7.15.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con VixSRC, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -2240,6 +2240,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             // silenzia errori duplicazione fast
                         }
                         debugLog(`[DynamicStreams][FAST] restituiti ${streams.length} stream diretti (senza extractor) con etichetta condizionale 'Player Esterno'`);
+                        // Filtro minimale senza MFP: rimuovi solo gli URL diretti dlhd.dad (lascia tutto il resto)
+                        if (!(mfpUrl && mfpPsw)) {
+                            const beforeFast = streams.length;
+                            for (let i = streams.length - 1; i >= 0; i--) {
+                                if (/^https?:\/\/dlhd\.dad\/watch\.php\?id=\d+/i.test(streams[i].url)) streams.splice(i,1);
+                            }
+                            if (beforeFast !== streams.length) debugLog(`[DynamicStreams][FAST][NO_MFP] rimossi ${beforeFast - streams.length} dlhd.dad, rimasti=${streams.length}`);
+                        }
                         dynamicHandled = true;
                     } else if ((channel as any)._dynamic && Array.isArray((channel as any).dynamicDUrls) && (channel as any).dynamicDUrls.length) {
                         debugLog(`[DynamicStreams] EXTRACTOR branch attiva (FAST_DYNAMIC disattivato) canale=${channel.id}`);
@@ -2358,6 +2366,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             debugLog(`[DynamicStreams][EXTRACTOR] appended ${appended}/${extraFast.length} leftover direct streams (CAP=${CAP}) con etichetta condizionale 'Player Esterno'`);
                         }
                         debugLog(`[DynamicStreams][EXTRACTOR] Resolved ${resolved.length}/${entries.length} streams in ${Date.now() - startDyn}ms (conc=${CONCURRENCY})`);
+                        // Filtro minimale senza MFP: rimuovi solo gli URL diretti dlhd.dad (duplicati CF restano)
+                        if (!(mfpUrl && mfpPsw)) {
+                            const beforeExt = streams.length;
+                            for (let i = streams.length - 1; i >= 0; i--) {
+                                if (/^https?:\/\/dlhd\.dad\/watch\.php\?id=\d+/i.test(streams[i].url)) streams.splice(i,1);
+                            }
+                            if (beforeExt !== streams.length) debugLog(`[DynamicStreams][EXTRACTOR][NO_MFP] rimossi ${beforeExt - streams.length} dlhd.dad, rimasti=${streams.length}`);
+                        }
                         dynamicHandled = true;
                     } else if ((channel as any)._dynamic) {
                         // Dynamic channel ma senza dynamicDUrls -> placeholder stream
@@ -2504,21 +2520,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
 
-                    // staticUrlD
-                    // Prima: variante CF (Cloudflare/proxy already-built) se presente
-                    if ((channel as any).staticUrlD_CF && mfpUrl && mfpPsw) {
+                    // staticUrlD / staticUrlD_CF
+                    // Richiesta: i canali D_CF devono essere SEMPRE visibili anche senza MFP (perché già proxy CF pronto)
+                    if ((channel as any).staticUrlD_CF) {
                         try {
-                            // Usa direttamente l'URL CF già pronto (è già un manifest m3u8 proxy con parametro d=<originale>)
                             const cfUrl = (channel as any).staticUrlD_CF;
-                            streams.push({
-                                url: cfUrl,
-                                title: `[🌐D_CF] ${channel.name} [ITA]`
-                            });
-                            debugLog(`Aggiunto staticUrlD_CF diretto: ${cfUrl}`);
+                            streams.push({ url: cfUrl, title: `[🌐D_CF] ${channel.name} [ITA]` });
+                            debugLog(`Aggiunto staticUrlD_CF (sempre visibile) ${mfpUrl && mfpPsw ? '(con MFP)' : '(senza MFP)'}`);
                         } catch (e) {
                             debugLog(`Errore gestione staticUrlD_CF: ${e}`);
                         }
                     }
+                    // La versione D classica resta condizionata alla presenza MFP (altrimenti occultata come prima)
                     if ((channel as any).staticUrlD) {
                         if (mfpUrl && mfpPsw) {
                             // Nuova logica: chiama extractor/video con redirect_stream=false, poi costruisci il link proxy/hls/manifest.m3u8
