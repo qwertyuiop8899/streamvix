@@ -395,19 +395,19 @@ function landingTemplate(manifest: any) {
 			formHTML = `
 			<form class="pure-form" id="mainForm">
 				<!-- (Addon Base input removed – resolved server-side; read-only badge appears if available) -->
-				<!-- Preset Installazioni consigliate -->
+				<!-- Preset Installazioni consigliate - RIMOSSO -->
+				<!--
 				<div style="margin:0 0 1rem 0; padding:0.75rem; border:1px solid rgba(140,82,255,0.55); border-radius:10px; background:rgba(20,15,35,0.55);">
 					<div style="font-weight:700; margin-bottom:0.5rem; text-align:center; color:#c9b3ff;">Installazioni consigliate</div>
 					<div id="presetInstallations" style="display:grid; grid-template-columns:repeat(2, minmax(120px,1fr)); gap:0.5rem; justify-items:stretch; align-items:stretch;">
-						<!-- Colonna sinistra -->
 						<button type="button" data-preset="pubblicamfp" class="preset-btn" style="min-width:120px;">Pubblica (MFP)</button>
 						<button type="button" data-preset="locale" class="preset-btn" style="min-width:120px;">Locale</button>
-						<!-- Colonna sinistra seconda riga (NO MFP) e destra seconda riga (OCI) -->
 						<button type="button" data-preset="pubblicanomfp" class="preset-btn" style="min-width:140px;">Pubblica (NO MFP)</button>
 						<button type="button" data-preset="oci" class="preset-btn" style="min-width:140px;">OCI/Render</button>
 					</div>
 					<p style="margin:0.6rem 0 0 0; font-size:0.7rem; opacity:0.75; text-align:center;">I preset impostano automaticamente i provider consigliati.</p>
 				</div>
+				-->
 				<!-- Manual placement containers for MediaflowProxy and Local (Eurostreaming) -->
 				<div id="mediaflowManualSlot"></div>
 
@@ -778,78 +778,10 @@ function landingTemplate(manifest: any) {
 						}
 					} catch(e){ console.warn('VixSrc submenu reposition fail', e); }
 				} catch(e) { console.warn('Reorder toggles failed', e); }
-				// Preset logic
-				function applyPreset(name){
-					// Base: tutto ON (compresi invertiti) => features abilitate
-					var base = {
-						disableVixsrc: true,
-						disableLiveTv: true,
-						cb01Enabled: true,
-						guardahdEnabled: true,
-						guardaserieEnabled: true,
-						eurostreamingEnabled: true,
-						streamingwatchEnabled: true,
-						animeunityEnabled: true,
-						animesaturnEnabled: true,
-						animeworldEnabled: true,
-						tvtapProxyEnabled: true,
-						vavooNoMfpEnabled: true,
-						mediaflowMaster: false
-					};
-					var p = name;
-					try { window.__SVX_PRESET = p; } catch(e){}
-					if (p==='locale') {
-						base.tvtapProxyEnabled = false; // OFF
-						base.vavooNoMfpEnabled = false; // OFF
-						base.mediaflowMaster = true;    // ON per preset Locale
-					} else if (p==='pubblicamfp') {
-						base.tvtapProxyEnabled = false;
-						base.vavooNoMfpEnabled = false;
-						base.eurostreamingEnabled = false;
-						base.animeunityEnabled = false;
-						base.mediaflowMaster = true;
-					} else if (p==='pubblicanomfp') {
-						base.disableVixsrc = false; // VixSrc OFF
-						base.cb01Enabled = false;
-						base.eurostreamingEnabled = false;
-						base.animeunityEnabled = false;
-					} else if (p==='oci') {
-						base.eurostreamingEnabled = false;
-						base.animeunityEnabled = false; // resta OFF
-						base.mediaflowMaster = true;    // abilita MFP
-					}
-					Object.keys(base).forEach(function(k){
-						var el = document.getElementById(k);
-						if (!el) return;
-						try { el.checked = !!base[k]; } catch(e){}
-						try {
-							var evt;
-							try { evt = new Event('change', { bubbles:true }); } catch(e2) { evt = document.createEvent('Event'); evt.initEvent('change', true, false); }
-							el.dispatchEvent(evt);
-						} catch(e3){}
-					});
-					// Active style on clicked button
-					var presetWrap = document.getElementById('presetInstallations');
-					if (presetWrap){
-						presetWrap.querySelectorAll('.preset-btn').forEach(function(b){ b.classList.remove('active'); });
-						var currentBtn = presetWrap.querySelector('[data-preset="'+p+'"]');
-						if (currentBtn) currentBtn.classList.add('active');
-					}
-					// Risincronizza gruppi dipendenti
-					if (typeof syncMfp === 'function') try { syncMfp(); } catch(e){}
-					if (typeof syncLive === 'function') try { syncLive(); } catch(e){}
-					updateLink();
-				}
-				var presetWrap = document.getElementById('presetInstallations');
-				if (presetWrap){
-					presetWrap.querySelectorAll('[data-preset]').forEach(function(btn){
-						btn.addEventListener('click', function(){
-							applyPreset(btn.getAttribute('data-preset'));
-						});
-					});
-				}
-				// expose preset for debug
-				try { window.applyPreset = applyPreset; } catch(e){}
+				// Preset logic rimosso (non più necessario)
+				/*
+				function applyPreset(name){ ... }
+				*/
 				// expose globally for bottom script
 				window.updateLink = updateLink;
 			}
