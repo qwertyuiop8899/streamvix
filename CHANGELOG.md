@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.7.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.12...v1.7.0) (2025-10-03)
+
+
+### Features
+
+* **normalize-au:** add "Attack on Titan OAD" ([7cfaf17](https://github.com/qwertyuiop8899/streamvix/commit/7cfaf178572b25c948e97741f4b40ba455cfc845))
+
+
+### Bug Fixes
+
+* aot ([1884eb1](https://github.com/qwertyuiop8899/streamvix/commit/1884eb1e12c256d64bc1341d758c3a52eb0353e7))
+* nomfp live ([a125dcc](https://github.com/qwertyuiop8899/streamvix/commit/a125dccd721639d30c2bb4a4e2a1802730483b85))
+
 ## [1.6.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.11...v1.6.12) (2025-10-03)
 
 
