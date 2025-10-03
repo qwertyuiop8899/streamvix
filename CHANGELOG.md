@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.11...v1.6.12) (2025-10-03)
+
+
+### Bug Fixes
+
+* add fhdname ([e13f041](https://github.com/qwertyuiop8899/streamvix/commit/e13f0413025a6fe4f5cc2666fe28138b47f6d8bf))
+
 ## [1.6.11](https://github.com/qwertyuiop8899/streamvix/compare/v1.6.10...v1.6.11) (2025-10-02)
 
 
