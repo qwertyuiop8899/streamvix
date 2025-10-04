@@ -2,6 +2,8 @@
 // TTL cache: 4h. Parsing multi-day. Matching logica simile a spso_streams (porting parziale).
 
 import crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface SponRow {
   day: string;            // e.g. FRIDAY, SATURDAY
@@ -33,16 +35,114 @@ function extractChannelCode(url: string): string {
 
 export async function fetchSponSchedule(force = false): Promise<SponRow[]> {
   const now = Date.now();
-  if (!force && cache && (now - cache.fetchedAt) < CACHE_TTL_MS) return cache.rows;
-  const url = 'https://sportzonline.st/prog.txt';
-  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX-SPON)' } });
-  if (!res.ok) throw new Error('SPON schedule fetch failed ' + res.status);
-  const text = await res.text();
+  const forceRefreshEnv = process.env.SPON_PROG_FORCE_REFRESH === '1' || process.env.SPON_PROG_FORCE_REFRESH === 'true';
+  const effectiveForce = force || forceRefreshEnv;
+  if (!effectiveForce && cache && (now - cache.fetchedAt) < CACHE_TTL_MS) return cache.rows;
+  const baseDir = process.cwd();
+  const cfgDir = path.join(baseDir, 'config');
+  const overridePath = path.join(cfgDir, 'prog.override.txt');
+  const cachePath = path.join(cfgDir, 'prog_cache.txt');
+  let text: string | null = null;
+
+  // 1. Override locale (prioritario, anche con force refresh - se l'utente vuole bypass lo rimuove)
+  try {
+    if (fs.existsSync(overridePath)) {
+      text = fs.readFileSync(overridePath,'utf8');
+      console.debug('[SPON][SCHEDULE] Using local override prog.override.txt length=' + text.length + (forceRefreshEnv ? ' (forceRefresh ignored override precedence)' : ''));
+    }
+  } catch {}
+
+  // Prepara lista URL da tentare se nessun override
+  const attempts: { url: string; status?: number; ok: boolean; err?: string; length?: number }[] = [];
+  if (text == null) {
+    const primary = (process.env.SPON_PROG_URL || '').trim();
+    const extra = (process.env.SPON_PROG_FALLBACKS || '').split(',').map(s=>s.trim()).filter(Boolean);
+    const builtin = [
+      'https://sportzonline.st/prog.txt',
+      'https://sportzonline.bz/prog.txt',
+      'https://sportzonline.cc/prog.txt',
+      'https://sportzonline.top/prog.txt',
+      // Nuovo dominio osservato con redirect da .st
+      'https://sportsonline.sn/prog.txt',
+      'http://sportsonline.sn/prog.txt'
+    ];
+    const tried = new Set<string>();
+    function pushUnique(u:string, arr:string[]) { for (const x of arr) { if (!tried.has(x)) { tried.add(x); urls.push(x); } } }
+    const urls: string[] = [];
+    if (primary) pushUnique(primary, [primary]);
+    pushUnique('builtin', builtin); // custom helper misuse, adjust logic below
+    // The helper above not ideal; simplify:
+    // Rebuild urls properly
+    urls.length = 0;
+    if (primary) urls.push(primary);
+    for (const u of extra) if (!urls.includes(u)) urls.push(u);
+    for (const u of builtin) if (!urls.includes(u)) urls.push(u);
+
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { 
+          headers: { 
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36 StreamViX-SPON',
+            'Accept': 'text/plain, */*;q=0.1',
+            'Accept-Language': 'en-US,en;q=0.5'
+          },
+          redirect: 'follow'
+        });
+        const status = res.status;
+        const finalUrl = res.url;
+        if (res.ok) {
+          const body = await res.text();
+            // Considera vuoto come fallimento per passare al prossimo
+          if (body.trim().length < 10) {
+            attempts.push({ url, status, ok: false, err: 'empty-body' });
+            console.debug('[SPON][SCHEDULE][TRY] ' + url + ' -> ' + finalUrl + ' status=' + status + ' empty-body');
+            continue;
+          }
+          text = body;
+          attempts.push({ url, status, ok: true, length: body.length });
+          if (finalUrl !== url) {
+            console.debug('[SPON][SCHEDULE][TRY] ' + url + ' redirected -> ' + finalUrl + ' status=' + status + ' OK length=' + body.length);
+          } else {
+            console.debug('[SPON][SCHEDULE][TRY] ' + url + ' status=' + status + ' OK length=' + body.length);
+          }
+          // Salva cache file
+          try {
+            if (!fs.existsSync(cfgDir)) fs.mkdirSync(cfgDir, { recursive: true });
+            fs.writeFileSync(cachePath, body, 'utf8');
+          } catch {}
+          break;
+        } else {
+          attempts.push({ url, status, ok: false });
+          console.debug('[SPON][SCHEDULE][TRY] ' + url + ' status=' + status + ' FAIL' + (finalUrl && finalUrl !== url ? ' (finalUrl=' + finalUrl + ')' : ''));
+        }
+      } catch (e:any) {
+        attempts.push({ url, ok: false, err: e?.message || String(e) });
+        console.debug('[SPON][SCHEDULE][TRY] ' + url + ' error=' + (e?.message || e));
+      }
+    }
+  }
+
+  // 3. Cache file fallback (solo se fetch remoto fallito e nessun override)
+  if (text == null) {
+    try {
+      if (fs.existsSync(cachePath)) {
+        text = fs.readFileSync(cachePath,'utf8');
+        console.debug('[SPON][SCHEDULE] Using cached prog_cache.txt length=' + text.length + (attempts.length ? ' (remote attempts failed)' : ''));
+      }
+    } catch {}
+  }
+
+  if (text == null) {
+    console.debug('[SPON][SCHEDULE] All attempts failed summary=', attempts);
+    throw new Error('SPON schedule fetch failed attempts=' + attempts.length);
+  }
+
   const hash = crypto.createHash('sha1').update(text).digest('hex');
-  if (cache && cache.hash === hash) {
+  if (!effectiveForce && cache && cache.hash === hash) {
     cache.fetchedAt = now; // refresh timestamp
     return cache.rows;
   }
+
   const rows: SponRow[] = [];
   let currentDay = '';
   for (const rawLine of text.split(/\r?\n/)) {
@@ -100,7 +200,13 @@ function extractTeams(title: string): [string|null,string|null] {
     const m = vsRegex.exec(str);
     if (m) {
       const left = str.slice(0, m.index).trim();
-      const right = str.slice(m.index + m[0].length).trim();
+      let right = str.slice(m.index + m[0].length).trim();
+      // Ripulisci metadata di lega/data dalla parte destra (es: "Torino - Serie A 04/10")
+      // Taglia a prima occorrenza di ' - Serie| - Liga| - Premier| - ...' oppure pattern data dd/mm dopo un ' - '
+      const metaIdx = right.search(/\s-\s(serie|liga|premier|bundes|champions|coppa|cup|league)\b/i);
+      if (metaIdx !== -1) right = right.slice(0, metaIdx).trim();
+      // Se resta una data alla fine tipo 'Torino 04/10' rimuovila
+      right = right.replace(/\b\d{1,2}\/\d{1,2}\b.*$/, '').trim();
       if (left && right) return [left, right];
     }
     // NUOVO: supporto separatore ' - ' tra due squadre (tenendo conto di eventuale metadata dopo un secondo trattino)
@@ -141,6 +247,12 @@ function extractTeams(title: string): [string|null,string|null] {
     }
   }
   return result[0] && result[1] ? result : [null,null];
+}
+
+// Funzione di debug: restituisce coppia squadre (anche se null) senza cambiare logica interna
+export function debugExtractTeams(title: string): { raw: string; team1: string|null; team2: string|null } {
+  const [a,b] = extractTeams(title);
+  return { raw: title, team1: a, team2: b };
 }
 
 export interface SponMatchRow extends SponRow {
