@@ -16,6 +16,11 @@ export class GuardaSerieProvider {
   private base: string;
   private hlsInfoCache = new Map<string, { res?: string; size?: string }>();
   private lastSeriesYear: string | null = null; // anno serie estratto da TMDB per filtrare i risultati (non appeso al titolo)
+  // Mappa fast-path: titolo TMDB esatto -> slug (senza base URL, con o senza prefisso serietv/)
+  // Facile da aggiornare: aggiungere coppie nuove secondo necessità.
+  private exactTitleMap: Record<string,string> = {
+    'MONSTERS: La storia di Lyle ed Erik Menendez': 'serietv/3278-monsters-la-storia-di-lyle-ed-erik-menendez-streaming-ita.html'
+  };
 
   constructor(private config: GuardaSerieConfig) {
   const dom = getFullUrl('guardaserie');
@@ -74,6 +79,35 @@ export class GuardaSerieProvider {
     if (isMovie) { // difensivo: anche qui evitare elaborazione film
       return { streams: [] };
     }
+  // FAST-PATH exact match: se il titolo corrisponde esattamente a una chiave mappata salta la search.
+  const mappedSlug = this.exactTitleMap[title];
+  if (mappedSlug) {
+    try {
+      const normalizedSlug = mappedSlug.replace(/^\/*/, '');
+      const slugWithSection = /^(serietv|serie|tv)\//i.test(normalizedSlug) ? normalizedSlug : `serietv/${normalizedSlug}`;
+      const seriesUrl = `${this.base}/${slugWithSection.replace(/\/+$/,'')}/`;
+      console.log('[GS][fastPath] exactMatch hit ->', title, '->', seriesUrl);
+      // Recupera episodi direttamente
+      const html = await this.get(seriesUrl);
+      if (html) {
+        // Costruiamo un oggetto fittizio GSSearchResult per riusare fetchEpisodes
+        const pseudo: GSSearchResult = { id: slugWithSection, slug: slugWithSection, title };
+        const eps = await this.fetchEpisodes(pseudo);
+        console.log('[GS][fastPath] episodes found', eps.length);
+        if (!eps.length) return { streams: [] };
+        // Se stagione/episodio non specificati, seleziona come fa core
+        const target = this.selectEpisode(eps, season, episode);
+        if (!target) return { streams: [] };
+        const effSeason = season ?? target.season;
+        const effEpisode = episode ?? target.number;
+        return { streams: await this.fetchEpisodeStreams(pseudo, target, effSeason, effEpisode) };
+      } else {
+        console.log('[GS][fastPath] page fetch failed, fallback to standard search');
+      }
+    } catch (e) {
+      console.log('[GS][fastPath] error fallback to search', (e as any)?.message || e);
+    }
+  }
   let results = await this.search(title, this.lastSeriesYear);
   console.log('[GS][core] initial results', results.length);
 
