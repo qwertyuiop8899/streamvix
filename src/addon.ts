@@ -2751,42 +2751,41 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 streams.splice(insertPos,0,freeshotStream);
                             }
                         } catch {}
-                        // === SPON (sportzonline) injection (solo schedule, rimosso blocco test) ===
+                        // === SPON (sportzonline) injection (refactored) ===
                         try {
                             const eventName = (channel as any).name || '';
-                            if (eventName) {
-                                const { fetchSponSchedule, matchRowsForEvent } = await import('./extractors/sponSchedule');
+                            if (!eventName) { /* no name */ }
+                            else {
+                                const { fetchSponSchedule, matchRowsForEvent, debugExtractTeams } = await import('./extractors/sponSchedule');
                                 const { extractSportzonlineStream } = await import('./extractors/sportsonline');
-                                // Ora schedule per event matching (solo se vogliamo anche gli altri canali sportzonline)
                                 const schedule = await fetchSponSchedule(false).catch(()=>[] as any[]);
-                                if (Array.isArray(schedule) && schedule.length) {
-                                    const matched = matchRowsForEvent({ name: eventName }, schedule as any);
-                                    if (matched && matched.length) {
-                                        const now = new Date();
+                                if (!Array.isArray(schedule) || !schedule.length) {
+                                    debugLog(`[SPON][DEBUG] schedule empty or invalid (length=${Array.isArray(schedule)?schedule.length:'N/A'}) for event='${eventName}'`);
+                                } else {
+                                    debugLog(`[SPON][DEBUG] schedule length=${schedule.length} for event='${eventName}'`);
+                                    try { const dbg = debugExtractTeams(eventName); debugLog(`[SPON][DEBUG] event teams parsed t1='${dbg.team1}' t2='${dbg.team2}' raw='${dbg.raw}'`); } catch {}
+                                    const matched = matchRowsForEvent({ name: eventName }, schedule as any) || [];
+                                    if (!matched.length) {
+                                        debugLog(`[SPON][DEBUG] matched=0 for '${eventName}'`);
+                                    } else {
+                                        // Calcolo finestra
+                                        const nowDate = new Date();
                                         const weekdayMap: Record<string, number> = { 'SUNDAY':0,'MONDAY':1,'TUESDAY':2,'WEDNESDAY':3,'THURSDAY':4,'FRIDAY':5,'SATURDAY':6 };
-                                        function getNextDateFor(dayName: string): Date {
-                                            const targetDow = weekdayMap[dayName] ?? now.getDay();
-                                            const d = new Date(now);
-                                            const diff = (targetDow - d.getDay() + 7) % 7;
-                                            d.setDate(d.getDate() + diff);
-                                            return d;
-                                        }
+                                        const getNextDateFor = (dayName: string): Date => {
+                                            const target = weekdayMap[dayName] ?? nowDate.getDay();
+                                            const d = new Date(nowDate);
+                                            const diff = (target - d.getDay() + 7) % 7; d.setDate(d.getDate() + diff); return d;
+                                        };
                                         let eventStart: Date | null = null;
                                         try {
-                                            const first = matched[0];
-                                            const baseDate = getNextDateFor(first.day.toUpperCase());
-                                            const [hh,mm] = first.time.split(':').map(x=>parseInt(x,10));
-                                            baseDate.setHours(hh,mm,0,0);
-                                            eventStart = baseDate;
+                                            const base = getNextDateFor(matched[0].day.toUpperCase());
+                                            const [hh,mm] = matched[0].time.split(':').map(n=>parseInt(n,10));
+                                            base.setHours(hh,mm,0,0); eventStart = base;
                                         } catch {}
-                                        const WINDOW_PRE_MS = 20*60*1000; // -20 minuti
-                                        const WINDOW_POST_MS = 4*60*60*1000; // +4 ore
-                                        let activeWindow = true; let delta: number | null = null;
-                                        if (eventStart) {
-                                            delta = Date.now() - eventStart.getTime();
-                                            if (delta < -WINDOW_PRE_MS || delta > WINDOW_POST_MS) activeWindow = false;
-                                        }
-                                        debugLog(`[SPON][DEBUG] event='${eventName}' matched=${matched.length} active=${activeWindow} deltaMs=${delta}`);
+                                        const WINDOW_PRE_MS = 20*60*1000; const WINDOW_POST_MS = 4*60*60*1000;
+                                        let activeWindow = true; let delta: number|null = null;
+                                        if (eventStart) { delta = Date.now() - eventStart.getTime(); if (delta < -WINDOW_PRE_MS || delta > WINDOW_POST_MS) activeWindow = false; }
+                                        debugLog(`[SPON][DEBUG] event='${eventName}' matched=${matched.length} active=${activeWindow} deltaMs=${delta} eventStart='${eventStart?.toISOString?.()}' now='${new Date().toISOString()}'`);
                                         if (activeWindow) {
                                             const mfpUrl = (config.mediaFlowProxyUrl || process.env.MFP_URL || process.env.MEDIAFLOW_PROXY_URL || '').toString().trim();
                                             const mfpPsw = (config.mediaFlowProxyPassword || process.env.MFP_PASSWORD || process.env.MEDIAFLOW_PROXY_PASSWORD || process.env.MFP_PSW || '').toString().trim();
@@ -2794,93 +2793,77 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                 debugLog(`[SPON] MFP non configurato -> salto schedule injection per '${eventName}'`);
                                             } else {
                                                 const seen = new Set<string>();
-                                                const sponStreams: Stream[] = [];
+                                                const collected: Stream[] = [];
                                                 for (const row of matched.slice(0,12)) {
+                                                    const tag = row.channelCode.toUpperCase();
                                                     try {
-                                                        const res = await extractSportzonlineStream(row.url).catch(()=>null);
-                                                        if (!res || !res.url) continue;
-                                                        if (seen.has(res.url)) continue; seen.add(res.url);
+                                                        debugLog(`[SPON][ROW] extracting ${tag} ${row.url}`);
+                                                        const res = await extractSportzonlineStream(row.url).catch((e:any)=>{ debugLog(`[SPON][ROW] extractor error ${tag} ${(e?.message)||e}`); return null; });
+                                                        if (!res || !res.url) { debugLog(`[SPON][ROW] no stream ${tag}`); continue; }
+                                                        if (seen.has(res.url)) { debugLog(`[SPON][ROW] dup skip ${tag}`); continue; }
+                                                        seen.add(res.url);
                                                         const italianFlag = /^(hd7|hd8)$/i.test(row.channelCode) ? ' 🇮🇹' : '';
-                                                        const qualityTag = row.channelCode.toUpperCase();
                                                         const referer = encodeURIComponent(res.headers?.Referer || res.headers?.referer || '');
                                                         const ua = encodeURIComponent(res.headers?.['User-Agent'] || res.headers?.['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36');
-                                                        const wrapped = `${mfpUrl.replace(/\/$/,'')}/proxy/hls/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(res.url)}${referer ? `&h_Referer=${referer}` : ''}${ua ? `&h_User-Agent=${ua}` : ''}`;
-                                                        sponStreams.push({ url: wrapped, title: `[SPON${italianFlag}] ${eventName} (${qualityTag})` } as any);
-                                                    } catch {}
+                                                        const wrapped = `${mfpUrl.replace(/\/$/,'')}/proxy/hls/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(res.url)}${referer?`&h_Referer=${referer}`:''}${ua?`&h_User-Agent=${ua}`:''}`;
+                                                        collected.push({ url: wrapped, title: `[SPON${italianFlag}] ${eventName} (${tag})` } as any);
+                                                        debugLog(`[SPON][ROW] success ${tag}`);
+                                                    } catch (err:any) { debugLog(`[SPON][ROW] unexpected error ${tag} ${(err?.message)||err}`); }
                                                 }
-                                                if (sponStreams.length) {
-                                                    sponStreams.sort((a,b)=>{
-                                                        const aKey = /\(HD7\)|\(HD8\)/i.test(a.title || '') ? 0 : 1;
-                                                        const bKey = /\(HD7\)|\(HD8\)/i.test(b.title || '') ? 0 : 1;
-                                                        if (aKey !== bKey) return aKey - bKey;
-                                                        return (a.title||'').localeCompare(b.title||'');
+                                                if (collected.length) {
+                                                    collected.sort((a,b)=>{
+                                                        const aKey = /(HD7\)|HD8\))/i.test(a.title||'') ? 0 : /\(HD7\)|\(HD8\)/i.test(a.title||'') ? 0 : /\(HD7\)/i.test(a.title||'') ? 0 : /\(HD8\)/i.test(a.title||'') ? 0 : 1;
+                                                        const bKey = /(HD7\)|HD8\))/i.test(b.title||'') ? 0 : /\(HD7\)|\(HD8\)/i.test(b.title||'') ? 0 : /\(HD7\)/i.test(b.title||'') ? 0 : /\(HD8\)/i.test(b.title||'') ? 0 : 1;
+                                                        if (aKey !== bKey) return aKey - bKey; return (a.title||'').localeCompare(b.title||'');
                                                     });
+                                                    // Trova primo indice SPSO (titolo contiene [SPSO]) per inserire PRIMA di SPSO
                                                     let insertAt = streams.length;
-                                                    for (let i=0;i<streams.length;i++) { if (/\[Strd\]/i.test(streams[i].title)) { insertAt = i; break; } }
-                                                    const existingUrls = new Set(streams.map(s=>s.url));
-                                                    const toInsert = sponStreams.filter(s=>s.url && !existingUrls.has(s.url));
-                                                    if (toInsert.length) {
-                                                        streams.splice(insertAt,0,...(toInsert as any));
-                                                        debugLog(`[SPON] Injected ${toInsert.length} schedule-based SPON streams for '${eventName}'`);
+                                                    for (let i=0;i<streams.length;i++) {
+                                                        if (/\[SPSO\]/i.test(streams[i].title)) { insertAt = i; break; }
                                                     }
+                                                    const existing = new Set(streams.map(s=>s.url));
+                                                    const finalIns = collected.filter(s=>s.url && !existing.has(s.url));
+                                                    if (finalIns.length) { streams.splice(insertAt,0,...(finalIns as any)); debugLog(`[SPON] Injected ${finalIns.length} schedule-based SPON streams (pre-SPSO) per '${eventName}'`); }
+                                                    else debugLog(`[SPON] Nessun nuovo stream da inserire (duplicati) per '${eventName}'`);
+                                                } else {
+                                                    // fallback placeholder (active window but nessun stream reale)
+                                                    try {
+                                                        const placeholderUrl = (process.env.SPON_PLACEHOLDER_URL || 'https://raw.githubusercontent.com/qwertyuiop8899/logo/main/nostream.mp4').toString();
+                                                        const title = `[SPON⚠] ${eventName} (Temporaneamente non disponibile)`;
+                                                        if (!streams.some(s=>s.title === title)) { streams.push({ url: placeholderUrl, title, behaviorHints: { notWebReady: true } } as any); debugLog(`[SPON] Fallback placeholder inserito per '${eventName}'`); }
+                                                    } catch(e){ debugLog('[SPON] errore placeholder fallback', e); }
                                                 }
                                             }
                                         } else {
-                                            // Fuori finestra: distinguere pre-finestra (placeholder) e post-finestra (niente)
+                                            // fuori finestra
                                             const preWindow = (eventStart && delta !== null && delta < -WINDOW_PRE_MS);
                                             const postWindow = (eventStart && delta !== null && delta > WINDOW_POST_MS);
                                             if (preWindow) {
                                                 const mfpUrl = (config.mediaFlowProxyUrl || process.env.MFP_URL || process.env.MEDIAFLOW_PROXY_URL || '').toString().trim();
                                                 const mfpPsw = (config.mediaFlowProxyPassword || process.env.MFP_PASSWORD || process.env.MEDIAFLOW_PROXY_PASSWORD || process.env.MFP_PSW || '').toString().trim();
-                                                if (!mfpUrl || !mfpPsw) {
-                                                    // Richiesto: se MFP assente non mostrare nulla (ne placeholder ne reali)
-                                                    debugLog(`[SPON] MFP assente: nessun placeholder per '${eventName}'`);
-                                                } else {
+                                                if (!mfpUrl || !mfpPsw) debugLog(`[SPON] MFP assente: nessun placeholder per '${eventName}'`);
+                                                else {
                                                     try {
-                                                        // Placeholder per OGNI canale trovato (fino a 12) stesso video
-                                                        const first = matched[0];
-                                                        const startTime = first?.time || '';
-                                                        const placeholderUrlEnv = (process.env.SPON_PLACEHOLDER_URL || '').toString().trim();
-                                                        // Video placeholder fornito: nostream.mp4 (GitHub)
-                                                        const placeholderUrl = placeholderUrlEnv || 'https://raw.githubusercontent.com/qwertyuiop8899/logo/main/nostream.mp4';
-                                                        const existingUrls = new Set(streams.map(s=>s.url));
-                                                        const placeholderStreams: { url: string; title: string; name?: string; behaviorHints?: any }[] = [];
+                                                        const startTime = matched[0]?.time || '';
+                                                        const placeholderUrl = (process.env.SPON_PLACEHOLDER_URL || 'https://raw.githubusercontent.com/qwertyuiop8899/logo/main/nostream.mp4').toString();
+                                                        const ph: any[] = [];
                                                         for (const row of matched.slice(0,12)) {
-                                                            // Evita duplicati se già stato inserito in ciclo precedente
                                                             const title = `[SPON⏳] ${eventName} (Inizia alle ${startTime}) (${row.channelCode.toUpperCase()})`;
-                                                            if ([...streams, ...placeholderStreams].some(s=>s.title === title)) continue;
-                                                            if (!existingUrls.has(placeholderUrl)) {
-                                                                placeholderStreams.push({
-                                                                    url: placeholderUrl,
-                                                                    title,
-                                                                    name: 'Live 🔴',
-                                                                    behaviorHints: { notWebReady: true } as any
-                                                                } as any);
-                                                            } else {
-                                                                // Anche se url è identico per tutti i canali, differenti titoli vanno bene: duplicati di url ammessi? Stremio a volte li collassa, comunque accettiamo.
-                                                                placeholderStreams.push({
-                                                                    url: placeholderUrl,
-                                                                    title,
-                                                                    name: 'Live 🔴',
-                                                                    behaviorHints: { notWebReady: true } as any
-                                                                } as any);
-                                                            }
+                                                            if (![...streams, ...ph].some(s=>s.title === title)) ph.push({ url: placeholderUrl, title, behaviorHints: { notWebReady: true } });
                                                         }
-                                                        if (placeholderStreams.length) {
+                                                        if (ph.length) {
                                                             let insertAt = streams.length;
-                                                            for (let i=0;i<streams.length;i++) { if (/\[Strd\]/i.test(streams[i].title)) { insertAt = i; break; } }
-                                                            // Cast leggero: i placeholder vengono elaborati dopo e convertiti in allStreams come gli altri
-                                                            streams.splice(insertAt,0,...(placeholderStreams as any));
-                                                            debugLog(`[SPON] Injected ${placeholderStreams.length} placeholder streams (pre-window) per '${eventName}'`);
-                                                        } else {
-                                                            debugLog(`[SPON][DEBUG] Nessun placeholder creato (già presenti?) per '${eventName}'`);
-                                                    }
-                                                    } catch(e) { debugLog('[SPON] errore placeholder', e); }
+                                                            for (let i=0;i<streams.length;i++) { if (/\[SPSO\]/i.test(streams[i].title)) { insertAt = i; break; } }
+                                                            streams.splice(insertAt,0,...ph);
+                                                            debugLog(`[SPON] Injected ${ph.length} placeholder streams (pre-window, pre-SPSO) per '${eventName}'`);
+                                                        }
+                                                        else debugLog(`[SPON][DEBUG] Nessun placeholder creato (già presenti?) per '${eventName}'`);
+                                                    } catch(e){ debugLog('[SPON] errore placeholder', e); }
                                                 }
                                             } else if (postWindow) {
-                                                debugLog(`[SPON] Post-window (>${WINDOW_POST_MS}ms) nessuna iniezione per '${eventName}'`);
+                                                debugLog(`[SPON] Post-window nessuna iniezione per '${eventName}'`);
                                             } else {
-                                                debugLog(`[SPON] Outside active window per '${eventName}' (delta nello span ma logica non attiva)`);
+                                                debugLog(`[SPON] Outside active window per '${eventName}' (delta span neutro)`);
                                             }
                                         }
                                     }
