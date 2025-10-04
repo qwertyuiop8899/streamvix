@@ -3,7 +3,7 @@ import { getStreamContent, VixCloudStreamInfo, ExtractorConfig } from "./extract
 import * as fs from 'fs';
 import { landingTemplate } from './landingPage';
 import * as path from 'path';
-import express, { Request, Response, NextFunction } from 'express'; // ✅ CORRETTO: Import tipizzato 
+import express, { Request, Response, NextFunction } from 'express'; //  ✅ CORRETTO: Import tipizzato 
 import { AnimeUnityProvider } from './providers/animeunity-provider';
 import { AnimeWorldProvider } from './providers/animeworld-provider';
 import { KitsuProvider } from './providers/kitsu'; 
