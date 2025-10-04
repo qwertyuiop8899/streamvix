@@ -64,10 +64,31 @@ export class GuardaSerieProvider {
     console.log('[GS][handleTmdbRequest] isMovie true -> skip');
     return { streams: [] };
   }
-  console.log('[GS][handleTmdbRequest] start', { tmdbId, season, episode, isMovie });
-      const t = await this.resolveTitle('tmdb', tmdbId, isMovie);
+  // Parsing formato composito: supporta
+  // 1) "123456:1:3" -> id base 123456, season=1, episode=3
+  // 2) "tmdb:123456:1:3" -> id base 123456, season=1, episode=3
+  // Se season/episode già passati (non null) NON vengono sovrascritti (priorità ai parametri espliciti).
+  let rawId = tmdbId;
+  let sSeason = season;
+  let sEpisode = episode;
+  // Rimuovi eventuale prefisso tmdb:
+  if (/^tmdb:/i.test(rawId)) rawId = rawId.replace(/^tmdb:/i, '');
+  // Match pattern numerico con stagione/episodio
+  if (/^\d+:\d+:\d+$/.test(rawId)) {
+    const parts = rawId.split(':');
+    if (parts.length === 3) {
+      const base = parts[0];
+      const ps = parseInt(parts[1]);
+      const pe = parseInt(parts[2]);
+      if (!Number.isNaN(ps) && sSeason == null) sSeason = ps;
+      if (!Number.isNaN(pe) && sEpisode == null) sEpisode = pe;
+      rawId = base; // usa solo la parte ID per TMDB API
+    }
+  }
+  console.log('[GS][handleTmdbRequest] start', { tmdbId, normalizedId: rawId, season: sSeason, episode: sEpisode, isMovie });
+      const t = await this.resolveTitle('tmdb', rawId, isMovie);
   console.log('[GS][handleTmdbRequest] resolved title', t);
-      return this.core(t, season, episode, isMovie);
+      return this.core(t, sSeason, sEpisode, isMovie);
     } catch {
   console.log('[GS][handleTmdbRequest] error fallback empty');
       return { streams: [] };
