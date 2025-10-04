@@ -663,27 +663,52 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         throw new Error("Failed to extract token, expires, or server URL from script.");
       }
 
-      const token = tokenMatch[1];
-      const expires = expiresMatch[1];
-      let serverUrl = serverUrlMatch[1];
+  const token = tokenMatch[1];
+  const expires = expiresMatch[1];
+  let serverUrl = serverUrlMatch[1];
+  let finalStreamUrl: string;
 
-      let finalStreamUrl = serverUrl.includes("?b=1")
-        ? `${serverUrl}&token=${token}&expires=${expires}`
-        : `${serverUrl}?token=${token}&expires=${expires}`;
-      finalStreamUrl = ensurePlaylistM3u8(finalStreamUrl);
-
-      // Aggiungi &h=1 solo se disponibile
-      if (scriptContent.includes("window.canPlayFHD = true")) {
-        finalStreamUrl += "&h=1";
+      // Costruzione URL finale stile webstreamr:
+      // 1. Normalizza /playlist/<id> aggiungendo .m3u8 se manca
+      // 2. Se l'URL originale conteneva già b=1 lo manteniamo.
+      // 3. Se NON conteneva b=1 lo aggiungeremo solo se poi rileviamo FHD (h=1) disponibile.
+  let hadBOriginally = false; // verrà deciso dopo aver rilevato canPlayFHD
+      try {
+        serverUrl = ensurePlaylistM3u8(serverUrl);
+        const urlObj = new URL(serverUrl);
+        const hadB = urlObj.searchParams.get('b') === '1';
+  hadBOriginally = hadB;
+        // Costruiamo intanto base senza token/expires (li aggiungiamo dopo per mantenere ordine desiderato: b, token, expires, h)
+        urlObj.search = '';
+        finalStreamUrl = urlObj.toString();
+        // nessuna aggiunta di b=1 se assente: hadBOriginally memorizza se presente all'origine
+      } catch (e) {
+        console.warn('[VixSrc][Direct] Fallback parsing serverUrl prima di token/expire:', (e as any)?.message || e);
+        finalStreamUrl = ensurePlaylistM3u8(serverUrl);
+  // hadBOriginally già valorizzato
+  hadBOriginally = /([?&])b=1(?!\d)/.test(serverUrl);
       }
-      else {
-        // fallback: controlla pattern alternativo (spazi, doppio apice, ecc.)
-        if (/window\.canPlayFHD\s*=\s*true/.test(scriptContent)) {
-          finalStreamUrl += "&h=1";
-          console.log('[VixSrc][Direct] FHD flag rilevato via regex fallback, aggiunto &h=1');
-        } else {
-          console.log('[VixSrc][Direct] FHD non disponibile (nessun canPlayFHD=true nel player script)');
-        }
+
+      // Detect FHD (canPlayFHD)
+      let fhd = false;
+      if (scriptContent.includes("window.canPlayFHD = true")) fhd = true; else if (/window\.canPlayFHD\s*=\s*true/.test(scriptContent)) fhd = true;
+      // Ora componiamo la query mantenendo ordine: (b=1 se applicabile), token, expires, (h=1 se FHD)
+      try {
+        const assembled = new URL(finalStreamUrl);
+        if (hadBOriginally) assembled.searchParams.set('b','1');
+        assembled.searchParams.set('token', token);
+        assembled.searchParams.set('expires', expires);
+        if (fhd) assembled.searchParams.set('h','1');
+        finalStreamUrl = assembled.toString();
+  console.log('[VixSrc][Direct] FHD', fhd, 'hadBOriginally', hadBOriginally);
+      } catch (e) {
+        console.warn('[VixSrc][Direct] Fallback composizione finale query:', (e as any)?.message || e);
+        const parts: string[] = [];
+  if (hadBOriginally) parts.push('b=1');
+        parts.push(`token=${token}`);
+        parts.push(`expires=${expires}`);
+        if (fhd) parts.push('h=1');
+        finalStreamUrl += (finalStreamUrl.includes('?') ? '&' : '?') + parts.join('&');
       }
 
       // --- Inizio della nuova logica per il titolo ---
@@ -749,7 +774,9 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           const token = u.searchParams.get('token');
           const expires = u.searchParams.get('expires');
           const h = u.searchParams.get('h');
+          const b = u.searchParams.get('b'); // mantieni se presente
           u.search = '';
+          if (b) u.searchParams.set('b', b); // b prima per replicare ordine osservato (b,token,expires,h)
           if (token) u.searchParams.set('token', token);
           if (expires) u.searchParams.set('expires', expires);
           if (h) u.searchParams.set('h', h);
@@ -799,6 +826,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   // -------------------------------------------------------------
 
   let directResult: VixCloudStreamInfo | null = null;
+  let directHadB = false; // se il master originale (direct) aveva b=1
   try {
     console.log('[VixSrc][EarlyDirect] Tentativo parse diretto iniziale');
     directResult = await getDirectStream(targetUrl, id, type, config);
@@ -810,8 +838,10 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           const u = new URL(directResult.streamUrl);
           const token = u.searchParams.get('token');
           const expires = u.searchParams.get('expires');
-            const h = u.searchParams.get('h');
+          const h = u.searchParams.get('h');
+          const b = u.searchParams.get('b');
           u.search = '';
+          if (b) u.searchParams.set('b', b);
           if (token) u.searchParams.set('token', token);
           if (expires) u.searchParams.set('expires', expires);
           if (h) u.searchParams.set('h', h);
@@ -820,6 +850,12 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
             console.log('[VixSrc][Direct][FinalizeNormalize] URL direct ripulita =>', cleaned);
             directResult.streamUrl = cleaned;
           }
+        }
+      } catch {/* ignore */}
+      try {
+        if (directResult.streamUrl.includes('/playlist/')) {
+          const uTest = new URL(directResult.streamUrl);
+          if (uTest.searchParams.get('b') === '1') directHadB = true;
         }
       } catch {/* ignore */}
       streams.push(directResult);
@@ -845,15 +881,25 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           if (dParam && /\/playlist\//.test(dParam)) {
             try {
               const inner = new URL(dParam);
+              if (directHadB && inner.searchParams.get('b') !== '1') inner.searchParams.set('b','1');
               const token = inner.searchParams.get('token');
               const expires = inner.searchParams.get('expires');
               const h = inner.searchParams.get('h');
               inner.search='';
+              if (directHadB) inner.searchParams.set('b','1');
               if (token) inner.searchParams.set('token', token);
               if (expires) inner.searchParams.set('expires', expires);
               if (h) inner.searchParams.set('h', h);
               const cleanedInner = inner.toString();
               if (cleanedInner !== dParam) { urlObj.searchParams.set('d', cleanedInner); proxyResult.streamUrl = urlObj.toString(); }
+            } catch {/* ignore */}
+          }
+          // Se non c'è parametro d ma l'URL proxy stesso è playlist e manca b=1, aggiungilo
+          if (directHadB && !dParam && /\/playlist\//.test(proxyResult.streamUrl)) {
+            try {
+              const pu = new URL(proxyResult.streamUrl);
+              if (pu.searchParams.get('b') !== '1') pu.searchParams.set('b','1');
+              proxyResult.streamUrl = pu.toString();
             } catch {/* ignore */}
           }
         } catch {/* ignore */}
@@ -885,7 +931,9 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       const token = mu.searchParams.get('token');
       const expires = mu.searchParams.get('expires');
       const h = mu.searchParams.get('h');
+      const b = mu.searchParams.get('b');
       mu.search='';
+      if (directHadB || b === '1') mu.searchParams.set('b','1');
       if (token) mu.searchParams.set('token', token);
       if (expires) mu.searchParams.set('expires', expires);
       if (h) mu.searchParams.set('h', h);
@@ -908,7 +956,15 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   function buildSyntheticProxyWrapper(innerSynthetic: string, referer: string): VixCloudStreamInfo | null {
     if (!haveMfp || !config.vixDual || !config.mfpUrl || !config.mfpPsw) return null;
     const cleaned = config.mfpUrl.endsWith('/') ? config.mfpUrl.slice(0,-1) : config.mfpUrl;
-    const wrapper = `${cleaned}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(innerSynthetic)}&api_password=${encodeURIComponent(config.mfpPsw)}`;
+    let syntheticTarget = innerSynthetic;
+    try {
+      if (directHadB) {
+        const su = new URL(syntheticTarget);
+        if (su.searchParams.get('b') !== '1') su.searchParams.set('b','1');
+        syntheticTarget = su.toString();
+      }
+    } catch {/* ignore */}
+    const wrapper = `${cleaned}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(syntheticTarget)}&api_password=${encodeURIComponent(config.mfpPsw)}`;
     const proxyOrig = streams.find(s=>s.source==='proxy');
     const baseName = proxyOrig ? proxyOrig.name.replace(/\s*🔒FHD$/,'').replace(/\s*🔒$/,'') : 'Proxy';
     return { name: baseName + ' 🔒 FHD', streamUrl: wrapper, referer, source: 'proxy', isSyntheticFhd: true, originalName: baseName };
