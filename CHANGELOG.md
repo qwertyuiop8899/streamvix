@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.7.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.3...v1.7.4) (2025-10-04)
+
+
+### Bug Fixes
+
+* es with tmdb ([171ab18](https://github.com/qwertyuiop8899/streamvix/commit/171ab18f2844fcf7713443fcf20f004b163d58ed))
+* fix vix ([3394b98](https://github.com/qwertyuiop8899/streamvix/commit/3394b98eacc224858cb6564f2712899c574c340a))
+* gs ([73f137b](https://github.com/qwertyuiop8899/streamvix/commit/73f137be78f0a55eb0fa025777f861772437e025))
+* vv nomfp ([141cdf8](https://github.com/qwertyuiop8899/streamvix/commit/141cdf8b93005dbcb38cd94014e3a7488fbcbb2c))
+
 ## [1.7.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.2...v1.7.3) (2025-10-04)
 
 
