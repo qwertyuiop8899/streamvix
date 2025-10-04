@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.2...v1.7.3) (2025-10-04)
+
+
+### Bug Fixes
+
+* spon free ([f2711c5](https://github.com/qwertyuiop8899/streamvix/commit/f2711c509c7f4a6d1581157e695f7653156c9773))
+* spon free ([f2711c5](https://github.com/qwertyuiop8899/streamvix/commit/f2711c509c7f4a6d1581157e695f7653156c9773))
+
 ## [1.7.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.1...v1.7.2) (2025-10-03)
 
 
