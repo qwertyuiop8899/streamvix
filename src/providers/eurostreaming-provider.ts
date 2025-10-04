@@ -102,6 +102,20 @@ function runPythonEuro(argsObj: { imdb?: string; tmdb?: string; season?: number|
 export class EurostreamingProvider {
   constructor(private config: EurostreamingConfig) {}
 
+  // Recupera l'IMDb ID da un TMDB TV ID usando l'API TMDB (external_ids)
+  private async resolveImdbFromTmdb(tvId: string): Promise<string | null> {
+    const key = this.config.tmdbApiKey || process.env.TMDB_API_KEY;
+    if (!key) return null;
+    try {
+      const resp = await fetch(`https://api.themoviedb.org/3/tv/${tvId}/external_ids?api_key=${key}`);
+      if (!resp.ok) return null;
+      const j = await resp.json();
+      const imdb = (j && j.imdb_id) ? j.imdb_id : null;
+      if (imdb && /^tt\d+$/.test(imdb)) return imdb;
+      return null;
+    } catch { return null; }
+  }
+
   private formatStreams(list: PyResult['streams']): StreamForStremio[] {
     if (!list) return [];
   // Mostra sempre entrambi gli host (DeltaBit + MixDrop). Ordina con DeltaBit prima.
@@ -185,12 +199,34 @@ export class EurostreamingProvider {
   async handleTmdbRequest(tmdbId: string, season: number | null, episode: number | null, isMovie: boolean): Promise<{ streams: StreamForStremio[] }> {
     if (!this.config.enabled) { console.log('[Eurostreaming] provider disabled'); return { streams: [] }; }
     try {
-      console.log('[Eurostreaming] handleTmdbRequest tmdbId=', tmdbId, 'season=', season, 'episode=', episode, 'isMovie=', isMovie);
-      const py = await runPythonEuro({ tmdb: tmdbId, season, episode, mfp: !!(this.config.mfpUrl && this.config.mfpPassword), isMovie, tmdbKey: this.config.tmdbApiKey });
-      console.log('[Eurostreaming] python result keys=', Object.keys(py||{}));
+      // Parsing composito: supporta tmdb:<id>:s:e e <id>:s:e
+      let raw = tmdbId;
+      if (/^tmdb:/i.test(raw)) raw = raw.replace(/^tmdb:/i, '');
+      let sSeason = season; let sEpisode = episode;
+      if (/^\d+:\d+:\d+$/.test(raw)) {
+        const parts = raw.split(':');
+        if (parts.length === 3) {
+          const base = parts[0];
+            const ps = parseInt(parts[1]);
+            const pe = parseInt(parts[2]);
+            if (sSeason == null && !isNaN(ps)) sSeason = ps;
+            if (sEpisode == null && !isNaN(pe)) sEpisode = pe;
+            raw = base;
+        }
+      }
+      console.log('[Eurostreaming][TMDB] start', { tmdbId, normalizedId: raw, seasonIn: season, episodeIn: episode, season: sSeason, episode: sEpisode, isMovie });
+      // Converti TMDB -> IMDb (solo serie; film non supportati comunque dallo script per ora)
+      const imdb = await this.resolveImdbFromTmdb(raw);
+      if (imdb) {
+        console.log('[Eurostreaming][TMDB] imdb resolved', imdb, '-> delego a handleImdbRequest');
+        return this.handleImdbRequest(imdb, sSeason, sEpisode, isMovie);
+      }
+      console.log('[Eurostreaming][TMDB] imdb not resolved -> fallback python tmdb flow');
+      const py = await runPythonEuro({ tmdb: raw, season: sSeason, episode: sEpisode, mfp: !!(this.config.mfpUrl && this.config.mfpPassword), isMovie, tmdbKey: this.config.tmdbApiKey });
+      console.log('[Eurostreaming][TMDB] python result keys=', Object.keys(py||{}));
       const formatted = this.formatStreams(py.streams);
-      console.log('[Eurostreaming] formatted count=', formatted.length);
-      if (!formatted.length) console.log('[Eurostreaming] EMPTY after formatting original_count=', py.streams ? py.streams.length : 0);
+      console.log('[Eurostreaming][TMDB] formatted count=', formatted.length);
+      if (!formatted.length) console.log('[Eurostreaming][TMDB] EMPTY after formatting original_count=', py.streams ? py.streams.length : 0);
       return { streams: formatted };
     } catch (e) { console.error('[Eurostreaming] tmdb handler error', e); return { streams: [] }; }
   }
