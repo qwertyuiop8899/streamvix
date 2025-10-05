@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.4...v1.7.5) (2025-10-05)
+
+
+### Bug Fixes
+
+* vix language ([944a7bd](https://github.com/qwertyuiop8899/streamvix/commit/944a7bd0d3cce6a87b60a879087eaf425e89da66))
+
 ## [1.7.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.3...v1.7.4) (2025-10-04)
 
 
