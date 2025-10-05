@@ -151,7 +151,8 @@ async function checkTmdbIdOnVixSrc(tmdbId: string, type: ContentType): Promise<b
     } catch { return false; }
   })();
   const vixSrcApiType = type === 'movie' ? 'movie' : 'tv'; // VixSrc usa 'tv' per le serie
-  const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}?lang=it`;
+  const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}`;
+//   const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}?lang=it`;
 
   try {
     console.log(`VIX_CHECK: Checking TMDB ID ${tmdbId} of type ${vixSrcApiType} against VixSrc list: ${listUrl}`);
@@ -208,7 +209,8 @@ async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: num
       return ['1','true','on','yes','y'].includes(v);
     } catch { return false; }
   })();
-  const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
+  const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/`;
+//const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
   try {
     console.log(`VIX_EP_CHECK: Checking TMDB ID ${tmdbId} S${season}E${episode} against VixSrc episode list: ${listUrl}`);
     const response = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect)', 'Accept': 'application/json' } });
