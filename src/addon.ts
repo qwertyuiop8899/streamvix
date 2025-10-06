@@ -1740,10 +1740,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (logEnabled) console.log('[GD][TAG][CAT] optimistic', { inferredSlug, tag: shouldTag });
                         }
                         if (shouldTag) {
-                            (channelWithPrefix as any).name = `[Gd] ${channelWithPrefix.name || channel.name}`;
+                            // Preserve original visible name (no [Gd] prefix per user requirement)
                             gdTagged = true;
+                            (channelWithPrefix as any)._gdTagged = true; // internal flag
                             if (!(channel as any)._dynamic) {
                                 const origDesc = channelWithPrefix.description || channel.description || '';
+                                // Append source note only in description
                                 channelWithPrefix.description = `${origDesc}\n[Gd]${strict? '':' (slug)'} source`.trim();
                             }
                         } else if (logEnabled) {
@@ -1776,9 +1778,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 .replace(/^[-–—\s]+|[-–—\s]+$/g, '')
                                 .trim();
                             // Titolo canale: Evento ⏰ HH:MM - DD/MM (senza Italy, senza lega)
-                            const hadGd = /\[Gd\]/i.test(channelWithPrefix.name || channel.name || '') || gdTagged;
+                            // (Removed [Gd] visual prefix; retain internal flag only)
                             const baseEventName = `${eventTitle} ⏰ ${hhmm}${dateStr ? ` - ${dateStr}` : ''}`;
-                            (channelWithPrefix as any).name = hadGd ? `[Gd] ${baseEventName}` : baseEventName;
+                            (channelWithPrefix as any).name = baseEventName;
                             // Summary: 🔴 Inizio: HH:MM - Evento - Lega - DD/MM Italy
                             channelWithPrefix.description = `🔴 Inizio: ${hhmm} - ${eventTitle}${league ? ` - ${league}` : ''}${dateStr ? ` - ${dateStr}` : ''}${hasItaly ? ' Italy' : ''}`.trim();
                         } catch {
@@ -1876,7 +1878,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             shouldTag = !!inferredSlug;
                             if (logEnabled) console.log('[GD][TAG][META] optimistic', { inferredSlug, tag: shouldTag });
                         }
-                        if (shouldTag) baseName = `[Gd] ${baseName}`; else if (logEnabled) console.log('[GD][TAG][META] skip', { reason: 'no-match', strict, inferredSlug });
+                        if (shouldTag) { (channel as any)._gdTagged = true; /* no visual prefix */ } else if (logEnabled) console.log('[GD][TAG][META] skip', { reason: 'no-match', strict, inferredSlug });
                     }
                 } catch {}
 
@@ -1920,9 +1922,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 .replace(/^[-–—\s]+|[-–—\s]+$/g, '')
                                 .trim();
                             // Nome coerente anche nel meta: Evento ⏰ HH:MM - DD/MM
-                            const hadGdMeta = /\[Gd\]/i.test((metaWithPrefix as any).name || channel.name || '');
                             const baseMetaEventName = `${eventTitle} ⏰ ${hhmm}${dateStr ? ` - ${dateStr}` : ''}`;
-                            (metaWithPrefix as any).name = hadGdMeta ? `[Gd] ${baseMetaEventName}` : baseMetaEventName;
+                            (metaWithPrefix as any).name = baseMetaEventName; // no [Gd] prefix
                             finalDesc = `🔴 Inizio: ${hhmm} - ${eventTitle}${league ? ` - ${league}` : ''}${dateStr ? ` - ${dateStr}` : ''}${hasItaly ? ' Italy' : ''}`.trim();
                         } catch {/* ignore */}
                     }
@@ -2428,7 +2429,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         // (rimosso logging dettagliato RESOLVED per produzione)
                         // Duplica gli stream italiani (non ancora estratti) con variante proxy CF
                         // Regola: solo quelli che iniziano con bandiera italiana e NON già duplicati
-                        const cfPrefix = 'https://proxy.stremio.dpdns.org/manifest.m3u8?url=';
+                        // Legacy prefix (old logic). New logic will prefer '?id=' direct pattern.
+                        const cfPrefix = 'https://proxy.stremio.dpdns.org/manifest.m3u8?url='; // kept for detection of already-added old links
                         const enriched: { url: string; title: string }[] = [];
                         for (const rAny of resolved as any[]) {
                             const r = rAny as any;
@@ -2436,7 +2438,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             try {
                                 // Non duplicare se l'URL è già un proxy CF o se NON è italiano
                                 if (!r.title.startsWith('🇮🇹')) continue;
-                                if (r.url.startsWith(cfPrefix)) continue;
+                                if (r.url.startsWith(cfPrefix) || /https:\/\/proxy\.stremio\.dpdns\.org\/manifest\.m3u8\?id=\d+/i.test(r.url)) continue;
                                 // Heuristic: se l'URL contiene già /proxy/hls/manifest.m3u8 (MFP) allora saltiamo: vogliamo solo duplicare l'ORIGINALE pre-extractor.
                                 // Tuttavia qui r.url è già il risultato di resolveDynamicEventUrl (che incapsula MFP). Quindi per rispettare richiesta "prima di mfp"
                                 // proviamo a ricostruire la url originale se possibile: se contiene parametro d= decodifichiamo quello.
@@ -2453,7 +2455,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 // (rimosso log dettaglio CHECK)
                                 // Solo se l'originale sembra un link dlhd.dad/watch.php?id=...
                                 if (!/dlhd\.dad\/watch\.php\?id=\d+/i.test(originalCandidate)) continue;
-                                const proxyUrl = cfPrefix + originalCandidate;
+                                // NEW: build compact proxy form https://proxy.stremio.dpdns.org/manifest.m3u8?id=NNN
+                                let proxyUrl: string;
+                                const mId = originalCandidate.match(/dlhd\.dad\/watch\.php\?id=(\d+)/i);
+                                if (mId) {
+                                    proxyUrl = `https://proxy.stremio.dpdns.org/manifest.m3u8?id=${mId[1]}`;
+                                } else {
+                                    // Fallback to legacy pattern if unexpected shape
+                                    proxyUrl = cfPrefix + originalCandidate;
+                                }
                                 // Evita duplicati se già presente
                                 if (enriched.some(e => e.url === proxyUrl)) continue;
                                 // Titolo: aggiungi 🔄 attaccato alla bandiera (senza spazio) mantenendo resto identico
@@ -2469,6 +2479,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             } catch {}
                         }
                         for (const r of enriched) streams.push(r);
+                        // Normalize any legacy CF links (defensive pass) to new ?id= form
+                        try {
+                            for (const s of streams) {
+                                if (!s || !s.url) continue;
+                                const legacyMatch = s.url.match(/^https:\/\/proxy\.stremio\.dpdns\.org\/manifest\.m3u8\?url=https:\/\/dlhd\.dad\/watch\.php\?id=(\d+)/i);
+                                if (legacyMatch) {
+                                    s.url = `https://proxy.stremio.dpdns.org/manifest.m3u8?id=${legacyMatch[1]}`;
+                                }
+                            }
+                        } catch {}
                         // Append leftover entries (beyond CAP) as direct FAST (no extractor) to still expose them
             if (extraFast.length) {
                             const leftoversToShow = CAP === 1 ? extraFast.slice(0, 1) : extraFast;
