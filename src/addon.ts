@@ -29,6 +29,8 @@ import { execFile, spawn } from 'child_process';
 import * as crypto from 'crypto';
 import * as util from 'util';
 import { fetchPage } from './providers/flaresolverr';
+// Live gdplayer runtime resolver (for tagging)
+import { resolveGdplayerForChannel, inferGdplayerSlug } from './extractors/gdplayerRuntime';
 
 // ================= TYPES & INTERFACES =================
 interface AddonConfig {
@@ -745,7 +747,7 @@ function _loadStaticChannelsIfChanged(force = false) {
         }
         const enable = enableRaw;
         if (!['1','true','on','yes'].includes(enable)) return;
-    const intervalMs = Math.max(30000, parseInt(process.env.STREAMED_POLL_INTERVAL_MS || '120000', 10)); // default 120s (allineato a RBTV)
+    const intervalMs = Math.max(30000, parseInt(process.env.STREAMED_POLL_INTERVAL_MS || '480000', 10)); // default 480s (8m)
         const pythonBin = process.env.PYTHON_BIN || 'python3';
         const scriptPath = path.join(__dirname, '..', 'streamed_channels.py');
         if (!fs.existsSync(scriptPath)) { console.log('[STREAMED][INIT] script non trovato', scriptPath); return; }
@@ -804,7 +806,7 @@ function _loadStaticChannelsIfChanged(force = false) {
         const pythonBin = process.env.PYTHON_BIN || 'python3';
         const scriptPath = path.join(__dirname, '..', 'rbtv_streams.py');
         if (!fs.existsSync(scriptPath)) { console.log('[RBTV][INIT] script non trovato', scriptPath); return; }
-        const intervalMs = Math.max(60000, parseInt(process.env.RBTV_POLL_INTERVAL_MS || '120000', 10)); // default 120s
+    const intervalMs = Math.max(60000, parseInt(process.env.RBTV_POLL_INTERVAL_MS || '480000', 10)); // default 480s (8m)
         function runOnce(tag: string) {
             const env: any = { ...process.env };
             try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
@@ -861,7 +863,7 @@ function _loadStaticChannelsIfChanged(force = false) {
         const pythonBin = process.env.PYTHON_BIN || 'python3';
         const scriptPath = path.join(__dirname, '..', 'spso_streams.py');
         if (!fs.existsSync(scriptPath)) { console.log('[SPSO][INIT] script non trovato', scriptPath); return; }
-        const intervalMs = Math.max(60000, parseInt(process.env.SPSO_POLL_INTERVAL_MS || '120000', 10));
+    const intervalMs = Math.max(60000, parseInt(process.env.SPSO_POLL_INTERVAL_MS || '480000', 10)); // default 480s (8m)
         function runOnce(tag: string) {
             const env: any = { ...process.env };
             try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
@@ -1713,6 +1715,43 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     background: (channel as any).background || (channel as any).poster || ''
                 };
 
+                // Preserve original name for dynamic rename logic
+                (channelWithPrefix as any)._originalName = channel.name;
+
+                // === GDPLAYER TAGGING (catalog) BEFORE dynamic rename ===
+                let gdTagged = false;
+                try {
+                    const disableTag = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_TAG_DISABLE||''));
+                    if (!disableTag && channel && channel.name && !/\[Gd\]/i.test(channel.name)) {
+                        const strict = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_STRICT||''));
+                        let shouldTag = false;
+                        let inferredSlug: string | null = null;
+                        const logEnabled = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_LOG||'1'));
+                        if (logEnabled) {
+                            console.log('[GD][TAG][CAT] candidate', { id: channel.id, name: channel.name, dynamic: !!(channel as any)._dynamic, strict, disableTag });
+                        }
+                        if (strict) {
+                            const gd = await resolveGdplayerForChannel(channel, { mfpUrl: process.env.MFP_URL, mfpPassword: process.env.MFP_PASSWORD });
+                            shouldTag = !!(gd && gd.url && !gd.error);
+                            if (logEnabled) console.log('[GD][TAG][CAT] strict result', { ok: shouldTag, error: gd?.error });
+                        } else {
+                            inferredSlug = inferGdplayerSlug(channel);
+                            shouldTag = !!inferredSlug;
+                            if (logEnabled) console.log('[GD][TAG][CAT] optimistic', { inferredSlug, tag: shouldTag });
+                        }
+                        if (shouldTag) {
+                            (channelWithPrefix as any).name = `[Gd] ${channelWithPrefix.name || channel.name}`;
+                            gdTagged = true;
+                            if (!(channel as any)._dynamic) {
+                                const origDesc = channelWithPrefix.description || channel.description || '';
+                                channelWithPrefix.description = `${origDesc}\n[Gd]${strict? '':' (slug)'} source`.trim();
+                            }
+                        } else if (logEnabled) {
+                            console.log('[GD][TAG][CAT] skip', { reason: 'no-match', strict, inferredSlug });
+                        }
+                    }
+                } catch {}
+
                 // Per canali dinamici: niente EPG, mostra solo ora inizio evento
                 if ((channel as any)._dynamic) {
                     const eventStart = (channel as any).eventStart || (channel as any).eventstart; // fallback
@@ -1737,7 +1776,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 .replace(/^[-–—\s]+|[-–—\s]+$/g, '')
                                 .trim();
                             // Titolo canale: Evento ⏰ HH:MM - DD/MM (senza Italy, senza lega)
-                            (channelWithPrefix as any).name = `${eventTitle} ⏰ ${hhmm}${dateStr ? ` - ${dateStr}` : ''}`;
+                            const hadGd = /\[Gd\]/i.test(channelWithPrefix.name || channel.name || '') || gdTagged;
+                            const baseEventName = `${eventTitle} ⏰ ${hhmm}${dateStr ? ` - ${dateStr}` : ''}`;
+                            (channelWithPrefix as any).name = hadGd ? `[Gd] ${baseEventName}` : baseEventName;
                             // Summary: 🔴 Inizio: HH:MM - Evento - Lega - DD/MM Italy
                             channelWithPrefix.description = `🔴 Inizio: ${hhmm} - ${eventTitle}${league ? ` - ${league}` : ''}${dateStr ? ` - ${dateStr}` : ''}${hasItaly ? ' Italy' : ''}`.trim();
                         } catch {
@@ -1766,6 +1807,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                 }
 
+                // Final post-tag log (only if enabled)
+                try {
+                    const logEnabled = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_LOG||'1'));
+                    if (logEnabled) {
+                        console.log('[GD][TAG][CAT][FINAL]', { id: channel.id, finalName: channelWithPrefix.name, gdTagged, dynamic: !!(channel as any)._dynamic });
+                    }
+                } catch {}
                 return channelWithPrefix;
             }));
 
@@ -1807,6 +1855,31 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             if (channel) {
                 console.log(`✅ Found channel for meta: ${channel.name}`);
 
+                // Pre-tag base name (meta) con stessa logica ottimistica
+                let baseName = channel.name;
+                try {
+                    const disableTag = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_TAG_DISABLE||''));
+                    if (!disableTag && baseName && !/\[Gd\]/i.test(baseName)) {
+                        const strict = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_STRICT||''));
+                        let shouldTag = false;
+                        let inferredSlug: string | null = null;
+                        const logEnabled = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_LOG||'1'));
+                        if (logEnabled) {
+                            console.log('[GD][TAG][META] candidate', { id: channel.id, name: channel.name, strict, disableTag });
+                        }
+                        if (strict) {
+                            const gd = await resolveGdplayerForChannel(channel, { mfpUrl: process.env.MFP_URL, mfpPassword: process.env.MFP_PASSWORD });
+                            shouldTag = !!(gd && gd.url && !gd.error);
+                            if (logEnabled) console.log('[GD][TAG][META] strict result', { ok: shouldTag, error: gd?.error });
+                        } else {
+                            inferredSlug = inferGdplayerSlug(channel);
+                            shouldTag = !!inferredSlug;
+                            if (logEnabled) console.log('[GD][TAG][META] optimistic', { inferredSlug, tag: shouldTag });
+                        }
+                        if (shouldTag) baseName = `[Gd] ${baseName}`; else if (logEnabled) console.log('[GD][TAG][META] skip', { reason: 'no-match', strict, inferredSlug });
+                    }
+                } catch {}
+
                 const metaWithPrefix = {
                     ...channel,
                     id: `tv:${channel.id}`,
@@ -1820,7 +1893,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     imdbRating: null,
                     releaseInfo: "Live TV",
                     country: "IT",
-                    language: "it"
+                    language: "it",
+                    name: baseName
                 };
 
                 // Meta: canali dinamici senza EPG con ora inizio
@@ -1846,7 +1920,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 .replace(/^[-–—\s]+|[-–—\s]+$/g, '')
                                 .trim();
                             // Nome coerente anche nel meta: Evento ⏰ HH:MM - DD/MM
-                            (metaWithPrefix as any).name = `${eventTitle} ⏰ ${hhmm}${dateStr ? ` - ${dateStr}` : ''}`;
+                            const hadGdMeta = /\[Gd\]/i.test((metaWithPrefix as any).name || channel.name || '');
+                            const baseMetaEventName = `${eventTitle} ⏰ ${hhmm}${dateStr ? ` - ${dateStr}` : ''}`;
+                            (metaWithPrefix as any).name = hadGdMeta ? `[Gd] ${baseMetaEventName}` : baseMetaEventName;
                             finalDesc = `🔴 Inizio: ${hhmm} - ${eventTitle}${league ? ` - ${league}` : ''}${dateStr ? ` - ${dateStr}` : ''}${hasItaly ? ' Italy' : ''}`.trim();
                         } catch {/* ignore */}
                     }
@@ -2012,11 +2088,67 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     console.log(`✅ Found channel: ${channel.name}`);
 
+                    // (GDPLAYER injection spostato dopo la dichiarazione di 'streams')
+
                     // Debug della configurazione proxy
                     debugLog(`Config DEBUG - mediaFlowProxyUrl: ${config.mediaFlowProxyUrl}`);
                     debugLog(`Config DEBUG - mediaFlowProxyPassword: ${config.mediaFlowProxyPassword ? '***' : 'NOT SET'}`);
 
                     let streams: { url: string; title: string }[] = [];
+                    // Preparazione: risoluzione GD statica ritardata (inserimento dopo PD/Vavoo/free)
+                    let gdStaticPending: { url: string; title: string } | null = null;
+                    // Helper per nome canale pulito da slug gdplayer (senza orario / evento)
+                    const GD_SLUG_DISPLAY: Record<string,string> = {
+                        'sky-uno': 'Sky Uno',
+                        'sky-sport-tennis': 'Sky Sport Tennis',
+                        'sky-sport-24': 'Sky Sport 24',
+                        'sky-sport-f1': 'Sky Sport F1',
+                        'sky-sport-motogp': 'Sky Sport MotoGP',
+                        'sky-sport-nba': 'Sky Sport NBA',
+                        'sky-sport-arena': 'Sky Sport Arena',
+                        'sky-sport-calcio': 'Sky Sport Calcio',
+                        'sky-sport-max': 'Sky Sport Max',
+                        'sky-sport-uno': 'Sky Sport Uno',
+                        'sky-cinema-uno': 'Sky Cinema Uno',
+                        'sky-cinema-comedy': 'Sky Cinema Comedy',
+                        'sky-cinema-family': 'Sky Cinema Family',
+                        'sky-cinema-romance': 'Sky Cinema Romance',
+                        'sky-cinema-suspence': 'Sky Cinema Suspense',
+                        'eurosport-1-it': 'Eurosport 1',
+                        'eurosport-2-it': 'Eurosport 2'
+                    };
+                    function gdDisplayNameFromSlug(slug?: string): string | null {
+                        if (!slug) return null;
+                        const s = slug.toLowerCase();
+                        if (GD_SLUG_DISPLAY[s]) return GD_SLUG_DISPLAY[s];
+                        // Generic formatter: split by '-' and capitalize
+                        const parts = s.split('-').filter(Boolean).filter(p => p !== 'it');
+                        const mapped = parts.map(p => {
+                            if (p === 'f1') return 'F1';
+                            if (p === 'nba') return 'NBA';
+                            if (p === 'motogp') return 'MotoGP';
+                            return p.charAt(0).toUpperCase() + p.slice(1);
+                        });
+                        // Heuristic join for sky sport / sky cinema grouping
+                        return mapped.join(' ');
+                    }
+                    try {
+                        const disableGdStream = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_STREAM_DISABLE||''));
+                        if (!disableGdStream && mfpUrl && mfpPsw && !(channel as any)._dynamic) { // richiede MFP configurato
+                            const logEnabled = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_LOG||'1'));
+                            const inferredSlug = inferGdplayerSlug(channel as any);
+                            if (inferredSlug) {
+                                try {
+                                    const gd = await resolveGdplayerForChannel(channel as any, { mfpUrl: mfpUrl, mfpPassword: mfpPsw });
+                                        if (gd && gd.url && !gd.error) {
+                                            const finalUrl = gd.wrappedUrl || gd.url;
+                                            const cleanName = gdDisplayNameFromSlug(gd.slug) || channel.name;
+                                            gdStaticPending = { url: finalUrl, title: `[🌐Gd] ${cleanName} [ITA]` };
+                                    }
+                                } catch {/* silent */}
+                            }
+                        }
+                    } catch {/* ignore gdplayer static errors */}
                     const vavooCleanPromises: Promise<void>[] = [];
                     // Collect clean Vavoo results per variant index to prepend in order later
                     const vavooCleanPrepend: Array<{ url: string; title: string } | undefined> = [];
@@ -2147,6 +2279,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             debugLog(`[DynamicStreams][FAST] limit ${CAP} applied tier1=${tier1.length} tier2=${tier2.length} total=${(channel as any).dynamicDUrls.length}`);
                         }
                         const fastStartIndex = streams.length; // indice da cui iniziano gli stream FAST
+                        // Pre-raccogliamo i provider titles per migliorare l'inferenza gdplayer
+                        const providerTitlesFast: string[] = [];
                         for (const e of entries) {
                             if (!e || !e.url) continue;
                             let t = (e.title || 'Stream').trim();
@@ -2156,6 +2290,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             // Include SPSO e consente [Strd] senza spazio successivo
                             if (!/^\[(Strd|RB77|SPSO|P🐽D|🌍dTV)\b/.test(t)) t = `[Player Esterno] ${t}`;
                             streams.push({ url: e.url, title: t });
+                            providerTitlesFast.push(e.title || '');
                         }
                         // Duplicazione CF per canali italiani nel ramo FAST (logica analoga a EXTRACTOR)
                         try {
@@ -2197,6 +2332,39 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                             if (beforeFast !== streams.length) debugLog(`[DynamicStreams][FAST][NO_MFP] rimossi ${beforeFast - streams.length} dlhd.dad, rimasti=${streams.length}`);
                         }
+                        // === GDPLAYER injection for dynamic (FAST) dopo PD/Vavoo ===
+                        try {
+                            const disableGdStream = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_STREAM_DISABLE||''));
+                            if (!disableGdStream && mfpUrl && mfpPsw) { // richiede MFP
+                                const logEnabled = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_LOG||'1'));
+                                // Assicura extraTexts con provider titles (solo se non già presente)
+                                if (!(channel as any).extraTexts || !Array.isArray((channel as any).extraTexts)) {
+                                    (channel as any).extraTexts = providerTitlesFast;
+                                } else {
+                                    // unisci evitando duplicati
+                                    const set = new Set<string>((channel as any).extraTexts);
+                                    for (const pt of providerTitlesFast) set.add(pt);
+                                    (channel as any).extraTexts = Array.from(set);
+                                }
+                                const inferredSlug = inferGdplayerSlug(channel as any);
+                                if (inferredSlug) {
+                                    try {
+                                        const gd = await resolveGdplayerForChannel(channel as any, { mfpUrl: mfpUrl, mfpPassword: mfpPsw });
+                                        if (gd && gd.url && !gd.error) {
+                                            const finalUrl = gd.wrappedUrl || gd.url;
+                                            const cleanName = gdDisplayNameFromSlug(gd.slug) || channel.name;
+                                            const title = `[🌐Gd] ${cleanName} [ITA]`;
+                                            let insertAt = 0;
+                                            while (insertAt < streams.length) {
+                                                const t = streams[insertAt].title || '';
+                                                if (/^\[P🐽D]/i.test(t) || /Vavoo/i.test(t)) insertAt++; else break;
+                                            }
+                                            streams.splice(insertAt,0,{ url: finalUrl, title });
+                                        }
+                                    } catch {/* silent */}
+                                }
+                            }
+                        } catch {}
                         dynamicHandled = true;
                     } else if ((channel as any)._dynamic && Array.isArray((channel as any).dynamicDUrls) && (channel as any).dynamicDUrls.length) {
                         debugLog(`[DynamicStreams] EXTRACTOR branch attiva (FAST_DYNAMIC disattivato) canale=${channel.id}`);
@@ -2228,6 +2396,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             debugLog(`[DynamicStreams][EXTRACTOR] cap ${CAP} applied tier1=${tier1.length} tier2=${tier2.length} extraFast=${extraFast.length} total=${(channel as any).dynamicDUrls.length}`);
                         }
                         const resolved: { url: string; title: string }[] = [];
+                        const providerTitlesExt: string[] = [];
                         const itaRegex = /\b(it|ita|italy|italia|italian|italiano)$/i;
                         const CONCURRENCY = Math.min(entries.length, CAP); // Extract up to CAP in parallel (bounded by entries)
                         let index = 0;
@@ -2238,6 +2407,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const d = entries[i];
                                 if (!d || !d.url) continue;
                                 let providerTitle = (d.title || 'Stream').trim().replace(/^\((.*)\)$/,'$1').trim();
+                                providerTitlesExt.push(providerTitle);
                                 if (itaRegex.test(providerTitle) && !providerTitle.startsWith('🇮🇹')) providerTitle = `🇮🇹 ${providerTitle}`;
                                 try {
                                     const r = await resolveDynamicEventUrl(d.url, providerTitle, mfpUrl, mfpPsw);
@@ -2323,6 +2493,38 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                             if (beforeExt !== streams.length) debugLog(`[DynamicStreams][EXTRACTOR][NO_MFP] rimossi ${beforeExt - streams.length} dlhd.dad, rimasti=${streams.length}`);
                         }
+                        // === GDPLAYER injection for dynamic (EXTRACTOR) dopo PD/Vavoo ===
+                        try {
+                            const disableGdStream = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_STREAM_DISABLE||''));
+                            if (!disableGdStream && mfpUrl && mfpPsw) { // richiede MFP
+                                const logEnabled = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_LOG||'1'));
+                                // Popola extraTexts con providerTitles extractor se mancante
+                                if (!(channel as any).extraTexts || !Array.isArray((channel as any).extraTexts)) {
+                                    (channel as any).extraTexts = providerTitlesExt;
+                                } else {
+                                    const set = new Set<string>((channel as any).extraTexts);
+                                    for (const pt of providerTitlesExt) set.add(pt);
+                                    (channel as any).extraTexts = Array.from(set);
+                                }
+                                const inferredSlug = inferGdplayerSlug(channel as any);
+                                if (inferredSlug) {
+                                    try {
+                                        const gd = await resolveGdplayerForChannel(channel as any, { mfpUrl: mfpUrl, mfpPassword: mfpPsw });
+                                        if (gd && gd.url && !gd.error) {
+                                            const finalUrl = gd.wrappedUrl || gd.url;
+                                            const cleanName = gdDisplayNameFromSlug(gd.slug) || channel.name;
+                                            const title = `[🌐Gd] ${cleanName} [ITA]`;
+                                            let insertAt = 0;
+                                            while (insertAt < streams.length) {
+                                                const t = streams[insertAt].title || '';
+                                                if (/^\[P🐽D]/i.test(t) || /Vavoo/i.test(t)) insertAt++; else break;
+                                            }
+                                            streams.splice(insertAt,0,{ url: finalUrl, title });
+                                        }
+                                    } catch {/* silent */}
+                                }
+                            }
+                        } catch {}
                         dynamicHandled = true;
                     } else if ((channel as any)._dynamic) {
                         // Dynamic channel ma senza dynamicDUrls -> placeholder stream
@@ -2335,11 +2537,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             try {
                                 const pdUrl = (channel as any).pdUrlF;
                                 if (pdUrl && !streams.some(s => s.url === pdUrl)) {
-                                    // Inserisci il flusso PD sempre in prima posizione
-                                    streams.unshift({
-                                        url: pdUrl,
-                                        title: `[P🐽D] ${channel.name}`
-                                    });
+                                    const pdStream = { url: pdUrl, title: `[P🐽D] ${channel.name}` };
+                                    // Se il primo è già un GD, inserisci dopo, altrimenti in testa
+                                    if (streams.length && /^\[Gd\]/i.test(streams[0].title)) streams.splice(1,0,pdStream); else streams.unshift(pdStream);
                                     debugLog(`Aggiunto pdUrlF Direct: ${pdUrl}`);
                                 }
                             } catch (e) {
@@ -2398,6 +2598,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             // Richiesta: non mostrare stream senza proxy (titolo con [❌Proxy]) quando mancano credenziali MFP
                             debugLog(`(NASCONDI) staticUrl Direct senza MFP: ${decodedUrl}`);
                         }
+                    }
+                    // Inserimento ritardato stream GD statico (dopo PD/Vavoo/free)
+                    if (gdStaticPending) {
+                        try {
+                            let insertAt = 0;
+                            while (insertAt < streams.length) {
+                                const t = streams[insertAt].title || '';
+                                if (/^\[P🐽D]/i.test(t) || /Vavoo/i.test(t) || /\[🌍dTV]/i.test(t)) insertAt++; else break;
+                            }
+                            streams.splice(insertAt,0,gdStaticPending);
+                            const logEnabled = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_LOG||'1'));
+                            // (GD static inserted)
+                        } catch {}
                     }
                     // staticUrl2 (solo se enableMpd è attivo)
                     if ((channel as any).staticUrl2 && mpdEnabled) {
