@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.5...v1.7.6) (2025-10-06)
+
+
+### Bug Fixes
+
+* add gdplayer for daddy - fix basket lega a - fix pd link ([e58ea3c](https://github.com/qwertyuiop8899/streamvix/commit/e58ea3c9d8cc1d16c0a7d87ad6893e86476dfead))
+
 ## [1.7.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.4...v1.7.5) (2025-10-05)
 
 
