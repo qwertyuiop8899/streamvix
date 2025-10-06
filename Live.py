@@ -389,7 +389,9 @@ def map_category(category_src: str, raw_event: str) -> str | None:
     if category_src == 'Basketball':
         # Solo NBA, LBA (Italiano), Euroleague / Eurolega / Coppa Italia Basket
         if re.search(r'\bNBA\b', raw_event, re.IGNORECASE): return 'basket'
+        # Riconosci anche "Lega A" come sinonimo di LBA (a volte formattato "Lega A : Team1 vs Team2")
         if re.search(r'\bLBA\b', raw_event, re.IGNORECASE): return 'basket'
+        if re.search(r'\bLega\s*A\b', raw_event, re.IGNORECASE): return 'basket'
         if re.search(r'\bFIBA\b', raw_event, re.IGNORECASE): return 'basket'
         if re.search(r'\bEurobasket\b', raw_event, re.IGNORECASE): return 'basket'
         if re.search(r'Euroleague|Eurolega', raw_event, re.IGNORECASE): return 'basket'
