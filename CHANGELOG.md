@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.7](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.6...v1.7.7) (2025-10-06)
+
+
+### Bug Fixes
+
+* add cf ([8736981](https://github.com/qwertyuiop8899/streamvix/commit/87369810a04db0dbd2094d7d1b661d4f2f81cb69))
+
 ## [1.7.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.5...v1.7.6) (2025-10-06)
 
 
