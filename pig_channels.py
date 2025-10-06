@@ -41,6 +41,8 @@ from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 
 import requests, socket, urllib.request, time
+from urllib.parse import urlparse
+from collections import Counter
 
 # ========================= UNIFIED COMBINED PLAYLIST SOURCES =========================
 # Ora esiste un unico file M3U che contiene sia canali (group-title contiene ITALY) che eventi live.
@@ -210,7 +212,7 @@ def apply_pd_cache(dynamic_events: List[Dict[str, Any]], cache: dict, performed_
 # ---------------------------------------------------------------------------
 # Parsing M3U
 # ---------------------------------------------------------------------------
-EXTINF_RE = re.compile(r"^#EXTINF:-?1\s+([^,]*),(.*)$")
+EXTINF_RE = re.compile(r"^#EXTINF:-?1\s+([^,]*),(.*)$")  # group1 attrs, group2 display(+maybe url)
 # Attribute regex needed to include keys with hyphens (e.g., group-title)
 ATTR_RE = re.compile(r"([A-Za-z0-9_-]+)=\"(.*?)\"")
 
@@ -227,12 +229,20 @@ def parse_m3u(text: str) -> List[Dict[str, Any]]:
             m = EXTINF_RE.match(line)
             if m:
                 attr_blob = m.group(1)
-                display = m.group(2).strip()
+                display_full = m.group(2).strip()
                 attrs = {k: v for k, v in ATTR_RE.findall(attr_blob)}
                 url = None
-                if i + 1 < len(lines) and not lines[i+1].startswith('#'):
-                    url = lines[i+1].strip()
-                    i += 1
+                display = display_full
+                # Primary playlist embeds the URL at end of same line after many spaces
+                murl = re.search(r"(https?://\S+)$", display_full)
+                if murl:
+                    url = murl.group(1)
+                    display = display_full[:murl.start()].rstrip()
+                else:
+                    # Fallback classic format: URL on next non-# line
+                    if i + 1 < len(lines) and not lines[i+1].startswith('#'):
+                        url = lines[i+1].strip()
+                        i += 1
                 out.append({
                     'attrs': attrs,
                     'display': display,
@@ -690,8 +700,8 @@ def run_post_live(dynamic_path: str | Path, tv_channels_path: str | Path, dry_ru
         attempts = 3
         last_err = None
         headers = {
-            'User-Agent': 'Mozilla/5.0 (compatible; PDFetcher/1.0)',
-            'Accept': '*/*',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+            'Accept': 'application/vnd.apple.mpegurl,text/plain,*/*;q=0.8',
             'Pragma': 'no-cache',
             'Cache-Control': 'no-cache'
         }
@@ -727,14 +737,17 @@ def run_post_live(dynamic_path: str | Path, tv_channels_path: str | Path, dry_ru
         pass
     print(f"[PD][HTTP] GET combined playlist (primary): {PRIMARY_COMBINED_URL}")
     combined_raw = _fetch(PRIMARY_COMBINED_URL, 'PRIMARY')
+    playlist_source = 'PRIMARY'
     if not combined_raw:
         print(f"[PD][HTTP][FALLBACK] trying combined secondary: {SECONDARY_COMBINED_URL}")
         try:
-            host_s = urllib.request.urlparse(SECONDARY_COMBINED_URL).hostname
+            host_s = urlparse(SECONDARY_COMBINED_URL).hostname
             if host_s: _dns_log(host_s, 'SECONDARY')
         except Exception:
             pass
         combined_raw = _fetch(SECONDARY_COMBINED_URL, 'SECONDARY')
+        if combined_raw:
+            playlist_source = 'SECONDARY'
 
     channels_entries: List[Dict[str, Any]] = []
     events_entries: List[Dict[str, Any]] = []
@@ -746,7 +759,19 @@ def run_post_live(dynamic_path: str | Path, tv_channels_path: str | Path, dry_ru
                 channels_entries.append(e)
             else:
                 events_entries.append(e)
-        print(f"[PD][PARSE] combined entries={len(all_entries)} channels={len(channels_entries)} events={len(events_entries)}")
+        # Distribution of stream hosts for diagnostics (only channels, which feed pdUrlF)
+        host_counter = Counter()
+        for ce in channels_entries:
+            u = ce.get('url') or ''
+            if u:
+                try:
+                    h = urlparse(u).hostname or ''
+                except Exception:
+                    h = ''
+                if h:
+                    host_counter[h] += 1
+        top_hosts = ', '.join(f"{h}={c}" for h,c in host_counter.most_common(5)) if host_counter else 'none'
+        print(f"[PD][PARSE] source={playlist_source} combined entries={len(all_entries)} channels={len(channels_entries)} events={len(events_entries)} hosts[{top_hosts}]")
     else:
         print("[PD][ERR] Combined playlist fetch failed (primary + secondary)")
 
