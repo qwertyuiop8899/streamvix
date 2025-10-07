@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.7.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.7...v1.7.8) (2025-10-07)
+
+
+### Bug Fixes
+
+* addon aun fhd ([6f6f564](https://github.com/qwertyuiop8899/streamvix/commit/6f6f564b8a11973d7190d6d959a0ccdbbe5ac3c7))
+* au fhd ([984e001](https://github.com/qwertyuiop8899/streamvix/commit/984e0011a37117d0a60d4ca821197b77d270bc2d))
+* au name ([95a55d6](https://github.com/qwertyuiop8899/streamvix/commit/95a55d6cb3eb8ae1c82d46c6810de25d4d7d2ca3))
+* au type ([8bc37e1](https://github.com/qwertyuiop8899/streamvix/commit/8bc37e16465a41118707653e26594c2cbf74c887))
+* bump version ([7fd73ce](https://github.com/qwertyuiop8899/streamvix/commit/7fd73ce003e6c6518e5d01b7889900fa79894925))
+* ch name ([c2afb99](https://github.com/qwertyuiop8899/streamvix/commit/c2afb99a3472bb9b84e729de1bf9760dc89aaf00))
+* fix onepunch and animeunity hls ([31426d9](https://github.com/qwertyuiop8899/streamvix/commit/31426d9aa5487e167fcb4cafc4c88bb73ef5aeb2))
+* landing aniuni now without mfp ([77fc7ba](https://github.com/qwertyuiop8899/streamvix/commit/77fc7baae7d4089f21104b154e51d7984fc1bacc))
+
 ## [1.7.7](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.6...v1.7.7) (2025-10-06)
 
 
