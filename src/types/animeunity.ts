@@ -3,6 +3,8 @@ export interface AnimeUnityConfig {
   mfpPassword: string;
   enabled: boolean;
   tmdbApiKey?: string;
+  animeunityAuto?: boolean; // toggle AUTO master playlist
+  animeunityFhd?: boolean;  // toggle FHD only variant
 }
 
 export interface AnimeUnityResult {
@@ -45,6 +47,7 @@ export interface StreamForStremio {
     notWebReady?: boolean;
     [key: string]: any;
   };
+  isSyntheticFhd?: boolean; // align with VixSrc synthetic FHD flag for provider label badge
 }
 
 export interface AnimeSaturnConfig {
