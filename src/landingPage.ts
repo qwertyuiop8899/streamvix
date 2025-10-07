@@ -962,6 +962,11 @@ function landingTemplate(manifest: any) {
 				</a>
 				<button id="copyManifestLink">COPIA MANIFEST URL</button>
 			</div>
+			<div class="kofi-support" style="margin:1.2rem 0 0; text-align:center;">
+				<a href='https://ko-fi.com/G2G41MG3ZN' target='_blank' rel='noopener noreferrer' title='Supporta lo sviluppo su Ko-fi' style='display:inline-block;'>
+					<img height='36' style='border:0;height:36px;vertical-align:middle;' src='https://storage.ko-fi.com/cdn/kofi4.png?v=6' alt='Buy Me a Coffee at ko-fi.com' />
+				</a>
+			</div>
 			${contactHTML}
 		</div>
 		<script>
