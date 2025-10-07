@@ -4,7 +4,7 @@ import * as path from 'path';
 import axios from 'axios';
 import { KitsuProvider } from './kitsu';
 import { getDomain } from '../utils/domains';
-import { checkIsAnimeById } from '../utils/animeGate';
+import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
 
 // Helper function to invoke the Python scraper
 async function invokePythonScraper(args: string[]): Promise<any> {
@@ -432,7 +432,11 @@ export class AnimeSaturnProvider {
 
   // Funzione generica per gestire la ricerca dato un titolo
   async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false, malId?: string): Promise<{ streams: StreamForStremio[] }> {
-    const normalizedTitle = normalizeTitleForSearch(title);
+    const universalTitle = applyUniversalAnimeTitleNormalization(title);
+    if (universalTitle !== title) {
+      console.log(`[UniversalTitle][Applied] ${title} -> ${universalTitle}`);
+    }
+    const normalizedTitle = normalizeTitleForSearch(universalTitle);
     console.log(`[AnimeSaturn] Titolo normalizzato per ricerca: ${normalizedTitle}`);
     console.log(`[AnimeSaturn] MAL ID passato a searchAllVersions:`, malId ? malId : '(nessuno)');
   console.log('[AnimeSaturn] Query inviata allo scraper (post-normalize):', normalizedTitle);
