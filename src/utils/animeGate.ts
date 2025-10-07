@@ -109,6 +109,34 @@ export async function checkIsAnimeById(
   return { isAnime: false, hasMal, hasKitsu, reason: 'no-mapping-and-not-animation-jp' };
 }
 
+// =============================================================
+// Universal Anime Title Normalization (scoped minimal variant)
+// Richiesta: normalizzare SOLO le forme specificate di One Punch Man
+//  - One-Punch Man -> One Punch Man
+//  - OnePunch Man  -> One Punch Man
+//  - OnePunchMan   -> One Punch Man
+//  - one punch man (tutto minuscolo) NON deve cambiare
+// Case-sensitive: non applichiamo se la capitalizzazione non corrisponde
+// =============================================================
+export function applyUniversalAnimeTitleNormalization(title: string): string {
+  // Pattern 1: One-Punch Man oppure OnePunch Man (gestito da optional trattino)
+  if (/^One[- ]?Punch Man$/.test(title)) {
+    if (title !== 'One Punch Man') {
+      const norm = 'One Punch Man';
+      console.log(`[UniversalTitle][Normalize] "${title}" -> "${norm}"`);
+      return norm;
+    }
+    return title; // già corretto
+  }
+  // Pattern 2: completamente attaccato OnePunchMan
+  if (title === 'OnePunchMan') {
+    const norm = 'One Punch Man';
+    console.log(`[UniversalTitle][Normalize] "${title}" -> "${norm}"`);
+    return norm;
+  }
+  return title;
+}
+
 // Build a placeholder informational stream for IMDB/TMDB anime lookups
 // Shown to suggest using Kitsu for accurate matching
 export function buildAnimeIdWarningStream(source: ExternalIdType): StreamForStremio | null {
