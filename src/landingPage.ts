@@ -494,6 +494,49 @@ function landingTemplate(manifest: any) {
 					var mfpUrlEl = mfpUrlInput ? mfpUrlInput.closest('.form-element') : null;
 					var mfpPwdEl = mfpPwdInput ? mfpPwdInput.closest('.form-element') : null;
 				var animeUnityEl = document.getElementById('animeunityEnabled');
+				// --- AnimeUnity Submenu (AUTO / FHD) ---
+				try {
+					var auMain = document.getElementById('animeunityEnabled');
+					var auWrap = auMain ? auMain.closest('.form-element') : null;
+					if (auWrap) {
+						var existingAu = document.getElementById('animeunitySubMenu');
+						if (!existingAu) {
+							var auSub = document.createElement('div');
+							auSub.id = 'animeunitySubMenu';
+							auSub.style.margin = '6px 0 12px 0';
+							auSub.style.padding = '16px 18px';
+							auSub.style.border = '1px dashed rgba(140,82,255,0.55)';
+							auSub.style.borderRadius = '10px';
+							auSub.style.background = 'rgba(20,15,35,0.55)';
+							auSub.innerHTML = ''
+							+ '<div style="text-align:center; font-size:0.95rem; letter-spacing:0.05em; margin:0 0 10px 0; color:#c9b3ff; font-weight:700;">Modalità AnimeUnity</div>'
+							+ '<div id="animeunityDefaultMsg" style="text-align:center; font-size:0.80rem; margin:0 0 14px 0; opacity:0.85; line-height:1.3;">Nessuna selezione = SOLO AUTO</div>'
+							+ '<div style="display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap;">'
+								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
+									+ '<input type="checkbox" id="animeunityAutoToggle" data-config-key="animeunityAuto" style="transform:scale(1.1);" />'
+									+ '<span>AUTO</span>'
+								+ '</label>'
+								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
+									+ '<input type="checkbox" id="animeunityFhdToggle" data-config-key="animeunityFhd" style="transform:scale(1.1);" />'
+									+ '<span>FHD</span>'
+								+ '</label>'
+							+ '</div>';
+							auWrap.parentNode.insertBefore(auSub, auWrap.nextSibling);
+							var auAuto = document.getElementById('animeunityAutoToggle');
+							var auFhd = document.getElementById('animeunityFhdToggle');
+							function updateAuVisual(){
+								var info = document.getElementById('animeunityDefaultMsg');
+								if (!info) return;
+								var active = [];
+								if (auAuto && auAuto.checked) active.push('AUTO');
+								if (auFhd && auFhd.checked) active.push('FHD');
+								if (active.length === 0) info.textContent = 'Nessuna selezione = SOLO AUTO'; else info.textContent = 'Modalità: ' + active.join(', ');
+							}
+							[auAuto, auFhd].forEach(function(el){ if (el) el.addEventListener('change', function(){ updateAuVisual(); if (typeof window.updateLink==='function') window.updateLink(); }); });
+							updateAuVisual();
+						}
+					}
+				} catch(e) { console.warn('AnimeUnity submenu creation failed', e); }
 				var animeSaturnEl = document.getElementById('animesaturnEnabled');
 				var animeSaturnRow = animeSaturnEl ? animeSaturnEl.closest('[data-toggle-row]') : null;
 				var animeSaturnTitleSpan = animeSaturnRow ? animeSaturnRow.querySelector('.toggle-title') : null;
@@ -699,9 +742,9 @@ function landingTemplate(manifest: any) {
 						'streamingwatchEnabled', // StreamingWatch
 						'guardaserieEnabled',    // GuardaSerie
 						'eurostreamingEnabled',  // Eurostreaming
-						'animeunityEnabled',     // Anime Unity
 						'animesaturnEnabled',    // Anime Saturn
-						'animeworldEnabled'      // Anime World
+						'animeworldEnabled',     // Anime World
+						'animeunityEnabled'      // Anime Unity (moved LAST per richiesta)
 					];
 					var firstWrapper = null;
 					var prev = null;
@@ -743,6 +786,17 @@ function landingTemplate(manifest: any) {
 							}
 						}
 					} catch(e){ console.warn('VixSrc submenu reposition fail', e); }
+					// Ensure AnimeUnity submenu follows AnimeUnity toggle after reorder (now last)
+					try {
+						var auToggle = document.getElementById('animeunityEnabled');
+						var auSubMenu = document.getElementById('animeunitySubMenu');
+						if (auToggle && auSubMenu) {
+							var auWrap = auToggle.closest('.form-element');
+							if (auWrap && auWrap.parentNode && auWrap.nextSibling !== auSubMenu) {
+								auWrap.parentNode.insertBefore(auSubMenu, auWrap.nextSibling);
+							}
+						}
+					} catch(e){ console.warn('AnimeUnity submenu reposition fail', e); }
 				} catch(e) { console.warn('Reorder toggles failed', e); }
 				// Preset logic rimosso (non più necessario)
 				/*
