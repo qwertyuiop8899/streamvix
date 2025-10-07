@@ -322,7 +322,7 @@ function landingTemplate(manifest: any) {
 						const toggleMap: any = {
 						'disableVixsrc': { title: 'VixSrc 🍿', invert: true },
 						'disableLiveTv': { title: 'Live TV 📺 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Molti canali hanno bisogno di MFP)</span>', invert: true },
-						'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci MFP per abilitare)</span>', invert: false },
+						'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
 						'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
 						'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
 						'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
@@ -515,46 +515,12 @@ function landingTemplate(manifest: any) {
 					if (mfpUrlEl) mfpUrlEl.style.display = on ? 'block':'none';
 					if (mfpPwdEl) mfpPwdEl.style.display = on ? 'block':'none';
 					if (animeUnityEl){
-						// Regole aggiornate:
-						// Allowed presets (può essere attivato se MFP + credenziali): locale, pubblicamfp, oci, nessun preset
-						// Forbidden: pubblicanomfp (sempre OFF e dimmed)
-						var isForbiddenPreset = currentPreset === 'pubblicanomfp';
-						var isAllowedPreset = (!currentPreset) || currentPreset === 'locale' || currentPreset === 'pubblicamfp' || currentPreset === 'oci';
-						if (isForbiddenPreset) {
-							// Forzato OFF e dimmed
-							animeUnityEl.checked = false;
-							animeUnityEl.disabled = true;
-							if (animeUnityRow) animeUnityRow.classList.add('dimmed');
-						} else if (isAllowedPreset) {
-							// Gestione gating MFP
-							if (!on) {
-								animeUnityEl.checked = false;
-								animeUnityEl.disabled = true;
-								if (animeUnityRow) animeUnityRow.classList.add('dimmed');
-							} else {
-								// MFP ON
-								if (animeUnityRow) animeUnityRow.classList.remove('dimmed');
-								// Abilitabile solo se credenziali complete
-								animeUnityEl.disabled = !canEnableChildren;
-								// Autocheck solo per locale o nessun preset; pubblicamfp e oci restano OFF di default
-								if (canEnableChildren) {
-									if ((currentPreset === 'locale' || noPreset) && !animeUnityEl.checked) {
-										animeUnityEl.checked = true;
-									} else if ((currentPreset === 'pubblicamfp' || currentPreset === 'oci') && animeUnityEl.checked && !animeUnityEl.wasUserClicked) {
-										// Se per qualche motivo era rimasto checked da preset diverso, spegni (solo la prima volta)
-										animeUnityEl.checked = false;
-									}
-								} else {
-									animeUnityEl.checked = false;
-								}
-							}
-						} else {
-							// Qualsiasi altro preset non previsto: fallback a OFF dimmed
-							animeUnityEl.checked = false;
-							animeUnityEl.disabled = true;
-							if (animeUnityRow) animeUnityRow.classList.add('dimmed');
+						// AnimeUnity ora sempre disponibile come AnimeWorld (nessun gating MFP)
+						if (animeUnityRow) {
+							animeUnityRow.classList.remove('dimmed');
+							animeUnityEl.disabled = false;
+							setRowState(animeUnityRow);
 						}
-						if (animeUnityRow) setRowState(animeUnityRow);
 					}
 					if (animeSaturnEl){
 						// Keep usable but add note when off
