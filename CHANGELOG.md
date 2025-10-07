@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.10](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.9...v1.7.10) (2025-10-07)
+
+
+### Bug Fixes
+
+* gd ([003b94d](https://github.com/qwertyuiop8899/streamvix/commit/003b94d44e71ec366792bb584b334e84ceb98c23))
+* gd mfp e non ([800c24c](https://github.com/qwertyuiop8899/streamvix/commit/800c24c7f734bdc1f55c71240704e95b90843363))
+
 ## [1.7.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.8...v1.7.9) (2025-10-07)
 
 
