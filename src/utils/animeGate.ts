@@ -119,6 +119,23 @@ export async function checkIsAnimeById(
 // Case-sensitive: non applichiamo se la capitalizzazione non corrisponde
 // =============================================================
 export function applyUniversalAnimeTitleNormalization(title: string): string {
+  // Season specific mapping requested: "One-Punch Man Season 2" -> "One Punch Man 2" (idem Season 3)
+  // Gestiamo varianti: One-Punch / One Punch / OnePunch / OnePunchMan + optional space before Man
+  const seasonMatch = title.match(/^One[- ]?Punch ?Man Season (2|3)$/);
+  if (!seasonMatch) {
+    const seasonMatchCompact = title.match(/^OnePunchMan Season (2|3)$/); // es: OnePunchMan Season 2
+    if (seasonMatchCompact) {
+      const num = seasonMatchCompact[1];
+      const norm = `One Punch Man ${num}`;
+      if (title !== norm) console.log(`[UniversalTitle][Normalize] "${title}" -> "${norm}"`);
+      return norm;
+    }
+  } else {
+    const num = seasonMatch[1];
+    const norm = `One Punch Man ${num}`;
+    if (title !== norm) console.log(`[UniversalTitle][Normalize] "${title}" -> "${norm}"`);
+    return norm;
+  }
   // Pattern 1: One-Punch Man oppure OnePunch Man (gestito da optional trattino)
   if (/^One[- ]?Punch Man$/.test(title)) {
     if (title !== 'One Punch Man') {
