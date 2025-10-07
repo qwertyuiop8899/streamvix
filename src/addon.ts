@@ -431,6 +431,38 @@ function decodeStaticUrl(url: string): string {
     }
 }
 
+// ===== CF DLHD PROXY HELPERS (supporta formati ?url=https://dlhd.dad/watch.php?id=123 e ?id=123) =====
+function extractDlhdIdFromCf(u: string): string | null {
+    if (!u) return null;
+    // Normalizza senza parametri extra
+    try {
+        const qIndex = u.indexOf('?');
+        if (qIndex === -1) return null;
+        const query = u.substring(qIndex + 1);
+        // Caso corto: ...manifest.m3u8?id=123
+        const params = new URLSearchParams(query);
+        if (params.has('id')) {
+            const id = params.get('id') || '';
+            return /^\d+$/.test(id) ? id : null;
+        }
+        // Caso legacy: ...manifest.m3u8?url=https://dlhd.dad/watch.php?id=123
+        if (params.has('url')) {
+            const inner = params.get('url') || '';
+            const m = inner.match(/watch\.php\?id=(\d+)/i);
+            if (m) return m[1];
+        }
+    } catch {}
+    // Fallback regex unica
+    const m2 = u.match(/manifest\.m3u8\?(?:[^\s]*?id=|[^\s]*?watch\.php\?id=)(\d+)/i);
+    return m2 ? m2[1] : null;
+}
+
+function buildCfProxyFromId(id: string): string {
+    return `https://proxy.stremio.dpdns.org/manifest.m3u8?id=${id}`;
+}
+
+function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== null; }
+
 // Helper: compute Europe/Rome interpretation for eventStart even if timezone is missing
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
@@ -2293,37 +2325,33 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             streams.push({ url: e.url, title: t });
                             providerTitlesFast.push(e.title || '');
                         }
-                        // Duplicazione CF per canali italiani nel ramo FAST (logica analoga a EXTRACTOR)
+                        // Duplicazione CF per canali italiani nel ramo FAST (usa helper ID, formato corto ?id=)
                         try {
-                            const cfPrefix = 'https://proxy.stremio.dpdns.org/manifest.m3u8?url=';
                             const itaRegex = /\b(it|ita|italy|italia|italian|italiano)$/i;
                             const addedFast = streams.slice(fastStartIndex); // solo quelli appena aggiunti
                             const enrichedFast: { url: string; title: string }[] = [];
                             for (const s of addedFast) {
                                 if (!s || !s.url) continue;
-                                // Normalizza bandiera se manca ma titolo finisce con IT/ita...
                                 if (!s.title.startsWith('🇮🇹')) {
                                     const bare = s.title.replace(/^\[Player Esterno\]\s*/,'').trim();
-                                    if (itaRegex.test(bare)) {
-                                        s.title = `🇮🇹 ${bare}`; // aggiorna in place
-                                    }
+                                    if (itaRegex.test(bare)) s.title = `🇮🇹 ${bare}`;
                                 }
                             }
                             for (const s of addedFast) {
                                 enrichedFast.push(s as any);
                                 if (!s.title.startsWith('🇮🇹')) continue; // solo italiani
-                                if (s.url.startsWith(cfPrefix)) continue; // già proxy
-                                if (!/dlhd\.dad\/watch\.php\?id=\d+/i.test(s.url)) continue; // solo link dlhd.dad originali
-                                const proxyUrl = cfPrefix + s.url;
-                                if (streams.some(x => x.url === proxyUrl)) continue; // evita duplicati globali
+                                // Se già proxy (formato lungo o corto) salta
+                                if (isCfDlhdProxy(s.url)) continue;
+                                const m = s.url.match(/watch\.php\?id=(\d+)/i);
+                                if (!m) continue;
+                                const id = m[1];
+                                const proxyUrl = buildCfProxyFromId(id);
+                                if (streams.some(x => x.url === proxyUrl)) continue;
                                 const dupTitle = s.title.replace(/^🇮🇹\s*/, '🇮🇹🔄 ');
                                 enrichedFast.push({ url: proxyUrl, title: dupTitle });
                             }
-                            // Sostituisci la sezione FAST con arricchita (mantieni parte precedente invariata)
                             streams.splice(fastStartIndex, addedFast.length, ...enrichedFast);
-                        } catch (e) {
-                            // silenzia errori duplicazione fast
-                        }
+                        } catch { /* silent */ }
                         debugLog(`[DynamicStreams][FAST] restituiti ${streams.length} stream diretti (senza extractor) con etichetta condizionale 'Player Esterno'`);
                         // Filtro minimale senza MFP: rimuovi solo gli URL diretti dlhd.dad (lascia tutto il resto)
                         if (!(mfpUrl && mfpPsw)) {
@@ -2427,66 +2455,39 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             return a.title.localeCompare(b.title);
                         });
                         // (rimosso logging dettagliato RESOLVED per produzione)
-                        // Duplica gli stream italiani (non ancora estratti) con variante proxy CF
-                        // Regola: solo quelli che iniziano con bandiera italiana e NON già duplicati
-                        // Legacy prefix (old logic). New logic will prefer '?id=' direct pattern.
-                        const cfPrefix = 'https://proxy.stremio.dpdns.org/manifest.m3u8?url='; // kept for detection of already-added old links
+                        // Duplica gli stream italiani con variante CF (formato compatto) evitando duplicati
                         const enriched: { url: string; title: string }[] = [];
                         for (const rAny of resolved as any[]) {
                             const r = rAny as any;
-                            enriched.push(r); // originale estratto (MFP / o direct se fallback)
+                            enriched.push(r); // mantieni originale
                             try {
-                                // Non duplicare se l'URL è già un proxy CF o se NON è italiano
                                 if (!r.title.startsWith('🇮🇹')) continue;
-                                if (r.url.startsWith(cfPrefix) || /https:\/\/proxy\.stremio\.dpdns\.org\/manifest\.m3u8\?id=\d+/i.test(r.url)) continue;
-                                // Heuristic: se l'URL contiene già /proxy/hls/manifest.m3u8 (MFP) allora saltiamo: vogliamo solo duplicare l'ORIGINALE pre-extractor.
-                                // Tuttavia qui r.url è già il risultato di resolveDynamicEventUrl (che incapsula MFP). Quindi per rispettare richiesta "prima di mfp"
-                                // proviamo a ricostruire la url originale se possibile: se contiene parametro d= decodifichiamo quello.
-                                let originalCandidate = r.url;
+                                if (isCfDlhdProxy(r.url)) continue; // già proxy
+                                // Recupera originale pre-proxy se incapsulato
+                                let originalCandidate = r._orig || r.url;
                                 try {
                                     const u = new URL(r.url);
                                     const dParam = u.searchParams.get('d');
                                     if (dParam) originalCandidate = decodeURIComponent(dParam);
                                 } catch {}
-                                // Fallback: se manca d= usa l'originale salvato (_orig)
-                                if (!/dlhd\.dad\/watch\.php\?id=\d+/i.test(originalCandidate) && r._orig && /dlhd\.dad\/watch\.php\?id=\d+/i.test(r._orig)) {
-                                    originalCandidate = r._orig;
-                                }
-                                // (rimosso log dettaglio CHECK)
-                                // Solo se l'originale sembra un link dlhd.dad/watch.php?id=...
                                 if (!/dlhd\.dad\/watch\.php\?id=\d+/i.test(originalCandidate)) continue;
-                                // NEW: build compact proxy form https://proxy.stremio.dpdns.org/manifest.m3u8?id=NNN
-                                let proxyUrl: string;
                                 const mId = originalCandidate.match(/dlhd\.dad\/watch\.php\?id=(\d+)/i);
-                                if (mId) {
-                                    proxyUrl = `https://proxy.stremio.dpdns.org/manifest.m3u8?id=${mId[1]}`;
-                                } else {
-                                    // Fallback to legacy pattern if unexpected shape
-                                    proxyUrl = cfPrefix + originalCandidate;
-                                }
-                                // Evita duplicati se già presente
+                                if (!mId) continue;
+                                const proxyUrl = buildCfProxyFromId(mId[1]);
                                 if (enriched.some(e => e.url === proxyUrl)) continue;
-                                // Titolo: aggiungi 🔄 attaccato alla bandiera (senza spazio) mantenendo resto identico
                                 let cfTitle = r.title;
-                                if (cfTitle.startsWith('🇮🇹 ') && !cfTitle.startsWith('🇮🇹🔄')) {
-                                    cfTitle = '🇮🇹🔄' + cfTitle.slice('🇮🇹'.length); // rimuove lo spazio dopo bandiera sostituendo con 🔄
-                                    cfTitle = cfTitle.replace('🇮🇹🔄 ', '🇮🇹🔄 '); // garantisce un singolo spazio dopo la sequenza
-                                } else if (cfTitle.startsWith('🇮🇹') && !cfTitle.startsWith('🇮🇹🔄')) {
-                                    // Caso già senza spazio
-                                    cfTitle = cfTitle.replace(/^🇮🇹/, '🇮🇹🔄');
-                                }
+                                if (cfTitle.startsWith('🇮🇹 ') && !cfTitle.startsWith('🇮🇹🔄')) cfTitle = cfTitle.replace(/^🇮🇹 /,'🇮🇹🔄 ');
+                                else if (cfTitle.startsWith('🇮🇹') && !cfTitle.startsWith('🇮🇹🔄')) cfTitle = cfTitle.replace(/^🇮🇹/,'🇮🇹🔄');
                                 enriched.push({ url: proxyUrl, title: cfTitle });
                             } catch {}
                         }
                         for (const r of enriched) streams.push(r);
-                        // Normalize any legacy CF links (defensive pass) to new ?id= form
+                        // Normalizza eventuali legacy ?url= in forma corta
                         try {
                             for (const s of streams) {
                                 if (!s || !s.url) continue;
-                                const legacyMatch = s.url.match(/^https:\/\/proxy\.stremio\.dpdns\.org\/manifest\.m3u8\?url=https:\/\/dlhd\.dad\/watch\.php\?id=(\d+)/i);
-                                if (legacyMatch) {
-                                    s.url = `https://proxy.stremio.dpdns.org/manifest.m3u8?id=${legacyMatch[1]}`;
-                                }
+                                const id = extractDlhdIdFromCf(s.url);
+                                if (id && !/manifest\.m3u8\?id=/.test(s.url)) s.url = buildCfProxyFromId(id);
                             }
                         } catch {}
                         // Append leftover entries (beyond CAP) as direct FAST (no extractor) to still expose them
@@ -2706,9 +2707,23 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // Richiesta: i canali D_CF devono essere SEMPRE visibili anche senza MFP (perché già proxy CF pronto)
                     if ((channel as any).staticUrlD_CF) {
                         try {
-                            const cfUrl = (channel as any).staticUrlD_CF;
-                            streams.push({ url: cfUrl, title: `[🌐D_CF] ${channel.name} [ITA]` });
-                            debugLog(`Aggiunto staticUrlD_CF (sempre visibile) ${mfpUrl && mfpPsw ? '(con MFP)' : '(senza MFP)'}`);
+                            let cfUrl = (channel as any).staticUrlD_CF as string;
+                            // Normalizza da formato legacy ?url=https://dlhd.dad/watch.php?id=NNN a compatto ?id=NNN
+                            const legacyMatch = cfUrl.match(/manifest\.m3u8\?url=https?:\/\/dlhd\.dad\/watch\.php\?id=(\d+)/i);
+                            if (legacyMatch) {
+                                const id = legacyMatch[1];
+                                cfUrl = buildCfProxyFromId(id);
+                            } else {
+                                // Se contiene già ?id= verifica id valido, altrimenti tenta estrazione generica
+                                const id = extractDlhdIdFromCf(cfUrl);
+                                if (id) cfUrl = buildCfProxyFromId(id);
+                            }
+                            // Deduplica se già presente stesso id
+                            const newId = extractDlhdIdFromCf(cfUrl);
+                            const dupIndex = newId ? streams.findIndex(s => extractDlhdIdFromCf(s.url) === newId) : -1;
+                            const entry = { url: cfUrl, title: `[🌐D_CF] ${channel.name} [ITA]` };
+                            if (dupIndex !== -1) streams.splice(dupIndex,1, entry); else streams.push(entry);
+                            debugLog(`Aggiunto staticUrlD_CF normalizzato ${cfUrl}`);
                         } catch (e) {
                             debugLog(`Errore gestione staticUrlD_CF: ${e}`);
                         }
@@ -3224,7 +3239,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         enabled: animeUnityEnabled,
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
                         mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
-                        tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
+                        tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
+                        animeunityAuto: (()=>{ const v = (config as any).animeunityAuto; if (v===undefined) return undefined; return v===true || v==='true' || v==='on' || v===1; })(),
+                        animeunityFhd: (()=>{ const v = (config as any).animeunityFhd; if (v===undefined) return undefined; return v===true || v==='true' || v==='on' || v===1; })(),
                     };
                     const animeSaturnConfig = {
                         enabled: animeSaturnEnabled,
@@ -3538,11 +3555,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // AnimeUnity
                     providerPromises.push(runProvider('AnimeUnity', animeUnityEnabled, async () => {
                         const animeUnityProvider = new AnimeUnityProvider(animeUnityConfig);
-                        if (id.startsWith('kitsu:')) return animeUnityProvider.handleKitsuRequest(id);
-                        if (id.startsWith('mal:')) return animeUnityProvider.handleMalRequest(id);
-                        if (id.startsWith('tt')) return animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        if (id.startsWith('tmdb:')) return animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
-                        return { streams: [] };
+                        let res;
+                        if (id.startsWith('kitsu:')) res = await animeUnityProvider.handleKitsuRequest(id);
+                        else if (id.startsWith('mal:')) res = await animeUnityProvider.handleMalRequest(id);
+                        else if (id.startsWith('tt')) res = await animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        else if (id.startsWith('tmdb:')) res = await animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                        else res = { streams: [] };
+                        // Uniforma pattern VixSrc: non manipolare multi-line title qui; providerLabel userà isSyntheticFhd
+                        return res;
                     }, providerLabel('animeunity')));
 
                     // AnimeSaturn
@@ -3641,6 +3661,27 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
 
                     await Promise.all(providerPromises);
+
+                    // Post-process AnimeUnity streams to apply FHD badge similarly to VixSrc
+                    try {
+                        let auAdjusted = 0;
+                        for (const s of allStreams) {
+                            const lowerName = (s.name || s.title || '').toLowerCase();
+                            if (lowerName.includes('anime unity')) {
+                                const isFhd = !!( (s as any).isSyntheticFhd || s.behaviorHints?.animeunityQuality === 'FHD' || /fhd/.test(s.title||'') );
+                                const before = s.name;
+                                s.name = providerLabel('animeunity', isFhd);
+                                if (isFhd) auAdjusted++;
+                                if (isFhd) {
+                                    try { console.log('[AnimeUnity][LabelPass] Marked FHD stream name:', before, '->', s.name); } catch {}
+                                }
+                            }
+                        }
+                        if (auAdjusted) console.log(`[AnimeUnity][LabelPass] FHD badge applied to ${auAdjusted} stream(s)`);
+                        else console.log('[AnimeUnity][LabelPass] Nessun stream FHD marcato (controllare estrazione variante)');
+                    } catch (e) {
+                        console.warn('[AnimeUnity][LabelPass] errore post-process badge FHD:', (e as any)?.message || e);
+                    }
                 }
 
                 if (!vixsrcScheduled && !id.startsWith('kitsu:') && !id.startsWith('mal:') && !id.startsWith('tv:')) {
