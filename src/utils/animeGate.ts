@@ -1,6 +1,6 @@
 // Helper to decide if an external ID refers to an Anime title.
 // Strategy:
-// 1) Prefer Haglund mappings for MAL or Kitsu: if present -> isAnime=true.
+// 1) Prefer Haglund mappings for MAL or Kitsu: if present -> isAnime=true. 
 // 2) Soft fallback (configurable via env ANIME_GATE_TMDB_FALLBACK, default true):
 //    call TMDB and consider anime if genres include Animation (id 16) and country is JP
 //    (via production_countries/origin_country/original_language).
