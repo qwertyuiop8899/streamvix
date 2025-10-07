@@ -434,7 +434,7 @@ export class AnimeUnityProvider {
       console.warn('[AnimeUnity] Nessun risultato trovato per il titolo:', normalizedTitle);
       return { streams: [] };
     }
-    const streams: StreamForStremio[] = [];
+  const streams: StreamForStremio[] = [];
     const seenLinks = new Set();
     for (const { version, language_type } of animeVersions) {
       const episodes: AnimeUnityEpisode[] = await invokePythonScraper(['get_episodes', '--anime-id', String(version.id)]);
@@ -494,6 +494,76 @@ export class AnimeUnityProvider {
               streams.push(st);
               seenLinks.add(st.url);
               added = true;
+
+              // === FHD VARIANT BRANCH (non invasivo) ===
+              // Genera una seconda variante solo 1080 (fallback 720 -> 480) se il master è multi-bitrate (#EXT-X-STREAM-INF)
+              // Mantiene logica attuale (AUTO) intatta. Prepara behaviorHints per futuri toggle (AUTO/FHD)
+              try {
+                const masterUrl = st.url;
+                // Scarica playlist master
+                const respPl = await fetch(masterUrl, { headers: (st as any)?.behaviorHints?.requestHeaders || {} });
+                if (respPl.ok) {
+                  const playlistText = await respPl.text();
+                  if (/EXT-X-STREAM-INF/i.test(playlistText)) {
+                    // Parse varianti
+                    interface VariantEntry { line: string; url: string; height: number; bandwidth?: number; }
+                    const lines = playlistText.split(/\r?\n/);
+                    const variants: VariantEntry[] = [];
+                    for (let i=0;i<lines.length;i++) {
+                      const line = lines[i];
+                      if (/^#EXT-X-STREAM-INF:/i.test(line)) {
+                        const nextUrl = lines[i+1] || '';
+                        if (nextUrl.startsWith('#') || !nextUrl.trim()) continue;
+                        let height = 0;
+                        const resMatch = line.match(/RESOLUTION=\d+x(\d+)/i);
+                        if (resMatch) height = parseInt(resMatch[1]);
+                        const bwMatch = line.match(/BANDWIDTH=(\d+)/i);
+                        const bw = bwMatch ? parseInt(bwMatch[1]) : undefined;
+                        variants.push({ line, url: nextUrl.trim(), height, bandwidth: bw });
+                      }
+                    }
+                    if (variants.length) {
+                      // Ordina per altezza desc, poi bandwidth
+                      variants.sort((a,b)=> (b.height - a.height) || ((b.bandwidth||0)-(a.bandwidth||0)) );
+                      const best = variants[0];
+                      console.log('[AnimeUnity][FHDVariant][Parse]', variants.map(v=>`${v.height}p`).join(','), 'best=', best.height);
+                      let variantUrl = best.url;
+                      // Rendi assoluto se relativo
+                      if (!/^https?:\/\//i.test(variantUrl)) {
+                        try {
+                          const mu = new URL(masterUrl);
+                          variantUrl = new URL(variantUrl, mu).toString();
+                        } catch {}
+                      }
+                      // Inserisci .m3u8 dopo /playlist/<num> se mancante
+                      variantUrl = variantUrl.replace(/(\/playlist\/(\d+))(?!\.m3u8)(?=[^\w]|$)/, '$1.m3u8');
+                      // Mantieni query string eventuale (regex sopra non la rimuove)
+                      if (!seenLinks.has(variantUrl)) {
+                        const markAsFhd = best.height >= 720; // badge per 720p o superiore
+                        if (!markAsFhd) console.log('[AnimeUnity][FHDVariant] Altezza migliore <720p, non marchio FHD:', best.height);
+                        // Manteniamo il titolo identico all'AUTO (niente 🅵🅷🅳 qui) e spostiamo il marker in un behaviorHint
+                        const fhdTitle = st.title; // niente suffisso nel titolo principale
+                        const behaviorHints: any = { ...(st.behaviorHints||{}), animeunityQuality: markAsFhd ? 'FHD' : 'HQ', animeunityResolution: best.height, animeunityNameSuffix: markAsFhd ? ' 🅵🅷🅳' : '' };
+                        // Copia headers se presenti
+                        if ((st as any)?.behaviorHints?.requestHeaders) {
+                          behaviorHints.requestHeaders = (st as any).behaviorHints.requestHeaders;
+                        }
+                        streams.push({
+                          title: fhdTitle,
+                          url: variantUrl,
+                          behaviorHints,
+                          isSyntheticFhd: markAsFhd
+                        });
+                        seenLinks.add(variantUrl);
+                        console.log('[AnimeUnity][FHDVariant] Aggiunta variante', variantUrl.substring(0,120), 'height=', best.height, 'flagFHD=', markAsFhd);
+                      }
+                    }
+                  }
+                }
+              } catch (fhde) {
+                console.warn('[AnimeUnity][FHDVariant] errore generazione variante FHD:', (fhde as any)?.message || fhde);
+              }
+              // === END FHD VARIANT BRANCH ===
             }
           }
         } catch (e) {
@@ -536,7 +606,28 @@ export class AnimeUnityProvider {
         }
       }
     }
-    return { streams };
+    // Filtro finale: nessuna selezione => solo AUTO (master). AUTO implicito se nessun toggle.
+  const autoFlag = this.config.animeunityAuto === true;
+  const fhdFlag = this.config.animeunityFhd === true;
+  const autoWanted = autoFlag || (!autoFlag && !fhdFlag); // default AUTO if none selected
+  const fhdWanted = fhdFlag;
+    const filtered = streams.filter(st => {
+      const qual = st.behaviorHints?.animeunityQuality;
+      if (qual === 'FHD') return fhdWanted;
+      return autoWanted; // master (AUTO)
+    });
+    // Post-process: if FHD selected (or both), ensure provider label shows FHD by setting isFhdOrDual equivalent hint
+    try {
+      if (fhdWanted) {
+        filtered.forEach(st => {
+          if (st.behaviorHints?.animeunityQuality === 'FHD') {
+            // Provide a generic flag some naming layers may inspect
+            st.behaviorHints.animeunityIsFhd = true;
+          }
+        });
+      }
+    } catch(e) { /* no-op */ }
+    return { streams: filtered };
   }
 }
 
