@@ -1303,11 +1303,12 @@
     "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=460"
   },
   {
-    "id": "skysportnba",
+    "id": "skysportbasket",
     "type": "tv",
-    "name": "Sky Sport NBA",
+    "name": "Sky Sport Basket",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-nba-it.png",
-    "description": "Sky Sport NBA - Sky",
+    "description": "Sky Sport Basket - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=875",
     "vavooNames": [
       "SKY SPORT NBA"
     ],
