@@ -5,7 +5,7 @@ import { KitsuProvider } from './kitsu';
 import { getDomain } from '../utils/domains';
 // import { formatMediaFlowUrl } from '../utils/mediaflow'; // disabilitato: usiamo URL mp4 diretto
 import { AnimeWorldConfig, AnimeWorldResult, AnimeWorldEpisode, StreamForStremio } from '../types/animeunity';
-import { checkIsAnimeById } from '../utils/animeGate';
+import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
 
 // Cache semplice in-memory per titoli tradotti per evitare chiamate ripetute
 const englishTitleCache = new Map<string, string>();
@@ -486,7 +486,11 @@ export class AnimeWorldProvider {
   }
 
   async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie=false): Promise<{ streams: StreamForStremio[] }> {
-    const normalized = normalizeTitleForSearch(title);
+    const universalTitle = applyUniversalAnimeTitleNormalization(title);
+    if (universalTitle !== title) {
+      console.log(`[UniversalTitle][Applied] ${title} -> ${universalTitle}`);
+    }
+    const normalized = normalizeTitleForSearch(universalTitle);
   console.log('[AnimeWorld] Title original:', title);
   console.log('[AnimeWorld] Title normalized:', normalized);
   let versions = await this.searchAllVersions(normalized);
