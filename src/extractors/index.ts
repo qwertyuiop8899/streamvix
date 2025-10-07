@@ -8,6 +8,7 @@ import { DroploadExtractor } from './dropload'; // keep legacy
 import { MixdropExtractor } from './mixdrop';
 import { StreamtapeExtractor } from './streamtape';
 import { DoodStreamExtractor } from './doodstream';
+import { VixCloudHlsExtractor } from './vixcloud';
 // Temporarily disabled adapters to avoid pulling full webstreamr TS tree into build
 // import { WsDroploadAdapter, WsDoodAdapter } from './webstreamr-adapters';
 
@@ -18,6 +19,7 @@ const extractors: HostExtractor[] = [
   new MixdropExtractor(),
   new StreamtapeExtractor(),
   new DoodStreamExtractor(), // legacy
+  new VixCloudHlsExtractor(),
   // new WsDoodAdapter()
 ];
 
