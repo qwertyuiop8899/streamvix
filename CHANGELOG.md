@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.8...v1.7.9) (2025-10-07)
+
+
+### Bug Fixes
+
+* ko-fi ([0120e90](https://github.com/qwertyuiop8899/streamvix/commit/0120e90c9d31bad772624481e4dd1af8d5682b80))
+
 ## [1.7.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.7...v1.7.8) (2025-10-07)
 
 
