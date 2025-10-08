@@ -186,6 +186,10 @@ const exactMap: Record<string,string> = {
         "Attack on Titan OAD": "Attack on Titan OVA",
    
 
+        "The Seven Deadly Sins: Revival of the Commandments": "The Seven Deadly Sins: Revival of the Commandments",
+
+   
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
