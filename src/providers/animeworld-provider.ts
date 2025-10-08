@@ -162,6 +162,9 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
 // ==== AUTO-NORMALIZATION-EXACT-MAP-START ====
 const exactMap: Record<string, string> = {
 
+      "Cat's Eye (2025)": "Occhi di gatto (2025)",
+
+
   // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
