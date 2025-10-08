@@ -205,6 +205,8 @@ function normalizeTitleForSearch(title: string): string {
     "Slam Dunk: National Domination! Sakuragi Hanamichi": "Slam Dunk: Zenkoku Seiha Da! - Sakuragi Hanamichi",
     "JoJo's Bizarre Adventure (2012)": "Le Bizzarre Avventure di JoJo",
     "JoJo's Bizarre Adventure: Stardust Crusaders": "Le Bizzarre Avventure di JoJo: Stardust Crusaders",
+        "Cat's Eye (2025)": "Occhi di gatto (2025)",
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
