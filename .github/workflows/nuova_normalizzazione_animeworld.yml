@@ -1,0 +1,50 @@
+name: "🌐 Nuova normalizzazione titolo (AnimeWorld)"
+description: Proponi una coppia MAL → AnimeWorld da aggiungere alla funzione normalizeTitleForSearch
+title: "[NORMALIZZA AW]: "
+labels: ["normalizzazione", "normalizzazione-animeworld"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Compila i campi sottostanti seguendo l’esempio:
+        | Campo | Esempio |
+        |-------|---------|
+        | MAL English name | Demon Slayer: Kimetsu no Yaiba | 
+        | AnimeWorld name | Demon Slayer Kimetsu no Yaiba | 
+
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ Non modificare le intestazioni "### MAL English name" e "### AnimeWorld name".
+        📝 Istruzioni MAL: cerca il titolo su https://myanimelist.net/ e usa l'English name ufficiale (grigio scuro sotto il principale se presente).
+        📝 Istruzioni AnimeWorld: cerca su AnimeWorld e copia il titolo così come appare (senza tag SUB ITA / (ITA) / (CR)).
+
+  - type: input
+    id: mal_name
+    attributes:
+      label: MAL English name
+      placeholder: "Demon Slayer: Kimetsu no Yaiba"
+    validations:
+      required: true
+
+  - type: input
+    id: aw_name
+    attributes:
+      label: AnimeWorld name
+      placeholder: "Demon Slayer Kimetsu no Yaiba"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: conferme
+    attributes:
+      label: Conferme
+      options:
+        - label: Ho controllato che la coppia non sia già presente nel file
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        Al salvataggio dell'Issue verrà tentata la creazione automatica di una PR se i campi sono corretti.
