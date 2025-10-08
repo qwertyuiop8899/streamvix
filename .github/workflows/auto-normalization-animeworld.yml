@@ -1,0 +1,78 @@
+name: Crea PR da Issue di normalizzazione (AnimeWorld)
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  generate-pr-animeworld:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Applica etichette AnimeWorld
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: normalizzazione, normalizzazione-animeworld
+
+      - name: Verifica etichetta AnimeWorld
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          labels=$(gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }} | jq -r '.labels[].name')
+          echo "Label correnti:" $labels
+          if ! echo "$labels" | grep -q "normalizzazione-animeworld" && ! echo "$labels" | grep -q "richiesta-animeworld"; then
+            echo "Etichetta AnimeWorld mancante, esco"
+            exit 1
+          fi
+
+      - name: Debug issue body
+        run: |
+          echo "BODY="
+          echo "${{ github.event.issue.body }}"
+
+      - id: parse
+        run: |
+          MAL_NAME=$(echo "${{ github.event.issue.body }}" | awk '/^### MAL English name/{getline; while($0 ~ /^ *$/){getline}; print $0}')
+          AW_NAME=$(echo "${{ github.event.issue.body }}" | awk '/^### AnimeWorld name/{getline; while($0 ~ /^ *$/){getline}; print $0}')
+          echo "Estratto MAL_NAME: $MAL_NAME"
+          echo "Estratto AW_NAME: $AW_NAME"
+          echo "mal_name=$MAL_NAME" >> $GITHUB_OUTPUT
+          echo "aw_name=$AW_NAME" >> $GITHUB_OUTPUT
+          echo "MAL_NAME_ENV=$MAL_NAME" >> $GITHUB_ENV
+          echo "AW_NAME_ENV=$AW_NAME" >> $GITHUB_ENV
+
+      - name: Aggiungi riga di normalizzazione AnimeWorld
+        env:
+          MAL_NAME: ${{ env.MAL_NAME_ENV }}
+          AW_NAME: ${{ env.AW_NAME_ENV }}
+        run: |
+          python3 scripts/auto_normalize_animeworld.py
+
+      - name: Crea PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "feat(normalize-aw): add \"${{ steps.parse.outputs.mal_name }}\""
+          branch: "normalizza-aw-${{ github.event.issue.number }}"
+          title: "Normalizzazione AnimeWorld: ${{ steps.parse.outputs.mal_name }}"
+          body: |
+            ## 🔗 Nuova normalizzazione AnimeWorld
+
+            | Campo | Valore |
+            |-------|--------|
+            | **MAL English name** | ${{ steps.parse.outputs.mal_name }} |
+            | **AnimeWorld name** | ${{ steps.parse.outputs.aw_name }} |
+
+            ### Checklist
+            - [ ] Compilazione corretta secondo Issue
+            - [ ] I test esistenti passano
+            - [ ] Non rompe altre normalizzazioni
+
+            _Questa PR è stata generata automaticamente dalla Issue #${{ github.event.issue.number }}._
