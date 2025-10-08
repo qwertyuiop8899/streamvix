@@ -166,6 +166,10 @@ const exactMap: Record<string, string> = {
       "Cat's Eye (2025)": "Occhi di gatto (2025)",
 
 
+      "07-Ghost": "07-Ghost",
+
+
+
   // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
