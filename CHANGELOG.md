@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.8.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.11...v1.8.0) (2025-10-08)
+
+
+### Features
+
+* **normalize-au:** add "Cat's♥Eye" ([a4d72c9](https://github.com/qwertyuiop8899/streamvix/commit/a4d72c9b2b6c56852cb09bf57739e90ea24c2413))
+* **normalize-aw:** add "Cat's Eye (2025)" ([2f2c05d](https://github.com/qwertyuiop8899/streamvix/commit/2f2c05d809af38dd533c493865f4cb4a8453592d))
+* **normalize-aw:** add "Cat's♥Eye" ([47ab2e8](https://github.com/qwertyuiop8899/streamvix/commit/47ab2e895600dd2938aed5c965263fd55acb9639))
+* **normalize:** add "Cat's Eye (2025)" ([846e585](https://github.com/qwertyuiop8899/streamvix/commit/846e58536e5b31d784dfa1416d8f0c59abb29abe))
+* **normalize:** add "Cat's♥Eye" ([55abf9e](https://github.com/qwertyuiop8899/streamvix/commit/55abf9eff1eb92fac9d30688d8bbb57f456119a2))
+
 ## [1.7.11](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.10...v1.7.11) (2025-10-07)
 
 
