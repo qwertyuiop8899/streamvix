@@ -10,7 +10,7 @@ import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../util
 async function invokePythonScraper(args: string[]): Promise<any> {
     const scriptPath = path.join(__dirname, 'animesaturn.py');
     const command = 'python3';
-    
+
     // Ottieni la config globale se disponibile
     let mfpProxyUrl = '';
     let mfpProxyPassword = '';
@@ -21,13 +21,13 @@ async function invokePythonScraper(args: string[]): Promise<any> {
     } catch (e) {
         console.error('Error getting MFP config:', e);
     }
-    
+
     // Aggiungi gli argomenti proxy MFP se presenti
     if (mfpProxyUrl && mfpProxyPassword) {
         args.push('--mfp-proxy-url', mfpProxyUrl);
         args.push('--mfp-proxy-password', mfpProxyPassword);
     }
-    
+
     return new Promise((resolve, reject) => {
         const pythonProcess = spawn(command, [scriptPath, ...args]);
         let stdout = '';
@@ -161,23 +161,29 @@ function filterAnimeResults(
     return results;
   }
   const norm = (s: string) => normalizeApostrophes(normalizeUnicodeToAscii(s.toLowerCase().replace(/\s+/g, ' ').trim()));
-  const base = norm(englishTitle);
+  const clean = (s: string) => s.replace(/\s*\(.*?\)/g, '').replace(/\s*ita|\s*cr|\s*sub/gi, '').trim();
+  const baseRaw = norm(englishTitle);
+  const baseClean = clean(baseRaw);
 
   // Accetta titoli che contengono il base, ignorando suffissi e parentesi
   const isAllowed = (title: string) => {
-    let t = norm(title);
-    // Rimuovi suffissi comuni e parentesi
-    t = t.replace(/\s*\(.*?\)/g, '').replace(/\s*ita|\s*cr|\s*sub/gi, '').trim();
-    return t.includes(base);
+    const tNorm = norm(title);
+    const tClean = clean(tNorm);
+    return (
+      tNorm.includes(baseRaw) ||
+      (baseClean.length > 0 && tNorm.includes(baseClean)) ||
+      (baseClean.length > 0 && tClean.includes(baseClean))
+    );
   };
 
   // Log dettagliato per debug
   console.log('DEBUG filtro:', {
-    base,
+    base: baseRaw,
+    baseClean,
     titoli: results.map(r => ({
       raw: r.version.title,
       norm: norm(r.version.title),
-      afterClean: norm(r.version.title).replace(/\s*\(.*?\)/g, '').replace(/\s*ita|\s*cr|\s*sub/gi, '').trim()
+      afterClean: clean(norm(r.version.title))
     }))
   });
 
@@ -192,7 +198,7 @@ function normalizeTitleForSearch(title: string): string {
   // 1. Mappature esatte inserire qui titoli che hanno in mal i - (devono avvenire prima per evitare che le sostituzioni generiche rovinino la chiave)
   // ==== AUTO-NORMALIZATION-EXACT-MAP-START ====
   const exactMap: Record<string,string> = {
-    "Demon Slayer: Kimetsu no Yaiba - The Movie: Infinity Castle": "Demon Slayer: Kimetsu no Yaiba Infinity Castle",    
+    "Demon Slayer: Kimetsu no Yaiba - The Movie: Infinity Castle": "Demon Slayer: Kimetsu no Yaiba Infinity Castle",
     "Attack on Titan: The Final Season - Final Chapters Part 2": "L'attacco dei Giganti: L'ultimo attacco",
     'Ore dake Level Up na Ken': 'Solo Leveling',
     'Lupin the Third: The Woman Called Fujiko Mine': 'Lupin III - La donna chiamata Fujiko Mine ',
@@ -487,7 +493,7 @@ export class AnimeSaturnProvider {
       }
       // Preparare gli argomenti per lo scraper Python
       const scrapperArgs = ['get_stream', '--episode-url', targetEpisode.url];
-      
+
       // Aggiungi parametri MFP per lo streaming m3u8 se disponibili
       if (this.config.mfpProxyUrl) {
         scrapperArgs.push('--mfp-proxy-url', this.config.mfpProxyUrl);
@@ -495,7 +501,7 @@ export class AnimeSaturnProvider {
       if (this.config.mfpProxyPassword) {
         scrapperArgs.push('--mfp-proxy-password', this.config.mfpProxyPassword);
       }
-      
+
       const streamResult = await invokePythonScraper(scrapperArgs);
       let streamUrl = streamResult.url;
       let streamHeaders = streamResult.headers || undefined;
