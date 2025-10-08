@@ -52,7 +52,7 @@ from collections import Counter
 # Partizionamento:
 #   group-title contenente 'ITALY' (case-insensitive) => CANALE statico (aggiorniamo pdUrlF se esiste nel json)
 #   altrimenti => EVENTO per injection
-PRIMARY_COMBINED_URL = "https://world-proxifier.xyz/daddylive/playlist.m3u8"
+PRIMARY_COMBINED_URL = "https://world-proxifier.xyz/daddylive_go/playlist.m3u8"
 SECONDARY_COMBINED_URL = "https://raw.githubusercontent.com/pigzillaaa/daddylive/refs/heads/main/daddylive-channels-events.m3u8"
 
 # ---------------------------------------------------------------------------
@@ -572,8 +572,10 @@ def inject_pd_streams(entries: List[Dict[str, Any]], playlist_entries: List[Dict
     for pe in playlist_entries:
         attrs = pe['attrs']
         gtitle = (attrs.get('group-title') or '').upper()
-        if 'ITALY' in gtitle:
-            continue
+        # REMOVED: Non skippiamo più ITALY per eventi dynamic
+        # Le entry ITALY vengono processate per ENTRAMBI: canali statici E eventi dynamic
+        # if 'ITALY' in gtitle:
+        #     continue
         display = pe['display']
         teams = extract_teams_from_title(display)
         if not teams:
@@ -621,8 +623,12 @@ def inject_pd_streams(entries: List[Dict[str, Any]], playlist_entries: List[Dict
         key = '::'.join(sorted(set(t.lower() for t in tokens)))
         single_index.setdefault(key, []).append(ev)
     def build_single_key_from_playlist(display: str) -> Optional[str]:
-        # Remove broadcaster parentheses and competition colons, take first segment
-        base = re.sub(r"\([^()]*\)$", "", display).strip()
+        # Remove broadcaster in square brackets FIRST (most common pattern)
+        base = re.sub(r"\[[^\[\]]*\]\s*$", "", display).strip()
+        # Remove date/time in parentheses (e.g., "(10/08/25 11:00AM)") - MUST be before generic parentheses removal
+        base = re.sub(r"\(\s*\d{1,2}/\d{1,2}/\d{2,4}[^()]*\)\s*$", "", base).strip()
+        # Remove any remaining parentheses at end (broadcaster fallback)
+        base = re.sub(r"\([^()]*\)$", "", base).strip()
         # If it contains vs it's not single-event mode
         if re.search(r"\bvs\b", base, flags=re.IGNORECASE):
             return None
@@ -632,19 +638,24 @@ def inject_pd_streams(entries: List[Dict[str, Any]], playlist_entries: List[Dict
         tokens = [t for t in re.split(r"[^A-Za-z0-9]+", base) if t]
         if len(tokens) < 2:
             return None
-        return '::'.join(sorted(set(t.lower() for t in tokens)))
-
+        key = '::'.join(sorted(set(t.lower() for t in tokens)))
+        return key
+    
     for pe in playlist_entries:
         attrs = pe['attrs']
-        if 'ITALY' in (attrs.get('group-title') or '').upper():
-            continue
+        # REMOVED: Non skippiamo più ITALY per eventi single-event
+        # Le entry ITALY vengono processate per ENTRAMBI: canali statici E eventi dynamic
+        # if 'ITALY' in (attrs.get('group-title') or '').upper():
+        #     continue
         display = pe['display']
         channel_label = extract_channel_label_from_display(display) or ''
         if not channel_label:
             continue
         has_it_token = bool(ITAL_TOKEN_RE.search(channel_label))
         skey = build_single_key_from_playlist(display)
-        if not skey or skey not in single_index:
+        if not skey:
+            continue
+        if skey not in single_index:
             continue
         url = pe.get('url')
         if not url:
