@@ -19,7 +19,16 @@ jobs:
         uses: actions-ecosystem/action-add-labels@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          labels: normalizzazione, normalizzazione-animeworld
+          labels: |
+            normalizzazione
+            normalizzazione-animeworld
+
+      - name: Fallback aggiunta etichette via gh
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} --add-label "normalizzazione" --add-label "normalizzazione-animeworld"
 
       - name: Verifica etichetta AnimeWorld
         env:
