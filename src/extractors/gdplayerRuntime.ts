@@ -1,10 +1,10 @@
 import axios from 'axios';
 
 /**
- * Runtime resolver per canali gdplayer (eng.gdplayertv.to) -> ava.karmakurama.com
+ * Runtime resolver per canali gdplayer (en.freewatchtv.top) -> ava.karmakurama.com
  * Riproduce la logica di myResolver.gdplayer ma in TS con caching breve.
  * Richieste:
- *  1. GET pagina https://eng.gdplayertv.to/live-tv/{slug}
+ *  1. GET pagina https://en.freewatchtv.top/live-tv/{slug}
  *  2. Regex data-src="https://ava.karmakurama.com/?id=CODE" -> CODE numerico daddyC
  *  3. Flusso daddyCode:
  *     - GET https://jxoxkplay.xyz/premiumtv/daddylive.php?id=premium{CODE}
@@ -28,7 +28,7 @@ export interface GdplayerResolved {
 }
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36';
-const BASE_PAGE = 'https://eng.gdplayertv.to/live-tv';
+const BASE_PAGE = 'https://en.freewatchtv.top/live-tv';
 const CACHE_TTL = 20_000; // 20s
 
 const cache = new Map<string, GdplayerResolved>();
@@ -50,7 +50,7 @@ declare const Buffer: any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare function require(name: string): any;
 
-// === Fallback mapping slug->code (per quando eng.gdplayertv.to è down) ===
+// === Fallback mapping slug->code (per quando en.freewatchtv.top è down) ===
 //  - Statico interno (popolabile manualmente)
 //  - Override via variabile ambiente GDPLAYER_CODE_MAP: formato "slug1:123,slug2:456"
 //  - Override via file config/gdplayer_codes.json : { "sky-sport-uno": "123", ... }
@@ -117,7 +117,7 @@ async function fetchDaddyBundle(code: string) {
 async function callAuth(code: string, bundle: { ts: any; rnd: any; sig: any }) {
   const url = `https://top2new.newkso.ru/auth.php?channel_id=premium${code}&ts=${encodeURIComponent(bundle.ts)}&rnd=${encodeURIComponent(bundle.rnd)}&sig=${encodeURIComponent(bundle.sig)}`;
   try {
-    await axios.get(url, { headers: { 'User-Agent': UA, Referer: 'https://eng.gdplayertv.to/' }, timeout: 12000 });
+    await axios.get(url, { headers: { 'User-Agent': UA, Referer: 'https://en.freewatchtv.top/' }, timeout: 12000 });
   } catch (e) {
     // Non interrompere: spesso l'URL finale funziona comunque.
   }
@@ -153,7 +153,7 @@ export async function resolveGdplayer(slug: string, opts?: { mfpUrl?: string; mf
     } else {
       const pageUrl = `${BASE_PAGE}/${encodeURIComponent(slug)}`;
       try {
-        const pg = await axios.get(pageUrl, { headers: { 'User-Agent': UA, Referer: 'https://eng.gdplayertv.to/' }, timeout: 15000 });
+        const pg = await axios.get(pageUrl, { headers: { 'User-Agent': UA, Referer: 'https://en.freewatchtv.top/' }, timeout: 15000 });
         const html = (pg.data as string).replace(/\n|\r|\t/g, '');
         out.debug!.pageLen = html.length;
         const m = html.match(/data-src="https:\/\/ava\.karmakurama\.com\/\?id=([A-Za-z0-9_-]+)"/i);
@@ -211,7 +211,7 @@ export async function resolveGdplayer(slug: string, opts?: { mfpUrl?: string; mf
       const pass = encodeURIComponent(opts.mfpPassword);
       const encoded = encodeURIComponent(finalUrl);
       // Headers di origine passati come parametri (stile già usato altrove)
-      out.wrappedUrl = `${base}/proxy/hls/manifest.m3u8?api_password=${pass}&d=${encoded}&h_Referer=${encodeURIComponent('https://eng.gdplayertv.to/')}&h_Origin=${encodeURIComponent('https://eng.gdplayertv.to')}&h_User-Agent=${encodeURIComponent(UA)}`;
+      out.wrappedUrl = `${base}/proxy/hls/manifest.m3u8?api_password=${pass}&d=${encoded}&h_Referer=${encodeURIComponent('https://en.freewatchtv.top/')}&h_Origin=${encodeURIComponent('https://en.freewatchtv.top')}&h_User-Agent=${encodeURIComponent(UA)}`;
       gdLog('resolve:wrap:mfp', { slug });
     }
   } catch (e: any) {
