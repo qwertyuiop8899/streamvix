@@ -206,6 +206,7 @@ function normalizeTitleForSearch(title: string): string {
     "JoJo's Bizarre Adventure (2012)": "Le Bizzarre Avventure di JoJo",
     "JoJo's Bizarre Adventure: Stardust Crusaders": "Le Bizzarre Avventure di JoJo: Stardust Crusaders",
         "Cat's Eye (2025)": "Occhi di gatto (2025)",
+        "Cat's\u2665Eye": "Occhi di gatto (2025)",
 
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
