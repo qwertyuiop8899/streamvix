@@ -3149,7 +3149,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 try { hdrs = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch {}
                             const isVavooClean = !!hdrs && hdrs['Referer'] === 'https://vavoo.to/' && hdrs['User-Agent'] === DEFAULT_VAVOO_UA;
                             if (isVavooClean && !allowVavooClean) { continue; }
-                            allStreams.push({ name: isVavooClean ? 'Vavoo🔓' : 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
+                            allStreams.push({ name: 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                             } else {
                             // Fallback: if this looks like a clean Vavoo sunshine URL and title starts with a variant tag, attach default headers
                                 const looksVavoo = /\b(sunshine|hls\/index\.m3u8)\b/.test(s.url) && !/\bproxy\/hls\//.test(s.url);
@@ -3157,7 +3157,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (variantTitle && looksVavoo) {
                                     const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
                                     if (!allowVavooClean) { continue; }
-                                    allStreams.push({ name: 'Vavoo🔓', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
+                                    allStreams.push({ name: 'Live �', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
                                 } else {
                                     allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
                                 }
@@ -3286,14 +3286,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             try { hdrs = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch {}
                             const isVavooClean = !!hdrs && hdrs['Referer'] === 'https://vavoo.to/' && hdrs['User-Agent'] === DEFAULT_VAVOO_UA;
                             if (isVavooClean && !allowVavooClean) { continue; }
-                            allStreams.push({ name: isVavooClean ? 'Vavoo🔓' : 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
+                            allStreams.push({ name: 'Live 🔴', title: s.title, url: pureUrl, behaviorHints: { notWebReady: true, headers: hdrs || {}, proxyHeaders: hdrs || {}, proxyUseFallback: true } as any });
                         } else {
                             const looksVavoo = /\b(sunshine|hls\/index\.m3u8)\b/.test(s.url) && !/\bproxy\/hls\//.test(s.url);
                             const variantTitle = /^\s*\[?\s*(➡️|🏠|✌️)\s*V/i.test(s.title);
                             if (variantTitle && looksVavoo) {
                                 const hdrs = { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } as Record<string,string>;
                                 if (!allowVavooClean) { continue; }
-                                allStreams.push({ name: 'Vavoo🔓', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
+                                allStreams.push({ name: 'Live �', title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
                             } else {
                                 allStreams.push({ name: 'Live 🔴', title: s.title, url: s.url });
                             }
