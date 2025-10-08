@@ -186,6 +186,10 @@ const exactMap: Record<string,string> = {
         "Attack on Titan OAD": "Attack on Titan OVA",
    
 
+        "Cats Eye": "Occhi di gatto (2025)",
+
+   
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
