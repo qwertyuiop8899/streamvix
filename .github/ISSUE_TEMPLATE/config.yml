@@ -7,7 +7,7 @@ blank_issues_enabled: true
 # will appear as a clickable choice in the New Issue UI.
 contact_links:
   - name: "Apri un nuovo ISSUE"
-    url: "https://github.com/piholo/piholoprx/issues/new"
+    url: "https://github.com/qwertyuiop8899/streamvix/issues/new"
     about: "Apri un issue vuoto"
 
 # Optional: other useful pre-filled links (example)
