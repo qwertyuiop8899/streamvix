@@ -1,0 +1,16 @@
+# Configuration for GitHub issue templates
+# Enabling blank issues will show the "Open a blank issue" option when creating a new issue.
+blank_issues_enabled: true
+
+# Custom link shown in the issue chooser. This will display exactly the `name` text
+# and open the `url`. Using `/issues/new` opens a blank issue — the label below
+# will appear as a clickable choice in the New Issue UI.
+contact_links:
+  - name: "Apri un nuovo ISSUE"
+    url: "https://github.com/piholo/piholoprx/issues/new"
+    about: "Apri un issue vuoto"
+
+# Optional: other useful pre-filled links (example)
+# contact_links:
+#   - name: "Report a bug"
+#     url: "/issues/new?assignees=&labels=bug&template=bug_report.yml&title="
