@@ -72,7 +72,9 @@ async function fetchText(url: string, referer?: string): Promise<string | null> 
 export class SportsonlineExtractor implements HostExtractor {
   id = 'sportsonline';
   supports(url: string): boolean {
-    return /sportzonline\.(st|bz|cc|top)|sportsonline\.(si|sn)/.test(url);
+    // AGGIORNATO: usa solo dominio principale sportzonline.st
+    // Altri domini legacy rimossi (cambiavano spesso)
+    return /sportzonline\.st/i.test(url);
   }
   async extract(pageUrl: string, ctx: ExtractorContext): Promise<ExtractResult> {
     // Step 1: main page
