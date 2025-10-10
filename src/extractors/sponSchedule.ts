@@ -57,23 +57,9 @@ export async function fetchSponSchedule(force = false): Promise<SponRow[]> {
   if (text == null) {
     const primary = (process.env.SPON_PROG_URL || '').trim();
     const extra = (process.env.SPON_PROG_FALLBACKS || '').split(',').map(s=>s.trim()).filter(Boolean);
-    const builtin = [
-      'https://sportzonline.st/prog.txt',
-      'https://sportzonline.bz/prog.txt',
-      'https://sportzonline.cc/prog.txt',
-      'https://sportzonline.top/prog.txt',
-      // Nuovo dominio osservato con redirect da .st
-      'https://sportsonline.sn/prog.txt',
-      'http://sportsonline.sn/prog.txt'
-    ];
-    const tried = new Set<string>();
-    function pushUnique(u:string, arr:string[]) { for (const x of arr) { if (!tried.has(x)) { tried.add(x); urls.push(x); } } }
+    // SEMPLIFICATO: usa solo sportzonline.st (dominio stabile)
+    const builtin = ['https://sportzonline.st/prog.txt'];
     const urls: string[] = [];
-    if (primary) pushUnique(primary, [primary]);
-    pushUnique('builtin', builtin); // custom helper misuse, adjust logic below
-    // The helper above not ideal; simplify:
-    // Rebuild urls properly
-    urls.length = 0;
     if (primary) urls.push(primary);
     for (const u of extra) if (!urls.includes(u)) urls.push(u);
     for (const u of builtin) if (!urls.includes(u)) urls.push(u);
