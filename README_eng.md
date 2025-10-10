@@ -2,7 +2,21 @@
 
 An addon for Stremio that scrapes streaming sources from the sites vixsrc and animeunity animesaturn daddy and vavoo to let you watch movies, TV series, anime and live TV with maximum simplicity.
 
-[Installation Link](https://streamvix.hayd.uk/)
+### 🌍 Sports Events Environment Variables (Main)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MFP_URL` | - | **REQUIRED** - MediaFlow Proxy URL for SPON wrap |
+| `MFP_PASSWORD` / `MFP_PSW` | - | **REQUIRED** - MediaFlow Proxy password |
+| `SPON_PROG_URL` | auto | Custom Sportzonline prog.txt URL (optional) |
+| `SPON_PROG_FALLBACKS` | - | Fallback prog.txt URLs comma-separated |
+| `SPON_PROG_FORCE_REFRESH` | 0 | 1 = ignore 4h cache prog.txt, always refresh |
+| `DYNAMIC_PURGE_HOUR` | 8 | Hour (Rome) after which previous-day events disappear from catalog |
+| `DYNAMIC_DISABLE_RUNTIME_FILTER` | 1 | 1 = don't filter by date (use JSON as-is); 0 = enable day filter |
+| `RBTV_DISCOVERY_BEFORE_MIN` | 15 | Minutes before start for RB77 discovery |
+| `RBTV_DISCOVERY_AFTER_MIN` | 10 | Minutes after start for RB77 discovery |
+| `STREAMED_ENABLE` | 0 | 1 = enable Streamed integration |
+| `SPSO_PLAYLIST_URL` | auto | Custom SPSO playlist URL |tion Link](https://streamvix.hayd.uk/)
 
 Paid ElfHosted instance WITH MEDIAFLOWProxy included (For Sports Events)
 
@@ -22,9 +36,14 @@ Paid ElfHosted instance WITH MEDIAFLOWProxy included (For Sports Events)
 * **📡 Live TV Support:** Italian TV channels with integrated EPG.
 * **📡 Sports Events Support:** Sports events updated every day.
 * **🔗 Perfect Integration:** Integrates beautifully with the Stremio interface for a smooth user experience.
-* **🌐 Unified Proxy:** A single MFP proxy for all content (movies, series, anime, TV).
-* **⚡ Dynamic FAST Mode:** Live events with direct URLs without passing through the extractor (runtime toggle) all labeled `[Player Esterno]` (External Player).
-* **🎯 Extraction Limit & Priority:** In extractor mode applies a concurrency CAP and prioritizes Italian sources.
+* **🌐 Unified Proxy:** A single MFP proxy for all content (movies, series, anime, TV, sports events).
+* **⚽ Advanced Sports Events:**
+  - **SPON (Schedule-based):** Automatic matching of sports events with Sportzonline channels (direct MFP wrap + TypeScript extractor fallback)
+  - **SPSO:** SportSOnline playlist integration with `[SPSO]` variants
+  - **RB77:** Certified Italian streams with dynamic symbols (🚫/🔴)
+  - **Streamed:** Playlist enrichment with fuzzy matching and time windows
+  - **P🐽D (Pig):** Priority broadcaster streams (SKY, DAZN, Eurosport)
+* **🎯 Automatic Optimization:** Direct MFP wrap for maximum speed, TypeScript extractors as safe fallback
 * **📡 Live TV Support:** Italian TV channels and Sports Events viewable without Mediaflow Proxy, choose channels [Vavoo] or with 🏠.
 * **🔓 Streams Without Mediaflow Proxy Support:** Italian TV channels and Sports Events, Movies and TV Series: choose streams with 🔓 to start them without needing a MediaflowProxy. (Note: to start streams without proxy you may need an external player or VLC; try the default player, if it fails use an external player like VLC.)
 
@@ -32,19 +51,21 @@ Paid ElfHosted instance WITH MEDIAFLOWProxy included (For Sports Events)
 ---
 Commands for Live TV from browser
 
-http://urladdon/live/update   update live events list
+http://urladdon/live/update   update live events list (includes SPON processing)
 
 http://urladdon/live/purge    delete old events
 
 http://urladdon/live/reload   refresh the Stremio catalog
 
-Additional admin / diagnostic endpoints
+http://urladdon/static/reload reload static TV channels
 
-http://urladdon/admin/mode?fast=1   enable FAST dynamic mode (uses direct URLs)
+Additional endpoints for enrichment
 
-http://urladdon/admin/mode?fast=0   return to extractor mode (resolution + CAP)
+http://urladdon/streamed/reload   start Streamed enrichment
 
-Note: the toggle is not persistent across restarts (runtime only).
+http://urladdon/rbtv/reload       start RB77/RBTV enrichment
+
+http://urladdon/spso/reload       start SPSO enrichment
 
 
 ## 🔧 Simplified Configuration
@@ -55,12 +76,21 @@ StreamViX uses a **unified proxy system** that simplifies configuration:
 - **A single URL and password** for all content (movies, series, anime, TV)
 
 ### 📋 Required Configuration
-- `MFP_URL`: URL of your MFP proxy
-- `MFP_PSW`: Password of the MFP proxy
+- `MFP_URL`: URL of your MFP proxy (e.g. `https://mfp.yourdomain.com`)
+- `MFP_PASSWORD` or `MFP_PSW`: Password of the MFP proxy
 - `TMDB_API_KEY`: TMDB API key for metadata (OPTIONAL)
 - `ANIMEUNITY_ENABLED`: Enable AnimeUnity (true/false)
+- `ANIMESATURN_ENABLED`: Enable AnimeSaturn (true/false)
 - `Enable MPD Streams`: (true/false) Not working, leave false
-- `Enable Live TV`: Enable to view live TV (true/false)
+- `Enable Live TV`: Enable to view live TV and sports events (true/false)
+
+### ⚙️ Sports Events Configuration (Optional)
+- `SPON_PROG_URL`: Custom URL for Sportzonline prog.txt download (default: auto)
+- `SPON_PROG_FALLBACKS`: Additional fallback URLs comma-separated
+- `RBTV_PLAYLIST_URL`: RB77 playlist URL (default: auto)
+- `SPSO_PLAYLIST_URL`: SPSO playlist URL (default: auto)
+- `STREAMED_ENABLE`: Enable Streamed integration (0/1)
+- `STREAMED_PLAYLIST_URL`: Streamed playlist URL
   
 ### 🖥️ Environment Variable for Local / VPS (VixSrc FHD)
 
@@ -199,11 +229,16 @@ If you want to extend visibility until a certain hour just set `DYNAMIC_PURGE_HO
 
 | Endpoint | Description |
 |----------|-------------|
-| `/live/update` | Immediately runs `Live.py` and reloads dynamics |
+| `/live/update` | Immediately runs `Live.py` and reloads dynamics (includes SPON) |
 | `/live/reload` | Invalidates cache and reloads without running script |
 | `/live/purge` | Physical purge of old event file |
-| `/admin/mode?fast=1` | Enable dynamic FAST |
-| `/admin/mode?fast=0` | Return to extractor |
+| `/static/reload` | Reloads static TV channels |
+| `/streamed/reload` | Starts Streamed enrichment in window |
+| `/streamed/reload?force=1` | Force Streamed (ignore windows) |
+| `/rbtv/reload` | Starts RBTV enrichment in window |
+| `/rbtv/reload?force=1` | Force RBTV (ignore windows) |
+| `/spso/reload` | Starts SPSO enrichment (SportSOnline) |
+| `/spso/reload?force=1` | Force SPSO (placeholder future windows) |
 
 ### 🌍 Relevant Environment Variables (Extended)
 
@@ -269,23 +304,40 @@ Save the following content in a file named `docker-compose.yml`, or add this com
 ```yaml
 services:
   streamvix:
-    image: krystall0/streamvix:latest  
+    image: qwertyuiop8899/streamvix:latest
     container_name: streamvix
     ports:
       - "7860:7860"
     environment:
+      # Base Configuration (REQUIRED)
       - BOTHLINK=true
-      - MFP_URL= # your mediaflow proxy instance url or http://container-name:port
-      - MFP_PSW= # The password of your mediaflow proxy instance
-      - TMDB_API_KEY= #https://www.themoviedb.org/settings/api
+      - MFP_URL=https://mfp.yourdomain.com   # MediaFlow Proxy URL
+      - MFP_PASSWORD=yourpassword            # MediaFlow Proxy password
+      - TMDB_API_KEY=your_tmdb_key          # https://www.themoviedb.org/settings/api
+      
+      # Anime (optional)
+      - ANIMEUNITY_ENABLED=true
+      - ANIMESATURN_ENABLED=true
+      
+      # Live TV & Sports Events
+      - Enable_Live_TV=true
+      
+      # Advanced Sports Events (optional - auto config if omitted)
+      # - SPON_PROG_URL=https://sportzonline.st/prog.txt
+      # - RBTV_DISCOVERY_BEFORE_MIN=15
+      # - STREAMED_ENABLE=1
+      
+      # Local/VPS Installation (optional - for VixSrc FHD synthetic)
+      # - ADDON_BASE_URL=https://streamvix.yourdomain.com
     restart: always
-#   Use watchtower for automatic image updates
-
-#   watchtower:
-#     image: containrrr/watchtower
-#     container_name: watchtower
-#     volumes:
-#     - /var/run/docker.sock:/var/run/docker.sock
+    
+  # Watchtower for automatic image updates (optional)
+  # watchtower:
+  #   image: containrrr/watchtower
+  #   container_name: watchtower
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   restart: always
 ```
 
 TMDB Api KEY, MFP link and MFP password and the two required flags will be managed from the installation page.
@@ -332,10 +384,12 @@ The addon will be available locally at `http://localhost:7860`.
 
 | Problem | Possible Causes | Solution |
 |----------|-----------------|-----------|
-| No dynamic events after 07:30 | `DYNAMIC_PURGE_HOUR` too low | Increase to 8+ or remove variable |
-| Few dynamic streams visible | Extractor mode with low CAP | Increase `DYNAMIC_EXTRACTOR_CONC` or enable FAST |
-| URLs not transformed | MFP proxy not configured | Set `MFP_URL` and `MFP_PSW` or use FAST |
-| FAST toggle does not persist reboot | Expected behavior | Export `FAST_DYNAMIC=1` in environment |
+| No SPON streams in events | MFP not configured | Check `MFP_URL` and `MFP_PASSWORD` in env vars |
+| SPON streams don't work | MFP unreachable or wrong password | Test MFP directly, check logs `[SPON][FALLBACK]` |
+| Few SPON channels | prog.txt file empty or not downloaded | Check logs `[SPON][SCHEDULE]`, verify `sportzonline.st` reachable |
+| Events disappear too early | `DYNAMIC_PURGE_HOUR` too low | Increase to 8+ or set `DYNAMIC_DISABLE_RUNTIME_FILTER=1` |
+| prog.txt download fails | Domain sportzonline.st temporarily down | Set custom `SPON_PROG_URL` or `SPON_PROG_FALLBACKS` |
+| TypeScript extractor not called | MFP wrap always works | Normal behavior (fallback only if MFP wrap fails) |
 
 ---
 
