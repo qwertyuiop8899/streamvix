@@ -42,7 +42,7 @@ Paid ElfHosted instance WITH MEDIAFLOWProxy included (For Sports Events)
   - **SPSO:** SportSOnline playlist integration with `[SPSO]` variants
   - **RB77:** Certified Italian streams with dynamic symbols (🚫/🔴)
   - **Streamed:** Playlist enrichment with fuzzy matching and time windows
-  - **P🐽D (Pig):** Priority broadcaster streams (SKY, DAZN, Eurosport)
+  - **P🐽D (Pig):** Priority broadcaster streams (scai, dason, Eurosport)
 * **🎯 Automatic Optimization:** Direct MFP wrap for maximum speed, TypeScript extractors as safe fallback
 * **📡 Live TV Support:** Italian TV channels and Sports Events viewable without Mediaflow Proxy, choose channels [Vavoo] or with 🏠.
 * **🔓 Streams Without Mediaflow Proxy Support:** Italian TV channels and Sports Events, Movies and TV Series: choose streams with 🔓 to start them without needing a MediaflowProxy. (Note: to start streams without proxy you may need an external player or VLC; try the default player, if it fails use an external player like VLC.)
@@ -170,7 +170,7 @@ Available modes:
     - Each dynamic URL passes through resolution (if proxy MFP configured) before being shown.
     - Applies a concurrency CAP equal to `DYNAMIC_EXTRACTOR_CONC` (default 10) to limit simultaneous extractor requests.
     - Sources beyond the CAP are still exposed as leftover direct streams with `[Player Esterno]` (not extracted) so they’re not lost.
-    - Priority: first titles matching `(it|ita|italy)`, then `(italian|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai)`, then others.
+    - Priority: first titles matching `(it|ita|italy)`, then `(italian|scai|tnt|amazon|dason|eurosport|prime|bein|canal|sportitalia|now|rai)`, then others.
 
 Tip: set `DYNAMIC_EXTRACTOR_CONC=1` for testing: you will see exactly 2 streams (1 extracted + 1 leftover `[Player Esterno]`).
 
