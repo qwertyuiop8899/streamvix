@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.0...v1.8.1) (2025-10-10)
+
+
+### Bug Fixes
+
+* add-on refactoring ([896d909](https://github.com/qwertyuiop8899/streamvix/commit/896d909d91d3fdfafecc79084cea310338edc846))
+* domains update ([667155d](https://github.com/qwertyuiop8899/streamvix/commit/667155db7903949f00fe3b62319b3a9a5e4fc4b8))
+* spon extract ([dc5ee51](https://github.com/qwertyuiop8899/streamvix/commit/dc5ee51904cef19fd6d5e2e2fc311dfc14cabd2a))
+* spon mfp ([b38f3eb](https://github.com/qwertyuiop8899/streamvix/commit/b38f3eba0672749d351a8ea36d0282c4328b267a))
+
 ## [1.8.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.7.11...v1.8.0) (2025-10-08)
 
 
