@@ -864,7 +864,7 @@ function _loadStaticChannelsIfChanged(force = false) {
     try {
         // Auto-enable STREAMED enrichment if the user hasn't explicitly set STREAMED_ENABLE.
         // Rationale: we want the enrichment active by default (was originally introduced for a test phase).
-        let enableRaw = (process.env.STREAMED_ENABLE || '').toString().toLowerCase();
+        let enableRaw = (process.env.STREAMED_ENABLE || '0').toString().toLowerCase();
         if (!enableRaw) {
             // default ON in absence of explicit value so that the enrichment always runs unless explicitly disabled
             enableRaw = '1';
@@ -922,7 +922,7 @@ function _loadStaticChannelsIfChanged(force = false) {
 // === RBTV (RB77) playlist enrichment ===
 (() => {
     try {
-        let enableRaw = (process.env.RBTV_ENABLE || '').toString().toLowerCase();
+        let enableRaw = (process.env.RBTV_ENABLE || '0').toString().toLowerCase();
         if (!enableRaw) {
             enableRaw = '1';
             process.env.RBTV_ENABLE = '1';
@@ -979,7 +979,7 @@ function _loadStaticChannelsIfChanged(force = false) {
 // === SPSO (SportsOnline) playlist enrichment ===
 (() => {
     try {
-        let enableRaw = (process.env.SPSO_ENABLE || '').toString().toLowerCase();
+        let enableRaw = (process.env.SPSO_ENABLE || '0').toString().toLowerCase();
         if (!enableRaw) {
             enableRaw = '1';
             process.env.SPSO_ENABLE = '1';
@@ -1423,8 +1423,13 @@ try {
         }
     }
 
-    // Carica la cache TVTap
-    loadTVTapCache();
+    // Carica la cache TVTap solo se TVTAP_ENABLE è attivo
+    const isTVTapEnabled = ['1', 'true', 'on', 'yes'].includes((process.env.TVTAP_ENABLE || '0').toString().toLowerCase());
+    if (isTVTapEnabled) {
+        loadTVTapCache();
+    } else {
+        console.log('[TVTAP] TVTAP_ENABLE=0, cache non caricata');
+    }
 
     // Aggiorna la cache Vavoo in background all'avvio
     setTimeout(() => {
@@ -1483,18 +1488,48 @@ try {
         });
     }, 2000);
 
-    // Aggiorna la cache TVTap in background all'avvio
-    setTimeout(() => {
-        updateTVTapCache().then(success => {
-            if (success) {
-                console.log(`✅ Cache TVTap aggiornata con successo all'avvio`);
-            } else {
-                console.log(`⚠️ Aggiornamento cache TVTap fallito all'avvio, verrà ritentato periodicamente`);
+    // === TVTAP cache updates (controllato da TVTAP_ENABLE) ===
+    (() => {
+        try {
+            let tvtapEnableRaw = (process.env.TVTAP_ENABLE || '0').toString().toLowerCase();
+            const tvtapEnabled = ['1', 'true', 'on', 'yes'].includes(tvtapEnableRaw);
+            
+            if (!tvtapEnabled) {
+                console.log('[TVTAP][INIT] TVTAP_ENABLE disabilitato, skip aggiornamenti cache');
+                return;
             }
-        }).catch(error => {
-            console.error(`❌ Errore durante l'aggiornamento cache TVTap all'avvio:`, error);
-        });
-    }, 4000); // Aspetta un po' di più per non sovraccaricare
+
+            // Aggiorna la cache TVTap in background all'avvio
+            setTimeout(() => {
+                updateTVTapCache().then(success => {
+                    if (success) {
+                        console.log(`✅ Cache TVTap aggiornata con successo all'avvio`);
+                    } else {
+                        console.log(`⚠️ Aggiornamento cache TVTap fallito all'avvio, verrà ritentato periodicamente`);
+                    }
+                }).catch(error => {
+                    console.error(`❌ Errore durante l'aggiornamento cache TVTap all'avvio:`, error);
+                });
+            }, 4000); // Aspetta un po' di più per non sovraccaricare
+
+            // Programma aggiornamenti periodici della cache TVTap (ogni 12 ore, offset di 1 ora)
+            const TVTAP_UPDATE_INTERVAL = 12 * 60 * 60 * 1000; // 12 ore in millisecondi
+            setInterval(() => {
+                console.log(`🔄 Aggiornamento periodico cache TVTap avviato...`);
+                updateTVTapCache().then(success => {
+                    if (success) {
+                        console.log(`✅ Cache TVTap aggiornata periodicamente con successo`);
+                    } else {
+                        console.log(`⚠️ Aggiornamento periodico cache TVTap fallito`);
+                    }
+                }).catch(error => {
+                    console.error(`❌ Errore durante l'aggiornamento periodico cache TVTap:`, error);
+                });
+            }, TVTAP_UPDATE_INTERVAL);
+        } catch (e) {
+            console.error('[TVTAP][INIT][ERR]', (e as any)?.message || e);
+        }
+    })();
 
     // Programma aggiornamenti periodici della cache Vavoo (ogni 12 ore)
     const VAVOO_UPDATE_INTERVAL = 12 * 60 * 60 * 1000; // 12 ore in millisecondi
@@ -1510,21 +1545,6 @@ try {
             console.error(`❌ Errore durante l'aggiornamento periodico cache Vavoo:`, error);
         });
     }, VAVOO_UPDATE_INTERVAL);
-
-    // Programma aggiornamenti periodici della cache TVTap (ogni 12 ore, offset di 1 ora)
-    const TVTAP_UPDATE_INTERVAL = 12 * 60 * 60 * 1000; // 12 ore in millisecondi
-    setInterval(() => {
-        console.log(`🔄 Aggiornamento periodico cache TVTap avviato...`);
-        updateTVTapCache().then(success => {
-            if (success) {
-                console.log(`✅ Cache TVTap aggiornata periodicamente con successo`);
-            } else {
-                console.log(`⚠️ Aggiornamento periodico cache TVTap fallito`);
-            }
-        }).catch(error => {
-            console.error(`❌ Errore durante l'aggiornamento periodico cache TVTap:`, error);
-        });
-    }, TVTAP_UPDATE_INTERVAL);
 
     // Inizializza EPG Manager
     if (epgConfig.enabled) {
@@ -3186,17 +3206,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         return { streams: allStreams };
                     }
                     // --- TVTAP: cerca usando vavooNames ---
-                    const vavooNamesArr = (channel as any).vavooNames || [channel.name];
-                    console.log(`[TVTap] Cerco canale con vavooNames:`, vavooNamesArr);
-                    // tvtapProxyEnabled: TRUE = NO PROXY (mostra 🔓), FALSE = usa proxy se possibile
-                    const tvtapNoProxy = !!config.tvtapProxyEnabled;
+                    // Check se TVTAP è abilitato
+                    const isTVTapEnabled = ['1', 'true', 'on', 'yes'].includes((process.env.TVTAP_ENABLE || '0').toString().toLowerCase());
+                    if (isTVTapEnabled) {
+                        const vavooNamesArr = (channel as any).vavooNames || [channel.name];
+                        console.log(`[TVTap] Cerco canale con vavooNames:`, vavooNamesArr);
+                        // tvtapProxyEnabled: TRUE = NO PROXY (mostra 🔓), FALSE = usa proxy se possibile
+                        const tvtapNoProxy = !!config.tvtapProxyEnabled;
 
-                    // Prova ogni nome nei vavooNames
-                    for (const vavooName of vavooNamesArr) {
-                        try {
-                            console.log(`[TVTap] Provo con nome: ${vavooName}`);
+                        // Prova ogni nome nei vavooNames
+                        for (const vavooName of vavooNamesArr) {
+                            try {
+                                console.log(`[TVTap] Provo con nome: ${vavooName}`);
 
-                            const tvtapUrl = await new Promise<string | null>((resolve) => {
+                                const tvtapUrl = await new Promise<string | null>((resolve) => {
                                 const timeout = setTimeout(() => {
                                     console.log(`[TVTap] Timeout per canale: ${vavooName}`);
                                     resolve(null);
@@ -3264,8 +3287,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
 
-                    if (streams.length === 0) {
-                        console.log(`[TVTap] RISULTATO: nessun stream trovato per ${channel.name}`);
+                        if (streams.length === 0) {
+                            console.log(`[TVTap] RISULTATO: nessun stream trovato per ${channel.name}`);
+                        }
+                    } else {
+                        console.log(`[TVTap] TVTAP_ENABLE=0, skip risoluzione per ${channel.name}`);
                     }
 
                     // ============ END INTEGRATION SECTIONS ============
