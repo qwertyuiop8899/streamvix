@@ -29,7 +29,7 @@ Istanza ElfHosted a pagamento CON Mediaflo Proxy incluso (Per Eventi Sportivi)
   - **SPSO:** Integrazione playlist SportSOnline con varianti `[SPSO]`
   - **RB77:** Flussi italiani certificati con simboli dinamici (🚫/�)
   - **Streamed:** Arricchimento playlist con matching fuzzy e finestre temporali
-  - **P🐽D (Pig):** Stream prioritari broadcaster (scai, dason, Eurosport)
+  - **P🐽D (Pig):** Stream prioritari broadcaster (SKY, DAZN, Eurosport)
 * **🎯 Ottimizzazione Automatica:** MFP wrap diretto per massima velocità, estrattori TypeScript come fallback sicuro
 * **📡 Supporto Live TV:** Canali TV italiani e Eventi Sportivi visibili senza Mediaflow Proxy, scegliere i canali [Vavoo] o con 🏠.
 * **🔓 Supporto Stream Senza Mediaflow Proxy:** Canali TV italiani e Eventi Sportivi, Film e Serie TV, scegliere gli stream con 🔓 per avviarli senza aver bisogno di un MediaflowProxy. (Nota Bene, per avviare gli stream senza proxy ci potrebbe essere bisogno di un player esterno o VLC, prova con il player di default, se non va usa un player esterno tipo VLC)
@@ -155,7 +155,7 @@ Gli eventi sportivi utilizzano un sistema multi-layer con wrap MFP diretto e fal
 - **Logs**: `[SPON][ROW][MFP-WRAP]` (wrap diretto) / `[SPON][FALLBACK][ROW]` (estrattore TypeScript)
 
 #### 🌐 Integrazioni Aggiuntive
-- **[P🐽D]** (Pig): Stream broadcaster prioritari (scai, dason, Eurosport) - sempre in cima
+- **[P🐽D]** (Pig): Stream broadcaster prioritari (SKY, DAZN, Eurosport) - sempre in cima
 - **[RB77🇮🇹]**: Flussi italiani certificati con simboli dinamici (🚫 pre-start / 🔴 live)
 - **[SPSO]**: Playlist SportSOnline con varianti compatte
 - **[Strd]**: Streamed playlist con matching fuzzy tollerante
@@ -261,8 +261,8 @@ L'integrazione [P🐽D] aggiunge flussi prioritari provenienti da playlist ester
 * Mai creati canali nuovi: solo arricchimento di quelli già presenti.
 * Idempotente: riesecuzioni non duplicano `pdUrlF` né gli stream `[P🐽D]`.
 * Ordinamento: gli stream `[P🐽D]` sono sempre in cima; seguono eventuali stream Vavoo, poi gli altri.
-* Mapping speciale scai Calcio: nomi tipo `scai Calcio 1 (251)` → `scai Sport 251` (esteso automaticamente 251–269).
-* Filtri broadcaster: accetta solo etichette contenenti scai SPORT / scai (con IT/ITALY), dason, EUROSPORT, PRIME, AMAZON.
+* Mapping speciale Sky Calcio: nomi tipo `Sky Calcio 1 (251)` → `Sky Sport 251` (esteso automaticamente 251–269).
+* Filtri broadcaster: accetta solo etichette contenenti SKY SPORT / SKY (con IT/ITALY), DAZN, EUROSPORT, PRIME, AMAZON.
 
 ### Flusso di Esecuzione
 `Live.py` genera `dynamic_channels.json` → viene eseguito `pig_channels.py` → aggiorna `tv_channels.json` (pdUrlF) + inietta `[P🐽D]` negli eventi → l'addon carica/merge e serve.
@@ -298,7 +298,7 @@ Prefissi:
 |-------------------|--------|------|
 | `/live/update` | Esegue `Live.py` quindi il post-processing `pig_channels.py` | Rigenera completamente `dynamic_channels.json` e re-inietta gli stream `[P🐽D]`. Aggiorna anche `pdUrlF` nei canali statici. |
 | `/live/reload` | Ricarica in memoria il file dinamico già processato | Non rilancia gli script: mantiene le ultime iniezioni `[P🐽D]`. |
-| `/static/reload` | Ricarica i canali statici (`tv_channels.json`) | Utile dopo modifiche manuali a `pdUrlF` o mapping scai Calcio. |
+| `/static/reload` | Ricarica i canali statici (`tv_channels.json`) | Utile dopo modifiche manuali a `pdUrlF` o mapping Sky Calcio. |
 | `python3 pig_channels.py --dynamic /path/dynamic_channels.json --tv-config config/tv_channels.json` | Post-processing manuale standalone | Non rigenera gli eventi: ri-applica solo l'arricchimento `[P🐽D]` e `pdUrlF`. |
 
 Re-iniezione rapida senza aspettare la prossima finestra schedulata:
@@ -569,7 +569,7 @@ Motivazione: evitare un proxy interno dedicato finché non strettamente necessar
     "id": "evt123",
     "name": "⏰ 20:45 : Inter vs Milan - Serie A 19/09",
     "streams": [
-        { "title": "[P🐽D] scai SPORT", "url": "https://.../scai.m3u8" },
+        { "title": "[P🐽D] SKY SPORT", "url": "https://.../sky.m3u8" },
         { "title": "[Strd] Inter vs Milan HD", "url": "https://edge.cdn/foo/index.m3u8?h_Origin=https%3A%2F%2Fembedsports.top&h_Referer=https%3A%2F%2Fembedsports.top%2F", "xHeaders": { "Origin": "https://embedsports.top", "Referer": "https://embedsports.top/" } }
     ]
 }
@@ -803,31 +803,119 @@ L'addon sarà disponibile localmente all'indirizzo `http://localhost:7860`.
 ---
 
 
-🔧 Per Disabilitare Hardcoded (senza ENV)
-Se vuoi disabilitarli permanentemente nel codice:
-
-STREAMED
-addon.ts linea ~867: cambia || '' in || '0'
-
-RBTV
-addon.ts linea ~925: cambia || '' in || '0'
-
-SPSO
-addon.ts linea ~982: cambia || '' in || '0'
-
-PD
-Live.py linea ~795: cambia '1' in '0'
-
-TVTAP
-addon.ts linea ~1489: cambia || '1' in || '0'
-
-Il default '1' significa abilitato, cambiandolo in '0' diventa disabilitato di default.
-
-
 #### ⚠️ Disclaimer
 
 Questo progetto è inteso esclusivamente a scopo educativo. L'utente è l'unico responsabile dell'utilizzo che ne fa. Assicurati di rispettare le leggi sul copyright e i termini di servizio delle fonti utilizzate.
 
+---
+
+## 🎛️ Disabilitazione Provider Stream
+
+StreamViX supporta la **disabilitazione completa** di singoli provider di stream tramite **variabili d'ambiente** o **modifiche hardcoded nel codice**.
+
+### 📋 Variabili d'Ambiente Disponibili
+
+| Provider | Variabile ENV | Default | Descrizione |
+|----------|--------------|---------|-------------|
+| **STREAMED** | `STREAMED_ENABLE` | `0` (OFF) | Polling + arricchimento playlist Streamed ogni 8min |
+| **RBTV** | `RBTV_ENABLE` | `0` (OFF) | Polling + arricchimento playlist RB77 ogni 8min |
+| **SPSO** | `SPSO_ENABLE` | `0` (OFF) | Polling + arricchimento playlist SportSOnline ogni 8min |
+| **PD** | `PD_ENABLE` | `0` (OFF) | Post-processing pig_channels in Live.py |
+| **TVTAP** | `TVTAP_ENABLE` | `0` (OFF) | Caricamento cache + risoluzione stream + aggiornamenti periodici |
+
+### 🔧 Utilizzo
+
+**Per abilitare un provider** (se disabilitato di default):
+```bash
+STREAMED_ENABLE=1
+RBTV_ENABLE=1
+SPSO_ENABLE=1
+PD_ENABLE=1
+TVTAP_ENABLE=1
+```
+
+**Per disabilitare un provider**:
+```bash
+STREAMED_ENABLE=0
+# oppure
+STREAMED_ENABLE=false
+# oppure
+STREAMED_ENABLE=off
+```
+
+### 📍 Posizioni nel Codice (Hardcoded)
+
+Se vuoi disabilitare permanentemente nel codice senza ENV:
+
+#### STREAMED
+- **File**: `src/addon.ts`
+- **Linea**: ~867
+- **Modifica**: Cambia `|| ''` in `|| '0'`
+```typescript
+let enableRaw = (process.env.STREAMED_ENABLE || '0').toString().toLowerCase();
+```
+
+#### RBTV
+- **File**: `src/addon.ts`
+- **Linea**: ~925
+- **Modifica**: Cambia `|| ''` in `|| '0'`
+```typescript
+let enableRaw = (process.env.RBTV_ENABLE || '0').toString().toLowerCase();
+```
+
+#### SPSO
+- **File**: `src/addon.ts`
+- **Linea**: ~982
+- **Modifica**: Cambia `|| ''` in `|| '0'`
+```typescript
+let enableRaw = (process.env.SPSO_ENABLE || '0').toString().toLowerCase();
+```
+
+#### PD (pig_channels)
+- **File**: `Live.py`
+- **Linea**: ~795
+- **Modifica**: Cambia default `'1'` in `'0'`
+```python
+pd_enable_raw = os.environ.get('PD_ENABLE', '0').lower()
+```
+
+#### TVTAP
+- **File**: `src/addon.ts`
+- **Linee**: ~1427, ~1493, ~3210
+- **Modifica**: Cambia `|| '1'` in `|| '0'` (già disabilitato di default)
+```typescript
+const isTVTapEnabled = ['1', 'true', 'on', 'yes'].includes((process.env.TVTAP_ENABLE || '0').toString().toLowerCase());
+```
+
+### ⚠️ Note Importanti
+
+- **PD** e **TVTAP** sono **già disabilitati di default** (valore `'0'`)
+- **STREAMED**, **RBTV**, **SPSO** sono **abilitati di default** (valore `''` che diventa `'1'`)
+- Dopo ogni modifica al codice, ricorda di eseguire `npm run build`
+- Le variabili ENV hanno **precedenza** sulle modifiche hardcoded
+
+### 🔍 Comando Grep per Trovare le Righe
+
+Se le righe cambiano, usa questi comandi per trovarle velocemente:
+
+```bash
+# STREAMED
+grep -n "process.env.STREAMED_ENABLE" src/addon.ts
+
+# RBTV  
+grep -n "process.env.RBTV_ENABLE" src/addon.ts
+
+# SPSO
+grep -n "process.env.SPSO_ENABLE" src/addon.ts
+
+# PD
+grep -n "PD_ENABLE" Live.py
+
+# TVTAP
+grep -n "TVTAP_ENABLE" src/addon.ts
+```
+
+---
 
 ## Credits
 
@@ -836,8 +924,6 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
-
-
 
 
 
