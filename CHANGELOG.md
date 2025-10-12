@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.1...v1.8.2) (2025-10-12)
+
+
+### Bug Fixes
+
+* f1 ([3cb4667](https://github.com/qwertyuiop8899/streamvix/commit/3cb4667b5deea063cc9076c8062c9882e6f54978))
+* freeshot pd and f1 ([de65b28](https://github.com/qwertyuiop8899/streamvix/commit/de65b283e7ac9dc0a0fb89049495fde80d883f3b))
+* pd ([28e815c](https://github.com/qwertyuiop8899/streamvix/commit/28e815cc258d3f66d5eeca1f03806c8a410bf6b5))
+
 ## [1.8.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.0...v1.8.1) (2025-10-10)
 
 
