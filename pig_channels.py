@@ -666,6 +666,34 @@ def inject_pd_streams(entries: List[Dict[str, Any]], playlist_entries: List[Dict
                 continue
             streams.insert(0, {'url': url, 'title': f'[P🐽D] {channel_label}'})
             injected += 1
+    
+    # === TENNIS MATCHING SPECIALE: eventi tennis generici (ATP/WTA/TENNIS) matchano con canali "Tennis" ===
+    for ev in entries:
+        ev_name = (ev.get('name') or '').upper()
+        # Verifica se evento tennis (contiene ATP, WTA, TENNIS, o tornei noti)
+        if not any(kw in ev_name for kw in ['ATP', 'WTA', 'TENNIS', 'ROLAND GARROS', 'WIMBLEDON', 'US OPEN', 'AUSTRALIAN OPEN']):
+            continue
+        # Cerca nella playlist canali con "TENNIS" nel nome
+        for pe in playlist_entries:
+            attrs = pe['attrs']
+            if 'ITALY' in (attrs.get('group-title') or '').upper():
+                continue  # Skip canali statici
+            display = pe['display']
+            channel_label = extract_channel_label_from_display(display) or ''
+            if not channel_label or 'TENNIS' not in channel_label.upper():
+                continue  # Solo canali Tennis
+            if not is_allowed_broadcaster(channel_label):
+                continue  # Solo broadcaster whitelisted
+            url = pe.get('url')
+            if not url:
+                continue
+            streams = ev.setdefault('streams', [])
+            # Evita duplicati
+            if any(s for s in streams if isinstance(s, dict) and s.get('url') == url):
+                continue
+            streams.insert(0, {'url': url, 'title': f'[P🐽D] {channel_label}'})
+            injected += 1
+            print(f"[PD][TENNIS] Matched tennis event '{ev.get('name')}' with playlist '{channel_label}'")
 
     print(f"[PD] Dynamic events injected streams: {injected} (candidates matched: {candidate_events}, allowed broadcaster sports: {allowed_broadcaster_events}){' (dry-run only)' if dry_run else ''}")
     if injected == 0:
