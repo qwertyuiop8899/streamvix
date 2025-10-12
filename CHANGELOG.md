@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.2...v1.8.3) (2025-10-12)
+
+
+### Bug Fixes
+
+* disable livetv ([d80d8ff](https://github.com/qwertyuiop8899/streamvix/commit/d80d8ffc642703a26d972543ca467b2cd9049010))
+* disable livetv ([6b4e992](https://github.com/qwertyuiop8899/streamvix/commit/6b4e99203d8ed52fca189c274c8ae2fcd3c3ca78))
+* monster static map ([cde51bb](https://github.com/qwertyuiop8899/streamvix/commit/cde51bb8f665b02088f8f3c01fd517232567260d))
+* staticmap imdb to tmdb ([824cf53](https://github.com/qwertyuiop8899/streamvix/commit/824cf5321d290a8b056ac05ab45a2a1e8b69e5d0))
+
 ## [1.8.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.1...v1.8.2) (2025-10-12)
 
 
