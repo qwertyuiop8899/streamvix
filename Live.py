@@ -818,6 +818,8 @@ def _norm_channel_name(name: str) -> str:
     n = re.sub(r'ZONA', '1', n)
     n = re.sub(r'\s+', ' ', n)
     n = n.strip()
+    # Normalizza SPORTS -> SPORT (per matching Vavoo "Sky Sports F1" vs "Sky Sport F1")
+    n = re.sub(r'\bSPORTS\b', 'SPORT', n)
     # Sky numerico: "SKY SPORT 251" o "SKY SPORT 1" ecc.
     n = re.sub(r'(\bSKY SPORT\b)\s+(\d{1,3})', r'\1 \2', n)
     # Dazn numerico: "DAZN 1", "DAZN 2" ecc.
