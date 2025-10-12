@@ -2387,6 +2387,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             url: e.url,
                             title: (e.title || 'Stream').replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim()
                         }));
+                        
+                        // === ESENZIONE P🐽D DAL CAP: estrai P🐽D PRIMA del tiering per priorità assoluta ===
+                        const pdStreams: typeof entries = [];
+                        const nonPdStreams: typeof entries = [];
+                        for (const e of entries) {
+                            if (/\[P🐽D\]/i.test(e.title || '')) {
+                                pdStreams.push(e);
+                            } else {
+                                nonPdStreams.push(e);
+                            }
+                        }
+                        entries = nonPdStreams; // Applica CAP solo ai non-P🐽D
+                        debugLog(`[DynamicStreams][ON-DEMAND] P🐽D separati: ${pdStreams.length} stream P🐽D, ${entries.length} altri`);
+                        
                         const maxConcRaw = parseInt(process.env.DYNAMIC_EXTRACTOR_CONC || '10', 10);
                         const CAP = Math.min(Math.max(1, isNaN(maxConcRaw) ? 10 : maxConcRaw), 50);
                         let extraFast: { url: string; title?: string }[] = [];
@@ -2444,6 +2458,30 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (itaA !== itaB) return itaA - itaB;
                             return a.title.localeCompare(b.title);
                         });
+                        
+                        // === P🐽D: Processa SENZA CAP, aggiungi in TESTA (priorità assoluta) ===
+                        const pdResolved: { url: string; title: string }[] = [];
+                        for (const pd of pdStreams) {
+                            if (!pd || !pd.url) continue;
+                            // SKIP placeholder Vavoo (anche se teoricamente P🐽D non dovrebbero essere vavoo://)
+                            if (pd.url.startsWith('vavoo://')) {
+                                debugLog(`[P🐽D][ON-DEMAND] SKIP placeholder Vavoo: ${pd.url}`);
+                                continue;
+                            }
+                            
+                            let providerTitle = (pd.title || 'Stream').trim();
+                            // Costruiamo direttamente il link proxy/hls (NIENTE extractor)
+                            if (mfpUrl && mfpPsw) {
+                                const finalUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(pd.url)}`;
+                                pdResolved.push({ url: finalUrl, title: providerTitle });
+                                debugLog(`[P🐽D][ON-DEMAND] Link P🐽D diretto proxy/hls: ${providerTitle} -> ${finalUrl}`);
+                            } else {
+                                debugLog(`[P🐽D][ON-DEMAND] MFP mancante, skip link P🐽D: ${providerTitle}`);
+                            }
+                        }
+                        // Aggiungi P🐽D in TESTA (unshift = priorità massima)
+                        for (const pd of pdResolved) streams.unshift(pd);
+                        debugLog(`[P🐽D][ON-DEMAND] Aggiunti ${pdResolved.length} stream P🐽D in TESTA (esenzione CAP)`);
                         
                         // Aggiungiamo tutti i link risolti DLHD (già avvolti con proxy/hls)
                         for (const r of resolved) streams.push(r);
@@ -2589,6 +2627,29 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 title: `[🌍dTV] ${channel.name} [ITA]`
                             });
                             debugLog(`Aggiunto staticUrlF ${finalFUrl === originalF ? 'Direct' : 'Proxy(MPD)' }: ${finalFUrl}`);
+                        }
+
+                        // --- FREESHOT per canali statici ---
+                        try {
+                            const { resolveFreeshotForChannel } = await import('./extractors/freeshotRuntime');
+                            const fr = await resolveFreeshotForChannel({ 
+                                id: (channel as any).id, 
+                                name: (channel as any).name, 
+                                epgChannelIds: (channel as any).epgChannelIds, 
+                                extraTexts: [] // Canali statici non hanno providerTitlesExt
+                            });
+                            if (fr && fr.url && !fr.error) {
+                                const freeName = (fr as any).displayName || (channel as any).name || 'Canale';
+                                streams.push({
+                                    url: fr.url,
+                                    title: `[🏟 Free] ${freeName} [ITA]`
+                                });
+                                debugLog(`Freeshot aggiunto per canale statico ${freeName}: ${fr.url}`);
+                            } else if (fr && fr.error) {
+                                debugLog(`Freeshot errore su canale statico ${channel.name}: ${fr.error}`);
+                            }
+                        } catch (e) {
+                            debugLog('Freeshot import/fetch fallito per canale statico', (e as any)?.message || e);
                         }
                     }
 
@@ -2872,20 +2933,21 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     }
                                 }
                             }
-                            // Cerca anche con nome normalizzato (ma solo se diverso)
-                            const vavooNameNorm = vavooName.toUpperCase().replace(/\s+/g, ' ').trim();
-                            if (vavooNameNorm !== vavooName) {
-                                console.log(`[VAVOO] CERCA (normalizzato): '${vavooNameNorm} .<lettera>'`);
-                                const variantRegexNorm = new RegExp(`^${vavooNameNorm} \.([a-zA-Z])$`, 'i');
-                                for (const [key, value] of vavooCache.links.entries()) {
-                                    const keyNorm = key.toUpperCase().replace(/\s+/g, ' ').trim();
-                                    if (variantRegexNorm.test(keyNorm)) {
-                                        console.log(`[VAVOO] MATCH (normalizzato): chiave trovata '${key}' per vavooNameNorm '${vavooNameNorm}'`);
-                                        const links = Array.isArray(value) ? value : [value];
-                                        for (const url of links) {
-                                            foundVavooLinks.push({ url, key });
-                                            console.log(`[VAVOO] LINK trovato (normalizzato): ${url} (chiave: ${key})`);
-                                        }
+                            // Cerca anche con nome normalizzato (SEMPRE, per gestire SPORTS->SPORT e altre varianti)
+                            // Normalizzazione: uppercase, collassa spazi, SPORTS->SPORT
+                            let vavooNameNorm = vavooName.toUpperCase().replace(/\s+/g, ' ').trim();
+                            vavooNameNorm = vavooNameNorm.replace(/\bSPORTS\b/g, 'SPORT'); // Fix: Sky Sports F1 -> Sky Sport F1
+                            console.log(`[VAVOO] CERCA (normalizzato): '${vavooNameNorm} .<lettera>'`);
+                            const variantRegexNorm = new RegExp(`^${vavooNameNorm} \.([a-zA-Z])$`, 'i');
+                            for (const [key, value] of vavooCache.links.entries()) {
+                                let keyNorm = key.toUpperCase().replace(/\s+/g, ' ').trim();
+                                keyNorm = keyNorm.replace(/\bSPORTS\b/g, 'SPORT'); // Fix: normalizza anche cache key
+                                if (variantRegexNorm.test(keyNorm)) {
+                                    console.log(`[VAVOO] MATCH (normalizzato): chiave trovata '${key}' per vavooNameNorm '${vavooNameNorm}'`);
+                                    const links = Array.isArray(value) ? value : [value];
+                                    for (const url of links) {
+                                        foundVavooLinks.push({ url, key });
+                                        console.log(`[VAVOO] LINK trovato (normalizzato): ${url} (chiave: ${key})`);
                                     }
                                 }
                             }
