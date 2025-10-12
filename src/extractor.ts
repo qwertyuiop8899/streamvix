@@ -10,6 +10,54 @@ const VIXCLOUD_EMBED_BASE_PATH = "/embed"; // Base path for embed URLs, e.g., /e
 // --- TMDB Configuration ---
 const TMDB_API_BASE_URL = "https://api.themoviedb.org/3";
 
+// --- IMDB to TMDB Static Mapping ---
+interface ImdbToTmdbMapping {
+  imdbSeason: number;
+  tmdb_id: string;
+}
+
+interface ImdbToTmdbEntry {
+  title: string;
+  note?: string;
+  mappings: ImdbToTmdbMapping[];
+}
+
+interface ImdbToTmdbMap {
+  [imdbId: string]: ImdbToTmdbEntry;
+}
+
+let IMDB_TO_TMDB_MAP: ImdbToTmdbMap = {};
+
+try {
+  const mappingPath = path.join(__dirname, 'config', 'imdbToTmdb.json');
+  if (fs.existsSync(mappingPath)) {
+    IMDB_TO_TMDB_MAP = JSON.parse(fs.readFileSync(mappingPath, 'utf-8'));
+    console.log(`[IMDB→TMDB] Caricato mapping statico: ${Object.keys(IMDB_TO_TMDB_MAP).length} serie`);
+  }
+} catch (error) {
+  console.warn('[IMDB→TMDB] Impossibile caricare mapping statico:', error);
+}
+
+/**
+ * Cerca un mapping statico IMDB→TMDB per una specifica stagione.
+ * Usato per serie con ID TMDB diversi per stagione (es. Monster).
+ * @param imdbId - ID IMDB (es. "tt13207736")
+ * @param season - Numero stagione (es. 1, 2, 3)
+ * @returns TMDB ID per quella stagione se trovato, altrimenti null
+ */
+function getStaticTmdbMapping(imdbId: string, season: number): string | null {
+  const entry = IMDB_TO_TMDB_MAP[imdbId];
+  if (!entry) return null;
+  
+  const mapping = entry.mappings.find(m => m.imdbSeason === season);
+  if (mapping) {
+    console.log(`[IMDB→TMDB] Mapping statico trovato: ${imdbId} S${season} → TMDB ${mapping.tmdb_id} (${entry.title})`);
+    return mapping.tmdb_id;
+  }
+  
+  return null;
+}
+
 // --- End Configuration ---
 
 // Ensures playlist URLs have .m3u8 after numeric id: /playlist/12345 => /playlist/12345.m3u8
@@ -282,15 +330,35 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
   let tmdbSeriesId: string | null = null;
   let seasonStr: string | undefined;
   let episodeStr: string | undefined;
+  let imdbIdForMapping: string | null = null; // Per mapping statico
+  
   if (rawParts[0] === 'tmdb') {
     tmdbSeriesId = rawParts[1] || null;
     seasonStr = rawParts[2];
     episodeStr = rawParts[3];
   } else {
     const obj = getObject(id); // interprets legacy imdb format
-    tmdbSeriesId = await getTmdbIdFromImdbId(obj.id, config.tmdbApiKey);
+    imdbIdForMapping = obj.id; // Salva IMDB ID per mapping statico
     seasonStr = obj.season;
     episodeStr = obj.episode;
+    
+    // Prima controlla se c'è un mapping statico per questa serie+stagione
+    const seasonNum = Number(seasonStr);
+    if (!isNaN(seasonNum) && imdbIdForMapping) {
+      const staticTmdbId = getStaticTmdbMapping(imdbIdForMapping, seasonNum);
+      if (staticTmdbId) {
+        tmdbSeriesId = staticTmdbId;
+        // IMPORTANTE: Quando usiamo mapping statico, la serie TMDB separata
+        // ricomincia sempre da stagione 1! (es. Monster S2 su IMDB = S1 su TMDB 225634)
+        seasonStr = "1";
+        console.log(`[IMDB→TMDB] Usato mapping statico: ${imdbIdForMapping} S${seasonNum} → TMDB ${staticTmdbId} S1 (serie TMDB separata)`);
+      }
+    }
+    
+    // Se non trovato mapping statico, usa API TMDB classica
+    if (!tmdbSeriesId) {
+      tmdbSeriesId = await getTmdbIdFromImdbId(obj.id, config.tmdbApiKey);
+    }
   }
   if (!tmdbSeriesId) return null;
   const seasonNum = Number(seasonStr);
