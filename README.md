@@ -803,6 +803,27 @@ L'addon sarà disponibile localmente all'indirizzo `http://localhost:7860`.
 ---
 
 
+🔧 Per Disabilitare Hardcoded (senza ENV)
+Se vuoi disabilitarli permanentemente nel codice:
+
+STREAMED
+addon.ts linea ~867: cambia || '' in || '0'
+
+RBTV
+addon.ts linea ~925: cambia || '' in || '0'
+
+SPSO
+addon.ts linea ~982: cambia || '' in || '0'
+
+PD
+Live.py linea ~795: cambia '1' in '0'
+
+TVTAP
+addon.ts linea ~1489: cambia || '1' in || '0'
+
+Il default '1' significa abilitato, cambiandolo in '0' diventa disabilitato di default.
+
+
 #### ⚠️ Disclaimer
 
 Questo progetto è inteso esclusivamente a scopo educativo. L'utente è l'unico responsabile dell'utilizzo che ne fa. Assicurati di rispettare le leggi sul copyright e i termini di servizio delle fonti utilizzate.
@@ -815,6 +836,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
