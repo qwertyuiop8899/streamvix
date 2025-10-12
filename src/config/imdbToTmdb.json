@@ -1,0 +1,20 @@
+{
+  "tt13207736": {
+    "title": "Monster (Naoki Urasawa's Monster)",
+    "note": "IMDB ha 1 ID con 3 stagioni, TMDB ha 3 ID separati",
+    "mappings": [
+      {
+        "imdbSeason": 1,
+        "tmdb_id": "113988"
+      },
+      {
+        "imdbSeason": 2,
+        "tmdb_id": "225634"
+      },
+      {
+        "imdbSeason": 3,
+        "tmdb_id": "286801"
+      }
+    ]
+  }
+}
