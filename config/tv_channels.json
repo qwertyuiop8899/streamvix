@@ -1321,21 +1321,49 @@
     ]
   },
   {
-    "id": "skysportgolf",
+    "id": "daznppv1",
     "type": "tv",
-    "name": "Sky Sport Golf",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/Sky_Sport_-_Logo_2020.svg/2560px-Sky_Sport_-_Logo_2020.svg.png",
-    "description": "Sky Sport Golf - Sky",
-    "vavooNames": [
-      "SKY SPORT GOLF"
-    ],
-    "epgChannelIds": [
-      "skysportnba.it"
-    ],
-    "category": [
-      "sky",
-      "sport"
-    ]
+    "name": "Dazn ppv1",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv1",
+    "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgwL3N0cmVhbS5tcGQma2V5X2lkPThhYjQ3NzQxOTMwYzQ3Njc4MDUxNWY5YTAwZGVjYjBhJmtleT03YWI0YjlhZTVhNDhhYTUyNmU1MTFhOTEzYjgzMjc2OQ==",
+    "category": "sport"
+  },
+   {
+    "id": "daznppv2",
+    "type": "tv",
+    "name": "Dazn ppv2",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv2",
+    "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgxL3N0cmVhbS5tcGQma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
+    "category": "sport"
+  },
+    {
+    "id": "daznppv3",
+    "type": "tv",
+    "name": "Dazn ppv3",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv3",
+    "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgyL3N0cmVhbS5tcGQma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
+    "category": "sport"
+  },
+   {
+    "id": "daznppv4",
+    "type": "tv",
+    "name": "Dazn ppv4",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv4",
+    "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgzL3N0cmVhbS5tcGQma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
+    "category": "sport"
+  },
+     {
+    "id": "daznppv5",
+    "type": "tv",
+    "name": "Dazn ppv5",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv5",
+    "staticUrlMpd": "aHR0cHM6Ly9kY2stYWMtbGl2ZS5jZG4uaW5kYXpuLmNvbS9kYXNoL2Rhem4tbGluZWFyLTU4NC9zdHJlYW0ubXBkJmtleV9pZD04YWI0Nzc0MTkzMGM0NzY3ODA1MTVmOWEwMGRlY2IwYSZrZXk9N2FiNGI5YWU1YTQ4YWE1MjZlNTExYTkxM2I4MzI3Njk=",
+    "category": "sport"
   },
   {
     "id": "eurosport1",
