@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.3...v1.8.4) (2025-10-13)
+
+
+### Bug Fixes
+
+* add das ([bea0ef0](https://github.com/qwertyuiop8899/streamvix/commit/bea0ef0cd063c8c64af17434a277bff33ed81025))
+
 ## [1.8.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.2...v1.8.3) (2025-10-12)
 
 
