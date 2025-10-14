@@ -55,6 +55,8 @@ interface AnimeUnitySearchResult {
     id: number;
     slug: string;
     name: string;
+    name_it?: string; // Titolo italiano (opzionale)
+    name_eng?: string; // Titolo inglese (opzionale)
     episodes_count: number;
 }
 
@@ -157,22 +159,49 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
   throw new Error('Impossibile ottenere titolo inglese da nessuna fonte per ' + id);
 }
 
-function filterAnimeResults(results: { version: AnimeUnitySearchResult; language_type: string }[], englishTitle: string) {
-  // LOGICA LEGACY: accetta solo match esatti (base) + varianti (ita/cr)
+function filterAnimeResults(results: { version: AnimeUnitySearchResult; language_type: string }[], searchQuery: string) {
+  // LOGICA: usa il TITOLO CON CUI HAI CERCATO per filtrare (italiano O inglese)
+  // Accetta varianti con (ITA), (CR), ecc. MA esclude sequel con numeri (es: "Title 2")
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
-  const base = norm(englishTitle);
-  const allowed = [
-    base,
-    `${base} (ita)`,
-    `${base} (cr)`,
-    `${base} (ita) (cr)`
+  const queryNorm = norm(searchQuery);
+  
+  // Genera le varianti ammesse: base, base + (ita), base + (cr), base + (ita) (cr)
+  // IMPORTANTE: NON rimuovere i numeri dalla query - fanno parte del titolo!
+  const queryBase = queryNorm.replace(/\s*\([^)]*\)/g, '').trim();
+  const allowedVariants = [
+    queryBase,
+    `${queryBase} (ITA)`,
+    `${queryBase} (CR)`,
+    `${queryBase} (ITA) (CR)`,
+    `${queryBase} (CR) (ITA)`
   ];
-  const isAllowed = (title: string) => {
-    const t = norm(title.replace(/\s*\([^)]*\)/g, m => m.toLowerCase()));
-    return allowed.some(a => t === a);
-  };
-  const filtered = results.filter(r => isAllowed(r.version.name));
-  console.log(`[UniversalTitle][Filter][Legacy] Risultati prima del filtro:`, results.map(r => r.version.name));
+  
+  const filtered = results.filter(r => {
+    // Raccogli tutti i titoli disponibili del risultato
+    const titles = [
+      r.version.name_eng || '',
+      r.version.name_it || '',
+      r.version.name || ''
+    ].filter(t => t.trim());
+    
+    // Per ogni titolo disponibile, controlla se matcha con una delle varianti ammesse
+    for (const title of titles) {
+      const titleNorm = norm(title);
+      // Rimuovi solo le parentesi per il confronto (mantieni i numeri!)
+      const titleBase = titleNorm.replace(/\s*\([^)]*\)/g, '').trim();
+      
+      // Match: il titolo base del risultato deve essere UGUALE al queryBase
+      if (titleBase === queryBase) {
+        return true;
+      }
+    }
+    
+    return false;
+  });
+  
+  console.log(`[UniversalTitle][Filter][Legacy] Query ricerca (norm): "${queryNorm}" -> base: "${queryBase}"`);
+  console.log(`[UniversalTitle][Filter][Legacy] Varianti ammesse:`, allowedVariants);
+  console.log(`[UniversalTitle][Filter][Legacy] Risultati prima del filtro:`, results.map(r => `${r.version.name} [it:"${r.version.name_it||'N/A'}" eng:"${r.version.name_eng||'N/A'}"]`));
   console.log(`[UniversalTitle][Filter][Legacy] Risultati dopo il filtro:`, filtered.map(r => r.version.name));
   return filtered;
 }
