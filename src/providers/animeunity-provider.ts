@@ -8,7 +8,7 @@ import axios from 'axios';
 import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
 import { extractFromUrl } from '../extractors';
 
-// Helper function to invoke the Python scraper
+// Helper function to invoke the Python scraper 
 async function invokePythonScraper(args: string[]): Promise<any> {
     const scriptPath = path.join(__dirname, 'animeunity_scraper.py');
 
