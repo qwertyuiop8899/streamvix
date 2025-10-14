@@ -81,7 +81,7 @@ def search_anime(query, dubbed=False):
                 timeout=TIMEOUT
             )
             response.raise_for_status()
-            
+
             data = response.json()
             print(f"Debug: Risposta da {endpoint['url']}: {data.get('records', [])[:2]}", file=sys.stderr)
 
@@ -91,14 +91,21 @@ def search_anime(query, dubbed=False):
                 anime_id = record["id"]
                 if anime_id not in seen_ids:
                     seen_ids.add(anime_id)
-                    title = (record.get("title_it") or
-                            record.get("title_eng") or
-                            record.get("title") or "")
-                    if title.strip():
+                    # Salva TUTTI i titoli disponibili per matching flessibile in TypeScript
+                    title_it = record.get("title_it", "")
+                    title_eng = record.get("title_eng", "")
+                    title_fallback = record.get("title", "")
+                    
+                    # Display name: priorità italiano > inglese > fallback
+                    display_name = (title_it or title_eng or title_fallback).strip()
+                    
+                    if display_name:
                         results.append({
                             "id": anime_id,
                             "slug": record.get("slug", ""),
-                            "name": title.strip(),
+                            "name": display_name,
+                            "name_it": title_it.strip() if title_it else "",
+                            "name_eng": title_eng.strip() if title_eng else "",
                             "episodes_count": record.get("episodes_count", 0)
                         })
         except Exception as e:
@@ -338,7 +345,7 @@ def main():
     stream_parser.add_argument("--episode-id", required=True, help="Episode ID")
 
     args = parser.parse_args()
-    
+
     # Disable SSL warnings
     import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
