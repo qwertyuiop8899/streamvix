@@ -8,7 +8,7 @@ import axios from 'axios';
 import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
 import { extractFromUrl } from '../extractors';
 
-// Helper function to invoke the Python scraper 
+// Helper function to invoke the Python scraper
 async function invokePythonScraper(args: string[]): Promise<any> {
     const scriptPath = path.join(__dirname, 'animeunity_scraper.py');
 
@@ -434,6 +434,42 @@ export class AnimeUnityProvider {
       animeVersions = filterAnimeResults(animeVersions, normalizedTitle);
     } else {
       console.log('[AnimeUnity][ExactMap] Uso risultati grezzi senza filtro (exactMap).');
+      // STRICT EXACT FILTER: per le richieste exactMap, manteniamo SOLO i risultati
+      // il cui nome base NON contiene parole extra rispetto agli altri risultati dello stesso gruppo.
+      // Esempio: se troviamo "Final Season" e "Final Season Parte 2", teniamo solo i primi.
+      // IMPORTANTE: AnimeUnity restituisce nomi in italiano, quindi confrontiamo i risultati tra loro,
+      // non con il titolo inglese di input.
+      try {
+        const before = animeVersions.length;
+        console.log(`[AnimeUnity][ExactMap][StrictFilter] Risultati da filtrare (${before}):`);
+        
+        // Estrai i nomi base (senza parentesi) di tutti i risultati
+        const baseNames = animeVersions.map(v => {
+          const base = v.version.name
+            .replace(/\([^)]*\)/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+          console.log(`  name="${v.version.name}" -> base="${base}"`);
+          return base;
+        });
+        
+        // Trova il nome più corto (quello senza "Parte 2", "Part 2", ecc.)
+        const sortedByLength = [...baseNames].sort((a, b) => a.length - b.length);
+        const shortestBase = sortedByLength[0];
+        console.log(`[AnimeUnity][ExactMap][StrictFilter] Nome base più corto (target): "${shortestBase}"`);
+        
+        // Filtra: mantieni solo i risultati che matchano esattamente il nome più corto
+        animeVersions = animeVersions.filter((v, idx) => {
+          const match = baseNames[idx] === shortestBase;
+          console.log(`  [${idx}] "${v.version.name}" -> match=${match}`);
+          return match;
+        });
+        
+        console.log(`[AnimeUnity][ExactMap][StrictFilter] DOPO filtro: ${animeVersions.length} risultati rimasti`);
+      } catch (e) {
+        console.warn('[AnimeUnity][ExactMap][StrictFilter] errore:', (e as any)?.message || e);
+      }
     }
     if (!animeVersions.length) {
       console.warn('[AnimeUnity] Nessun risultato trovato per il titolo:', normalizedTitle);
