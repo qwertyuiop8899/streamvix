@@ -191,8 +191,8 @@ const exactMap: Record<string,string> = {
     "Attack on Titan: Final Season Part 2": "Attack on Titan: The Final Season Part 2",
 
 
-        "Ranma \u00bd (2024) Season 2": "Ranma \u00bd (2024) 2",
-
+    "Ranma \u00bd (2024) Season 2": "Ranma \u00bd (2024) 2",
+    "Ranma1/2 (2024) Season 2": "Ranma \u00bd (2024) 2",
 
 
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
