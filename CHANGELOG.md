@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.5...v1.8.6) (2025-10-14)
+
+
+### Bug Fixes
+
+* aot and exact match ([3ca16f2](https://github.com/qwertyuiop8899/streamvix/commit/3ca16f20d441bec126e6ff6f0b2398ecbaee1823))
+
 ## [1.8.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.4...v1.8.5) (2025-10-14)
 
 
