@@ -11,7 +11,7 @@ import { extractFromUrl } from '../extractors';
 // Helper function to invoke the Python scraper
 async function invokePythonScraper(args: string[]): Promise<any> {
     const scriptPath = path.join(__dirname, 'animeunity_scraper.py');
-    
+
     // Use python3, ensure it's in the system's PATH
     const command = 'python3';
 
@@ -181,14 +181,15 @@ function filterAnimeResults(results: { version: AnimeUnitySearchResult; language
 const exactMap: Record<string,string> = {
 
     "Attack on Titan: Final Season - The Final Chapters": "Attack on Titan Final Season THE FINAL CHAPTERS Special 1",
-    "Attack on Titan: The Final Season - Final Chapters Part 2": "Attack on Titan Final Season THE FINAL CHAPTERS Special 2",   
+    "Attack on Titan: The Final Season - Final Chapters Part 2": "Attack on Titan Final Season THE FINAL CHAPTERS Special 2",
 
         "Attack on Titan OAD": "Attack on Titan OVA",
-   
+
 
         "Cat's\u2665Eye": "Occhi di gatto (2025)",
+    "Attack on Titan: Final Season": "Attack on Titan: The Final Season",
+    "Attack on Titan: Final Season Part 2": "Attack on Titan: The Final Season Part 2",
 
-   
 
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
