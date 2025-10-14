@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.4...v1.8.5) (2025-10-14)
+
+
+### Bug Fixes
+
+* aot season4 ([f185c5f](https://github.com/qwertyuiop8899/streamvix/commit/f185c5f20df15ffa81529cd81d3a99cb638a8ee5))
+
 ## [1.8.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.3...v1.8.4) (2025-10-13)
 
 
