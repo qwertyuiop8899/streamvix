@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.9.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.6...v1.9.0) (2025-10-14)
+
+
+### Features
+
+* **normalize-au:** add "Ranma ½ (2024) Season 2" ([d72e562](https://github.com/qwertyuiop8899/streamvix/commit/d72e5622ddb7e5e4c20de44dcac22e0a79680bda))
+* **normalize-aw:** add "Ranma ½ (2024) Season 2" ([11e4b89](https://github.com/qwertyuiop8899/streamvix/commit/11e4b89da2cb2ae959c4e165eb63c2e7f7d68d90))
+* **normalize:** add "Ranma ½ (2024) Season 2" ([fad9ce7](https://github.com/qwertyuiop8899/streamvix/commit/fad9ce7e36a1a84a30a07e792fb78b9af8e6fed8))
+
 ## [1.8.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.8.5...v1.8.6) (2025-10-14)
 
 
