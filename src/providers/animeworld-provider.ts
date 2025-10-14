@@ -167,7 +167,7 @@ const exactMap: Record<string, string> = {
 
 
       "Ranma \u00bd (2024) Season 2": "Ranma \u00bd (2024) 2",
-
+      "Ranma1/2 (2024) Season 2": "Ranma \u00bd (2024) 2",
 
 
   // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
