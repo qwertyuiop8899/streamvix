@@ -214,8 +214,8 @@ function normalizeTitleForSearch(title: string): string {
         "Cat's Eye (2025)": "Occhi di gatto (2025)",
         "Cat's\u2665Eye": "Occhi di gatto (2025)",
 
-        "Ranma \u00bd (2024) Season 2": "Ranma \u00bd (2024) 2",
-
+    "Ranma \u00bd (2024) Season 2": "Ranma \u00bd (2024) 2",
+    "Ranma1/2 (2024) Season 2": "Ranma \u00bd (2024) 2",
 
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
