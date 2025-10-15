@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.4...v1.9.5) (2025-10-15)
+
+
+### Bug Fixes
+
+* fallback dlhd url ([2e7f948](https://github.com/qwertyuiop8899/streamvix/commit/2e7f948bae248841b93a55ecdf8df8ebb85609ec))
+* mediaset ([d6781ef](https://github.com/qwertyuiop8899/streamvix/commit/d6781ef7e89c07081fecb0c8077edd217e9c3e0d))
+
 ## [1.9.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.3...v1.9.4) (2025-10-15)
 
 
