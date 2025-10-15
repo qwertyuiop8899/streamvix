@@ -577,7 +577,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "7.19.23",
+    version: "8.0.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con VixSRC, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -2914,13 +2914,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     }
                                 }
                                 
-                                if (addonBaseUrl) {
-                                    cfUrl = cfUrl.replace('{usableAddonBase}', addonBaseUrl.replace(/\/$/, ''));
-                                    debugLog(`[DLHD] Placeholder sostituito: {usableAddonBase} -> ${addonBaseUrl}`);
-                                } else {
-                                    console.warn('[DLHD] Impossibile sostituire {usableAddonBase}: nessuna sorgente disponibile (request/env/config)');
-                                    throw new Error('addonBase non disponibile per sostituire placeholder');
+                                // Fallback 4: Dominio pubblico default (come VixSrc)
+                                if (!addonBaseUrl) {
+                                    addonBaseUrl = 'https://streamvix.hayd.uk';
+                                    console.log(`[DLHD] Fallback a dominio pubblico default: ${addonBaseUrl}`);
                                 }
+                                
+                                cfUrl = cfUrl.replace('{usableAddonBase}', addonBaseUrl.replace(/\/$/, ''));
+                                debugLog(`[DLHD] Placeholder sostituito: {usableAddonBase} -> ${addonBaseUrl}`);
                             }
                             
                             // Normalizza solo formati legacy
