@@ -794,7 +794,7 @@ def main():
             print(f" - {k}: {v} eventi grezzi")
         # Post-processing: inject PD streams & update pdUrlF for static channels
         # Check PD_ENABLE env variable (default enabled)
-        pd_enable_raw = os.environ.get('PD_ENABLE', '1').lower()
+        pd_enable_raw = os.environ.get('PD_ENABLE', '0').lower()
         pd_enabled = pd_enable_raw in ['1', 'true', 'on', 'yes']
         
         if not pd_enabled:
