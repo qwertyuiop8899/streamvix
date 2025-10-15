@@ -593,6 +593,7 @@ const baseManifest: Manifest = {
                     name: "genre",
                     options: [
                         "RAI",
+                        "Mediaset"
                         "Sky",
                         "Sport",
                         "Cinema",
