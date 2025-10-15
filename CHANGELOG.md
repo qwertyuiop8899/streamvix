@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.3...v1.9.4) (2025-10-15)
+
+
+### Bug Fixes
+
+* filevamento url ([32dc59c](https://github.com/qwertyuiop8899/streamvix/commit/32dc59c730f5574f011aea57d5f9e58b91e954e8))
+* rilevamento url ([6c0a054](https://github.com/qwertyuiop8899/streamvix/commit/6c0a054732cd5ed83d7a66383466fe9afecfc9e5))
+
 ## [1.9.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.2...v1.9.3) (2025-10-15)
 
 
