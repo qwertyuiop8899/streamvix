@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.2...v1.9.3) (2025-10-15)
+
+
+### Bug Fixes
+
+* category mediaset ([f7f1cb5](https://github.com/qwertyuiop8899/streamvix/commit/f7f1cb59d3c3f0d87a39a73d430d0d68df036f81))
+* mediaset ([6f6317a](https://github.com/qwertyuiop8899/streamvix/commit/6f6317a6c614ae3dc5298c31d675fb731dc33ab4))
+
 ## [1.9.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.1...v1.9.2) (2025-10-15)
 
 
