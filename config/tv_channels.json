@@ -14,7 +14,7 @@
     "epgChannelIds": [
       "rai1.it"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=850"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D850"
   },
   {
     "id": "rai2",
@@ -91,7 +91,7 @@
     "epgChannelIds": [
       "italia1.it"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=854"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D854"
   },
   {
     "id": "la7",
@@ -732,7 +732,7 @@
       "RaiSport+HD.it"
     ],
     "category": "rai",
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=882"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D882"
   },
   {
     "id": "motortrend",
@@ -817,7 +817,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=860"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D860"
   },
   {
     "id": "skycinemadue",
@@ -836,7 +836,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=866"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D866"
   },
   {
     "id": "skycinemacomedy",
@@ -855,7 +855,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=862"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D862"
   },
   {
     "id": "skycinemaaction",
@@ -874,7 +874,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=861"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D861"
   },
   {
     "id": "skycinemafamily",
@@ -893,7 +893,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=865"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D865"
   },
   {
     "id": "skycinemacollection",
@@ -912,7 +912,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=859"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D859"
   },
   {
     "id": "skycinemadrama",
@@ -931,7 +931,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=867"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D867"
   },
   {
     "id": "skycinemasuspense",
@@ -950,7 +950,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=868"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D868"
   },
   {
     "id": "skycinemaromance",
@@ -969,7 +969,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=864"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D864"
   },
   {
     "id": "skyuno",
@@ -978,7 +978,7 @@
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-uno-it.png",
     "description": "Sky Uno - Sky",
     "staticUrlD": "https://dlhd.dad/watch.php?id=881",
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=881",
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D881",
     "vavooNames": [
       "SKY UNO"
     ],
@@ -1004,7 +1004,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=880"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D880"
   },
   {
     "id": "skyatlantic",
@@ -1167,7 +1167,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=869"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D869"
   },
   {
     "id": "skysportuno",
@@ -1186,7 +1186,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=461"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D461"
   },
   {
     "id": "skysportf1",
@@ -1205,7 +1205,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=577"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D577"
   },
   {
     "id": "skysportcalcio",
@@ -1224,7 +1224,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=870"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D870"
   },
   {
     "id": "skysporttennis",
@@ -1243,7 +1243,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=576"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D576"
   },
   {
     "id": "skysportmotogp",
@@ -1262,7 +1262,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=575"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D575"
   },
   {
     "id": "skysportarena",
@@ -1281,7 +1281,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=462"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D462"
   },
   {
     "id": "skysportmax",
@@ -1300,7 +1300,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=460"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D460"
   },
   {
     "id": "skysportbasket",
@@ -1329,7 +1329,7 @@
     "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgwL3N0cmVhbS5tcGQma2V5X2lkPThhYjQ3NzQxOTMwYzQ3Njc4MDUxNWY5YTAwZGVjYjBhJmtleT03YWI0YjlhZTVhNDhhYTUyNmU1MTFhOTEzYjgzMjc2OQ==",
     "category": "sport"
   },
-   {
+  {
     "id": "daznppv2",
     "type": "tv",
     "name": "Dazn ppv2",
@@ -1338,7 +1338,7 @@
     "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgxL3N0cmVhbS5tcGQma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
     "category": "sport"
   },
-    {
+  {
     "id": "daznppv3",
     "type": "tv",
     "name": "Dazn ppv3",
@@ -1347,7 +1347,7 @@
     "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgyL3N0cmVhbS5tcGQma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
     "category": "sport"
   },
-   {
+  {
     "id": "daznppv4",
     "type": "tv",
     "name": "Dazn ppv4",
@@ -1356,7 +1356,7 @@
     "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgzL3N0cmVhbS5tcGQma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
     "category": "sport"
   },
-     {
+  {
     "id": "daznppv5",
     "type": "tv",
     "name": "Dazn ppv5",
@@ -1380,7 +1380,7 @@
       "eurosport1.it"
     ],
     "category": "sport",
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=878"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D878"
   },
   {
     "id": "eurosport2",
@@ -1397,7 +1397,7 @@
       "eurosport2.it"
     ],
     "category": "sport",
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=879"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D879"
   },
   {
     "id": "eurosport3",
@@ -1498,7 +1498,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=871"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D871"
   },
   {
     "id": "skysport252",
@@ -1517,7 +1517,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=872"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D872"
   },
   {
     "id": "skysport253",
@@ -1536,7 +1536,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=873"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D873"
   },
   {
     "id": "skysport254",
@@ -1555,7 +1555,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=874"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D874"
   },
   {
     "id": "skysport255",
@@ -1574,7 +1574,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=875"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D875"
   },
   {
     "id": "skysport256",
@@ -1593,7 +1593,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=876"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D876"
   },
   {
     "id": "skysport257",
@@ -1612,7 +1612,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=877"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D877"
   },
   {
     "id": "skysport258",
@@ -1664,7 +1664,7 @@
       "dazn1.it"
     ],
     "category": "sport",
-    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=877"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D877"
   },
   {
     "id": "dazn2",
