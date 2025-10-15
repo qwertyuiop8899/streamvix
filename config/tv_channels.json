@@ -146,7 +146,7 @@
     "type": "tv",
     "name": "20 Mediaset",
     "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/20mediaset.png",
-    "description": "20 Mediaset - Mediaset",
+    "description": "20 Mediaset",
     "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-lb/lb-clr.isml/index.m3u8",
     "vavooNames": [
       "20 MEDIASET"
