@@ -891,7 +891,7 @@ const isTVTapEnabled = ['1', 'true', 'on', 'yes'].includes((process.env.TVTAP_EN
 #### GDplayer
 - **File**: `src/addon.ts`
 - **Linee**: ~2299
-- **Modifica**: Cambia `|| '1'` in `|| '0'`
+- **Modifica**: Cambia `|| '0'` in `|| '1'`
 ```typescript
 const disableGdStream = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_STREAM_DISABLE||''));
 ```
@@ -938,6 +938,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
