@@ -887,6 +887,16 @@ pd_enable_raw = os.environ.get('PD_ENABLE', '0').lower()
 const isTVTapEnabled = ['1', 'true', 'on', 'yes'].includes((process.env.TVTAP_ENABLE || '0').toString().toLowerCase());
 ```
 
+
+#### GDplayer
+- **File**: `src/addon.ts`
+- **Linee**: ~2299
+- **Modifica**: Cambia `|| '1'` in `|| '0'`
+```typescript
+const disableGdStream = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_STREAM_DISABLE||''));
+```
+
+
 ### ⚠️ Note Importanti
 
 - **PD** e **TVTAP** sono **già disabilitati di default** (valore `'0'`)
@@ -913,7 +923,11 @@ grep -n "PD_ENABLE" Live.py
 
 # TVTAP
 grep -n "TVTAP_ENABLE" src/addon.ts
+
+# GD
+grep -n "GDPLAYER_STREAM_DISABLE" src/addon.ts
 ```
+
 
 ---
 
@@ -924,6 +938,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
