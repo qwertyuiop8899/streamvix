@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.8...v1.9.9) (2025-10-16)
+
+
+### Bug Fixes
+
+* add undici ([e4ee47e](https://github.com/qwertyuiop8899/streamvix/commit/e4ee47e90753d3765bdcfec35c91d10d0c1b46b7))
+* proxy ([e17622b](https://github.com/qwertyuiop8899/streamvix/commit/e17622bc6d733c6d325691606d0d4a56b347ecab))
+
 ## [1.9.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.7...v1.9.8) (2025-10-16)
 
 
