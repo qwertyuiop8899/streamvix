@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as https from 'https';
-// eslint-disable-next-line @typescript-eslint/no-var-requires 
+
+// Dynamic require per evitare problemi TypeScript in Docker
 const HttpsProxyAgent = require('https-proxy-agent').HttpsProxyAgent;
 
 // HTTPS agent that ignores SSL verification (like dlhd.py does)
@@ -86,7 +87,7 @@ function createAxiosConfig(headers: any, proxy?: string | null, timeout = 15000)
  * 4. If fails → Rotate through proxies.ts
  * 5. Cache working method for subsequent requests (no logs after first success)
  */
-async function axiosGetWithRetry(url: string, headers: any, timeout = 15000): Promise<any> {
+async function axiosGetWithRetry(url: string, headers: any, timeout = 15000, responseType?: 'arraybuffer'): Promise<any> {
   let lastError: any = null;
 
   // FAST PATH: Se abbiamo già un metodo funzionante, usalo immediatamente
@@ -110,6 +111,11 @@ async function axiosGetWithRetry(url: string, headers: any, timeout = 15000): Pr
         throw new Error('Cached method no longer available');
       }
       
+      // Apply responseType if specified (for binary data like encryption keys)
+      if (responseType) {
+        config.responseType = responseType;
+      }
+      
       const response = await axios.get(url, config);
       return response; // Successo silenzioso, nessun log
       
@@ -129,6 +135,9 @@ async function axiosGetWithRetry(url: string, headers: any, timeout = 15000): Pr
   try {
     debugLog(`[Discovery 1/4] Trying direct connection...`);
     const config = createAxiosConfig(headers, null, timeout);
+    if (responseType) {
+      config.responseType = responseType;
+    }
     const response = await axios.get(url, config);
     
     // Success! Cache this method
@@ -159,6 +168,9 @@ async function axiosGetWithRetry(url: string, headers: any, timeout = 15000): Pr
     try {
       debugLog(`[Discovery 2/4] Trying ENV proxy...`);
       const config = createAxiosConfig(headers, process.env.DLHD_PROXY, timeout);
+      if (responseType) {
+        config.responseType = responseType;
+      }
       const response = await axios.get(url, config);
       
       // Success! Cache this method
@@ -194,6 +206,9 @@ async function axiosGetWithRetry(url: string, headers: any, timeout = 15000): Pr
       try {
         debugLog(`[Discovery ${3 + i}/4] Trying proxy from proxies.ts...`);
         const config = createAxiosConfig(headers, proxy, timeout);
+        if (responseType) {
+          config.responseType = responseType;
+        }
         const response = await axios.get(url, config);
         
         // Success! Cache this method
@@ -717,26 +732,15 @@ export async function fetchAndModifyManifest(
 
 /**
  * Fetch the encryption key with proper headers
- * Uses cached working method for silent subsequent requests (no logs)
+ * Uses axiosGetWithRetry() to handle IP blocks (same as manifest/auth)
  */
 export async function fetchKey(
   keyUrl: string,
   headers: { 'User-Agent': string; 'Referer': string; 'Origin': string }
 ): Promise<Buffer> {
-  // Usa lo stesso metodo cached per consistency (no retry, no logs)
-  let proxy: string | null = null;
-  
-  if (workingMethod === 'env-proxy' && process.env.DLHD_PROXY) {
-    proxy = process.env.DLHD_PROXY;
-  } else if (workingMethod === 'proxies-ts' && lastWorkingProxy) {
-    proxy = lastWorkingProxy;
-  }
-  // Se workingMethod === 'direct' → proxy rimane null
-  
-  const config = createAxiosConfig(headers, proxy, 10000);
-  config.responseType = 'arraybuffer';
-
-  const response = await axios.get(keyUrl, config);
+  // Use axiosGetWithRetry() with arraybuffer responseType for binary key data
+  // This ensures key download uses the same working method (proxy/direct) as other requests
+  const response = await axiosGetWithRetry(keyUrl, headers, 10000, 'arraybuffer');
 
   return Buffer.from(response.data);
 }
