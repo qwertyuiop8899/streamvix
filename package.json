@@ -30,7 +30,8 @@
     "undici": "^6.19.8",
     "unpacker": "^1.0.1",
     "winston": "^3.17.0",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "undici": "^6.19.8"
   },
   "devDependencies": {
     "@types/axios": "^0.14.4",
