@@ -1,6 +1,6 @@
 import axios from 'axios';
 import * as https from 'https';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-var-requires 
 const HttpsProxyAgent = require('https-proxy-agent').HttpsProxyAgent;
 
 // HTTPS agent that ignores SSL verification (like dlhd.py does)
