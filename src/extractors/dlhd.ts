@@ -95,13 +95,18 @@ async function axiosGetWithRetry(url: string, headers: any, timeout = 15000, res
     lastError = error;
     const status = error.response?.status;
     
-    // Only retry with proxy if IP is blocked (400/403)
-    if (status !== 400 && status !== 403) {
-      debugLog(`❌ Direct failed with status ${status}, not IP block - throwing`);
+    // Only retry with proxy if IP is blocked (400/403) or connection errors
+    const isConnectionError = error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND';
+    if (status !== 400 && status !== 403 && !isConnectionError) {
+      debugLog(`❌ Direct failed with status ${status}, not IP block or connection error - throwing`);
       throw error;
     }
     
-    debugLog(`[DLHD] IP blocked (${status}), trying with proxy...`);
+    if (isConnectionError) {
+      console.log(`[DLHD] ⚠️ Connection error (${error.code}) for ${url}, trying with proxy...`);
+    } else {
+      debugLog(`[DLHD] IP blocked (${status}), trying with proxy...`);
+    }
   }
 
   // Attempt 2: ENV proxy (DLHD_PROXY)
@@ -158,7 +163,8 @@ async function axiosGetWithRetry(url: string, headers: any, timeout = 15000, res
   }
 
   // All attempts failed
-  console.error('[DLHD] ❌ All connection methods failed');
+  console.error('[DLHD] ❌ All connection methods failed for URL:', url);
+  console.error('[DLHD] Last error:', lastError?.message || lastError);
   throw lastError;
 }
 
@@ -180,97 +186,28 @@ interface StreamInfo {
   };
 }
 
-interface CachedStreamData {
-  streamInfo: StreamInfo;
-  channelKey: string;
-  iframeUrl: string;
-  authParams: AuthParams;
+// Simple auth cache - replica del Python _auth_cache
+interface AuthCacheData {
+  auth_data: {
+    auth_host: string;
+    auth_php: string;
+    auth_ts: string;
+    auth_rnd: string;
+    auth_sig: string;
+  };
+  iframe_url: string;
   timestamp: number;
-  refreshTimer?: NodeJS.Timeout; // Timer per pre-refresh
 }
 
-// Cache for complete stream data per channel
-const CACHE_DURATION = 10 * 60 * 1000; // 10 minuti - durata cache
-const PRE_REFRESH_TIME = 2 * 60 * 1000; // Ricarica 2 MINUTI prima (più margine!)
-const streamCache: Map<string, CachedStreamData> = new Map();
+// Cache SOLO auth data per channel (come Python)
+const authCache: Map<string, AuthCacheData> = new Map();
 
-// Store original URLs for re-extraction
-const channelUrls: Map<string, string> = new Map();
+// Nessuna funzione di pre-refresh o cleanup - cache passiva come Python
 
 /**
- * Pre-refresh COMPLETE data to avoid stream interruptions
- * This runs 2 minutes before cache expiration and does a FULL re-extraction
+ * Internal extraction function - COMPLETA estrazione senza cache
  */
-async function preRefreshChannel(channelId: string, originalUrl: string): Promise<void> {
-  try {
-    console.log(`[Pre-refresh] 🔄 Starting full refresh for channel ${channelId} to avoid interruptions...`);
-    
-    // Get current cache entry to preserve timer
-    const currentCache = streamCache.get(channelId);
-    
-    // Do a FULL re-extraction (same as initial request)
-    // This will update ALL parameters (auth, server_key, etc.)
-    const newStreamInfo = await performExtraction(originalUrl, channelId);
-    
-    // Update cache with new data and EXTEND timestamp
-    const newCachedData: CachedStreamData = {
-      streamInfo: newStreamInfo.streamInfo,
-      channelKey: newStreamInfo.channelKey,
-      iframeUrl: newStreamInfo.iframeUrl,
-      authParams: newStreamInfo.authParams,
-      timestamp: Date.now(), // NUOVO timestamp - estende la cache!
-      refreshTimer: currentCache?.refreshTimer // Preserve timer (will be rescheduled)
-    };
-    
-    streamCache.set(channelId, newCachedData);
-    
-    // Schedule next refresh
-    schedulePreRefresh(channelId, originalUrl);
-    
-    console.log(`[Pre-refresh] ✅ Channel ${channelId} refreshed successfully, cache extended for ${Math.round(CACHE_DURATION/1000)}s`);
-    
-  } catch (error) {
-    console.error(`[Pre-refresh] ❌ Failed to refresh channel ${channelId}:`, (error as any)?.message);
-    // Invalidate cache on error so next request will re-extract
-    streamCache.delete(channelId);
-  }
-}
-
-/**
- * Schedule pre-refresh for a cached channel
- */
-function schedulePreRefresh(channelId: string, originalUrl: string): void {
-  const cachedData = streamCache.get(channelId);
-  if (!cachedData) return;
-  
-  // Clear existing timer if any
-  if (cachedData.refreshTimer) {
-    clearTimeout(cachedData.refreshTimer);
-  }
-  
-  // Schedule refresh 2 minutes before cache expiration
-  const timeUntilRefresh = (cachedData.timestamp + CACHE_DURATION - PRE_REFRESH_TIME) - Date.now();
-  
-  if (timeUntilRefresh > 0) {
-    cachedData.refreshTimer = setTimeout(() => {
-      preRefreshChannel(channelId, originalUrl);
-    }, timeUntilRefresh);
-    
-    const minutes = Math.floor(timeUntilRefresh / 60000);
-    const seconds = Math.floor((timeUntilRefresh % 60000) / 1000);
-    debugLog(`[Cache] Scheduled pre-refresh for channel ${channelId} in ${minutes}m ${seconds}s`);
-  }
-}
-
-/**
- * Internal extraction function (shared by initial request and pre-refresh)
- */
-async function performExtraction(url: string, channelId: string): Promise<{
-  streamInfo: StreamInfo;
-  channelKey: string;
-  iframeUrl: string;
-  authParams: AuthParams & { auth_php: string };
-}> {
+async function performFullExtraction(url: string, channelId: string, retryCount = 0): Promise<StreamInfo> {
   // Determine preferred host from URL
   const parsedUrl = new URL(url);
   const hostLower = parsedUrl.hostname.toLowerCase();
@@ -487,24 +424,28 @@ async function performExtraction(url: string, channelId: string): Promise<{
     'Origin': iframeOrigin
   };
 
+  // Cache auth data (come Python) PRIMA di ritornare
+  authCache.set(channelId, {
+    auth_data: {
+      auth_host: params.auth_host!,
+      auth_php: authPhp,
+      auth_ts: params.auth_ts!,
+      auth_rnd: params.auth_rnd!,
+      auth_sig: params.auth_sig!
+    },
+    iframe_url: iframeUrl,
+    timestamp: Date.now()
+  });
+  
+  debugLog(`[Auth Cache] ✅ Cached auth data for channel ${channelId}`);
+
   const streamInfo: StreamInfo = {
     manifestUrl: cleanM3u8Url,
     keyUrl,
     headers: streamHeaders
   };
 
-  return {
-    streamInfo,
-    channelKey: channelKey!,
-    iframeUrl,
-    authParams: {
-      auth_host: params.auth_host!,
-      auth_php: authPhp,
-      auth_ts: params.auth_ts!,
-      auth_rnd: params.auth_rnd!,
-      auth_sig: params.auth_sig!
-    }
-  };
+  return streamInfo;
 }
 
 /**
@@ -680,53 +621,126 @@ function extractAuthParams(jsContent: string): Partial<AuthParams> {
 }
 
 /**
- * Main extraction function - reproduces dlhd.py logic
- * WITH CACHE: 10 minutes cache + pre-refresh to avoid interruptions
+ * Main extraction function - replica logica Python con auth cache
+ * Usa cache per evitare estrazione completa ogni volta (solo server_lookup fresco)
  */
 export async function extractDaddyLiveStream(url: string): Promise<StreamInfo> {
-  // Extract channel ID first (needed for cache lookup)
+  // Extract channel ID first
   const channelId = extractChannelId(url);
   if (!channelId) {
     throw new Error(`Unable to extract channel ID from ${url}`);
   }
 
-  // Store original URL for pre-refresh
-  channelUrls.set(channelId, url);
+  // DISABILITATA quick extraction - i parametri auth scadono troppo velocemente (403 dopo pochi secondi)
+  // Facciamo sempre full extraction per avere parametri freschi
+  debugLog(`[DLHD] Performing full extraction for channel ${channelId} (auth expires too fast for caching)`);
 
-  // Check cache first
-  const cached = streamCache.get(channelId);
-  if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-    const age = Math.round((Date.now() - cached.timestamp) / 1000);
-    const remaining = Math.round((CACHE_DURATION - (Date.now() - cached.timestamp)) / 1000);
-    debugLog(`[Cache] ✅ Using cached data for channel ${channelId} (age: ${age}s, expires in: ${remaining}s)`);
-    return cached.streamInfo;
+  try {
+    const streamInfo = await performFullExtraction(url, channelId, 0);
+    console.log(`[DLHD] ✅ Channel ${channelId} extracted successfully`);
+    return streamInfo;
+  } catch (error) {
+    // Se fallisce e c'è cache (anche scaduta), invalida e riprova UNA VOLTA
+    if (authCache.has(channelId)) {
+      console.log(`[DLHD] ⚠️ Extraction failed, invalidating auth cache and retrying once...`);
+      authCache.delete(channelId);
+      const streamInfo = await performFullExtraction(url, channelId, 1);
+      console.log(`[DLHD] ✅ Channel ${channelId} extracted successfully on retry`);
+      return streamInfo;
+    }
+    
+    // Nessuna cache o retry già fatto - propaga errore
+    throw error;
+  }
+}
+
+/**
+ * Quick extraction using cached auth - solo richiede server_lookup fresco
+ * Molto più veloce perché salta: page fetch, player links, iframe, auth params extraction
+ */
+async function performQuickExtraction(
+  url: string,
+  channelId: string,
+  cached: AuthCacheData
+): Promise<StreamInfo> {
+  const parsedUrl = new URL(url);
+  const hostLower = parsedUrl.hostname.toLowerCase();
+  let preferred: string | undefined;
+  if (hostLower.includes('daddylive.sx')) {
+    preferred = 'https://daddylive.sx/';
+  } else if (hostLower.includes('dlhd.dad')) {
+    preferred = 'https://dlhd.dad/';
   }
 
-  // Cache expired or not found - perform full extraction
-  console.log(`[Cache] ⚙️  Extracting channel ${channelId}...`);
-
-  const extractedData = await performExtraction(url, channelId);
-
-  // Save to cache
-  const cachedData: CachedStreamData = {
-    ...extractedData,
-    timestamp: Date.now()
+  const baseUrl = await resolveBaseUrl(preferred);
+  
+  const daddyliveHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+    'Referer': baseUrl,
+    'Origin': new URL(baseUrl).origin
   };
-  
-  streamCache.set(channelId, cachedData);
-  
-  // Schedule pre-refresh to avoid interruptions
-  schedulePreRefresh(channelId, url);
-  
-  const cacheExpiry = Math.round(CACHE_DURATION / 1000);
-  const refreshIn = Math.round((CACHE_DURATION - PRE_REFRESH_TIME) / 1000);
-  console.log(`[Cache] ✅ Channel ${channelId} cached for ${cacheExpiry}s (will refresh in ${refreshIn}s)`);
 
-  return extractedData.streamInfo;
+  // Usa iframe_url cachato
+  const iframeUrl = cached.iframe_url;
+  const iframeDomain = new URL(iframeUrl).hostname;
+  
+  // Extract channel key from URL (se è premium stream) o usa default
+  let channelKey = channelId; // Fallback
+  
+  // Tenta estrazione channel key da cached iframe (potrebbe non servire richiederlo di nuovo)
+  // Per ora usiamo channelId come channel_key (spesso coincidono)
+  
+  // NON fare re-auth - i parametri auth sono monouso o scadono troppo velocemente!
+  // La quick extraction assume che l'auth sia ancora valida dal full extraction precedente
+  const iframeOrigin = new URL(iframeUrl).origin;
+  
+  debugLog(`[Quick] Skipping auth (using cached session), going straight to server lookup`);
+
+  // Server lookup (SEMPRE fresco! Cambia nel tempo)
+  const serverLookup = '/server_lookup.js?channel_id=';
+  const serverLookupUrl = `https://${iframeDomain}${serverLookup}${channelKey}`;
+  
+  const lookupResponse = await axiosGetWithRetry(serverLookupUrl, daddyliveHeaders, 10000);
+  const serverData = lookupResponse.data;
+  const serverKey = serverData.server_key;
+  
+  if (!serverKey) {
+    throw new Error(`No server_key in quick lookup: ${JSON.stringify(serverData)}`);
+  }
+
+  debugLog(`[Quick] Server lookup successful - key: ${serverKey}`);
+
+  // Build stream URL
+  let cleanM3u8Url: string;
+  if (serverKey === 'top1/cdn') {
+    cleanM3u8Url = `https://top1.newkso.ru/top1/cdn/${channelKey}/mono.m3u8`;
+  } else if (serverKey.includes('/')) {
+    const parts = serverKey.split('/');
+    const domain = parts[0];
+    cleanM3u8Url = `https://${domain}.newkso.ru/${serverKey}/${channelKey}/mono.m3u8`;
+  } else {
+    cleanM3u8Url = `https://${serverKey}new.newkso.ru/${serverKey}/${channelKey}/mono.m3u8`;
+  }
+
+  const keyUrlBase = cleanM3u8Url.replace(/\/[^\/]+\/mono\.m3u8$/, '/wmsxx.php');
+  const keyUrl = `${keyUrlBase}?test=true&name=${channelKey}&number=1`;
+
+  const streamHeaders = {
+    'User-Agent': daddyliveHeaders['User-Agent'],
+    'Referer': iframeUrl,
+    'Origin': iframeOrigin
+  };
+
+  return {
+    manifestUrl: cleanM3u8Url,
+    keyUrl,
+    headers: streamHeaders
+  };
 }
 
 /**
  * Fetch the original manifest and modify it to proxy only the key
+ * NO CACHE - Manifest deve essere sempre fresco per evitare buffering!
  */
 export async function fetchAndModifyManifest(
   manifestUrl: string,
@@ -734,10 +748,9 @@ export async function fetchAndModifyManifest(
   headers: { 'User-Agent': string; 'Referer': string; 'Origin': string },
   addonBase: string
 ): Promise<string> {
-  // Fetch original manifest WITH headers (required for newkso.ru to avoid 403)
+  // Fetch original manifest WITH headers (NO CACHE - manifest changes frequently!)
   // Use automatic proxy retry if IP is blocked
   const response = await axiosGetWithRetry(manifestUrl, headers, 10000);
-
   let manifest = response.data;
 
   // Find and replace the #EXT-X-KEY line
@@ -771,15 +784,15 @@ export async function fetchAndModifyManifest(
 
 /**
  * Fetch the encryption key with proper headers
- * Uses axiosGetWithRetry() to handle IP blocks (same as manifest/auth)
+ * NO CACHE - come Python, ogni richiesta fetcha la chiave (sono veloci)
  */
 export async function fetchKey(
   keyUrl: string,
   headers: { 'User-Agent': string; 'Referer': string; 'Origin': string }
 ): Promise<Buffer> {
-  // Use axiosGetWithRetry() with arraybuffer responseType for binary key data
-  // This ensures key download uses the same working method (proxy/direct) as other requests
+  debugLog(`[Key] Fetching encryption key from server...`);
   const response = await axiosGetWithRetry(keyUrl, headers, 10000, 'arraybuffer');
-
-  return Buffer.from(response.data);
+  const key = Buffer.from(response.data);
+  
+  return key;
 }
