@@ -189,79 +189,322 @@ interface CachedStreamData {
   refreshTimer?: NodeJS.Timeout; // Timer per pre-refresh
 }
 
-// Cache for complete stream data per channel (10 minutes)
-const CACHE_DURATION = 10 * 60 * 1000; // 10 minuti
-const PRE_REFRESH_TIME = 30 * 1000; // Ricarica 30 secondi prima della scadenza
+// Cache for complete stream data per channel
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minuti - durata cache
+const PRE_REFRESH_TIME = 2 * 60 * 1000; // Ricarica 2 MINUTI prima (più margine!)
 const streamCache: Map<string, CachedStreamData> = new Map();
 
+// Store original URLs for re-extraction
+const channelUrls: Map<string, string> = new Map();
+
 /**
- * Pre-refresh authentication to avoid stream interruptions
- * This runs 30 seconds before cache expiration
+ * Pre-refresh COMPLETE data to avoid stream interruptions
+ * This runs 2 minutes before cache expiration and does a FULL re-extraction
  */
-async function preRefreshAuth(channelId: string, cachedData: CachedStreamData): Promise<void> {
+async function preRefreshChannel(channelId: string, originalUrl: string): Promise<void> {
   try {
-    debugLog(`[Pre-refresh] Refreshing auth for channel ${channelId} to avoid interruptions...`);
+    console.log(`[Pre-refresh] 🔄 Starting full refresh for channel ${channelId} to avoid interruptions...`);
     
-    const { iframeUrl, authParams, channelKey } = cachedData;
+    // Get current cache entry to preserve timer
+    const currentCache = streamCache.get(channelId);
     
-    // Normalize auth_php
-    let authPhp = authParams.auth_php;
-    if (authPhp.trim().replace(/^\//, '') === 'a.php') {
-      authPhp = '/auth.php';
-    }
-
-    // Build auth URL
-    let authHost = authParams.auth_host;
-    if (!authHost.startsWith('http://') && !authHost.startsWith('https://')) {
-      authHost = 'https://' + authHost;
-    }
-    if (!authHost.endsWith('/')) {
-      authHost += '/';
-    }
+    // Do a FULL re-extraction (same as initial request)
+    // This will update ALL parameters (auth, server_key, etc.)
+    const newStreamInfo = await performExtraction(originalUrl, channelId);
     
-    const authUrl = new URL(authPhp.replace(/^\//, ''), authHost);
-    authUrl.searchParams.set('channel_id', channelKey);
-    authUrl.searchParams.set('ts', authParams.auth_ts);
-    authUrl.searchParams.set('rnd', authParams.auth_rnd);
-    authUrl.searchParams.set('sig', authParams.auth_sig);
-
-    const iframeOrigin = new URL(iframeUrl).origin;
-    const authHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-      'Referer': iframeUrl,
-      'Origin': iframeOrigin
+    // Update cache with new data and EXTEND timestamp
+    const newCachedData: CachedStreamData = {
+      streamInfo: newStreamInfo.streamInfo,
+      channelKey: newStreamInfo.channelKey,
+      iframeUrl: newStreamInfo.iframeUrl,
+      authParams: newStreamInfo.authParams,
+      timestamp: Date.now(), // NUOVO timestamp - estende la cache!
+      refreshTimer: currentCache?.refreshTimer // Preserve timer (will be rescheduled)
     };
-
-    // Perform authentication
-    await axiosGetWithRetry(authUrl.toString(), authHeaders, 12000);
     
-    debugLog(`[Pre-refresh] ✅ Auth refreshed successfully for channel ${channelId}`);
+    streamCache.set(channelId, newCachedData);
+    
+    // Schedule next refresh
+    schedulePreRefresh(channelId, originalUrl);
+    
+    console.log(`[Pre-refresh] ✅ Channel ${channelId} refreshed successfully, cache extended for ${Math.round(CACHE_DURATION/1000)}s`);
     
   } catch (error) {
-    console.error(`[Pre-refresh] ⚠️ Failed to refresh auth for channel ${channelId}:`, (error as any)?.message);
-    // Don't throw - let the next request handle it
+    console.error(`[Pre-refresh] ❌ Failed to refresh channel ${channelId}:`, (error as any)?.message);
+    // Invalidate cache on error so next request will re-extract
+    streamCache.delete(channelId);
   }
 }
 
 /**
  * Schedule pre-refresh for a cached channel
  */
-function schedulePreRefresh(channelId: string, cachedData: CachedStreamData): void {
+function schedulePreRefresh(channelId: string, originalUrl: string): void {
+  const cachedData = streamCache.get(channelId);
+  if (!cachedData) return;
+  
   // Clear existing timer if any
   if (cachedData.refreshTimer) {
     clearTimeout(cachedData.refreshTimer);
   }
   
-  // Schedule refresh 30 seconds before cache expiration
+  // Schedule refresh 2 minutes before cache expiration
   const timeUntilRefresh = (cachedData.timestamp + CACHE_DURATION - PRE_REFRESH_TIME) - Date.now();
   
   if (timeUntilRefresh > 0) {
     cachedData.refreshTimer = setTimeout(() => {
-      preRefreshAuth(channelId, cachedData);
+      preRefreshChannel(channelId, originalUrl);
     }, timeUntilRefresh);
     
-    debugLog(`[Cache] Scheduled pre-refresh for channel ${channelId} in ${Math.round(timeUntilRefresh / 1000)}s`);
+    const minutes = Math.floor(timeUntilRefresh / 60000);
+    const seconds = Math.floor((timeUntilRefresh % 60000) / 1000);
+    debugLog(`[Cache] Scheduled pre-refresh for channel ${channelId} in ${minutes}m ${seconds}s`);
   }
+}
+
+/**
+ * Internal extraction function (shared by initial request and pre-refresh)
+ */
+async function performExtraction(url: string, channelId: string): Promise<{
+  streamInfo: StreamInfo;
+  channelKey: string;
+  iframeUrl: string;
+  authParams: AuthParams & { auth_php: string };
+}> {
+  // Determine preferred host from URL
+  const parsedUrl = new URL(url);
+  const hostLower = parsedUrl.hostname.toLowerCase();
+  let preferred: string | undefined;
+  if (hostLower.includes('daddylive.sx')) {
+    preferred = 'https://daddylive.sx/';
+  } else if (hostLower.includes('dlhd.dad')) {
+    preferred = 'https://dlhd.dad/';
+  }
+
+  // Resolve base URL
+  const baseUrl = await resolveBaseUrl(preferred);
+  const baseOrigin = new URL(baseUrl).origin;
+
+  debugLog(`Processing extraction for channel ${channelId}: ${url}`);
+
+  const daddyliveHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+    'Referer': baseUrl,
+    'Origin': baseOrigin
+  };
+
+  // Step 1: Request initial page
+  const initialUrl = url.startsWith('http') ? url : baseUrl + url.replace(/^\//, '');
+  const response1 = await axiosGetWithRetry(initialUrl, daddyliveHeaders, 15000);
+
+  // Extract player links
+  const playerLinkRegex = /<button[^>]*data-url="([^"]+)"[^>]*>Player\s*\d+<\/button>/g;
+  const playerLinks: string[] = [];
+  let match;
+  while ((match = playerLinkRegex.exec(response1.data)) !== null) {
+    playerLinks.push(match[1]);
+  }
+
+  if (playerLinks.length === 0) {
+    throw new Error('No player links found on the page');
+  }
+
+  // Step 2: Try all players to find valid iframes
+  const iframeCandidates: string[] = [];
+  for (const playerUrl of playerLinks) {
+    try {
+      const fullPlayerUrl = playerUrl.startsWith('http') ? playerUrl : baseUrl + playerUrl.replace(/^\//, '');
+      
+      const response2 = await axiosGetWithRetry(fullPlayerUrl, {
+        ...daddyliveHeaders,
+        'Referer': fullPlayerUrl,
+        'Origin': fullPlayerUrl
+      }, 12000);
+
+      const iframeRegex = /iframe src="([^"]*)"/g;
+      let iframeMatch;
+      while ((iframeMatch = iframeRegex.exec(response2.data)) !== null) {
+        const iframe = iframeMatch[1];
+        if (!iframeCandidates.includes(iframe)) {
+          iframeCandidates.push(iframe);
+        }
+      }
+    } catch (error) {
+      debugLog(`Failed to process player link ${playerUrl}:`, (error as any)?.message || error);
+    }
+  }
+
+  if (iframeCandidates.length === 0) {
+    throw new Error('No valid iframe found in any player page');
+  }
+
+  // Step 3: Try each iframe until one works
+  let iframeUrl: string | null = null;
+  let iframeContent: string | null = null;
+
+  for (const iframe of iframeCandidates) {
+    try {
+      const iframeDomain = new URL(iframe).hostname;
+      if (!iframeDomain) {
+        continue;
+      }
+
+      const response3 = await axiosGetWithRetry(iframe, daddyliveHeaders, 12000);
+
+      iframeUrl = iframe;
+      iframeContent = response3.data;
+      break;
+    } catch (error) {
+      // Silent fallback to next iframe
+    }
+  }
+
+  if (!iframeUrl || !iframeContent) {
+    throw new Error('All iframe candidates failed');
+  }
+
+  // Step 4: Extract authentication parameters
+  const params = extractAuthParams(iframeContent);
+
+  // Extract channel key
+  let channelKey: string | null = null;
+  const channelKeyPatterns = [
+    /const\s+CHANNEL_KEY\s*=\s*["']([^"']+)["']/,
+    /var\s+CHANNEL_KEY\s*=\s*["']([^"']+)["']/,
+    /let\s+CHANNEL_KEY\s*=\s*["']([^"']+)["']/,
+    /channelKey\s*=\s*["']([^"']+)["']/,
+    /var\s+channelKey\s*=\s*["']([^"']+)["']/,
+    /(?:let|const)\s+channelKey\s*=\s*["']([^"']+)["']/
+  ];
+
+  for (const pattern of channelKeyPatterns) {
+    const m = iframeContent.match(pattern);
+    if (m) {
+      channelKey = m[1];
+      break;
+    }
+  }
+
+  // Validate parameters
+  const missingParams: string[] = [];
+  if (!channelKey) missingParams.push('channel_key/CHANNEL_KEY');
+  if (!params.auth_ts) missingParams.push('auth_ts');
+  if (!params.auth_rnd) missingParams.push('auth_rnd');
+  if (!params.auth_sig) missingParams.push('auth_sig');
+  if (!params.auth_host) missingParams.push('auth_host');
+  if (!params.auth_php) missingParams.push('auth_php');
+
+  if (missingParams.length > 0) {
+    throw new Error(`Missing parameters: ${missingParams.join(', ')}`);
+  }
+
+  // Normalize auth_php
+  let authPhp = params.auth_php!;
+  if (authPhp.trim().replace(/^\//, '') === 'a.php') {
+    authPhp = '/auth.php';
+  }
+
+  // Build auth URL with error handling
+  let authHost = params.auth_host!;
+  
+  if (!authHost.startsWith('http://') && !authHost.startsWith('https://')) {
+    authHost = 'https://' + authHost;
+  }
+  
+  if (!authHost.endsWith('/')) {
+    authHost += '/';
+  }
+  
+  let authUrl: URL;
+  try {
+    authUrl = new URL(authPhp.replace(/^\//, ''), authHost);
+  } catch (urlError) {
+    throw new Error(`Failed to construct auth URL: ${(urlError as any)?.message}`);
+  }
+  
+  authUrl.searchParams.set('channel_id', channelKey!);
+  authUrl.searchParams.set('ts', params.auth_ts!);
+  authUrl.searchParams.set('rnd', params.auth_rnd!);
+  authUrl.searchParams.set('sig', params.auth_sig!);
+
+  const iframeOrigin = new URL(iframeUrl).origin;
+  const authHeaders = {
+    ...daddyliveHeaders,
+    'Referer': iframeUrl,
+    'Origin': iframeOrigin
+  };
+
+  // Step 5: Perform authentication
+  try {
+    await axiosGetWithRetry(authUrl.toString(), authHeaders, 12000);
+  } catch (error) {
+    throw new Error(`Authentication failed: ${(error as any)?.message || error}`);
+  }
+
+  // Step 6: Server lookup
+  let serverLookup = '/server_lookup.js?channel_id=';
+  if (!iframeContent.includes('fetchWithRetry(\'/server_lookup.js?channel_id=\'')) {
+    const lines = iframeContent.split('\n');
+    for (const line of lines) {
+      if (line.includes('server_lookup.') && line.includes('fetchWithRetry')) {
+        const lookupMatch = line.match(/['"]([^'"]*server_lookup[^'"]*)['"]/);
+        if (lookupMatch) {
+          serverLookup = lookupMatch[1];
+          break;
+        }
+      }
+    }
+  }
+
+  const serverLookupUrl = `https://${new URL(iframeUrl).hostname}${serverLookup}${channelKey}`;
+  const lookupResponse = await axiosGetWithRetry(serverLookupUrl, daddyliveHeaders, 10000);
+  const serverData = lookupResponse.data;
+  const serverKey = serverData.server_key;
+  
+  if (!serverKey) {
+    throw new Error(`No server_key in response: ${JSON.stringify(serverData)}`);
+  }
+
+  // Step 7: Build final stream URL
+  let cleanM3u8Url: string;
+  if (serverKey === 'top1/cdn') {
+    cleanM3u8Url = `https://top1.newkso.ru/top1/cdn/${channelKey}/mono.m3u8`;
+  } else if (serverKey.includes('/')) {
+    const parts = serverKey.split('/');
+    const domain = parts[0];
+    cleanM3u8Url = `https://${domain}.newkso.ru/${serverKey}/${channelKey}/mono.m3u8`;
+  } else {
+    cleanM3u8Url = `https://${serverKey}new.newkso.ru/${serverKey}/${channelKey}/mono.m3u8`;
+  }
+
+  const keyUrlBase = cleanM3u8Url.replace(/\/[^\/]+\/mono\.m3u8$/, '/wmsxx.php');
+  const channelName = channelKey;
+  const keyUrl = `${keyUrlBase}?test=true&name=${channelName}&number=1`;
+
+  const streamHeaders = {
+    'User-Agent': daddyliveHeaders['User-Agent'],
+    'Referer': iframeUrl,
+    'Origin': iframeOrigin
+  };
+
+  const streamInfo: StreamInfo = {
+    manifestUrl: cleanM3u8Url,
+    keyUrl,
+    headers: streamHeaders
+  };
+
+  return {
+    streamInfo,
+    channelKey: channelKey!,
+    iframeUrl,
+    authParams: {
+      auth_host: params.auth_host!,
+      auth_php: authPhp,
+      auth_ts: params.auth_ts!,
+      auth_rnd: params.auth_rnd!,
+      auth_sig: params.auth_sig!
+    }
+  };
 }
 
 /**
@@ -447,283 +690,39 @@ export async function extractDaddyLiveStream(url: string): Promise<StreamInfo> {
     throw new Error(`Unable to extract channel ID from ${url}`);
   }
 
+  // Store original URL for pre-refresh
+  channelUrls.set(channelId, url);
+
   // Check cache first
   const cached = streamCache.get(channelId);
   if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
     const age = Math.round((Date.now() - cached.timestamp) / 1000);
-    debugLog(`[Cache] ✅ Using cached data for channel ${channelId} (age: ${age}s)`);
+    const remaining = Math.round((CACHE_DURATION - (Date.now() - cached.timestamp)) / 1000);
+    debugLog(`[Cache] ✅ Using cached data for channel ${channelId} (age: ${age}s, expires in: ${remaining}s)`);
     return cached.streamInfo;
   }
 
   // Cache expired or not found - perform full extraction
-  debugLog(`[Cache] ❌ Cache miss for channel ${channelId}, performing full extraction...`);
+  console.log(`[Cache] ⚙️  Extracting channel ${channelId}...`);
 
-  // Determine preferred host from URL
-  const parsedUrl = new URL(url);
-  const hostLower = parsedUrl.hostname.toLowerCase();
-  let preferred: string | undefined;
-  if (hostLower.includes('daddylive.sx')) {
-    preferred = 'https://daddylive.sx/';
-  } else if (hostLower.includes('dlhd.dad')) {
-    preferred = 'https://dlhd.dad/';
-  }
+  const extractedData = await performExtraction(url, channelId);
 
-  // Resolve base URL
-  const baseUrl = await resolveBaseUrl(preferred);
-  const baseOrigin = new URL(baseUrl).origin;
-
-  debugLog(`Processing request for: ${url}`);
-
-  const daddyliveHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-    'Referer': baseUrl,
-    'Origin': baseOrigin
-  };
-
-  // Step 1: Request initial page (with automatic proxy retry on IP block)
-  const initialUrl = url.startsWith('http') ? url : baseUrl + url.replace(/^\//, '');
-  const response1 = await axiosGetWithRetry(initialUrl, daddyliveHeaders, 15000);
-
-  // Extract player links
-  const playerLinkRegex = /<button[^>]*data-url="([^"]+)"[^>]*>Player\s*\d+<\/button>/g;
-  const playerLinks: string[] = [];
-  let match;
-  while ((match = playerLinkRegex.exec(response1.data)) !== null) {
-    playerLinks.push(match[1]);
-  }
-
-  if (playerLinks.length === 0) {
-    throw new Error('No player links found on the page');
-  }
-
-  // Step 2: Try all players to find valid iframes (with automatic proxy retry)
-  const iframeCandidates: string[] = [];
-  for (const playerUrl of playerLinks) {
-    try {
-      const fullPlayerUrl = playerUrl.startsWith('http') ? playerUrl : baseUrl + playerUrl.replace(/^\//, '');
-      
-      const response2 = await axiosGetWithRetry(fullPlayerUrl, {
-        ...daddyliveHeaders,
-        'Referer': fullPlayerUrl,
-        'Origin': fullPlayerUrl
-      }, 12000);
-
-      const iframeRegex = /iframe src="([^"]*)"/g;
-      let iframeMatch;
-      while ((iframeMatch = iframeRegex.exec(response2.data)) !== null) {
-        const iframe = iframeMatch[1];
-        if (!iframeCandidates.includes(iframe)) {
-          iframeCandidates.push(iframe);
-        }
-      }
-    } catch (error) {
-      console.warn(`[DLHD] Failed to process player link ${playerUrl}:`, (error as any)?.message || error);
-    }
-  }
-
-  if (iframeCandidates.length === 0) {
-    throw new Error('No valid iframe found in any player page');
-  }
-
-  // Step 3: Try each iframe until one works
-  let iframeUrl: string | null = null;
-  let iframeContent: string | null = null;
-
-  for (const iframe of iframeCandidates) {
-    try {
-      const iframeDomain = new URL(iframe).hostname;
-      if (!iframeDomain) {
-        continue;
-      }
-
-      const response3 = await axiosGetWithRetry(iframe, daddyliveHeaders, 12000);
-
-      iframeUrl = iframe;
-      iframeContent = response3.data;
-      break;
-    } catch (error) {
-      // Silent fallback to next iframe
-    }
-  }
-
-  if (!iframeUrl || !iframeContent) {
-    throw new Error('All iframe candidates failed');
-  }
-
-  // Step 4: Extract authentication parameters
-  const params = extractAuthParams(iframeContent);
-
-  // Extract channel key
-  let channelKey: string | null = null;
-  const channelKeyPatterns = [
-    /const\s+CHANNEL_KEY\s*=\s*["']([^"']+)["']/,
-    /var\s+CHANNEL_KEY\s*=\s*["']([^"']+)["']/,
-    /let\s+CHANNEL_KEY\s*=\s*["']([^"']+)["']/,
-    /channelKey\s*=\s*["']([^"']+)["']/,
-    /var\s+channelKey\s*=\s*["']([^"']+)["']/,
-    /(?:let|const)\s+channelKey\s*=\s*["']([^"']+)["']/
-  ];
-
-  for (const pattern of channelKeyPatterns) {
-    const m = iframeContent.match(pattern);
-    if (m) {
-      channelKey = m[1];
-      break;
-    }
-  }
-
-  // Validate parameters
-  const missingParams: string[] = [];
-  if (!channelKey) missingParams.push('channel_key/CHANNEL_KEY');
-  if (!params.auth_ts) missingParams.push('auth_ts');
-  if (!params.auth_rnd) missingParams.push('auth_rnd');
-  if (!params.auth_sig) missingParams.push('auth_sig');
-  if (!params.auth_host) missingParams.push('auth_host');
-  if (!params.auth_php) missingParams.push('auth_php');
-
-  if (missingParams.length > 0) {
-    throw new Error(`Missing parameters: ${missingParams.join(', ')}`);
-  }
-
-  // Normalize auth_php
-  let authPhp = params.auth_php!;
-  if (authPhp.trim().replace(/^\//, '') === 'a.php') {
-    authPhp = '/auth.php';
-  }
-
-  // Build auth URL with error handling
-  let authHost = params.auth_host!;
-  
-  // Ensure auth_host is a valid URL
-  if (!authHost.startsWith('http://') && !authHost.startsWith('https://')) {
-    authHost = 'https://' + authHost;
-  }
-  
-  if (!authHost.endsWith('/')) {
-    authHost += '/';
-  }
-  
-  let authUrl: URL;
-  try {
-    authUrl = new URL(authPhp.replace(/^\//, ''), authHost);
-  } catch (urlError) {
-    console.error('[DLHD] Failed to construct auth URL:', {
-      authHost,
-      authPhp,
-      error: (urlError as any)?.message
-    });
-    throw new Error(`Failed to construct auth URL: ${(urlError as any)?.message}`);
-  }
-  
-  authUrl.searchParams.set('channel_id', channelKey!);
-  authUrl.searchParams.set('ts', params.auth_ts!);
-  authUrl.searchParams.set('rnd', params.auth_rnd!);
-  authUrl.searchParams.set('sig', params.auth_sig!);
-
-  const iframeOrigin = new URL(iframeUrl).origin;
-  const authHeaders = {
-    ...daddyliveHeaders,
-    'Referer': iframeUrl,
-    'Origin': iframeOrigin
-  };
-
-  // Step 5: Perform authentication (with automatic proxy retry)
-  try {
-    await axiosGetWithRetry(authUrl.toString(), authHeaders, 12000);
-  } catch (error) {
-    throw new Error(`Authentication failed: ${(error as any)?.message || error}`);
-  }
-
-  // Step 6: Server lookup
-  let serverLookup = '/server_lookup.js?channel_id=';
-  if (!iframeContent.includes('fetchWithRetry(\'/server_lookup.js?channel_id=\'')) {
-    // Try to find alternative server lookup URL
-    const lines = iframeContent.split('\n');
-    for (const line of lines) {
-      if (line.includes('server_lookup.') && line.includes('fetchWithRetry')) {
-        const lookupMatch = line.match(/['"]([^'"]*server_lookup[^'"]*)['"]/);
-        if (lookupMatch) {
-          serverLookup = lookupMatch[1];
-          break;
-        }
-      }
-    }
-  }
-
-  const serverLookupUrl = `https://${new URL(iframeUrl).hostname}${serverLookup}${channelKey}`;
-
-  const lookupResponse = await axiosGetWithRetry(serverLookupUrl, daddyliveHeaders, 10000);
-
-  const serverData = lookupResponse.data;
-  const serverKey = serverData.server_key;
-  
-  if (!serverKey) {
-    throw new Error(`No server_key in response: ${JSON.stringify(serverData)}`);
-  }
-
-  // Step 7: Build final stream URL
-  let cleanM3u8Url: string;
-  if (serverKey === 'top1/cdn') {
-    cleanM3u8Url = `https://top1.newkso.ru/top1/cdn/${channelKey}/mono.m3u8`;
-  } else if (serverKey.includes('/')) {
-    const parts = serverKey.split('/');
-    const domain = parts[0];
-    cleanM3u8Url = `https://${domain}.newkso.ru/${serverKey}/${channelKey}/mono.m3u8`;
-  } else {
-    cleanM3u8Url = `https://${serverKey}new.newkso.ru/${serverKey}/${channelKey}/mono.m3u8`;
-  }
-
-  // Extract key URL pattern from manifest URL
-  // Key URL will be something like: https://top2.newkso.ru/wmsxx.php?test=true&name=premium881&number=1
-  // Note: We need to fetch the manifest first to get the actual key URL with the correct number parameter
-  const keyUrlBase = cleanM3u8Url.replace(/\/[^\/]+\/mono\.m3u8$/, '/wmsxx.php');
-  
-  // channelKey is already "premium881" from the server lookup, don't add "premium" again!
-  const channelName = channelKey;
-  
-  // We'll extract the actual key URL from the manifest in fetchAndModifyManifest
-  // For now, use a placeholder with number=1 (will be replaced with actual URL from manifest)
-  const keyUrl = `${keyUrlBase}?test=true&name=${channelName}&number=1`;
-
-  // Headers for newkso.ru requests
-  const streamHeaders = {
-    'User-Agent': daddyliveHeaders['User-Agent'],
-    'Referer': iframeUrl,
-    'Origin': iframeOrigin
-  };
-
-  debugLog(`✅ Extraction completed successfully -> ${cleanM3u8Url}`);
-
-  const streamInfo: StreamInfo = {
-    manifestUrl: cleanM3u8Url,
-    keyUrl,
-    headers: streamHeaders
-  };
-
-  // Save to cache with all necessary data for pre-refresh
+  // Save to cache
   const cachedData: CachedStreamData = {
-    streamInfo,
-    channelKey: channelKey!,
-    iframeUrl,
-    authParams: {
-      auth_host: params.auth_host!,
-      auth_php: authPhp, // Use normalized version
-      auth_ts: params.auth_ts!,
-      auth_rnd: params.auth_rnd!,
-      auth_sig: params.auth_sig!
-    },
+    ...extractedData,
     timestamp: Date.now()
   };
   
   streamCache.set(channelId, cachedData);
   
   // Schedule pre-refresh to avoid interruptions
-  schedulePreRefresh(channelId, cachedData);
+  schedulePreRefresh(channelId, url);
   
   const cacheExpiry = Math.round(CACHE_DURATION / 1000);
-  debugLog(`[Cache] Saved channel ${channelId} to cache (expires in ${cacheExpiry}s)`);
+  const refreshIn = Math.round((CACHE_DURATION - PRE_REFRESH_TIME) / 1000);
+  console.log(`[Cache] ✅ Channel ${channelId} cached for ${cacheExpiry}s (will refresh in ${refreshIn}s)`);
 
-  return streamInfo;
+  return extractedData.streamInfo;
 }
 
 /**
