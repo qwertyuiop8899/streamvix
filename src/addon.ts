@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { addonBuilder, getRouter, Manifest, Stream } from "stremio-addon-sdk";
 import { getStreamContent, VixCloudStreamInfo, ExtractorConfig } from "./extractor";
 import { mapLegacyProviderName, buildUnifiedStreamName, providerLabel } from './utils/unifiedNames';
@@ -5042,7 +5045,7 @@ setTimeout(() => scheduleNextAutoPurge(), 7000);
 // =============== WATCHER dynamic_channels.json =======================
 try {
     const dynamicFilePath = path.join(__dirname, '../config/dynamic_channels.json');
-    if (fs.existsSync(dynamicFilePath)) {
+    if (fs.existsSync(dynamicFilePath)) { // Check existence before watching
     fs.watch(dynamicFilePath, { persistent: false }, (evt: any) => {
             if (evt === 'change') {
                 console.log('🔄 Detected change in dynamic_channels.json -> invalidate & reload');
