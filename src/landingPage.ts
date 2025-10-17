@@ -536,6 +536,19 @@ function landingTemplate(manifest: any) {
 							updateAuVisual();
 						}
 					}
+					// Logica per mostrare/nascondere il sottomenù AnimeUnity
+					var auMainToggle = document.getElementById('animeunityEnabled');
+					var auSubMenuEl = document.getElementById('animeunitySubMenu');
+					function syncAuSubMenu() {
+						if (auMainToggle && auSubMenuEl) {
+							auSubMenuEl.style.display = auMainToggle.checked ? 'block' : 'none';
+						}
+					}
+					if (auMainToggle) {
+						auMainToggle.addEventListener('change', syncAuSubMenu);
+						// Imposta stato iniziale
+						syncAuSubMenu();
+					}
 				} catch(e) { console.warn('AnimeUnity submenu creation failed', e); }
 				var animeSaturnEl = document.getElementById('animesaturnEnabled');
 				var animeSaturnRow = animeSaturnEl ? animeSaturnEl.closest('[data-toggle-row]') : null;
