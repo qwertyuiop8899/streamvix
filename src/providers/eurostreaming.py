@@ -6,7 +6,7 @@ Eurostreaming provider
  
 Modalità e variabili di configurazione (DEFAULT: metodo avanzato):
 
-1) Metodo di ricerca episodi
+1) Metodo di ricerca episodi 
     - ES_SEARCH_MODE=advanced  (default se non impostato)
          * Matching multi‑fase: exact -> strict -> fallback
          * Normalizzazione titolo (accenti rimossi, stopwords filtrate)
