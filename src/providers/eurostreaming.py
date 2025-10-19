@@ -782,9 +782,13 @@ async def search_advanced(showname, date, season, episode, MFP, client):
     ep_str = str(episode).zfill(2)
     # Episode line patterns: include multiple variants (HTML entity ×, plain x, unicode ×, padded/unpadded, optional spaces)
     # Examples we want to catch: 1×01, 1x01, 1x1, 1 × 01, S01E01, S1E1, 1&#215;01
-    # ORDINE IMPORTANTE: pattern Unicode × PRIMA di HTML entity &#215; perché l'API JSON restituisce già decoded
+    # ORDINE IMPORTANTE: HTML entity &#215; PRIMA perché l'API JSON restituisce contenuto RAW (non decoded)
     patterns = [
-        # Plain/Unicode × (U+00D7) with padded ep (no spaces) - PRIORITÀ ALTA
+        # HTML entity multiplication sign with padded episode - PRIORITÀ MASSIMA (API returns raw &#215;)
+        rf'{season}&#215;{ep_str}\s*(.*?)(?=<br\s*/?>)',
+        # HTML entity with unpadded episode
+        rf'{season}&#215;{int(episode)}\s*(.*?)(?=<br\s*/?>)',
+        # Plain/Unicode × (U+00D7) with padded ep (no spaces) - fallback per HTML già renderizzato
         rf'{season}[×]{ep_str}\s*(.*?)(?=<br\s*/?>)',
         # Plain/Unicode × with unpadded ep
         rf'{season}[×]{int(episode)}\s*(.*?)(?=<br\s*/?>)',
@@ -794,10 +798,6 @@ async def search_advanced(showname, date, season, episode, MFP, client):
         rf'{season}[xX]{int(episode)}\s*(.*?)(?=<br\s*/?>)',
         # Allow optional spaces around × and optional zero padding on episode
         rf'{season}\s*[×xX]\s*0?{int(episode)}\s*(.*?)(?=<br\s*/?>)',
-        # HTML entity multiplication sign with padded episode (fallback per casi rari)
-        rf'{season}&#215;{ep_str}\s*(.*?)(?=<br\s*/?>)',
-        # HTML entity with unpadded episode
-        rf'{season}&#215;{int(episode)}\s*(.*?)(?=<br\s*/?>)',
         # SxxExx padded
         rf'S{int(season):02d}E{ep_str}\s*(.*?)(?=<br\s*/?>)',
         # SxEx (un/padded)
