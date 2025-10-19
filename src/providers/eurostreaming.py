@@ -1042,7 +1042,19 @@ async def eurostreaming(id_value, client, MFP):
     debug['imdb_title'] = showname
     debug['imdb_year'] = date
     log('eurostreaming: title/date', showname, date)
-    showname_q = showname.replace(' ', '+')
+    
+    # Mappa di normalizzazione esatta per titoli problematici
+    # ==== AUTO-NORMALIZATION-EXACT-MAP-START ====
+    exact_map = {
+        'The X Factor Italy': 'X Factor',
+    }
+    # ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
+    
+    showname_for_search = exact_map.get(showname, showname)
+    if showname_for_search != showname:
+        log('eurostreaming: exact map applied:', showname, '->', showname_for_search)
+    
+    showname_q = showname_for_search.replace(' ', '+')
     try:
         urls, reason, search_debug = await search(showname_q, date, season, episode, MFP, client)
     except Exception as e:  # pragma: no cover
