@@ -6,7 +6,7 @@ Eurostreaming provider
  
 Modalità e variabili di configurazione (DEFAULT: metodo avanzato):
 
-1) Metodo di ricerca episodi 
+1) Metodo di ricerca episodi
     - ES_SEARCH_MODE=advanced  (default se non impostato)
          * Matching multi‑fase: exact -> strict -> fallback
          * Normalizzazione titolo (accenti rimossi, stopwords filtrate)
@@ -782,22 +782,17 @@ async def search_advanced(showname, date, season, episode, MFP, client):
     ep_str = str(episode).zfill(2)
     # Episode line patterns: include multiple variants (HTML entity ×, plain x, unicode ×, padded/unpadded, optional spaces)
     # Examples we want to catch: 1×01, 1x01, 1x1, 1 × 01, S01E01, S1E1, 1&#215;01
-    # ORDINE IMPORTANTE: HTML entity &#215; PRIMA perché l'API JSON restituisce contenuto RAW (non decoded)
     patterns = [
-        # HTML entity multiplication sign with padded episode - PRIORITÀ MASSIMA (API returns raw &#215;)
+        # HTML entity multiplication sign with padded episode
         rf'{season}&#215;{ep_str}\s*(.*?)(?=<br\s*/?>)',
         # HTML entity with unpadded episode
         rf'{season}&#215;{int(episode)}\s*(.*?)(?=<br\s*/?>)',
-        # Plain/Unicode × (U+00D7) with padded ep (no spaces) - fallback per HTML già renderizzato
-        rf'{season}[×]{ep_str}\s*(.*?)(?=<br\s*/?>)',
-        # Plain/Unicode × with unpadded ep
-        rf'{season}[×]{int(episode)}\s*(.*?)(?=<br\s*/?>)',
-        # Plain x/X with padded ep (no spaces)
-        rf'{season}[xX]{ep_str}\s*(.*?)(?=<br\s*/?>)',
-        # Plain x/X with unpadded ep
-        rf'{season}[xX]{int(episode)}\s*(.*?)(?=<br\s*/?>)',
-        # Allow optional spaces around × and optional zero padding on episode
-        rf'{season}\s*[×xX]\s*0?{int(episode)}\s*(.*?)(?=<br\s*/?>)',
+        # Plain/Unicode x with padded ep (no spaces)
+        rf'{season}[xX×]{ep_str}\s*(.*?)(?=<br\s*/?>)',
+        # Plain/Unicode x with unpadded ep
+        rf'{season}[xX×]{int(episode)}\s*(.*?)(?=<br\s*/?>)',
+        # Allow optional spaces around x and optional zero padding on episode
+        rf'{season}\s*[xX×]\s*0?{int(episode)}\s*(.*?)(?=<br\s*/?>)',
         # SxxExx padded
         rf'S{int(season):02d}E{ep_str}\s*(.*?)(?=<br\s*/?>)',
         # SxEx (un/padded)
@@ -1047,19 +1042,7 @@ async def eurostreaming(id_value, client, MFP):
     debug['imdb_title'] = showname
     debug['imdb_year'] = date
     log('eurostreaming: title/date', showname, date)
-    
-    # Mappa di normalizzazione esatta per titoli problematici
-    # ==== AUTO-NORMALIZATION-EXACT-MAP-START ====
-    exact_map = {
-        'The X Factor Italy': 'X Factor',
-    }
-    # ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
-    
-    showname_for_search = exact_map.get(showname, showname)
-    if showname_for_search != showname:
-        log('eurostreaming: exact map applied:', showname, '->', showname_for_search)
-    
-    showname_q = showname_for_search.replace(' ', '+')
+    showname_q = showname.replace(' ', '+')
     try:
         urls, reason, search_debug = await search(showname_q, date, season, episode, MFP, client)
     except Exception as e:  # pragma: no cover
