@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.11](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.10...v1.9.11) (2025-10-19)
+
+
+### Bug Fixes
+
+* eu ([8ad0d8e](https://github.com/qwertyuiop8899/streamvix/commit/8ad0d8e1e3aeb4d1ed35cd41db98674202acc9e2))
+* improvement ([667a17b](https://github.com/qwertyuiop8899/streamvix/commit/667a17bc924cbbb299fde8959a1dfdb95e3f83ee))
+
 ## [1.9.10](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.9...v1.9.10) (2025-10-16)
 
 
