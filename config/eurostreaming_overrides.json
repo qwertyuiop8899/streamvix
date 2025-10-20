@@ -1,0 +1,12 @@
+{
+  "imdb": {
+    "tt1194223": {
+      "title": "X Factor",
+      "search_query": "X+Factor",
+      "skip_year_check": true,
+      "note": "X Factor Italia - multiple seasons, year in spoiler title not in content"
+    }
+  },
+  "tmdb": {
+  }
+}
