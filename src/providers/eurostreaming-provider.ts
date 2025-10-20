@@ -84,14 +84,31 @@ function runPythonEuro(argsObj: { imdb?: string; tmdb?: string; season?: number|
       const py = spawn(pythonCmd, [script, ...args]);
       const killer = setTimeout(()=>{ if(!finished){ finished = true; try{py.kill('SIGKILL');}catch{}; resolve({ error: 'timeout' }); } }, timeoutMs);
   py.stdout.on('data', (d: Buffer)=> { const chunk = d.toString(); stdout += chunk; });
-  py.stderr.on('data', (d: Buffer)=> { const chunk = d.toString(); stderr += chunk; });
+  py.stderr.on('data', (d: Buffer)=> { 
+    const chunk = d.toString(); 
+    stderr += chunk;
+    // Log stderr in real-time to see Python info messages
+    if (chunk.trim()) {
+      process.stderr.write(chunk);
+    }
+  });
       py.on('close', (code: number) => { if(finished) return; finished = true; clearTimeout(killer); const dur = Date.now()-start; if(code!==0){ console.error('[Eurostreaming][PY] exit', code, 'dur=',dur,'ms stderr_head=', stderr.slice(0,400)); return resolve({ error: stderr || 'exit '+code }); }
         try {
           console.log('[Eurostreaming][PY] raw stdout length', stdout.length);
           const parsed = JSON.parse(stdout);
           console.log('[Eurostreaming][PY] parsed streams', parsed.streams ? parsed.streams.length : 0);
-          if ((!parsed.streams || !parsed.streams.length) && (parsed as any).diag) {
-            console.log('[Eurostreaming][PY][diag]', JSON.stringify((parsed as any).diag));
+          // Always show search query and result from diag
+          const diag = (parsed as any).diag;
+          if (diag) {
+            if (diag.search_query) console.log('[Eurostreaming]', diag.search_query);
+            if (diag.search_result) console.log('[Eurostreaming]', diag.search_result);
+            if (diag.streams_preview && Array.isArray(diag.streams_preview)) {
+              diag.streams_preview.forEach((preview: string) => console.log('[Eurostreaming]  ', preview));
+            }
+            // Show full diag only if no streams found
+            if (!parsed.streams || !parsed.streams.length) {
+              console.log('[Eurostreaming][PY][diag]', JSON.stringify(diag));
+            }
           }
           resolve(parsed);
         } catch(e){ console.error('[Eurostreaming][PY] parse error', e, 'stdout_head=', stdout.slice(0,400)); resolve({ error: 'parse error' }); } });
