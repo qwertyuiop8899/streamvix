@@ -125,6 +125,25 @@ def _load_es_domain():
         pass
     return base
 
+# Load override mappings for direct IMDb/TMDb -> title bypass
+_OVERRIDES_CACHE = None
+def _load_overrides():
+    global _OVERRIDES_CACHE
+    if _OVERRIDES_CACHE is not None:
+        return _OVERRIDES_CACHE
+    try:
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        override_path = os.path.join(project_root, 'config', 'eurostreaming_overrides.json')
+        if os.path.exists(override_path):
+            with open(override_path, 'r', encoding='utf-8') as fh:
+                _OVERRIDES_CACHE = json.load(fh)
+                log('overrides loaded:', len(_OVERRIDES_CACHE.get('imdb', {})), 'imdb,', len(_OVERRIDES_CACHE.get('tmdb', {})), 'tmdb')
+                return _OVERRIDES_CACHE
+    except Exception as e:  # pragma: no cover
+        log('overrides load failed:', e)
+    _OVERRIDES_CACHE = {'imdb': {}, 'tmdb': {}}
+    return _OVERRIDES_CACHE
+
 ES_DOMAIN = _load_es_domain()
 _ES_LAST_CHECK = 0.0  # epoch ms
 _ES_TTL = 12 * 60 * 60  # 12 ore in secondi
@@ -158,6 +177,11 @@ def log(*args):
     if os.environ.get('ES_DEBUG', '0') in ('1', 'true', 'True'):
         # Send debug logs to stderr so stdout stays clean JSON
         print('[ES]', *args, file=sys.stderr)
+
+# Info logger - always active, for important messages (search progress, results)
+def log_info(*args):
+    print('[Eurostreaming]', *args, file=sys.stderr)
+
 log('init domain', ES_DOMAIN)
 
 # ========= Utilities (re-implemented minimal) ========= #
@@ -588,11 +612,11 @@ def _levenshtein(a: str, b: str) -> int:
 # ADVANCED SEARCH (current default)
 # Can be forced via ES_SEARCH_MODE=advanced
 #############################################
-async def search_advanced(showname, date, season, episode, MFP, client):
+async def search_advanced(showname, date, season, episode, MFP, client, skip_year_check=False):
     headers = random_headers.generate()
-    log('search: query', showname, 'year', date, 'S', season, 'E', episode)
+    log('search: query', showname, 'year', date, 'S', season, 'E', episode, 'skip_year=', skip_year_check)
     reason = None
-    debug = { 'candidates': [], 'matched': [], 'filtered_tokens': [], 'rejected': [], 'phase': None }
+    debug = { 'candidates': [], 'matched': [], 'filtered_tokens': [], 'rejected': [], 'phase': None, 'skip_year_check': skip_year_check }
     try:
         response = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/search?search={showname}&_fields=id", proxies=proxies, headers=headers)
     except Exception as e:
@@ -815,18 +839,23 @@ async def search_advanced(showname, date, season, episode, MFP, client):
     secondary_candidates = []  # posts with small drift (dist<=1)
     drift_rejected = []  # posts with large drift
 
-    for p in chosen:
-        dist = _year_distance(p.get('year'), date)
-        if date and p.get('year'):
-            if dist == 0:
-                primary_candidates.append(p)
-            elif dist is not None and dist <= 1:
-                secondary_candidates.append(p)
+    # If skip_year_check is True, treat all chosen posts as primary candidates
+    if skip_year_check:
+        log('search: skipping year check (override mode)')
+        primary_candidates = chosen
+    else:
+        for p in chosen:
+            dist = _year_distance(p.get('year'), date)
+            if date and p.get('year'):
+                if dist == 0:
+                    primary_candidates.append(p)
+                elif dist is not None and dist <= 1:
+                    secondary_candidates.append(p)
+                else:
+                    drift_rejected.append({'post_id': p['id'], 'post_year': p.get('year'), 'imdb_year': date, 'dist': dist})
             else:
-                drift_rejected.append({'post_id': p['id'], 'post_year': p.get('year'), 'imdb_year': date, 'dist': dist})
-        else:
-            # No year on site or no imdb year -> treat as primary to keep behavior permissive
-            primary_candidates.append(p)
+                # No year on site or no imdb year -> treat as primary to keep behavior permissive
+                primary_candidates.append(p)
 
     if drift_rejected:
         debug['year_drift_rejected'] = drift_rejected
@@ -919,8 +948,8 @@ async def search_advanced(showname, date, season, episode, MFP, client):
 # Activated with ES_SEARCH_MODE=legacy
 # Returns same tuple signature: (urls|None, reason, debug)
 #############################################
-async def search_legacy(showname, date, season, episode, MFP, client):
-    debug = { 'mode': 'legacy', 'year': date }
+async def search_legacy(showname, date, season, episode, MFP, client, skip_year_check=False):
+    debug = { 'mode': 'legacy', 'year': date, 'skip_year_check': skip_year_check }
     headers = random_headers.generate()
     try:
         response = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/search?search={showname}&_fields=id", proxies=proxies, headers=headers)
@@ -945,23 +974,24 @@ async def search_legacy(showname, date, season, episode, MFP, client):
             desc = r.json().get('content', {}).get('rendered', '')
         except Exception:
             continue
-        # Year extraction
-        match_year = year_pattern.search(desc)
-        post_year = None
-        if match_year:
-            post_year = match_year.group(0)
-        else:
-            more = re.search(r'<a\s+href="([^\"]+)"[^>]*>Continua a leggere</a>', desc)
-            if more:
-                try:
-                    r2 = await client.get(ForwardProxy + more.group(1), proxies=proxies, headers=headers)
-                    match2 = year_pattern.search(r2.text)
-                    if match2:
-                        post_year = match2.group(0)
-                except Exception:
-                    pass
-        if date and post_year and str(post_year) != str(date):
-            continue
+        # Year extraction (skip if override active)
+        if not skip_year_check:
+            match_year = year_pattern.search(desc)
+            post_year = None
+            if match_year:
+                post_year = match_year.group(0)
+            else:
+                more = re.search(r'<a\s+href="([^\"]+)"[^>]*>Continua a leggere</a>', desc)
+                if more:
+                    try:
+                        r2 = await client.get(ForwardProxy + more.group(1), proxies=proxies, headers=headers)
+                        match2 = year_pattern.search(r2.text)
+                        if match2:
+                            post_year = match2.group(0)
+                    except Exception:
+                        pass
+            if date and post_year and str(post_year) != str(date):
+                continue
         matches = re.findall(pattern_primary, desc)
         if not matches:
             continue
@@ -1026,32 +1056,102 @@ async def eurostreaming(id_value, client, MFP):
         return None, 'is_movie', { 'note': 'movies not supported' }
     season = str(season_i)
     episode = str(episode_i)
-    # Metadata fetch (IMDb via tmdb API or scrape depending on env)
-    try:
-        if "tmdb" in id_value:
-            showname, date = get_info_tmdb(clean_id, 0, "Eurostreaming")
-        else:
-            showname, date = await get_info_imdb(clean_id, 0, "Eurostreaming", client)
-    except Exception as e:  # pragma: no cover
-        debug['meta_error'] = str(e)
-        showname, date = (clean_id, 0)
-    # Normalize title for searching
-    showname = re.sub(r'\s+', ' ', showname).strip()
-    showname = re.sub(r'[^\w\s]', ' ', showname)
-    showname = re.sub(r'\s+', ' ', showname).strip()
+    
+    # Check for override mapping (bypass metadata fetch & year checks)
+    overrides = _load_overrides()
+    override_data = None
+    skip_year_check = False
+    
+    if "tmdb" in id_value and clean_id in overrides.get('tmdb', {}):
+        override_data = overrides['tmdb'][clean_id]
+        log('eurostreaming: using TMDB override for', clean_id)
+    elif clean_id in overrides.get('imdb', {}):
+        override_data = overrides['imdb'][clean_id]
+        log('eurostreaming: using IMDb override for', clean_id)
+    
+    if override_data:
+        showname = override_data.get('title', clean_id)
+        showname_q = override_data.get('search_query', showname.replace(' ', '+'))
+        date = override_data.get('year', 0)
+        skip_year_check = override_data.get('skip_year_check', False)
+        debug['override_used'] = True
+        debug['override_id'] = clean_id
+        log('eurostreaming: override -> title:', showname, 'skip_year:', skip_year_check)
+    else:
+        # Standard metadata fetch (IMDb via tmdb API or scrape depending on env)
+        try:
+            if "tmdb" in id_value:
+                showname, date = get_info_tmdb(clean_id, 0, "Eurostreaming")
+            else:
+                showname, date = await get_info_imdb(clean_id, 0, "Eurostreaming", client)
+        except Exception as e:  # pragma: no cover
+            debug['meta_error'] = str(e)
+            showname, date = (clean_id, 0)
+        # Normalize title for searching
+        showname = re.sub(r'\s+', ' ', showname).strip()
+        showname = re.sub(r'[^\w\s]', ' ', showname)
+        showname = re.sub(r'\s+', ' ', showname).strip()
+        showname_q = showname.replace(' ', '+')
+    
     debug['imdb_title'] = showname
     debug['imdb_year'] = date
     log('eurostreaming: title/date', showname, date)
-    showname_q = showname.replace(' ', '+')
+    
+    # Always log search info (both stderr and diag)
+    search_msg = f'Searching for: {showname} S{season}E{episode}'
+    log_info(search_msg)
+    debug['search_query'] = search_msg
+    
     try:
-        urls, reason, search_debug = await search(showname_q, date, season, episode, MFP, client)
+        urls, reason, search_debug = await search(showname_q, date, season, episode, MFP, client, skip_year_check=skip_year_check)
     except Exception as e:  # pragma: no cover
         log('eurostreaming: search exception', e)
         debug['search_error'] = str(e)
+        error_msg = f'❌ Search failed: {str(e)}'
+        log_info(error_msg)
+        debug['search_result'] = error_msg
         return None, 'search_exception', debug
+    
+    # Preserve override flags before update
+    override_used = debug.get('override_used')
+    override_id = debug.get('override_id')
+    
     if isinstance(search_debug, dict):
         debug.update(search_debug)
+    
+    # Restore override flags
+    if override_used:
+        debug['override_used'] = override_used
+        debug['override_id'] = override_id
+    
     log('eurostreaming: urls_found', 0 if not urls else len(urls), 'reason', reason)
+    
+    # Always log results (both stderr and diag)
+    if urls and len(urls) > 0:
+        result_msg = f'✓ Found {len(urls)} stream(s)'
+        log_info(result_msg)
+        # Build detailed stream list for diag
+        stream_details = []
+        for i, (url, name) in enumerate(list(urls.items())[:3], 1):
+            host = 'Unknown'
+            if '__HT__' in name:
+                m = re.match(r'^__HT__(deltabit|mixdrop)__::', name, re.I)
+                if m:
+                    host = m.group(1).capitalize()
+            detail = f'[{i}] {host}: {url[:60]}...'
+            log_info(f'  {detail}')
+            stream_details.append(detail)
+        if len(urls) > 3:
+            extra_msg = f'... and {len(urls)-3} more'
+            log_info(f'  {extra_msg}')
+            stream_details.append(extra_msg)
+        debug['search_result'] = result_msg
+        debug['streams_preview'] = stream_details
+    else:
+        result_msg = f'❌ No streams found - Reason: {reason or "unknown"}'
+        log_info(result_msg)
+        debug['search_result'] = result_msg
+    
     return urls, reason, debug
 
 # ======== Test helpers ======== #
