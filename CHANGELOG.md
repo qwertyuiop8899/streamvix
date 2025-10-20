@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.12...v1.9.13) (2025-10-20)
+
+
+### Bug Fixes
+
+* es override ([bf24cca](https://github.com/qwertyuiop8899/streamvix/commit/bf24ccae8572d56de29b71264c02d11f394c3ad5))
+
 ## [1.9.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.11...v1.9.12) (2025-10-19)
 
 
