@@ -2166,18 +2166,33 @@ function createBuilder(initialConfig: AddonConfig = {}) {
         async ({
             id,
             type,
+            config: requestConfig
         }: {
             id: string;
             type: string;
+            config?: any;
         }): Promise<{
             streams: Stream[];
         }> => {
             try {
                 console.log(`🔍 Stream request: ${type}/${id}`);
 
-                // ✅ USA SEMPRE la configurazione dalla cache globale più aggiornata
-                const config = { ...configCache };
-                console.log(`🔧 Using global config cache for stream:`, config);
+                // FIXED: Usa config dalla richiesta se disponibile, altrimenti usa cache
+                // e aggiorna cache se la richiesta ha MFP
+                let config = { ...configCache };
+                if (requestConfig && Object.keys(requestConfig).length > 0) {
+                    console.log(`🔧 [SPON-FIX] Config received from request:`, requestConfig);
+                    config = { ...config, ...requestConfig };
+                    // Aggiorna cache se requestConfig ha MFP
+                    if (requestConfig.mediaFlowProxyUrl || requestConfig.mediaFlowProxyPassword) {
+                        console.log(`🔧 [SPON-FIX] Updating configCache with MFP from request`);
+                        Object.assign(configCache, {
+                            mediaFlowProxyUrl: requestConfig.mediaFlowProxyUrl || configCache.mediaFlowProxyUrl,
+                            mediaFlowProxyPassword: requestConfig.mediaFlowProxyPassword || configCache.mediaFlowProxyPassword
+                        });
+                    }
+                }
+                console.log(`🔧 Using config for stream (MFP: ${config.mediaFlowProxyUrl ? 'SET' : 'MISSING'}):`, config);
 
                 const allStreams: Stream[] = [];
 
@@ -3205,20 +3220,26 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         // === SPON (sportzonline) injection (always-on, no placeholders / no time gating) ===
                         try {
                             const eventName = (channel as any).name || '';
+                            
                             if (!eventName) {
-                                // nothing
+                                // skip silently
                             } else {
                                 const { fetchSponSchedule, matchRowsForEvent, debugExtractTeams } = await import('./extractors/sponSchedule');
                                 const { extractSportzonlineStream } = await import('./extractors/sportsonline');
-                                const schedule = await fetchSponSchedule(false).catch(()=>[] as any[]);
+                                
+                                const schedule = await fetchSponSchedule(false).catch((err)=>{ console.log('[SPON] ❌ Schedule fetch failed:', err.message); return [] as any[]; });
+                                
                                 if (!Array.isArray(schedule) || !schedule.length) {
+                                    console.log(`[SPON] ⚠️ No schedule data available`);
                                     debugLog(`[SPON][DEBUG] schedule empty/invalid for '${eventName}'`);
                                 } else {
-                                    try { const dbg = debugExtractTeams(eventName); debugLog(`[SPON][DEBUG] parsed teams t1='${dbg.team1}' t2='${dbg.team2}' raw='${dbg.raw}'`); } catch {}
                                     const matched = matchRowsForEvent({ name: eventName }, schedule as any) || [];
+                                    
                                     if (!matched.length) {
+                                        console.log(`[SPON] 🔍 Event NOT found: "${eventName}"`);
                                         debugLog(`[SPON][DEBUG] matched=0 for '${eventName}'`);
                                     } else {
+                                        console.log(`[SPON] ✅ Event found: "${eventName}" → ${matched.length} streams`);
                                         // Calcolo solo per futureTag (no gating)
                                         let eventStart: Date | null = null; let futureTag = '';
                                         try {
@@ -3232,11 +3253,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             const deltaMs = eventStart.getTime() - Date.now();
                                             if (deltaMs > 0) futureTag = ` (Inizia alle ${matched[0].time})`;
                                         } catch {}
-                                        const mfpUrl = (config.mediaFlowProxyUrl || process.env.MFP_URL || process.env.MEDIAFLOW_PROXY_URL || '').toString().trim();
-                                        const mfpPsw = (config.mediaFlowProxyPassword || process.env.MFP_PASSWORD || process.env.MEDIAFLOW_PROXY_PASSWORD || process.env.MFP_PSW || '').toString().trim();
+                                        // FIXED: usa fallback a configCache se config è vuoto (seconda chiamata stream)
+                                        const effectiveConfig = (config && (config.mediaFlowProxyUrl || config.mediaFlowProxyPassword)) ? config : configCache;
+                                        const mfpUrl = (effectiveConfig.mediaFlowProxyUrl || process.env.MFP_URL || process.env.MEDIAFLOW_PROXY_URL || '').toString().trim();
+                                        const mfpPsw = (effectiveConfig.mediaFlowProxyPassword || process.env.MFP_PASSWORD || process.env.MEDIAFLOW_PROXY_PASSWORD || process.env.MFP_PSW || '').toString().trim();
+                                        
                                         if (!mfpUrl || !mfpPsw) {
+                                            // Skip silently (seconda chiamata senza config)
                                             debugLog(`[SPON] MFP non configurato -> salto wrap per '${eventName}'`);
                                         } else {
+                                            console.log('[SPON] ✓ MFP OK');
                                             const seen = new Set<string>();
                                             const collected: Stream[] = [];
                                             for (const row of matched.slice(0,12)) {
@@ -3305,7 +3331,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     }
                                 }
                             }
-                        } catch (e) { debugLog('[SPON] injection error', e); }
+                        } catch (e) { 
+                            console.log('[SPON] ❌ Error:', (e as any)?.message || e); 
+                            debugLog('[SPON] injection error', e); 
+                        }
                         const allowVavooClean = true; // simplified: always allow clean Vavoo variant
                         for (const s of streams) {
                             // Support special marker '#headers#<b64json>' to attach headers properly
