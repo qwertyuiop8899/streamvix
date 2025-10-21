@@ -65,29 +65,42 @@ async function fetchText(url: string, referer?: string): Promise<string | null> 
     };
     if (referer) headers['Referer'] = referer;
     const r = await fetch(url, { headers });
-    if (!r.ok) return null; return await r.text();
-  } catch { return null; }
+    if (!r.ok) return null; 
+    const text = await r.text();
+    return text;
+  } catch (e) { 
+    return null; 
+  }
 }
 
 export class SportsonlineExtractor implements HostExtractor {
   id = 'sportsonline';
   supports(url: string): boolean {
-    // AGGIORNATO: usa solo dominio principale sportzonline.st
-    // Altri domini legacy rimossi (cambiavano spesso)
-    return /sportzonline\.st/i.test(url);
+    // AGGIORNATO: dominio principale sportsonline.sn (redirect da .st e .live)
+    // Supporta anche i vecchi domini per retrocompatibilità
+    return /sport(s)?online?\.(st|sn|live|si)/i.test(url);
   }
   async extract(pageUrl: string, ctx: ExtractorContext): Promise<ExtractResult> {
     // Step 1: main page
     const mainHtml = await fetchText(pageUrl);
-    if (!mainHtml) return { streams: [] };
+    if (!mainHtml) {
+      return { streams: [] };
+    }
+    
     const iframeMatch = mainHtml.match(/<iframe src="(.*?)"/i);
-    if (!iframeMatch) return { streams: [] };
+    if (!iframeMatch) {
+      return { streams: [] };
+    }
+    
     let iframeUrl = iframeMatch[1];
     if (iframeUrl.startsWith('//')) iframeUrl = 'https:' + iframeUrl;
     else if (iframeUrl.startsWith('/')) iframeUrl = 'https:' + iframeUrl;
 
-    // Step 2: iframe fetch
-    const iframeHtml = await fetchText(iframeUrl, 'https://sportsonline.si/');
+    // Step 2: iframe fetch - usa dominio attuale come referer
+    const urlObj = new URL(pageUrl);
+    const referer = `${urlObj.protocol}//${urlObj.host}/`;
+    
+    const iframeHtml = await fetchText(iframeUrl, referer);
     if (!iframeHtml) return { streams: [] };
 
     // Optional dump for debug: set ENV STREAMVIX_DUMP_IFRAME=1
