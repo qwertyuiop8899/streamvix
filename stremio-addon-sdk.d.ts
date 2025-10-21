@@ -7,7 +7,7 @@ declare module 'stremio-addon-sdk' {
   /** Costruttore usato con `new addonBuilder(...)` */
   export class addonBuilder {
     constructor(manifest: Manifest);
-    defineStreamHandler(handler: any): void;
+    defineStreamHandler(handler: (args: { type: string; id: string; config?: any }) => Promise<{ streams: Stream[] }>): void;
     /* Altri metodi del vero SDK non indispensabili al compile-time     */
     defineCatalogHandler?: any;
     defineMetaHandler?: any;
