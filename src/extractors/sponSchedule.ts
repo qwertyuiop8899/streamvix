@@ -19,11 +19,14 @@ const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 let cache: CacheEntry | null = null;
 
 const DAY_REGEX = /^(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY)\s*$/i;
-// Righe evento: HH:MM <spaces> <descrizione> | <url>
-const LINE_REGEX = /^(\d{2}:\d{2})\s+(.*?)\s*\|\s*(https?:\/\/[^\s]+)$/;
+// Righe evento: HH:MM <spaces> <descrizione> [|] <url>
+// AGGIORNATO: pipe "|" ora opzionale (formato ottobre 2025)
+const LINE_REGEX = /^(\d{2}:\d{2})\s+(.*?)\s*\|?\s*(https?:\/\/[^\s]+)$/;
 
 function extractChannelCode(url: string): string {
-  // es: https://sportzonline.st/channels/hd/hd7.php -> hd7
+  // es: https://sportzonline.live/channels/hd/hd7.php -> hd7
+  //     https://sportzonline.live/channels/pt/eleven1.php -> eleven1
+  //     https://sportzonline.live/channels/bra/br3.php -> br3
   try {
     const m = url.match(/\/channels\/([^/]+)\/([^/.]+)\.php/);
     if (m) return m[2].toLowerCase();
@@ -37,7 +40,10 @@ export async function fetchSponSchedule(force = false): Promise<SponRow[]> {
   const now = Date.now();
   const forceRefreshEnv = process.env.SPON_PROG_FORCE_REFRESH === '1' || process.env.SPON_PROG_FORCE_REFRESH === 'true';
   const effectiveForce = force || forceRefreshEnv;
-  if (!effectiveForce && cache && (now - cache.fetchedAt) < CACHE_TTL_MS) return cache.rows;
+  
+  if (!effectiveForce && cache && (now - cache.fetchedAt) < CACHE_TTL_MS) {
+    return cache.rows;
+  }
   const baseDir = process.cwd();
   const cfgDir = path.join(baseDir, 'config');
   const overridePath = path.join(cfgDir, 'prog.override.txt');
@@ -57,8 +63,13 @@ export async function fetchSponSchedule(force = false): Promise<SponRow[]> {
   if (text == null) {
     const primary = (process.env.SPON_PROG_URL || '').trim();
     const extra = (process.env.SPON_PROG_FALLBACKS || '').split(',').map(s=>s.trim()).filter(Boolean);
-    // SEMPLIFICATO: usa solo sportzonline.st (dominio stabile)
-    const builtin = ['https://sportzonline.st/prog.txt'];
+    // AGGIORNATO: dominio principale sportzonline.live (ottobre 2025)
+    // Altri domini fanno redirect al principale
+    const builtin = [
+      'https://sportzonline.live/prog.txt',
+      'https://sportsonline.sn/prog.txt',
+      'https://sportzonline.st/prog.txt'
+    ];
     const urls: string[] = [];
     if (primary) urls.push(primary);
     for (const u of extra) if (!urls.includes(u)) urls.push(u);
@@ -76,34 +87,35 @@ export async function fetchSponSchedule(force = false): Promise<SponRow[]> {
         });
         const status = res.status;
         const finalUrl = res.url;
+        
         if (res.ok) {
           const body = await res.text();
-            // Considera vuoto come fallimento per passare al prossimo
+          
+          // Considera vuoto come fallimento per passare al prossimo
           if (body.trim().length < 10) {
             attempts.push({ url, status, ok: false, err: 'empty-body' });
-            console.debug('[SPON][SCHEDULE][TRY] ' + url + ' -> ' + finalUrl + ' status=' + status + ' empty-body');
             continue;
           }
           text = body;
           attempts.push({ url, status, ok: true, length: body.length });
-          if (finalUrl !== url) {
-            console.debug('[SPON][SCHEDULE][TRY] ' + url + ' redirected -> ' + finalUrl + ' status=' + status + ' OK length=' + body.length);
-          } else {
-            console.debug('[SPON][SCHEDULE][TRY] ' + url + ' status=' + status + ' OK length=' + body.length);
-          }
+          
+          // Log solo dominio usato e lunghezza
+          const domain = new URL(finalUrl || url).hostname;
+          console.log(`[SPON] 📡 Using: ${domain} (${body.length} bytes)`);
+          
           // Salva cache file
           try {
             if (!fs.existsSync(cfgDir)) fs.mkdirSync(cfgDir, { recursive: true });
             fs.writeFileSync(cachePath, body, 'utf8');
-          } catch {}
+          } catch (e) {
+            console.debug('[SPON] Cache save failed:', e);
+          }
           break;
         } else {
           attempts.push({ url, status, ok: false });
-          console.debug('[SPON][SCHEDULE][TRY] ' + url + ' status=' + status + ' FAIL' + (finalUrl && finalUrl !== url ? ' (finalUrl=' + finalUrl + ')' : ''));
         }
       } catch (e:any) {
         attempts.push({ url, ok: false, err: e?.message || String(e) });
-        console.debug('[SPON][SCHEDULE][TRY] ' + url + ' error=' + (e?.message || e));
       }
     }
   }
@@ -113,16 +125,16 @@ export async function fetchSponSchedule(force = false): Promise<SponRow[]> {
     try {
       if (fs.existsSync(cachePath)) {
         text = fs.readFileSync(cachePath,'utf8');
-        console.debug('[SPON][SCHEDULE] Using cached prog_cache.txt length=' + text.length + (attempts.length ? ' (remote attempts failed)' : ''));
+        console.log('[SPON] 📂 Using cached file (remote failed)');
       }
     } catch {}
   }
 
   if (text == null) {
-    console.debug('[SPON][SCHEDULE] All attempts failed summary=', attempts);
+    console.log('[SPON] ❌ All fetch attempts failed');
     throw new Error('SPON schedule fetch failed attempts=' + attempts.length);
   }
-
+  
   const hash = crypto.createHash('sha1').update(text).digest('hex');
   if (!effectiveForce && cache && cache.hash === hash) {
     cache.fetchedAt = now; // refresh timestamp
@@ -147,6 +159,7 @@ export async function fetchSponSchedule(force = false): Promise<SponRow[]> {
       rows.push({ day: currentDay, time, rawMatch: left, url, channelCode });
     }
   }
+  
   cache = { rows, fetchedAt: now, hash };
   return rows;
 }
