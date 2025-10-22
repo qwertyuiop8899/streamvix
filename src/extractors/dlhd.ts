@@ -75,57 +75,47 @@ function createAxiosConfig(headers: any, proxy?: string | null, timeout = 15000)
  * 2. If 400/403 → Try DLHD_PROXY (ENV)
  * 3. If fails → Rotate through proxies.ts
  */
-async function axiosGetWithRetry(url: string, headers: any, timeout = 15000, responseType?: 'arraybuffer'): Promise<any> {
+async function axiosGetWithRetry(url: string, headers: any, timeout = 15000, responseType?: 'arraybuffer'): Promise<{ response: any; fallbackOccurred: boolean }> {
   let lastError: any = null;
-  
-  // Attempt 1: Direct connection (no proxy)
-  try {
-    debugLog(`[Attempt 1/4] Trying direct connection...`);
-    const config = createAxiosConfig(headers, null, timeout);
-    if (responseType) {
-      config.responseType = responseType;
-    }
-    const response = await axios.get(url, config);
-    
-    // Success!
-    debugLog(`✅ Direct connection works`);
-    return response;
-    
-  } catch (error: any) {
-    lastError = error;
-    const status = error.response?.status;
-    
-    // Only retry with proxy if IP is blocked (400/403) or connection errors
-    const isConnectionError = error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND';
-    if (status !== 400 && status !== 403 && !isConnectionError) {
-      debugLog(`❌ Direct failed with status ${status}, not IP block or connection error - throwing`);
-      throw error;
-    }
-    
-    if (isConnectionError) {
-      console.log(`[DLHD] ⚠️ Connection error (${error.code}) for ${url}, trying with proxy...`);
-    } else {
-      debugLog(`[DLHD] IP blocked (${status}), trying with proxy...`);
+  const envProxy = process.env.DLHD_PROXY;
+  let fallbackOccurred = false;
+
+  // Se DLHD_PROXY è impostato, provalo per primo.
+  if (envProxy) {
+    try {
+      debugLog(`[Attempt 1/4] Trying ENV proxy first...`);
+      const config = createAxiosConfig(headers, envProxy, timeout);
+      if (responseType) config.responseType = responseType;
+      const response = await axios.get(url, config);
+      debugLog(`✅ ENV proxy works`);
+      return { response, fallbackOccurred: false };
+    } catch (error: any) {
+      lastError = error;
+      debugLog(`⚠️ ENV proxy failed (${error.response?.status || error.code}), falling back...`);
     }
   }
 
-  // Attempt 2: ENV proxy (DLHD_PROXY)
-  if (process.env.DLHD_PROXY) {
-    try {
-      debugLog(`[Attempt 2/4] Trying ENV proxy...`);
-      const config = createAxiosConfig(headers, process.env.DLHD_PROXY, timeout);
-      if (responseType) {
-        config.responseType = responseType;
-      }
-      const response = await axios.get(url, config);
-      
-      // Success!
-      debugLog(`✅ ENV proxy works`);
-      return response;
-      
-    } catch (error: any) {
-      lastError = error;
-      debugLog(`⚠️ ENV proxy failed (${error.response?.status || error.code}), trying proxies.ts`);
+  // Attempt 2: Connessione diretta (o primo tentativo se DLHD_PROXY non è impostato)
+  try {
+    debugLog(`[Attempt 2/4] Trying direct connection...`);
+    const config = createAxiosConfig(headers, null, timeout);
+    if (responseType) config.responseType = responseType;
+    const response = await axios.get(url, config);
+    debugLog(`✅ Direct connection works`);
+    if (envProxy) fallbackOccurred = true; // C'era un proxy ma abbiamo usato la diretta
+    return { response, fallbackOccurred };
+  } catch (error: any) {
+    lastError = error;
+    const status = error.response?.status;
+    const isConnectionError = error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND';
+    if (status !== 400 && status !== 403 && status !== 418 && !isConnectionError) {
+      debugLog(`❌ Direct failed with status ${status}, not IP block or connection error - throwing`);
+      throw error;
+    }
+    if (isConnectionError) {
+      console.log(`[DLHD] ⚠️ Connection error (${error.code}) for ${url}, trying rotating proxies...`);
+    } else {
+      debugLog(`[DLHD] IP blocked (${status}), trying rotating proxies...`);
     }
   }
 
@@ -151,7 +141,7 @@ async function axiosGetWithRetry(url: string, headers: any, timeout = 15000, res
         
         // Success!
         debugLog(`✅ Proxy from proxies.ts works`);
-        return response;
+        return { response, fallbackOccurred: false };
         
       } catch (error: any) {
         lastError = error;
@@ -166,6 +156,11 @@ async function axiosGetWithRetry(url: string, headers: any, timeout = 15000, res
   console.error('[DLHD] ❌ All connection methods failed for URL:', url);
   console.error('[DLHD] Last error:', lastError?.message || lastError);
   throw lastError;
+}
+
+// Errore custom per segnalare un riavvio del processo di estrazione
+class FallbackError extends Error {
+  constructor(message: string) { super(message); this.name = 'FallbackError'; }
 }
 
 interface AuthParams {
@@ -199,6 +194,16 @@ interface AuthCacheData {
   timestamp: number;
 }
 
+// Cache per StreamInfo finale (manifestUrl, keyUrl, headers)
+interface StreamInfoCacheData {
+  streamInfo: StreamInfo;
+  timestamp: number;
+  refreshing?: boolean; // Flag per evitare refresh concorrenti
+}
+
+const streamInfoCache: Map<string, StreamInfoCacheData> = new Map();
+const STREAM_INFO_CACHE_TTL = 10 * 60 * 1000; // 10 minuti
+const STREAM_INFO_REFRESH_THRESHOLD = 8 * 60 * 1000; // 8 minuti
 // Cache SOLO auth data per channel (come Python)
 const authCache: Map<string, AuthCacheData> = new Map();
 
@@ -232,7 +237,8 @@ async function performFullExtraction(url: string, channelId: string, retryCount 
 
   // Step 1: Request initial page
   const initialUrl = url.startsWith('http') ? url : baseUrl + url.replace(/^\//, '');
-  const response1 = await axiosGetWithRetry(initialUrl, daddyliveHeaders, 15000);
+  const { response: response1, fallbackOccurred: fb1 } = await axiosGetWithRetry(initialUrl, daddyliveHeaders, 15000);
+  if (fb1) throw new FallbackError('Fallback to direct connection occurred during initial page fetch.');
 
   // Extract player links
   const playerLinkRegex = /<button[^>]*data-url="([^"]+)"[^>]*>Player\s*\d+<\/button>/g;
@@ -252,12 +258,13 @@ async function performFullExtraction(url: string, channelId: string, retryCount 
     try {
       const fullPlayerUrl = playerUrl.startsWith('http') ? playerUrl : baseUrl + playerUrl.replace(/^\//, '');
       
-      const response2 = await axiosGetWithRetry(fullPlayerUrl, {
+      const { response: response2, fallbackOccurred: fb2 } = await axiosGetWithRetry(fullPlayerUrl, {
         ...daddyliveHeaders,
         'Referer': fullPlayerUrl,
         'Origin': fullPlayerUrl
       }, 12000);
-
+      if (fb2) throw new FallbackError('Fallback to direct connection occurred during player page fetch.');
+      
       const iframeRegex = /iframe src="([^"]*)"/g;
       let iframeMatch;
       while ((iframeMatch = iframeRegex.exec(response2.data)) !== null) {
@@ -286,10 +293,11 @@ async function performFullExtraction(url: string, channelId: string, retryCount 
         continue;
       }
 
-      const response3 = await axiosGetWithRetry(iframe, daddyliveHeaders, 12000);
-
+      const { response: response3, fallbackOccurred: fb3 } = await axiosGetWithRetry(iframe, daddyliveHeaders, 12000);
+      if (fb3) throw new FallbackError('Fallback to direct connection occurred during iframe fetch.');
+      
       iframeUrl = iframe;
-      iframeContent = response3.data;
+      iframeContent = response3.data as string;
       break;
     } catch (error) {
       // Silent fallback to next iframe
@@ -373,14 +381,15 @@ async function performFullExtraction(url: string, channelId: string, retryCount 
 
   // Step 5: Perform authentication
   try {
-    await axiosGetWithRetry(authUrl.toString(), authHeaders, 12000);
+    const { fallbackOccurred: fbAuth } = await axiosGetWithRetry(authUrl.toString(), authHeaders, 12000);
+    if (fbAuth) throw new FallbackError('Fallback to direct connection occurred during auth call.');
   } catch (error) {
     throw new Error(`Authentication failed: ${(error as any)?.message || error}`);
   }
 
   // Step 6: Server lookup
   let serverLookup = '/server_lookup.js?channel_id=';
-  if (!iframeContent.includes('fetchWithRetry(\'/server_lookup.js?channel_id=\'')) {
+  if (iframeContent && !iframeContent.includes('fetchWithRetry(\'/server_lookup.js?channel_id=\'')) {
     const lines = iframeContent.split('\n');
     for (const line of lines) {
       if (line.includes('server_lookup.') && line.includes('fetchWithRetry')) {
@@ -394,8 +403,10 @@ async function performFullExtraction(url: string, channelId: string, retryCount 
   }
 
   const serverLookupUrl = `https://${new URL(iframeUrl).hostname}${serverLookup}${channelKey}`;
-  const lookupResponse = await axiosGetWithRetry(serverLookupUrl, daddyliveHeaders, 10000);
-  const serverData = lookupResponse.data;
+  const lookupResult = await axiosGetWithRetry(serverLookupUrl, daddyliveHeaders, 10000);
+  if (lookupResult.fallbackOccurred) throw new FallbackError('Fallback to direct connection occurred during server lookup.');
+  
+  const serverData = lookupResult.response.data;
   const serverKey = serverData.server_key;
   
   if (!serverKey) {
@@ -625,25 +636,82 @@ function extractAuthParams(jsContent: string): Partial<AuthParams> {
  * Usa cache per evitare estrazione completa ogni volta (solo server_lookup fresco)
  */
 export async function extractDaddyLiveStream(url: string): Promise<StreamInfo> {
-  // Extract channel ID first
   const channelId = extractChannelId(url);
   if (!channelId) {
     throw new Error(`Unable to extract channel ID from ${url}`);
   }
 
-  // DISABILITATA quick extraction - i parametri auth scadono troppo velocemente (403 dopo pochi secondi)
-  // Facciamo sempre full extraction per avere parametri freschi
-  debugLog(`[DLHD] Performing full extraction for channel ${channelId} (auth expires too fast for caching)`);
+  const now = Date.now();
+  const cached = streamInfoCache.get(url);
 
+  if (cached && (now - cached.timestamp) < STREAM_INFO_CACHE_TTL) {
+    debugLog(`[Cache] HIT for ${channelId}. Age: ${Math.round((now - cached.timestamp) / 1000)}s`);
+
+    // Background refresh if data is getting old
+    if ((now - cached.timestamp) > STREAM_INFO_REFRESH_THRESHOLD && !cached.refreshing) {
+      debugLog(`[Cache] Stale data for ${channelId}, triggering background refresh.`);
+      cached.refreshing = true;
+
+      // Non attendere il completamento del refresh
+      performFullExtraction(url, channelId, 0)
+        .then(newStreamInfo => {
+          streamInfoCache.set(url, {
+            streamInfo: newStreamInfo,
+            timestamp: Date.now(),
+            refreshing: false
+          });
+          debugLog(`[Cache] Background refresh SUCCESS for ${channelId}`);
+        })
+        .catch(err => {
+          debugLog(`[Cache] Background refresh FAILED for ${channelId}:`, err.message);
+          // Mantiene i dati vecchi in cache (stale-on-error)
+          const existing = streamInfoCache.get(url);
+          if (existing) {
+            existing.refreshing = false;
+          }
+        });
+    }
+
+    return cached.streamInfo;
+  }
+
+  debugLog(`[Cache] MISS for ${channelId}. Performing full extraction.`);
+
+  // Se la cache è scaduta o non presente, esegui l'estrazione completa
   try {
-    const streamInfo = await performFullExtraction(url, channelId, 0);
-    console.log(`[DLHD] ✅ Channel ${channelId} extracted successfully`);
-    return streamInfo;
-  } catch (error) {
-    // Se fallisce e c'è cache (anche scaduta), invalida e riprova UNA VOLTA
+    try {
+      const streamInfo = await performFullExtraction(url, channelId, 0);
+      streamInfoCache.set(url, { streamInfo, timestamp: Date.now() });
+      console.log(`[DLHD] ✅ Channel ${channelId} extracted and cached successfully`);
+      return streamInfo;
+    } catch (error: any) {
+      if (error instanceof FallbackError) {
+        authCache.delete(channelId); // Invalida cache auth prima di riprovare
+        console.warn(`[DLHD] ⚠️ ${error.message} Retrying extraction without proxy.`);
+        process.env.DLHD_PROXY = ''; // Disabilita il proxy per il riavvio
+        return await performFullExtraction(url, channelId, 1); // Riprova
+      }
+      throw error; // Rilancia altri errori
+    }
+  } catch (error: any) {
+    // Se il primo tentativo fallisce con FallbackError, gestiscilo qui
+    if (error instanceof FallbackError) {
+      authCache.delete(channelId); // Invalida cache auth prima di riprovare
+      console.warn(`[DLHD] ⚠️ ${error.message} Retrying extraction without proxy (from outer catch).`);
+      process.env.DLHD_PROXY = ''; // Disabilita il proxy per il riavvio
+      return await performFullExtraction(url, channelId, 1); // Riprova
+    }
+
+    // Se l'estrazione fallisce, ma abbiamo dati vecchi in cache, li restituiamo (stale-if-error)
+    if (cached) {
+      console.warn(`[DLHD] ⚠️ Extraction failed for ${channelId}, returning stale data from cache. Error: ${error.message}`);
+      return cached.streamInfo;
+    }
+
+    // Se fallisce e non c'è cache, prova a invalidare la cache auth e riprovare una volta
     if (authCache.has(channelId)) {
-      console.log(`[DLHD] ⚠️ Extraction failed, invalidating auth cache and retrying once...`);
-      authCache.delete(channelId);
+      console.warn(`[DLHD] ⚠️ Extraction failed, invalidating auth cache and retrying once...`);
+      authCache.delete(channelId); // Invalida la cache auth specifica
       const streamInfo = await performFullExtraction(url, channelId, 1);
       console.log(`[DLHD] ✅ Channel ${channelId} extracted successfully on retry`);
       return streamInfo;
@@ -700,8 +768,8 @@ async function performQuickExtraction(
   const serverLookup = '/server_lookup.js?channel_id=';
   const serverLookupUrl = `https://${iframeDomain}${serverLookup}${channelKey}`;
   
-  const lookupResponse = await axiosGetWithRetry(serverLookupUrl, daddyliveHeaders, 10000);
-  const serverData = lookupResponse.data;
+  const lookupResult = await axiosGetWithRetry(serverLookupUrl, daddyliveHeaders, 10000);
+  const serverData = lookupResult.response.data;
   const serverKey = serverData.server_key;
   
   if (!serverKey) {
@@ -750,11 +818,16 @@ export async function fetchAndModifyManifest(
 ): Promise<string> {
   // Fetch original manifest WITH headers (NO CACHE - manifest changes frequently!)
   // Use automatic proxy retry if IP is blocked
-  const response = await axiosGetWithRetry(manifestUrl, headers, 10000);
-  let manifest = response.data;
+  let manifest: string;
+  try {
+    const result = await axiosGetWithRetry(manifestUrl, headers, 10000);
+    manifest = result.response.data;
+  } catch (error: any) {
+    throw new Error(`Failed to fetch manifest from ${manifestUrl}: ${error.message}`);
+  }
 
   // Find and replace the #EXT-X-KEY line
-  const keyLineRegex = /#EXT-X-KEY:METHOD=AES-128,URI="([^"]+)"(,IV=[^,\n]+)?(,KEYFORMAT="[^"]+")?\n?/;
+  const keyLineRegex = /#EXT-X-KEY:METHOD=AES-128,URI="([^"]+)"((?:,IV=[^,\n]+)?|(?:,KEYFORMAT="[^"]+")?)*\n?/;
   const match = manifest.match(keyLineRegex);
 
   if (!match) {
@@ -791,8 +864,8 @@ export async function fetchKey(
   headers: { 'User-Agent': string; 'Referer': string; 'Origin': string }
 ): Promise<Buffer> {
   debugLog(`[Key] Fetching encryption key from server...`);
-  const response = await axiosGetWithRetry(keyUrl, headers, 10000, 'arraybuffer');
-  const key = Buffer.from(response.data);
+  const result = await axiosGetWithRetry(keyUrl, headers, 10000, 'arraybuffer');
+  const key = Buffer.from(result.response.data);
   
   return key;
 }
