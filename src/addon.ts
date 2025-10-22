@@ -30,6 +30,8 @@ import * as util from 'util';
 import { fetchPage } from './providers/flaresolverr';
 // Live gdplayer runtime resolver (for tagging)
 import { resolveGdplayerForChannel, inferGdplayerSlug } from './extractors/gdplayerRuntime';
+// Amstaff updater
+import { startAmstaffScheduler } from './utils/amstaffUpdater';
 
 // ================= TYPES & INTERFACES =================
 interface AddonConfig {
@@ -2819,6 +2821,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
 
                     // staticUrlMpd (sempre attivo se presente, non dipende da enableMpd)
+                    console.log(`🔧 [staticUrlMpd] DEBUG - channel has staticUrlMpd? ${!!(channel as any).staticUrlMpd}`);
                     if ((channel as any).staticUrlMpd) {
                         console.log(`🔧 [staticUrlMpd] Raw URL: ${(channel as any).staticUrlMpd}`);
                         const decodedUrl = decodeStaticUrl((channel as any).staticUrlMpd);
@@ -4770,14 +4773,19 @@ app.get('/static/reload', (req: Request, res: Response) => {
         _loadStaticChannelsIfChanged(true); // forza reload
         const changed = (_staticFileLastHash !== beforeHash) || (_staticFileLastMtime !== beforeMtime);
         let pdCount = 0;
-        for (const c of staticBaseChannels) if (c && (c as any).pdUrlF) pdCount++;
+        let mpdCount = 0;
+        for (const c of staticBaseChannels) {
+            if (c && (c as any).pdUrlF) pdCount++;
+            if (c && (c as any).staticUrlMpd) mpdCount++;
+        }
         const total = staticBaseChannels.length;
-        console.log(`[TV][RELOAD][API] /static/reload changed=${changed} total=${total} pdUrlF=${pdCount} hash=${_staticFileLastHash.slice(0,12)}`);
+        console.log(`[TV][RELOAD][API] /static/reload changed=${changed} total=${total} pdUrlF=${pdCount} staticUrlMpd=${mpdCount} hash=${_staticFileLastHash.slice(0,12)}`);
         return res.json({
             ok: true,
             changed,
             total,
             pdUrlF: pdCount,
+            staticUrlMpd: mpdCount,
             mtime: _staticFileLastMtime ? new Date(_staticFileLastMtime).toISOString() : null,
             hash: _staticFileLastHash,
         });
@@ -5111,4 +5119,14 @@ function scheduleDailyReload() {
     }, delay);
 }
 setTimeout(() => scheduleDailyReload(), 9000);
+// ====================================================================
+
+// =============== AMSTAFF AUTO-UPDATER ================================
+// Avvia aggiornamento automatico canali Amstaff ogni ora
+try {
+    startAmstaffScheduler();
+    console.log('✅ Amstaff auto-updater attivato');
+} catch (e) {
+    console.error('❌ Errore avvio Amstaff updater:', e);
+}
 // ====================================================================
