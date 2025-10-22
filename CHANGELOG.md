@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.15](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.14...v1.9.15) (2025-10-22)
+
+
+### Bug Fixes
+
+* addtv ([bc67b08](https://github.com/qwertyuiop8899/streamvix/commit/bc67b08193b81f69c2bede161ad8f67a5a92e0b2))
+* bump version ([25283d4](https://github.com/qwertyuiop8899/streamvix/commit/25283d4734e9a235a289a63f5da289da942242f2))
+
 ## [1.9.14](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.13...v1.9.14) (2025-10-21)
 
 
