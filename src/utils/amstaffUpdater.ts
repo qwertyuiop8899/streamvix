@@ -1,0 +1,280 @@
+/**
+ * Amstaff Channel Updater
+ * Aggiorna automaticamente i link staticUrlMpd in tv_channels.json con i link freschi da Amstaff
+ */
+
+import * as fs from 'fs';
+import * as path from 'path';
+import axios from 'axios';
+
+// Mappatura nomi canali Amstaff -> tv_channels.json
+const CHANNEL_NAME_MAPPING: Record<string, string> = {
+    "SKY CALCIO": "SKY SPORT CALCIO",
+    "SKY SPORTS ARENA": "SKY SPORT ARENA",
+    "SKY SPORTS MOTOGP": "SKY SPORT MOTOGP",
+    "SKY MTV": "MTV",
+    "SKY COMEDY CENTRAL": "COMEDY CENTRAL",
+    "SKY TG 24": "SKY TG24",
+    "SKY SPORT BASKET": "SKY SPORT NBA",
+    "SKY SPORT LEGEND": "SKY SPORT 251",
+    "SKY CALCIO HD": "SKY SPORT CALCIO",
+    // Canali calcio numerati
+    "SKY CALCIO 251": "SKY SPORT 251",
+    "SKY CALCIO 252": "SKY SPORT 252",
+    "SKY CALCIO 253": "SKY SPORT 253",
+    "SKY CALCIO 254": "SKY SPORT 254",
+    "SKY CALCIO 255": "SKY SPORT 255",
+    "SKY CALCIO 256": "SKY SPORT 256",
+    "SKY CALCIO 257": "SKY SPORT 257",
+    "SKY CALCIO 258": "SKY SPORT 258",
+    "SKY CALCIO 259": "SKY SPORT 259",
+    "SKY HISTORY": "HISTORY CHANNEL"
+};
+
+interface AmstaffChannel {
+    title: string;
+    encoded: string;
+}
+
+interface TVChannel {
+    id: string;
+    name: string;
+    vavooNames?: string[];
+    staticUrlMpd?: string;
+    [key: string]: any;
+}
+
+/**
+ * Normalizza il nome del canale
+ */
+function normalizeChannelName(name: string): string {
+    return CHANNEL_NAME_MAPPING[name] || name;
+}
+
+/**
+ * Decodifica URL Amstaff e trasforma formato
+ */
+function decodeAmstaffUrl(encodedUrl: string): Buffer | null {
+    try {
+        // Rimuove prefisso amstaff@@
+        let base64Str = encodedUrl.startsWith('amstaff@@') ? encodedUrl.substring(9) : encodedUrl;
+        
+        // Pulisce newlines e spazi
+        base64Str = base64Str.replace(/\n|\r|\s/g, '');
+        
+        // Aggiunge padding se necessario
+        const missingPadding = base64Str.length % 4;
+        if (missingPadding) {
+            base64Str += '='.repeat(4 - missingPadding);
+        }
+        
+        // Decodifica base64
+        const decoded = Buffer.from(base64Str, 'base64');
+        
+        // Trasforma formato: url|key_id:key -> url&key_id=xxx&key=yyy
+        const pipeIndex = decoded.indexOf('|');
+        if (pipeIndex !== -1) {
+            const baseUrl = decoded.slice(0, pipeIndex);
+            const keysPartBuf = decoded.slice(pipeIndex + 1);
+            const colonIndex = keysPartBuf.indexOf(':');
+            
+            if (colonIndex !== -1) {
+                const keyId = keysPartBuf.slice(0, colonIndex);
+                const key = keysPartBuf.slice(colonIndex + 1);
+                
+                // Costruisce nuovo formato
+                return Buffer.concat([
+                    baseUrl,
+                    Buffer.from('&key_id='),
+                    keyId,
+                    Buffer.from('&key='),
+                    key
+                ]);
+            }
+        }
+        
+        return decoded;
+    } catch (error) {
+        console.error('[AMSTAFF] Errore decodifica URL:', error);
+        return null;
+    }
+}
+
+/**
+ * Estrae canali dal JSON Amstaff
+ */
+function extractChannelsFromJson(data: any): AmstaffChannel[] {
+    const channels: AmstaffChannel[] = [];
+    
+    function extractRecursive(obj: any) {
+        if (typeof obj === 'object' && obj !== null) {
+            if ('title' in obj && 'myresolve' in obj) {
+                let title = obj.title;
+                // Pulisce tag COLOR
+                title = title.replace(/\[COLOR lime\]/g, '').replace(/\[\/COLOR\]/g, '').trim();
+                
+                const myresolve = obj.myresolve;
+                if (myresolve && myresolve.startsWith('amstaff@@')) {
+                    channels.push({ title, encoded: myresolve });
+                }
+            }
+            
+            // Continua ricerca ricorsiva
+            for (const key of Object.keys(obj)) {
+                if (key === 'items' || key === 'channels') {
+                    if (Array.isArray(obj[key])) {
+                        obj[key].forEach(extractRecursive);
+                    }
+                } else {
+                    extractRecursive(obj[key]);
+                }
+            }
+        } else if (Array.isArray(obj)) {
+            obj.forEach(extractRecursive);
+        }
+    }
+    
+    extractRecursive(data);
+    return channels;
+}
+
+/**
+ * Scarica canali da Amstaff
+ */
+async function fetchAmstaffChannels(): Promise<Record<string, string>> {
+    const url = Buffer.from('aHR0cHM6Ly90ZXN0MzQzNDQuaGVyb2t1YXBwLmNvbS9maWx0ZXIucGhwP251bVRlc3Q9QTFBMjYw', 'base64').toString('utf-8');
+    
+    try {
+        const response = await axios.get(url, { timeout: 30000 });
+        const channels = extractChannelsFromJson(response.data);
+        
+        const processedChannels: Record<string, string> = {};
+        
+        for (const channel of channels) {
+            const decodedUrl = decodeAmstaffUrl(channel.encoded);
+            
+            if (decodedUrl) {
+                // Ricodifica in base64
+                const reencodedBase64 = decodedUrl.toString('base64');
+                
+                // Normalizza nome canale
+                const normalizedName = normalizeChannelName(channel.title);
+                
+                processedChannels[normalizedName] = reencodedBase64;
+            }
+        }
+        
+        return processedChannels;
+    } catch (error) {
+        console.error('[AMSTAFF] Errore download canali:', error);
+        return {};
+    }
+}
+
+/**
+ * Aggiorna tv_channels.json con i link Amstaff
+ */
+export async function updateAmstaffChannels(): Promise<number> {
+    try {
+        console.log('[AMSTAFF] 📥 Inizio aggiornamento canali...');
+        
+        // Scarica canali Amstaff
+        const amstaffChannels = await fetchAmstaffChannels();
+        const amstaffCount = Object.keys(amstaffChannels).length;
+        
+        if (amstaffCount === 0) {
+            console.log('[AMSTAFF] ⚠️  Nessun canale scaricato');
+            return 0;
+        }
+        
+        console.log(`[AMSTAFF] ✅ Scaricati ${amstaffCount} canali`);
+        
+        // Legge tv_channels.json dalla STESSA posizione che usa l'addon
+        // __dirname è dist/utils/, quindi andiamo a ../../config/ (non ../config/)
+        const tvChannelsPath = path.join(__dirname, '../../config/tv_channels.json');
+        console.log(`[AMSTAFF] 📁 Percorso file: ${tvChannelsPath}`);
+        const tvChannelsData = fs.readFileSync(tvChannelsPath, 'utf-8');
+        const tvChannels: TVChannel[] = JSON.parse(tvChannelsData);
+        
+        let updates = 0;
+        
+        // Aggiorna canali
+        for (const channel of tvChannels) {
+            if (channel.vavooNames && Array.isArray(channel.vavooNames)) {
+                for (const vavooName of channel.vavooNames) {
+                    if (amstaffChannels[vavooName]) {
+                        channel.staticUrlMpd = amstaffChannels[vavooName];
+                        updates++;
+                        console.log(`[AMSTAFF]   ✅ ${channel.name} (${vavooName})`);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (updates > 0) {
+            // Salva file aggiornato
+            fs.writeFileSync(tvChannelsPath, JSON.stringify(tvChannels, null, 2), 'utf-8');
+            console.log(`[AMSTAFF] ✅ Aggiornati ${updates} canali in tv_channels.json`);
+            
+            // Forza il reload dell'addon chiamando l'endpoint interno
+            try {
+                // Aspetta 1 secondo per assicurarsi che il file sia scritto
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Triggera il reload via HTTP locale (se l'addon è in esecuzione)
+                const http = require('http');
+                const options = {
+                    hostname: 'localhost',
+                    port: process.env.PORT || 7000,
+                    path: '/static/reload',
+                    method: 'GET',
+                    timeout: 3000
+                };
+                
+                const req = http.request(options, (res: any) => {
+                    let data = '';
+                    res.on('data', (chunk: any) => { data += chunk; });
+                    res.on('end', () => {
+                        console.log('[AMSTAFF] 🔄 Reload triggerat', data ? JSON.parse(data) : 'ok');
+                    });
+                });
+                
+                req.on('error', (err: any) => {
+                    // Silently ignore - addon might not be running yet
+                    console.log('[AMSTAFF] ℹ️  Reload non disponibile (addon non ancora avviato?)');
+                });
+                
+                req.end();
+            } catch (err) {
+                console.log('[AMSTAFF] ⚠️  Errore trigger reload:', err);
+            }
+        } else {
+            console.log('[AMSTAFF] ⚠️  Nessun canale aggiornato');
+        }
+        
+        return updates;
+    } catch (error) {
+        console.error('[AMSTAFF] ❌ Errore aggiornamento:', error);
+        return 0;
+    }
+}
+
+/**
+ * Scheduler per aggiornamenti automatici ogni ora
+ */
+export function startAmstaffScheduler() {
+    // Esegue aggiornamento iniziale dopo 30 secondi dall'avvio
+    setTimeout(async () => {
+        console.log('[AMSTAFF] 🚀 Primo aggiornamento all\'avvio...');
+        await updateAmstaffChannels();
+    }, 30000);
+    
+    // Poi ogni ora (3600000 ms)
+    setInterval(async () => {
+        console.log('[AMSTAFF] 🔄 Aggiornamento orario programmato...');
+        await updateAmstaffChannels();
+    }, 3600000);
+    
+    console.log('[AMSTAFF] 📅 Scheduler attivato: aggiornamenti ogni ora');
+}
