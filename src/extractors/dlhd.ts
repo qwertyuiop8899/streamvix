@@ -790,9 +790,16 @@ export async function fetchKey(
   keyUrl: string,
   headers: { 'User-Agent': string; 'Referer': string; 'Origin': string }
 ): Promise<Buffer> {
-  debugLog(`[Key] Fetching encryption key from server...`);
-  const response = await axiosGetWithRetry(keyUrl, headers, 10000, 'arraybuffer');
-  const key = Buffer.from(response.data);
+  debugLog(`[Key] Fetching encryption key from: ${keyUrl}`);
   
-  return key;
+  try {
+    const response = await axiosGetWithRetry(keyUrl, headers, 10000, 'arraybuffer');
+    const key = Buffer.from(response.data);
+    debugLog(`[Key] ✅ Key fetched successfully (${key.length} bytes)`);
+    return key;
+  } catch (error: any) {
+    console.error(`[DLHD][Key] ❌ Failed to fetch key from: ${keyUrl}`);
+    console.error(`[DLHD][Key] Status: ${error.response?.status} - ${error.message}`);
+    throw error;
+  }
 }
