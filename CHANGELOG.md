@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.9.16](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.15...v1.9.16) (2025-10-23)
+
+
+### Bug Fixes
+
+* add gd env ([7cc53f8](https://github.com/qwertyuiop8899/streamvix/commit/7cc53f87e5da632dfd4d92025087596b727ac413))
+* dlhd cache ([9f082e0](https://github.com/qwertyuiop8899/streamvix/commit/9f082e0d4ba30823c8fa8ce030439052c98be9a8))
+* gd ([71bb870](https://github.com/qwertyuiop8899/streamvix/commit/71bb8706a29a93b4452d1ae11ac16e6bd889bb82))
+
 ## [1.9.15](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.14...v1.9.15) (2025-10-22)
 
 
