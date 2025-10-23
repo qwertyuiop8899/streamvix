@@ -579,7 +579,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "8.2.23",
+    version: "8.1.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con VixSRC, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -4393,9 +4393,10 @@ app.get('/dlhd_key', async (req: Request, res: Response) => {
         });
 
         res.setHeader('Content-Type', 'application/octet-stream');
-        res.setHeader('Cache-Control', 'max-age=3600'); // Cache keys for 1 hour
+        res.setHeader('Cache-Control', 'no-store'); // NO CACHE - keys change frequently!
         res.send(keyBuffer);
     } catch (error) {
+        console.error('[DLHD_KEY] ❌ Error:', (error as any)?.message || error);
         res.status(500).send('Error fetching key: ' + ((error as any)?.message || 'Internal error'));
     }
 });
