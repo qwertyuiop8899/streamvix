@@ -432,7 +432,7 @@ export async function resolveGdplayerForChannel(channel: { id?: string; name?: s
   return await resolveGdplayer(slug, opts);
 }
 
-// Solo inferenza dello slug (no rete) per tagging ottimistico
+// Solo inferenza dello slug (no rete) per tagging ottimistico 
 export function inferGdplayerSlug(channel: { id?: string; name?: string; epgChannelIds?: string[]; extraTexts?: string[] }): string | null {
   const idKey = normalizeKey(channel.id);
   const nameKey = normalizeKey(channel.name);
