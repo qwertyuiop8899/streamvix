@@ -7,11 +7,11 @@ import axios from 'axios';
  *  1. GET pagina https://en.freewatchtv.top/live-tv/{slug}
  *  2. Regex data-src="https://ava.karmakurama.com/?id=CODE" -> CODE numerico daddyC
  *  3. Flusso daddyCode:
- *     - GET https://jxoxkplay.xyz/premiumtv/daddylive.php?id=premium{CODE}
+ *     - GET https://kondoplay.cfd/premiumtv/daddylive.php?id=premium{CODE}
  *       * Estrarre base64 (pattern XKZK=...) => decode JSON { b_ts, b_rnd, b_sig }
  *     - GET https://top2new.newkso.ru/auth.php?channel_id=premium{CODE}&ts=...&rnd=...&sig=...
  *       (la risposta può non essere usata direttamente ma serve a validare)
- *     - GET https://jxoxkplay.xyz/server_lookup.php?channel_id=premium{CODE} => { server_key: "wind/" }
+ *     - GET https://kondoplay.cfd/server_lookup.php?channel_id=premium{CODE} => { server_key: "wind/" }
  *  4. Costruire URL finale karmakurama: https://ava.karmakurama.com/{server_key}premium{CODE}/mono.m3u8
  *  5. (Opzionale) Wrapping MFP se mfpUrl/password fornite ma senza rinominare il path karmakurama.
  */
@@ -101,7 +101,7 @@ function b64Decode(str: string): string {
 }
 
 async function fetchDaddyBundle(code: string) {
-  const url = `https://jxoxkplay.xyz/premiumtv/daddylive.php?id=premium${code}`;
+  const url = `https://kondoplay.cfd/premiumtv/daddylive.php?id=premium${code}`;
   const r = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 15000 });
   const txt = r.data as string;
   // Cerca token base64 dopo '=' o pattern XKZK="..."
@@ -124,7 +124,7 @@ async function callAuth(code: string, bundle: { ts: any; rnd: any; sig: any }) {
 }
 
 async function fetchServerKey(code: string): Promise<string> {
-  const url = `https://jxoxkplay.xyz/server_lookup.php?channel_id=premium${code}`;
+  const url = `https://kondoplay.cfd/server_lookup.php?channel_id=premium${code}`;
   const r = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 12000 });
   let j: any = r.data;
   if (typeof j === 'string') {
@@ -300,7 +300,7 @@ export const GDPLAYER_SLUG_CODE_MAP: Record<string, string> = {
 
 // =====================================================================================
 // Mappa opzionale code->serverKey.
-// Scopo: permettere risoluzione offline (senza chiamate a jxoxkplay.xyz / server_lookup)
+// Scopo: permettere risoluzione offline (senza chiamate a kondoplay.cfd / server_lookup)
 // quando conosci già quale server_key (es: "wind/", "top1/") corrisponde ad un CODE.
 //
 // Come usarla:
