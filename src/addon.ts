@@ -2316,7 +2316,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         return mapped.join(' ');
                     }
                     try {
-                        const enableGdPlayer = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_ENABLE||''));
+                        const enableGdPlayer = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_ENABLE||'1'));
                         if (enableGdPlayer && mfpUrl && mfpPsw && !(channel as any)._dynamic) { // richiede MFP configurato
                             const logEnabled = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_LOG||'1'));
                             const inferredSlug = inferGdplayerSlug(channel as any);
