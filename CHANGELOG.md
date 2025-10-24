@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.17](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.16...v1.9.17) (2025-10-24)
+
+
+### Bug Fixes
+
+* add  proxy cb01 ([1418753](https://github.com/qwertyuiop8899/streamvix/commit/1418753010465022d5add7adf27a815e82e52171))
+* domains update ([d10d5b7](https://github.com/qwertyuiop8899/streamvix/commit/d10d5b704ddf3ca6bc908cd71f721394f95e2301))
+
 ## [1.9.16](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.15...v1.9.16) (2025-10-23)
 
 
