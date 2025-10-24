@@ -22,6 +22,9 @@ export interface GdplayerResolved {
   serverKey?: string; // es: wind/ oppure top1/
   url?: string; // URL finale karmakurama (sempre mantenuto)
   wrappedUrl?: string; // URL attraverso MFP proxy se presente
+  directUrl?: string; // URL diretto karmakurama senza MFP (per modalità GD1)
+  httpHeaders?: Record<string, string>; // Headers per Stremio (formato ufficiale SDK)
+  notWebReady?: boolean; // true se non è MP4 o richiede headers (per Stremio SDK)
   error?: string;
   resolvedAt: number;
   debug?: Record<string, any>;
@@ -205,7 +208,22 @@ export async function resolveGdplayer(slug: string, opts?: { mfpUrl?: string; mf
     const finalUrl = `https://ava.karmakurama.com/${serverKeyNormalized}premium${code}/mono.m3u8`;
     out.url = finalUrl;
     gdLog('resolve:success', { slug, code, serverKey });
-    // 4. MFP wrapper opzionale
+    
+    // 4. httpHeaders per Stremio (formato ufficiale secondo SDK documentazione)
+    out.httpHeaders = {
+      'Referer': 'https://en.freewatchtv.top/',
+      'Origin': 'https://en.freewatchtv.top',
+      'User-Agent': UA
+    };
+    
+    // 5. notWebReady: true perché è HLS (m3u8) e richiede headers specifici
+    out.notWebReady = true;
+    
+    // 6. Direct URL (senza MFP) per modalità GD1
+    out.directUrl = finalUrl;
+    gdLog('resolve:direct', { slug, directUrl: finalUrl });
+    
+    // 7. MFP wrapper opzionale (per modalità GD originale)
     if (opts?.mfpUrl && opts?.mfpPassword) {
       const base = opts.mfpUrl.replace(/\/$/, '');
       const pass = encodeURIComponent(opts.mfpPassword);
