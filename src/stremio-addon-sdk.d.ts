@@ -47,7 +47,8 @@ declare module 'stremio-addon-sdk' {
     name?: string;
     url: string;
     behaviorHints?: any;
-    headers?: Record<string, string>;
+    httpHeaders?: Record<string, string>;    // Headers HTTP (formato ufficiale SDK, sperimentale)
+    notWebReady?: boolean;                   // Indica se lo stream richiede player nativo
     [k: string]: any;
   }
 
