@@ -2280,6 +2280,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     let streams: { url: string; title: string }[] = [];
                     // Preparazione: risoluzione GD statica ritardata (inserimento dopo PD/Vavoo/free)
                     let gdStaticPending: { url: string; title: string } | null = null;
+                    let gd1StaticPending: { url: string; title: string; behaviorHints?: any } | null = null;
                     // Helper per nome canale pulito da slug gdplayer (senza orario / evento)
                     const GD_SLUG_DISPLAY: Record<string,string> = {
                         'sky-uno': 'Sky Uno',
@@ -2324,9 +2325,23 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 try {
                                     const gd = await resolveGdplayerForChannel(channel as any, { mfpUrl: mfpUrl, mfpPassword: mfpPsw });
                                         if (gd && gd.url && !gd.error) {
-                                            const finalUrl = gd.wrappedUrl || gd.url;
                                             const cleanName = gdDisplayNameFromSlug(gd.slug) || channel.name;
+                                            // GD (con MFP)
+                                            const finalUrl = gd.wrappedUrl || gd.url;
                                             gdStaticPending = { url: finalUrl, title: `[🌐Gd] ${cleanName} [ITA]` };
+                                            // GD1 (diretto con behaviorHints) - NUOVO (formato ufficiale SDK)
+                                            if (gd.directUrl && gd.httpHeaders) {
+                                                gd1StaticPending = {
+                                                    url: gd.directUrl,
+                                                    title: `[🌐Gd1] ${cleanName} [ITA]`,
+                                                    behaviorHints: { 
+                                                        notWebReady: true,
+                                                        proxyHeaders: {
+                                                            request: gd.httpHeaders
+                                                        }
+                                                    } as any
+                                                };
+                                            }
                                     }
                                 } catch {/* silent */}
                             }
@@ -2783,6 +2798,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             streams.splice(insertAt,0,gdStaticPending);
                             const logEnabled = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_LOG||'1'));
                             // (GD static inserted)
+                        } catch {}
+                    }
+                    // Inserimento ritardato stream GD1 statico (diretto con proxyHeaders) - subito dopo GD
+                    if (gd1StaticPending) {
+                        try {
+                            let insertAt = 0;
+                            while (insertAt < streams.length) {
+                                const t = streams[insertAt].title || '';
+                                if (/^\[P🐽D]/i.test(t) || /Vavoo/i.test(t) || /\[🌍dTV]/i.test(t) || /^\[🌐Gd\]/i.test(t)) insertAt++; else break;
+                            }
+                            streams.splice(insertAt,0,gd1StaticPending);
+                            // (GD1 static inserted)
                         } catch {}
                     }
                     // staticUrl2 (solo se enableMpd è attivo)
@@ -3504,7 +3531,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 if (!allowVavooClean) { continue; }
                                 allStreams.push({ name: getStreamName(s.url), title: s.title, url: s.url, behaviorHints: { notWebReady: true, headers: hdrs, proxyHeaders: hdrs, proxyUseFallback: true } as any });
                             } else {
-                                allStreams.push({ name: getStreamName(s.url), title: s.title, url: s.url });
+                                // Preserva tutte le proprietà dallo stream originale (inclusi proxyHeaders, notWebReady, etc.)
+                                allStreams.push({ name: getStreamName(s.url), title: s.title, url: s.url, ...(s as any) });
                             }
                         }
                     }
@@ -4066,6 +4094,25 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                 } catch {}
                 console.log(`✅ Total streams returned: ${allStreams.length}`);
+                // DEBUG: Log dettagliato degli stream GD/GD1 per verificare behaviorHints
+                try {
+                    const gdStreams = allStreams.filter(s => /^\[🌐Gd1?\]/.test(s.title || ''));
+                    if (gdStreams.length > 0) {
+                        console.log('[DEBUG-GD] Stream GD/GD1 trovati:', gdStreams.length);
+                        for (const s of gdStreams) {
+                            console.log('[DEBUG-GD] Stream:', {
+                                title: s.title,
+                                url: s.url?.substring(0, 60) + '...',
+                                hasBehaviorHints: !!s.behaviorHints,
+                                behaviorHints: s.behaviorHints,
+                                allKeys: Object.keys(s)
+                            });
+                            if (s.behaviorHints?.proxyHeaders) {
+                                console.log('[DEBUG-GD] proxyHeaders completo:', JSON.stringify(s.behaviorHints.proxyHeaders, null, 2));
+                            }
+                        }
+                    }
+                } catch (e) { console.error('[DEBUG-GD] Errore log:', e); }
                 return { streams: allStreams };
             } catch (error) {
                 console.error('Stream extraction failed:', error);
