@@ -459,8 +459,8 @@ function getStreamPriority(stream: { url: string; title: string }): number {
     // 1. Vavoo clean (senza wrapper MFP, contiene "Vavoo" ma NON contiene mfp/proxy nel URL)
     if (/vavoo/i.test(title) && !/mfp|mediaflow|proxy.*stream/i.test(url)) return 1;
 
-    // 2. D_CF (🇮🇹🔄 con proxy.stremio.dpdns.org)
-    if (/🇮🇹🔄/.test(title) && /proxy\.stremio\.dpdns\.org/i.test(url)) return 2;
+    // 2. D_CF (🇮🇹🔄 con dlhd.m3u8 o proxy.stremio.dpdns.org)
+    if (/🇮🇹🔄/.test(title) && (/\/dlhd\.m3u8\?src=/i.test(url) || /proxy\.stremio\.dpdns\.org/i.test(url))) return 2;
 
     // 3. Freeshot (cerca [🏟 Free] o freeshot)
     if (/freeshot|\[🏟\s*Free\]|🏟.*free/i.test(title)) return 3;
@@ -2862,26 +2862,82 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // IMPORTANTE: Controllato da DCF_ENABLE (separato da GDPLAYER_ENABLE)
                     const enableDcf = /^(1|true|on)$/i.test(String(process?.env?.DCF_ENABLE||'1'));
                     
-                    // SINTESI D_CF PER DINAMICI: Se dinamico senza staticUrlD_CF, prova a sintetizzarlo dai link DLHD presenti
+                    // SINTESI D_CF PER DINAMICI: Se dinamico senza staticUrlD_CF, crea D_CF per TUTTI i link DLHD italiani presenti
                     if ((channel as any)._dynamic && enableDcf && !(channel as any).staticUrlD_CF && streams.length) {
                         try {
-                            // Cerca primo link DLHD italiano negli stream già risolti
-                            const dlhdStream = streams.find(s => /^🇮🇹(?!🔄)/.test(s.title || '') && /^https?:\/\/.*proxy\/hls\/manifest\.m3u8.*[?&]d=.*dlhd\.dad.*id[=%](\d+)/i.test(s.url));
-                            if (dlhdStream) {
-                                const match = dlhdStream.url.match(/id[=%](\d+)/i);
-                                if (match && match[1]) {
-                                    // Costruisci addonBaseUrl dalla richiesta corrente
-                                    let addonBaseUrl = '';
-                                    try {
-                                        const lastReq: any = (global as any).lastExpressRequest;
-                                        if (lastReq) {
-                                            const protocol = lastReq.protocol || 'https';
-                                            const host = lastReq.get('host') || lastReq.headers?.host || '';
-                                            if (host) addonBaseUrl = `${protocol}://${host}`;
+                            // Per canali dinamici, cerca PRIMA del wrapping MFP negli URL originali dynamicDUrls
+                            const dlhdIds = new Set<string>();
+                            const dlhdIdToTitle = new Map<string, string>(); // Mappa ID -> Nome provider originale
+                            
+                            // Metodo 1: Cerca in dynamicDUrls (URL originali PRIMA del wrapping)
+                            if ((channel as any).dynamicDUrls && Array.isArray((channel as any).dynamicDUrls)) {
+                                for (const d of (channel as any).dynamicDUrls) {
+                                    if (!d || !d.url) continue;
+                                    
+                                    // Cerca link DLHD diretti: https://dlhd.dad/watch.php?id=XXX
+                                    const directMatch = d.url.match(/^https?:\/\/dlhd\.dad\/watch\.php\?id=(\d+)/i);
+                                    if (directMatch && directMatch[1]) {
+                                        // Verifica se è italiano controllando il titolo
+                                        const isItalian = d.title && /🇮🇹|IT\s*$|\[ITA\]/i.test(d.title);
+                                        if (isItalian) {
+                                            const id = directMatch[1];
+                                            dlhdIds.add(id);
+                                            // Salva il nome provider originale (rimuovi emoji e [ITA])
+                                            let providerName = (d.title || '').replace(/^🇮🇹\s*/, '').trim();
+                                            providerName = providerName.replace(/\s*\[ITA\]\s*$/i, '').trim();
+                                            dlhdIdToTitle.set(id, providerName);
+                                            debugLog(`[DynamicStreams][D_CF][PRE-WRAP] Trovato DLHD italiano id=${id} title="${d.title}" -> providerName="${providerName}"`);
                                         }
-                                    } catch {}
-                                    (channel as any).staticUrlD_CF = buildCfProxyFromId(match[1], addonBaseUrl);
-                                    debugLog(`[DynamicStreams][D_CF] sintetizzato da stream DLHD id=${match[1]} base=${addonBaseUrl}`);
+                                    }
+                                }
+                            }
+                            
+                            // Metodo 2 (fallback): Cerca negli stream già wrappati (meno affidabile)
+                            if (dlhdIds.size === 0) {
+                                const dlhdStreams = streams.filter(s => /^🇮🇹(?!🔄)/.test(s.title || '') && /^https?:\/\/.*proxy\/hls\/manifest\.m3u8.*[?&]d=.*dlhd\.dad.*id[=%](\d+)/i.test(s.url));
+                                for (const dlhdStream of dlhdStreams) {
+                                    const match = dlhdStream.url.match(/id[=%](\d+)/i);
+                                    if (match && match[1]) {
+                                        const id = match[1];
+                                        dlhdIds.add(id);
+                                        // Estrai nome dal titolo wrappato
+                                        let providerName = (dlhdStream.title || '').replace(/^🇮🇹\s*/, '').trim();
+                                        providerName = providerName.replace(/\s*\[ITA\]\s*$/i, '').trim();
+                                        dlhdIdToTitle.set(id, providerName);
+                                    }
+                                }
+                            }
+                            
+                            if (dlhdIds.size > 0) {
+                                // Costruisci addonBaseUrl dalla richiesta corrente
+                                let addonBaseUrl = '';
+                                try {
+                                    const lastReq: any = (global as any).lastExpressRequest;
+                                    if (lastReq) {
+                                        const protocol = lastReq.protocol || 'https';
+                                        const host = lastReq.get('host') || lastReq.headers?.host || '';
+                                        if (host) addonBaseUrl = `${protocol}://${host}`;
+                                    }
+                                } catch {}
+                                
+                                // Crea array di staticUrlD_CF per ogni ID con metadata
+                                const dcfData: Array<{url: string; id: string; providerName: string}> = [];
+                                for (const id of dlhdIds) {
+                                    dcfData.push({
+                                        url: buildCfProxyFromId(id, addonBaseUrl),
+                                        id,
+                                        providerName: dlhdIdToTitle.get(id) || 'Canale'
+                                    });
+                                }
+                                
+                                // Salva il primo come staticUrlD_CF (per compatibilità) e gli altri in un array separato
+                                if (dcfData.length > 0) {
+                                    (channel as any).staticUrlD_CF = dcfData[0].url;
+                                    (channel as any)._dcfMeta = dcfData; // Salva TUTTI i metadata (incluso primo)
+                                    if (dcfData.length > 1) {
+                                        (channel as any)._extraD_CF = dcfData.slice(1).map(d => d.url);
+                                    }
+                                    debugLog(`[DynamicStreams][D_CF] sintetizzati ${dcfData.length} stream D_CF da DLHD ids=${Array.from(dlhdIds).join(',')} base=${addonBaseUrl}`);
                                 }
                             }
                         } catch (e) {
@@ -2960,16 +3016,28 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             // Se dinamico ed esiste già CF ben formattato, salta (già inserito nel ramo dynamic)
                             const existingCfIndex = streams.findIndex(s => extractDlhdIdFromCf(s.url) === newId);
 
-                            // Costruzione base name: se dinamico prova a leggere dallo stream GD oppure fallback ad un diretto daddy ITA
+                            // Costruzione base name: usa metadata _dcfMeta se disponibile, altrimenti fallback
                             let baseName: string | undefined;
                             if ((channel as any)._dynamic) {
-                                // 1) prova stream GD
-                                const gdStream = streams.find(s => /^\[🌐Gd\]\s+(.+?)\s+\[ITA\]/i.test(s.title || ''));
-                                if (gdStream) {
-                                    const m = (gdStream.title || '').match(/^\[🌐Gd\]\s+(.+?)\s+\[ITA\]/i);
-                                    if (m) baseName = m[1].trim();
+                                // NUOVO: Cerca il nome provider nei metadata salvati
+                                if ((channel as any)._dcfMeta && Array.isArray((channel as any)._dcfMeta)) {
+                                    const dcfMeta = (channel as any)._dcfMeta;
+                                    const metaEntry = dcfMeta.find((m: any) => m.id === newId);
+                                    if (metaEntry && metaEntry.providerName) {
+                                        baseName = metaEntry.providerName;
+                                        debugLog(`[D_CF][TITLE] Usando nome provider da metadata: "${baseName}" per id=${newId}`);
+                                    }
                                 }
-                                // 2) prova un diretto daddy ITA (titolo inizia 🇮🇹 ma non 🇮🇹🔄)
+                                
+                                // Fallback 1: prova stream GD
+                                if (!baseName) {
+                                    const gdStream = streams.find(s => /^\[🌐Gd\]\s+(.+?)\s+\[ITA\]/i.test(s.title || ''));
+                                    if (gdStream) {
+                                        const m = (gdStream.title || '').match(/^\[🌐Gd\]\s+(.+?)\s+\[ITA\]/i);
+                                        if (m) baseName = m[1].trim();
+                                    }
+                                }
+                                // Fallback 2: prova un diretto daddy ITA (titolo inizia 🇮🇹 ma non 🇮🇹🔄)
                                 if (!baseName) {
                                     const directIt = streams.find(s => /^🇮🇹(?!🔄)/.test(s.title || '') && /^https?:\/\/dlhd\.dad\/watch\.php\?id=\d+/i.test(s.url));
                                     if (directIt) {
@@ -2986,16 +3054,24 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (!/\bITA\b/i.test(finalTitle)) finalTitle += ' [ITA]';
 
                             if ((channel as any)._dynamic) {
-                                // Inserire subito dopo il blocco dei flussi daddy italiani diretti
-                                let lastDaddyIdx = -1;
+                                // Trova il PRIMO daddy italiano diretto (🇮🇹 ma NON 🇮🇹🔄)
+                                let firstDaddyIdx = -1;
                                 for (let i = 0; i < streams.length; i++) {
                                     const s = streams[i];
                                     if (!s) continue;
-                                    if (/^https?:\/\/dlhd\.dad\/watch\.php\?id=\d+/i.test(s.url) && /^🇮🇹(?!🔄)/.test(s.title || '')) {
-                                        lastDaddyIdx = i;
+                                    // Match: URL daddy diretto E titolo inizia con 🇮🇹 ma NON 🇮🇹🔄
+                                    if (/^https?:\/\/.*(?:dlhd\.dad\/watch\.php|proxy\/hls\/manifest\.m3u8.*dlhd\.dad)/i.test(s.url) && 
+                                        /^🇮🇹(?!🔄)/.test(s.title || '')) {
+                                        firstDaddyIdx = i;
+                                        debugLog(`[D_CF][POS] Trovato primo daddy italiano all'indice ${i}: "${s.title}"`);
+                                        break;
                                     }
                                 }
-                                const insertionIndex = lastDaddyIdx >= 0 ? lastDaddyIdx + 1 : 0;
+                                
+                                // insertionIndex punta PRIMA del primo daddy (o 0 se non trovato)
+                                const insertionIndex = firstDaddyIdx >= 0 ? firstDaddyIdx : 0;
+                                debugLog(`[D_CF][POS] insertionIndex=${insertionIndex} (firstDaddyIdx=${firstDaddyIdx})`);
+                                
                                 if (existingCfIndex !== -1) {
                                     // Aggiorna titolo e riposiziona se necessario
                                     const cfEntry = streams[existingCfIndex];
@@ -3005,12 +3081,76 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         // Adjust insertionIndex if removal shifts indices
                                         const adjIndex = existingCfIndex < insertionIndex ? insertionIndex - 1 : insertionIndex;
                                         streams.splice(adjIndex,0,cfEntry);
+                                        debugLog(`Aggiunto/Riposizionato D_CF dinamico id=${newId} da indice ${existingCfIndex} a ${adjIndex} (title='${finalTitle}')`);
                                     }
                                 } else {
                                     const entry = { url: cfUrl, title: finalTitle };
-                                    streams.splice(Math.min(insertionIndex, streams.length), 0, entry);
+                                    streams.splice(insertionIndex, 0, entry);
+                                    debugLog(`Aggiunto D_CF dinamico id=${newId} all'indice ${insertionIndex} PRIMA dei daddy (title='${finalTitle}')`);
                                 }
-                                debugLog(`Aggiunto/Riposizionato D_CF dinamico id=${newId} posizione dopo blocco daddy (title='${finalTitle}')`);
+                                
+                                // NUOVO: Processa anche _extraD_CF (gli altri DLHD dello stesso canale dinamico)
+                                if ((channel as any)._extraD_CF && Array.isArray((channel as any)._extraD_CF)) {
+                                    const extraUrls = (channel as any)._extraD_CF as string[];
+                                    // Inserisci subito dopo il primo D_CF appena inserito
+                                    // Dopo splice sopra, il primo D_CF è a insertionIndex, quindi extra inizia a insertionIndex+1
+                                    let currentInsertPos = insertionIndex + 1;
+                                    
+                                    for (const extraCfUrl of extraUrls) {
+                                        try {
+                                            let processedUrl = extraCfUrl;
+                                            
+                                            // Sostituisci placeholder se presente
+                                            if (processedUrl.includes('{usableAddonBase}')) {
+                                                let addonBaseUrl = '';
+                                                try {
+                                                    const lastReq: any = (global as any).lastExpressRequest;
+                                                    if (lastReq) {
+                                                        const protocol = lastReq.protocol || 'https';
+                                                        const host = lastReq.get('host') || lastReq.headers?.host || '';
+                                                        if (host) addonBaseUrl = `${protocol}://${host}`;
+                                                    }
+                                                } catch {}
+                                                if (!addonBaseUrl) {
+                                                    addonBaseUrl = (process && process.env && process.env.ADDON_BASE_URL) ? String(process.env.ADDON_BASE_URL).trim() : '';
+                                                }
+                                                if (!addonBaseUrl) {
+                                                    addonBaseUrl = (config as any).addonBase || 'https://streamvix.hayd.uk';
+                                                }
+                                                processedUrl = processedUrl.replace('{usableAddonBase}', addonBaseUrl.replace(/\/$/,''));
+                                            }
+                                            
+                                            const extraId = extractDlhdIdFromCf(processedUrl);
+                                            if (!extraId) continue;
+                                            
+                                            // Verifica se già esiste
+                                            const existingExtraIdx = streams.findIndex(s => extractDlhdIdFromCf(s.url) === extraId);
+                                            if (existingExtraIdx !== -1) continue; // Skip se già presente
+                                            
+                                            // Costruisci titolo usando metadata se disponibile
+                                            let extraBaseName = baseName; // Fallback al nome generico
+                                            if ((channel as any)._dcfMeta && Array.isArray((channel as any)._dcfMeta)) {
+                                                const dcfMeta = (channel as any)._dcfMeta;
+                                                const metaEntry = dcfMeta.find((m: any) => m.id === extraId);
+                                                if (metaEntry && metaEntry.providerName) {
+                                                    extraBaseName = metaEntry.providerName;
+                                                    debugLog(`[D_CF][EXTRA][TITLE] Usando nome provider da metadata: "${extraBaseName}" per id=${extraId}`);
+                                                }
+                                            }
+                                            
+                                            let extraTitle = `🇮🇹🔄  ${extraBaseName}`;
+                                            if (!/\bITA\b/i.test(extraTitle)) extraTitle += ' [ITA]';
+                                            
+                                            // Inserisci alla posizione corrente
+                                            const extraEntry = { url: processedUrl, title: extraTitle };
+                                            streams.splice(currentInsertPos, 0, extraEntry);
+                                            debugLog(`Aggiunto extra D_CF dinamico id=${extraId} all'indice ${currentInsertPos} (title='${extraTitle}')`);
+                                            currentInsertPos++; // Incrementa per il prossimo extra
+                                        } catch (extraErr) {
+                                            debugLog(`Errore processando extra D_CF:`, extraErr);
+                                        }
+                                    }
+                                }
                             } else {
                                 // Statico: mantieni comportamento precedente (replace o append in fondo)
                                 const entry = { url: cfUrl, title: finalTitle };
