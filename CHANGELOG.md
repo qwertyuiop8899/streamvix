@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.18](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.17...v1.9.18) (2025-10-25)
+
+
+### Bug Fixes
+
+* fix free dlhd ([bfb748e](https://github.com/qwertyuiop8899/streamvix/commit/bfb748e48f37dd3d5df557797ea1f746cf98fa48))
+
 ## [1.9.17](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.16...v1.9.17) (2025-10-24)
 
 
