@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.21](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.20...v1.9.21) (2025-10-28)
+
+
+### Bug Fixes
+
+* change dlhd proxy ([107c31f](https://github.com/qwertyuiop8899/streamvix/commit/107c31f2436b7dec5489ea28c622bafce3107e78))
+* dlhd ([190345b](https://github.com/qwertyuiop8899/streamvix/commit/190345bbe250af22d4d0f9cbcd38b61443a8b6cf))
+
 ## [1.9.20](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.19...v1.9.20) (2025-10-28)
 
 
