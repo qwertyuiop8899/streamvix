@@ -16,7 +16,6 @@ const CHANNEL_NAME_MAPPING: Record<string, string> = {
     "SKY COMEDY CENTRAL": "COMEDY CENTRAL",
     "SKY TG 24": "SKY TG24",
     "SKY SPORT BASKET": "SKY SPORT NBA",
-    "SKY SPORT LEGEND": "SKY SPORT 251",
     "SKY CALCIO HD": "SKY SPORT CALCIO",
     // Canali calcio numerati
     "SKY CALCIO 251": "SKY SPORT 251",
