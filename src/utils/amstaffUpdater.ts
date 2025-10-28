@@ -47,7 +47,17 @@ interface TVChannel {
  * Normalizza il nome del canale
  */
 function normalizeChannelName(name: string): string {
-    return CHANNEL_NAME_MAPPING[name] || name;
+    // Cerca prima nel mapping case-insensitive
+    const upperName = name.toUpperCase();
+    const mappingKey = Object.keys(CHANNEL_NAME_MAPPING).find(
+        key => key.toUpperCase() === upperName
+    );
+    
+    if (mappingKey) {
+        return CHANNEL_NAME_MAPPING[mappingKey];
+    }
+    
+    return name;
 }
 
 /**
@@ -201,10 +211,16 @@ export async function updateAmstaffChannels(): Promise<number> {
         for (const channel of tvChannels) {
             if (channel.vavooNames && Array.isArray(channel.vavooNames)) {
                 for (const vavooName of channel.vavooNames) {
-                    if (amstaffChannels[vavooName]) {
-                        channel.staticUrlMpd = amstaffChannels[vavooName];
+                    // Cerca match case-insensitive
+                    const normalizedVavooName = vavooName.toUpperCase();
+                    const matchingKey = Object.keys(amstaffChannels).find(
+                        key => key.toUpperCase() === normalizedVavooName
+                    );
+                    
+                    if (matchingKey) {
+                        channel.staticUrlMpd = amstaffChannels[matchingKey];
                         updates++;
-                        console.log(`[AMSTAFF]   ✅ ${channel.name} (${vavooName})`);
+                        console.log(`[AMSTAFF]   ✅ ${channel.name} (${vavooName} -> ${matchingKey})`);
                         break;
                     }
                 }
