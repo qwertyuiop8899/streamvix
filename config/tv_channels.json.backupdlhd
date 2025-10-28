@@ -7,13 +7,14 @@
     "description": "Rai 1 - Canale pubblico italiano",
     "category": "rai",
     "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/rai1/browser-dash/rai1.mpd",
-    "staticUrlD": "https://thedaddy.click/stream/stream-850.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=850",
     "vavooNames": [
       "RAI 1"
     ],
     "epgChannelIds": [
       "rai1.it"
-    ]
+    ],
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D850"
   },
   {
     "id": "rai2",
@@ -83,13 +84,14 @@
     "description": "Italia 1 - Mediaset",
     "category": "mediaset",
     "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-i1/i1-clr.isml/index.m3u8",
-    "staticUrlD": "https://thedaddy.click/stream/stream-854.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=854",
     "vavooNames": [
       "ITALIA 1"
     ],
     "epgChannelIds": [
       "italia1.it"
-    ]
+    ],
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D854"
   },
   {
     "id": "la7",
@@ -144,7 +146,7 @@
     "type": "tv",
     "name": "20 Mediaset",
     "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/20mediaset.png",
-    "description": "20 Mediaset - Mediaset",
+    "description": "20 Mediaset",
     "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-lb/lb-clr.isml/index.m3u8",
     "vavooNames": [
       "20 MEDIASET"
@@ -614,8 +616,7 @@
     "category": [
       "sky",
       "news"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjA1X2Z+MF9nfjFfc345NjFmMWY1MS01ODk5LTQ2NzYtOGZhNi0yMDI4MzZmMmQwNGVfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTBfeH45MjllZWZhNjVhMjdiMmM5YWI2YmE3NDg3ZGM0Y2Y1ZS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwodGcyNCkvbWFzdGVyXzJoci1hYWMubXBkJmtleV9pZD0xMTE1ZGY4ZDY3Mjc4MDc3ODdlOThjMGNlYWUxZWU2YyZrZXk9ZjRiOWU1MmUzZjMxZjFmYTQxODUwZGU0Nzk5Y2E0ZTM="
+    ]
   },
   {
     "id": "tgcom24",
@@ -723,14 +724,15 @@
     "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/raisport+hd.png",
     "description": "Rai Sport + HD - Canale pubblico italiano",
     "staticUrlF": "http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=358025&output=7&forceUserAgent=raiplayappletv",
-    "staticUrlD": "https://thedaddy.click/stream/stream-882.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=882",
     "vavooNames": [
       "RAI SPORT"
     ],
     "epgChannelIds": [
       "RaiSport+HD.it"
     ],
-    "category": "rai"
+    "category": "rai",
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D882"
   },
   {
     "id": "motortrend",
@@ -804,7 +806,7 @@
     "name": "Sky Cinema Uno",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-uno-it.png",
     "description": "Sky Cinema Uno",
-    "staticUrlD": "https://thedaddy.click/stream/stream-860.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=860",
     "vavooNames": [
       "SKY CINEMA UNO"
     ],
@@ -815,7 +817,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjA4X2Z+MF9nfjFfc35kNjdkYTIzNi05MmVlLTQxNzQtOGZhNS04ZTA4Y2ZlYmQ3Y2NfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NThfeH4wM2NkYjhiODQxYzdkNTE3MzliZjk0MjU2YTZiMjY0Ni9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hdW5vKS9tYXN0ZXJfMmhyLWFhYy5tcGQma2V5X2lkPTExMTU3MTY3NWQ4MTgzZWQxNjk3MjU1NjRjZGVkNmQ5JmtleT1lMDc3ZGVkZjM4M2M4YWVkNzNkMzg1NjdhOGU2YTA0Ng=="
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D860"
   },
   {
     "id": "skycinemadue",
@@ -823,7 +825,7 @@
     "name": "Sky Cinema Due",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-due-it.png",
     "description": "Sky Cinema Due - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-866.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=866",
     "vavooNames": [
       "SKY CINEMA DUE"
     ],
@@ -834,7 +836,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjE5X2Z+MF9nfjFfc340MWFhODQzNC1kNzg3LTRiZjgtOWJmNi0yOGJkMDZlYzI0ZThfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NThfeH44ZmRiMTU0NGZiYTZhNTliOTU5ZTc1ZjdhNGMxMmIyNi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hZHVlKS9tYXN0ZXJfMmhyLWFhYy5tcGQma2V5X2lkPTExMTUyYzRlYTFhM2JmZmRkMjc3Y2UzMzNlNTQ2MzFhJmtleT0xN2YwYzAyODgwMGRiY2IyOTRiOWFlYmJhZTFmN2UwYw=="
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D866"
   },
   {
     "id": "skycinemacomedy",
@@ -842,7 +844,7 @@
     "name": "Sky Cinema Comedy",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-comedy-it.png",
     "description": "Sky Cinema Comedy - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-862.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=862",
     "vavooNames": [
       "SKY CINEMA COMEDY"
     ],
@@ -853,7 +855,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjEzX2Z+MF9nfjFfc341YTRlMWJjMS1mZjJhLTQxMTgtOThjYS01OTU1NDQ4YzAxZjFfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjFfeH5iYmY4MzcwZGI0N2QxZjc5M2EyNTg3MGFiYWI2ODc3Yi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hY29tZWR5KS9tYXN0ZXJfMmhyLWFhYy5tcGQma2V5X2lkPTExMTU2NzZlY2E3OTIzM2YyOTE5YjUzZjFhMTcwOWI4JmtleT03MjI5OGEzMWIxYjAxNWI1MmFkYzAzYWIyMjI0OTRjMg=="
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D862"
   },
   {
     "id": "skycinemaaction",
@@ -861,7 +863,7 @@
     "name": "Sky Cinema Action",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-action-it.png",
     "description": "Sky Cinema Action - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-861.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=861",
     "vavooNames": [
       "SKY CINEMA ACTION"
     ],
@@ -872,7 +874,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjE4X2Z+MF9nfjFfc35iZjhjYWQ4YS1lZjhiLTRmY2ItYTI4Mi0xN2U1ZGViZjBhNWZfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjFfeH5lYzM2ZWYzNDA5YjdjZWRkYWIwZDUyODJjYmE2NDVjNS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hYWN0aW9uKS9tYXN0ZXJfMmhyLWFhYy5tcGQma2V5X2lkPTExMTUwNDQzODgzZGE0ZGYyN2UyNTExMGQxMGZjYTMxJmtleT04M2I2MzkwNDcxYTA4M2UwMGY4ZjNhZmYyYTI3MWJlOQ=="
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D861"
   },
   {
     "id": "skycinemafamily",
@@ -880,7 +882,7 @@
     "name": "Sky Cinema Family",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-family-it.png",
     "description": "Sky Cinema Family - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-865.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=865",
     "vavooNames": [
       "SKY CINEMA FAMILY"
     ],
@@ -891,7 +893,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjIyX2Z+MF9nfjFfc34zNjFlMTRhYi00MWM2LTQxZWYtOTc0Mi0wZmVkNDkzNDdmOWZfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjFfeH43NjFjMjA4Y2I5N2YxNWViYmYwZDFiZTgzMWMzMjE2MS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hZmFtaWx5KS9tYXN0ZXJfMmhyLWFhYy5tcGQma2V5X2lkPTExMTUwNzQwNjU4MzJmNzRhZjdlMjc5ZTEyMDNhZGNlJmtleT0yMGVjZTQxMzFmYmVjODJhYzdmZjA1NjgzODUxMjE0Mw=="
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D865"
   },
   {
     "id": "skycinemacollection",
@@ -899,7 +901,7 @@
     "name": "Sky Cinema Collection",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-collection-it.png",
     "description": "Sky Cinema Collection - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-859.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=859",
     "vavooNames": [
       "SKY CINEMA COLLECTION"
     ],
@@ -910,7 +912,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjEyX2Z+MF9nfjFfc34zN2I2MWU4ZC0xYTE4LTQ5OTgtOGU0OS02Mzk4NDZmZWM4YzZfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjVfeH44MWFmM2UyMzYxYjg3ZGUwMDU4NDc1NmNmNzA1MDdlMi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hY29sbGVjdGlvbikvbWFzdGVyXzJoci1hYWMubXBkJmtleV9pZD0xMTE1NWQ4YTFmZTBiMjExMTM3YzIwNjM1NGUxNmQyYSZrZXk9N2YwN2QwZWY2OTM4OTNhODQxNjJkNTFjMWM3MjU5ZjM="
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D859"
   },
   {
     "id": "skycinemadrama",
@@ -918,7 +920,7 @@
     "name": "Sky Cinema Drama",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-drama-it.png",
     "description": "Sky Cinema Drama - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-867.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=867",
     "vavooNames": [
       "SKY CINEMA DRAMA"
     ],
@@ -929,7 +931,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjI0X2Z+MF9nfjFfc35mMjY0ZDE1ZS1kYjc2LTQ2NzgtOGQ3Zi03ODY4ZDQ5ODAxMTZfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjBfeH5jMmE0ZTMwZTZmMGQ3MWQzN2I4ZGVmYTRhMzM3ZjAzYy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hZHJhbWEpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTVhZDgwN2I5MGI5NTcwZmI4Y2NlMDY3ZjYxNjYma2V5PTc0YzQ0MzBlZDgxNDIxOTBlNTJkNGIzMDMyODY2OTZm"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D867"
   },
   {
     "id": "skycinemasuspense",
@@ -937,7 +939,7 @@
     "name": "Sky Cinema Suspense",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-suspense-it.png",
     "description": "Sky Cinema Suspense - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-868.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=868",
     "vavooNames": [
       "SKY CINEMA SUSPENSE"
     ],
@@ -948,7 +950,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjI3X2Z+MF9nfjFfc35mMmQ3ZThhYi1jZTY4LTRiM2UtYjBiOS04Y2Q4MWUyMTM2ZjBfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjNfeH4yZWY5NjQzNzQxNzJjNGEzZjVjM2ZhMGNhNTRhNThjYi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hc3VzcGVuc2UpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWQwNDU2MmExYzMyOGE4NGIyZGFiNDEyNDRjYmEma2V5PTVjZjhjNjVkNDE3NzM0OTMwOGQ3MDQzMzg0ODgwNjU5"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D868"
   },
   {
     "id": "skycinemaromance",
@@ -956,7 +958,7 @@
     "name": "Sky Cinema Romance",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-romance-it.png",
     "description": "Sky Cinema Romance - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-864.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=864",
     "vavooNames": [
       "SKY CINEMA ROMANCE"
     ],
@@ -967,7 +969,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjI2X2Z+MF9nfjFfc35jZjIwMDg2ZC0zZTI3LTQ2NjEtODEzNC00NjE1Mzk0ODM2ZmFfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjJfeH5jMDNiMzVlNGE5Nzk1YmJjNmRkZThlN2E1OTI2NDZhYi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hcm9tYW5jZSkvbWFzdGVyXzJoci1hYWMubXBkJmtleV9pZD0xMTE1ZGJlZWE1N2QyZmFkZWRjMjc4OTU2YmNiZmIwMiZrZXk9M2VlZTIzZjk3YWU0OWE4MWMwMzM1NjU5OWE2MTRmY2E="
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D864"
   },
   {
     "id": "skyuno",
@@ -975,15 +977,15 @@
     "name": "Sky Uno",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-uno-it.png",
     "description": "Sky Uno - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-881.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=881",
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D881",
     "vavooNames": [
       "SKY UNO"
     ],
     "epgChannelIds": [
       "skyuno.it"
     ],
-    "category": "sky",
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjA2X2Z+MF9nfjFfc341NGQ0ZjBjNi1kOTNkLTQ0N2MtOTI2OS0yYzEzNGY0MjJjMWVfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTJfeH5lNTM5YjRkYjNlOTU2YjFjZmE3OWYzYzBkMTcwYjIzNi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5dW5vKS9tYXN0ZXJfMmhyLWFhYy5tcGQma2V5X2lkPTExMTUxMDU4NDI2MjkxMzg0N2RkY2NlNzRkMjI0YjFlJmtleT03NTg2MTM4ZDFkYjllYmE2ZDAxZmRjM2QzOGRhZWM5ZQ=="
+    "category": "sky"
   },
   {
     "id": "skyserie",
@@ -991,7 +993,7 @@
     "name": "Sky Serie",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-serie-it.png",
     "description": "Sky Serie - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-880.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=880",
     "vavooNames": [
       "SKY SERIE"
     ],
@@ -1002,7 +1004,7 @@
       "sky",
       "movies"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjEzX2Z+MF9nfjFfc35hYzRkMDE5ZS02MTY4LTQ5ZDItOGQ3ZS1mMDlhZTk0OTg5OTJfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTRfeH5hNGZlNDY2Mzk2M2JhNmY5NzU3NThhMGM1MzJjZWMyNC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c2VyaWUpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWJmMDFhZWFkY2UzMmZjZWM2YTIyMDM3NWEzZmEma2V5PTlkZjM2MGEyYTIyNDExODk3Y2Q4YjFiYzQ4YzBhZmMw"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D880"
   },
   {
     "id": "skyatlantic",
@@ -1019,8 +1021,7 @@
     "category": [
       "sky",
       "movies"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjA4X2Z+MF9nfjFfc340NzkwOGYwNi0yNzUzLTQ0NmMtOGMzMC04Nzk1MDkzZGYxNTFfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH5hNjU1NTRmNTBhNzQwNzI3NDViNDIxNGZlNjQzNTg3Yy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5YXRsYW50aWMpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWYwMjg2MjU3NmIzNGI0NjdhZDRjNTRhMDljZmMma2V5PWJhYzQyZTgwMGE1YzQzN2I2MDZlMmFmNWIyOTFjNjA3"
+    ]
   },
   {
     "id": "skycrime",
@@ -1034,8 +1035,7 @@
     "epgChannelIds": [
       "skycrime.it"
     ],
-    "category": "sky",
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjIzX2Z+MF9nfjFfc34zMGNmYzNiZS05NmI5LTQzN2ItYjNkOC1jNTVlMjM0ZTI0OThfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTRfeH5kZDliYmUwYzdiYWFjMzMyMDc3YWVkMGZiZTI2MDk4NC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y3JpbWUpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWFhNDdjZmExOGNmNzNjYjZmOTM2Y2ZmMWY4ZWUma2V5PWEyN2U3MzgzZDQ4MTU5NmNjMzQzMzQzMzZkM2U3MjE5"
+    "category": "sky"
   },
   {
     "id": "skyinvestigation",
@@ -1052,8 +1052,7 @@
     "category": [
       "sky",
       "documentari"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjE0X2Z+MF9nfjFfc35kMzY5NjI3Yy1mZjg4LTRiMzMtOTFkMS1jMzMyODY2YmYzMjZfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjJfeH5jNjE5MGFjNTZhN2FhNDE2OGE5OTY1YjZiOWM1Mzk3Ny9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5aW52ZXN0aWdhdGlvbikvbWFzdGVyXzJoci1hYWMubXBkJmtleV9pZD0xMTE1M2RkOGRlNjNmOTc0ODI1MjEwNGFmZDZiNzQwNSZrZXk9MjU1ZTBjNWJiODFiZGU5NjAyZDg3NDYwODA0OTZlMDQ="
+    ]
   },
   {
     "id": "skydocumentaries",
@@ -1070,8 +1069,7 @@
     "category": [
       "sky",
       "documentari"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjE5X2Z+MF9nfjFfc34yODEyMWM5MS1kNjFkLTRjM2MtODhlOS05ODJhOGRhOWFiZjVfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjJfeH5kYWFlM2JhYTYyMjFhZmFiMzk5YzgwYjJmMDk4NDQ0My9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5ZG9jdW1lbnRhcmllcykvbWFzdGVyXzJoci1hYWMubXBkJmtleV9pZD0xMTE1NTZhZmEzYWMzNjJiYmY2ZDYyMzdhMDA5Njc5MyZrZXk9YjgwNjI3NTUwNTIxZTg1ZDA5OTdlMzQ0NzI0NWY3ZmY="
+    ]
   },
   {
     "id": "skynature",
@@ -1088,8 +1086,7 @@
     "category": [
       "sky",
       "documentari"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjI4X2Z+MF9nfjFfc35iMGNkZDY4ZS1kZDE3LTQ0NjUtYmM0Ny0yMjM3NTMzMWNmNjhfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTVfeH45NmNmMGE3NGQ0ZGUzNjVhNGFhZmZmZDY2NWU4NTk5Zi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5bmF0dXJlKS9tYXN0ZXJfMmhyLWFhYy5tcGQma2V5X2lkPTExMTU1M2EyZmY3NGVmZjIzMGM4YmI3MmVmYzA1MDRjJmtleT04MGVjMmM3ZjY0Yjk3MDk4ZjRmNjVhMTVkODI4Y2U2YQ=="
+    ]
   },
   {
     "id": "history",
@@ -1098,8 +1095,7 @@
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/history-channel-it.png",
     "description": "History Channel - Sky",
     "vavooNames": [
-      "HISTORY CHANNEL",
-      "History"
+      "HISTORY CHANNEL"
     ],
     "epgChannelIds": [
       "history.it"
@@ -1107,8 +1103,7 @@
     "category": [
       "sky",
       "documentari"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjI3X2Z+MF9nfjFfc344ZTM2MmFiNi02ZjRjLTQ4ZTUtYjU1YS04YWQwMzEyZDNhZDRfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjBfeH45MmExZjI4MWIxNGU4NTUxYzgzZmU4ZTJmYWE5MTNkMS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoaGlzdG9yeWNoYW5uZWwpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNThkYjlhMjUyMjY0MmM4ZGE1NjQxNmQ5NGM2YTMma2V5PWVkYjZhNTYyNjZkZGU1M2YwMTNkMTcwZDQ2YjBiMjY1"
+    ]
   },
   {
     "id": "skyarte",
@@ -1125,8 +1120,7 @@
     "category": [
       "sky",
       "documentari"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjI5X2Z+MF9nfjFfc35lNDM0NzY0My1hYjZiLTQxZTItYWY3Ny05ZGI5OGNjNzJkZGFfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTNfeH40M2U2ZWE3NGIwYWM3ZDAxYjcxM2ViMzU0OTgyNGI5NC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5YXJ0ZSkvbWFzdGVyXzJoci1hYWMubXBkJmtleV9pZD0xMTE1OGQ2MTE1Nzg5M2M2NjVjNWVjOTQyNTI4ZDAyMCZrZXk9MmQ0YjczNDNkZDkyOWFmYmJkNjFlZjBhYTM3MzY2ZDk="
+    ]
   },
   {
     "id": "mtv",
@@ -1140,8 +1134,7 @@
     "epgChannelIds": [
       "mtv.it"
     ],
-    "category": "sky",
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjMzX2Z+MF9nfjFfc34xMzE2OGJkMC02NzBlLTRmODMtOWIxYy1kMjJmZTQ4OWQ0NWFfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NDlfeH44MTJkM2MyNmZhNzI1YWFhZTIwZmM5ODA4NzM2NGFkMC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwobXR2KS9tYXN0ZXJfMmhyLWFhYy5tcGQma2V5X2lkPTExMTU1OWI1ZTUwYTRiZTEyOTAxZTQ1NjAzNDI4NWEzJmtleT0yZmVkZDRjOWMzYmUxYjdmOTBlODZjN2JjNDQxMzFmOA=="
+    "category": "sky"
   },
   {
     "id": "comedycentral",
@@ -1155,8 +1148,7 @@
     "epgChannelIds": [
       "comedycentral.it"
     ],
-    "category": "sky",
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjM0X2Z+MF9nfjFfc34wMDQwMWE5MS01M2FmLTRiNjItYjhjYS1jNDJiNGI5NTJlYmFfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTlfeH43NzgxYzEzNTU3YTA3MmNlOTdhMzEyNjQzYjNjNWYxMC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoY29tZWR5Y2VudHJhbCkvbWFzdGVyXzJoci1hYWMubXBkJmtleV9pZD0xMTE1NTc3OGRjOWI3ZGRlMWUzOTZhOTExMGYwOTIwOCZrZXk9YzAzMGNmOTc4Y2JkYzRhNGM4NGZjNjhhYjQ2Nzk0MmI="
+    "category": "sky"
   },
   {
     "id": "skysport24",
@@ -1164,7 +1156,7 @@
     "name": "Sky Sport 24",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-24-it.png",
     "description": "Sky Sport 24 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-869.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=869",
     "vavooNames": [
       "SKY SPORT 24"
     ],
@@ -1175,7 +1167,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjA2X2Z+MF9nfjFfc35mMTg5NTEyNy1iNDhhLTQ1N2ItYWQ4Yi03YmYzYzM0ZWU0MGVfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTZfeH5iNjY2NjIwODFmYzhmYzIxZWE2M2ZlMDEyYzJmY2Y3NS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNCkvbWFzdGVyXzJoci1hYWMubXBkJmtleV9pZD0xMTE1Nzc4MDJiZGNjMWNjM2FiMDAyNGVlNzY3M2FmOCZrZXk9MDJhMTE0NmVmYzZlMmYyNjQ3YzBiYjZiZDQyN2E0ZDE="
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D869"
   },
   {
     "id": "skysportuno",
@@ -1183,7 +1175,7 @@
     "name": "Sky Sport Uno",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-uno-it.png",
     "description": "Sky Sport Uno - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-461.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=461",
     "vavooNames": [
       "SKY SPORT UNO"
     ],
@@ -1194,7 +1186,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjA3X2Z+MF9nfjFfc343ZThlNzAwOS0wMDE1LTRhM2ItYWM2NS1hMjU1MjcyNWZlYWNfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH5mM2Q2Y2RhZjQxZDVlMGFkN2MyN2YwOTU1ZDNhYzM4ZS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnR1bm8pL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTM3MTkxZGFjMjE4ZWU5MzNmZDE1NDVjYzNhNTkma2V5PTY1ZTBjZmJmZGYxMzA4NGM4ZjRkOGE1NTY4NmRiYzg5"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D461"
   },
   {
     "id": "skysportf1",
@@ -1202,7 +1194,7 @@
     "name": "Sky Sport F1",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-f1-it.png",
     "description": "Sky Sport F1 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-577.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=577",
     "vavooNames": [
       "SKY SPORT F1"
     ],
@@ -1213,7 +1205,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNjk5NjEwX2Z+MF9nfjFfc35hYzZjZmQ2ZC05NTQ5LTQ0NzItYjUyMy04MjM3ZTE0OWVkMTNfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTZfeH44N2M4NjNiY2I2YTEwZGY3ODU1OWM4YWIyMDRmOGI3ZC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRmMSkvbWFzdGVyXzJoci1hYWMubXBkJmtleV9pZD0xMTE1MjYwNzYzODYyOWFkNjExZTljN2I1NjAyN2YyNiZrZXk9NGY3MmU2NmM1MTRjNTc1ZGQ5MmFiZjVlYmU0MjQ5N2I="
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D577"
   },
   {
     "id": "skysportcalcio",
@@ -1221,7 +1213,7 @@
     "name": "Sky Sport Calcio",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-calcio-it.png",
     "description": "Sky Sport Calcio - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-870.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=870",
     "vavooNames": [
       "SKY SPORT CALCIO"
     ],
@@ -1232,7 +1224,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjEwX2Z+MF9nfjFfc345NGM0YmMzYi0yODQyLTQ4MzQtYWU0NS1jMzEyNTA5Mjk0Y2JfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjBfeH45ZWVhN2UwZGE2NGI0NzllMGVhZjk0NDM4MGJmNGEwOC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRjYWxjaW8pL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTU1N2MzMmE5OWMwMjkyOTU3MjAxZmVkOGI5Njcma2V5PThkNDNhOGMyZDkxYTU3ZDliOTMyMTZhOTBmNGFhY2Y4"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D870"
   },
   {
     "id": "skysporttennis",
@@ -1240,7 +1232,7 @@
     "name": "Sky Sport Tennis",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-tennis-it.png",
     "description": "Sky Sport Tennis - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-576.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=576",
     "vavooNames": [
       "SKY SPORT TENNIS"
     ],
@@ -1251,7 +1243,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjEwX2Z+MF9nfjFfc35iNzY3NGNhNi01M2JmLTQ4OGMtOTNkNS1jNmEyZWZjYTNhZDdfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjBfeH40OWNhNWRkMzliMDhiODNhYWI2NzgyZTEzMjlmZjc1Mi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnR0ZW5uaXMpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTlmMjE5YzljYWJmODFhNmQwNGJhODI5M2I3MjQma2V5PWMxZjM1NzE3ZGRjYzAxYmFhMzJkMjBjYjIxZDExYWI2"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D576"
   },
   {
     "id": "skysportmotogp",
@@ -1259,7 +1251,7 @@
     "name": "Sky Sport MotoGP",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-motogp-it.png",
     "description": "Sky Sport MotoGP - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-575.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=575",
     "vavooNames": [
       "SKY SPORT MOTOGP"
     ],
@@ -1270,7 +1262,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjExX2Z+MF9nfjFfc34wODM1NjhlNC1mMWQ4LTRjOTMtODQzZS00MWRlNjY3Mjg2ZWVfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjBfeH5mOTA0MDcyYTQ5YzBmOTA2Y2ZlNWM5MTBkMmI1MjE1MC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRtb3RvZ3ApL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWJhZjhkNGQ3MDZlYzAwYzM1ZTY0YWEyNGQxZjQma2V5PWUwMzM4MjRlZjhmNmU2YjM4MGVhMmFiMjY2ZjZiZDdi"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D575"
   },
   {
     "id": "skysportarena",
@@ -1278,7 +1270,7 @@
     "name": "Sky Sport Arena",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-arena-it.png",
     "description": "Sky Sport Arena - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-462.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=462",
     "vavooNames": [
       "SKY SPORT ARENA"
     ],
@@ -1289,7 +1281,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjE0X2Z+MF9nfjFfc35iYTViMDAyYy1iN2M2LTQxYWYtYjc3MS0wYzUyZGY3ZWZmZThfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTlfeH43ZDM0NjkxZjE3OTViOWMxNzI5OWY1NjlhZGEwMTE3NC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRhcmVuYSkvbWFzdGVyXzJoci1hYWMubXBkJmtleV9pZD0xMTE1ZDhmYTRkNTgyMTVjOGU5OGZhNjUyOGMyOGFmNyZrZXk9YjQwZWY4NDNlMTExYzg1ZTVlYWM4ODJhYzhiMjc0NzQ="
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D462"
   },
   {
     "id": "skysportmax",
@@ -1297,7 +1289,7 @@
     "name": "Sky Sport Max",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-max-it.png",
     "description": "Sky Sport Max - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-460.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=460",
     "vavooNames": [
       "SKY SPORT MAX"
     ],
@@ -1308,17 +1300,17 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjE1X2Z+MF9nfjFfc341ZTNlMmQ2OS0xMzkzLTQ5NGYtYmI4Zi0xZmQ1ZDJkMjJkY2VfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH5mODE2ZDg5NGJmNGU3ZWYxYjQwZmMzOWFiMTQ2NjZkMC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRtYXgpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTA1MjhmYTc1M2Y0NmIzOWM0MjAyYzc0YmRmYjMma2V5PTc1NjBjYzY3Njg0ZGI3NGM0MDVjYWQzZjI1ZWY5YmNj"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D460"
   },
   {
-    "id": "skysportnba",
+    "id": "skysportbasket",
     "type": "tv",
-    "name": "Sky Sport NBA",
+    "name": "Sky Sport Basket",
     "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-nba-it.png",
-    "description": "Sky Sport NBA - Sky",
+    "description": "Sky Sport Basket - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=875",
     "vavooNames": [
-      "SKY SPORT NBA",
-      "Sky Sport Basket"
+      "SKY SPORT NBA"
     ],
     "epgChannelIds": [
       "skysportnba.it"
@@ -1326,56 +1318,132 @@
     "category": [
       "sky",
       "sport"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjE2X2Z+MF9nfjFfc344YmU1ZDYyNi0wNjNhLTQxYWYtOWE0OC0zNWQyMWYwZTYwMDdfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjBfeH42MTEzZDc4MjAwZDEzNDA0OWVjZDIyZWUwZDAwMzkwZi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRiYXNrZXQpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTYxMDU0ZTZkNjg3Y2ZiYTcyMGIwNTJiZTMxMGIma2V5PTQ5MzZjNDc3ZjA0MjA5ZTA0ODZlZGFhMmZiMTIwNzhk"
+    ]
   },
   {
-    "id": "skysportgolf",
+    "id": "daznppv1",
     "type": "tv",
-    "name": "Sky Sport Golf",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/Sky_Sport_-_Logo_2020.svg/2560px-Sky_Sport_-_Logo_2020.svg.png",
-    "description": "Sky Sport Golf - Sky",
-    "vavooNames": [
-      "SKY SPORT GOLF"
-    ],
-    "epgChannelIds": [
-      "skysportnba.it"
-    ],
-    "category": [
-      "sky",
-      "sport"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjMyX2Z+MF9nfjFfc34wYTJjYmZlMC00YzQ4LTQwNjYtOWZkYi1iNzdkM2JlYzIzZDVfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NThfeH5kMmVjYjg1YmY5ZTRlMTBjMjA5NmE5N2FkMGExNTBhOS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRnb2xmKS9tYXN0ZXJfMmhyLWFhYy5tcGQma2V5X2lkPTExMTUxM2U3NDlhYWJlMzUxMTM0YjA3NjFhOWI0ZWIyJmtleT02N2ZiODE5MjgzYzMzNjk2YmU3MThhNGM4ZDI4ZTliNQ=="
+    "name": "Dazn ppv1",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv1",
+    "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgwL3N0cmVhbS5tcGQma2V5X2lkPThhYjQ3NzQxOTMwYzQ3Njc4MDUxNWY5YTAwZGVjYjBhJmtleT03YWI0YjlhZTVhNDhhYTUyNmU1MTFhOTEzYjgzMjc2OQ==",
+    "category": "sport"
+  },
+  {
+    "id": "daznppv2",
+    "type": "tv",
+    "name": "Dazn ppv2",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv2",
+    "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgxL3N0cmVhbS5tcGQma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
+    "category": "sport"
+  },
+  {
+    "id": "daznppv3",
+    "type": "tv",
+    "name": "Dazn ppv3",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv3",
+    "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgyL3N0cmVhbS5tcGQma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
+    "category": "sport"
+  },
+  {
+    "id": "daznppv4",
+    "type": "tv",
+    "name": "Dazn ppv4",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv4",
+    "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgzL3N0cmVhbS5tcGQma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
+    "category": "sport"
+  },
+  {
+    "id": "daznppv5",
+    "type": "tv",
+    "name": "Dazn ppv5",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv5",
+    "staticUrlMpd": "aHR0cHM6Ly9kY2stYWMtbGl2ZS5jZG4uaW5kYXpuLmNvbS9kYXNoL2Rhem4tbGluZWFyLTU4NC9zdHJlYW0ubXBkJmtleV9pZD04YWI0Nzc0MTkzMGM0NzY3ODA1MTVmOWEwMGRlY2IwYSZrZXk9N2FiNGI5YWU1YTQ4YWE1MjZlNTExYTkxM2I4MzI3Njk=",
+    "category": "sport"
   },
   {
     "id": "eurosport1",
     "type": "tv",
     "name": "Eurosport 1",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Eurosport_1_Logo_2015.svg/1024px-Eurosport_1_Logo_2015.svg.png",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_1.svg",
     "description": "Eurosport 1",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MSkvbWFuaWZlc3QubXBkJmtleV9pZD00NmU1NTljMmY5ZjY0NWNlOGQ4MGM3ZmEyMDQ0NmJkYiZrZXk9NTk3ZDIxNGQ2NjM0MmVlMDQyYmNjZmZlYjE2NWU3NTA=",
-    "staticUrlD": "https://thedaddy.click/stream/stream-878.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=878",
     "vavooNames": [
       "EUROSPORT 1"
     ],
     "epgChannelIds": [
       "eurosport1.it"
     ],
-    "category": "sport"
+    "category": "sport",
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D878"
   },
   {
     "id": "eurosport2",
     "type": "tv",
     "name": "Eurosport 2",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Eurosport_2_Logo_2015.png",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_2.svg",
     "description": "Eurosport 2",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MikvbWFuaWZlc3QubXBkJmtleV9pZD1lODM3MjI4M2E1MjM0NDRjODQ2NDZjNDE3MmIxYmMwZiZrZXk9OTY5YTkwZTFhMWE2NDI0YTY4ZmU0YjVkNzc2MzY4ZWM=",
-    "staticUrlD": "https://thedaddy.click/stream/stream-879.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=879",
     "vavooNames": [
       "EUROSPORT 2"
     ],
     "epgChannelIds": [
       "eurosport2.it"
+    ],
+    "category": "sport",
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D879"
+  },
+  {
+    "id": "eurosport3",
+    "type": "tv",
+    "name": "Eurosport 3",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_3.svg",
+    "description": "Eurosport 3",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MykvbWFuaWZlc3QubXBkJmtleV9pZD0xZTIzOThiMGVlYjA0ODI5YjQ3MTFlMTRiNGE5MTI0NCZrZXk9MTFlMjY2NTllYmZlY2Y2YTIyZWQ1NmRhMzQwNDQ4Y2Q=",
+    "epgChannelIds": [
+      "eurosport3.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "eurosport4",
+    "type": "tv",
+    "name": "Eurosport 4",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_4.svg",
+    "description": "Eurosport 4",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NCkvbWFuaWZlc3QubXBkJmtleV9pZD05ZGQ3YmU3OWU0NGY0ZDA4YTkxZWM1ZDE1NTNmMTdiOCZrZXk9OGE2MjM2OWY4MWE0YjZlNWYyZDQ4NDZmN2JkNWU3ZDE=",
+    "epgChannelIds": [
+      "eurosport4.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "eurosport5",
+    "type": "tv",
+    "name": "Eurosport 5",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_5.svg",
+    "description": "Eurosport 5",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NSkvbWFuaWZlc3QubXBkJmtleV9pZD1iNDhlN2U2ZDk2ZGE0NzlkYTY1ZTQzNWNlNjVmYWViMSZrZXk9NDhjNzAzODc5Y2U0ZGVlZGI1YTIxMjRhMzBhMTNiYzQ==",
+    "epgChannelIds": [
+      "eurosport5.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "eurosport6",
+    "type": "tv",
+    "name": "Eurosport 6",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_6.svg",
+    "description": "Eurosport 6",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NikvbWFuaWZlc3QubXBkJmtleV9pZD1lYWQxYzU2N2EzZGY0ODYxOTc5OWIyZTc4YjE4ZmRmYSZrZXk9MWRlOWQ5YWY1NjUxMjk2YWE2NzkxMzk3OWFkOGM2OTQ==",
+    "epgChannelIds": [
+      "eurosport6.it"
     ],
     "category": "sport"
   },
@@ -1386,16 +1454,15 @@
     "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Sky_Sport_Legend_-_Logo_2025.svg/2560px-Sky_Sport_Legend_-_Logo_2025.svg.png",
     "description": "Sky Sport Legend - Sky",
     "vavooNames": [
-      "Sky Sport Legend"
+      "SKY SPORT 251"
     ],
     "epgChannelIds": [
-      "skysportlegend.it"
+      "skysport251.it"
     ],
     "category": [
       "sky",
       "sport"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjE2X2Z+MF9nfjFfc34yMzM2NzE2NC05NjZhLTQ1ODItOWViMi1iYjAzNzRlN2VmYjdfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjBfeH5iZWQ2Zjk1MWRjZWI2MjA4ZDUzZjE2MmEwNjc4ZjA4NC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRsZWdlbmQpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWFiNTgzY2MwYWM1ZWExYjFmZjQzMWY3MWU0MWIma2V5PWE5MDNiODYyN2JjZjBkNzY2Mjg2YTBiN2JjM2Y2MmVl"
+    ]
   },
   {
     "id": "skysportmix",
@@ -1412,8 +1479,7 @@
     "category": [
       "sky",
       "sport"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjE3X2Z+MF9nfjFfc340ZjcxOTk2ZC00ZmM5LTRmNDktOWE1YS05ZTRlM2QxZmZhYmNfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH5jYmMzZGJkYTU2ZjkyYmE1OGIwZDNjZWMxYTQyMDU3My9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRtaXgpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTRmMjY3NjY2NWE3Y2FlMjQwMjI0YzQ0NDFhMGUma2V5PTE2ZDEwYmRmMjI2NzVkYjEwNmEzNDM5MjcyNzhjMjVm"
+    ]
   },
   {
     "id": "skysport251",
@@ -1421,7 +1487,7 @@
     "name": "Sky Sport 251",
     "poster": "https://i.imgur.com/ge0fdw9.png",
     "description": "Sky Sport 251 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-871.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=871",
     "vavooNames": [
       "SKY SPORT 251"
     ],
@@ -1432,7 +1498,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjIwX2Z+MF9nfjFfc345Nzk5Y2MwMy01MGI4LTRlMGUtODRkZC1mZWE0NTY1MjY3ZTFfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH5mZDM0MzM4MjFlNTNhYWUwZWQ2YThiMzQ2NGFlZTE1MS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTEpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTMwMTk1ZDk3YmNhMTkwZjgxMmViMjc0N2U3NmMma2V5PTc2ZWIxN2VkOTQ2MTg2YzNlYTA5ZjU0MTU0NzM2YTEz"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D871"
   },
   {
     "id": "skysport252",
@@ -1440,7 +1506,7 @@
     "name": "Sky Sport 252",
     "poster": "https://i.imgur.com/z9CsC3U.png",
     "description": "Sky Sport 252 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-872.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=872",
     "vavooNames": [
       "SKY SPORT 252"
     ],
@@ -1451,7 +1517,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjIxX2Z+MF9nfjFfc34yNzE1OGE1Mi1iZjU2LTQyZTQtYmU5OC0zMzRiZmM5NTkxMGVfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH5mMjVjMmRmNWEwMWZhMDIxNDdkOGE1OGZiYWE2YjMwOC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTIpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWIyZGJmNGZjMmU0NTU2ZjFmNzc1NzJjMmY0MjUma2V5PWI0NDFiM2I0NDljZTY5MzhmN2NlOWJkNmFjYzJlMTJi"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D872"
   },
   {
     "id": "skysport253",
@@ -1459,7 +1525,7 @@
     "name": "Sky Sport 253",
     "poster": "https://i.imgur.com/MdNKRWQ.png",
     "description": "Sky Sport 253 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-873.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=873",
     "vavooNames": [
       "SKY SPORT 253"
     ],
@@ -1470,7 +1536,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjIyX2Z+MF9nfjFfc34yZTc0ZjRiNC02YmYzLTQ4NWYtYThjMS1iZTg1NjY3NGUzNmVfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH5iMzIzYmZkZTY4YzU2NDY1NTYxZWEwNWI3MWEwNjg2MC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTMpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTNjMDNhYjk4NWIxN2E0NGM5ZTZmZGQyNmRhNDcma2V5PTA5ZDVmYmViMGM1M2QxYTRmYTNlNTdjN2RiM2MxMzEx"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D873"
   },
   {
     "id": "skysport254",
@@ -1478,7 +1544,7 @@
     "name": "Sky Sport 254",
     "poster": "https://i.imgur.com/G0xjSIe.png",
     "description": "Sky Sport 254 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-874.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=874",
     "vavooNames": [
       "SKY SPORT 254"
     ],
@@ -1489,7 +1555,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjI0X2Z+MF9nfjFfc35lNzI3YWUxYS1mN2I2LTQ3YjQtOWMzMi0zYTAxZGE5OGM1MjFfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH45ZGEyNjlmZTFlOGE5ZGE0OWY5MjE0ODgwOTNkYjg4YS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTQpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWU5ZTZkYzJkMDBiODA1NzY1YzcxZmQwYjg2NzAma2V5PTEyZWFhYzlmYjVmMThmNGY1OTQxYzA4NTg2MDIxYWUy"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D874"
   },
   {
     "id": "skysport255",
@@ -1497,7 +1563,7 @@
     "name": "Sky Sport 255",
     "poster": "https://i.imgur.com/C2BKXje.png",
     "description": "Sky Sport 255 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-875.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=875",
     "vavooNames": [
       "SKY SPORT 255"
     ],
@@ -1508,7 +1574,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjI1X2Z+MF9nfjFfc35mMTJlZjgxMC05ZTIyLTRkNGQtOGU1OC0xMzQ2YWE0MDk4YTVfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH40MGIwMWRjY2FlMzNkYjFiZjg2ZTg2OWE4MGU0YmNjYS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTUpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWMxNzk5YTZkNTMzMDc5OGU3YmYzZjNmZjVlZmQma2V5PTIwMGJmMmU2NzlkMjU4ZTQzMTViYzA4YWIyNjE0NWVm"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D875"
   },
   {
     "id": "skysport256",
@@ -1516,7 +1582,7 @@
     "name": "Sky Sport 256",
     "poster": "https://i.imgur.com/q2WAtgI.png",
     "description": "Sky Sport 256 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-876.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=876",
     "vavooNames": [
       "SKY SPORT 256"
     ],
@@ -1527,7 +1593,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjI2X2Z+MF9nfjFfc35iMmViYjJkMy04MmMzLTRiNjQtOGYyOS03NzRkZDAyMzhlYWZfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH5mZjIwOGU3MjdiZmM0NjdkNTRiNzhiZjJhODYyNDRkNC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTYpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWRkYWIzZjc3MWNhZjI0MTc5ZTM3MDk1YTAzOTcma2V5PWIxOGU3MGExYjg1Nzc2ZWRkNjYxMTM0ZDAwZDgyNGMw"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D876"
   },
   {
     "id": "skysport257",
@@ -1535,7 +1601,7 @@
     "name": "Sky Sport 257",
     "poster": "https://i.imgur.com/o9qzl9U.png",
     "description": "Sky Sport 257 - Sky",
-    "staticUrlD": "https://thedaddy.click/stream/stream-877.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=877",
     "vavooNames": [
       "SKY SPORT 257"
     ],
@@ -1546,7 +1612,7 @@
       "sky",
       "sport"
     ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjMwX2Z+MF9nfjFfc343YjQ2NzhmMC00NTJlLTQyZTgtOGI1Yy1lZDFmYTg2MzQ1MWRfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH4yZDgwNzNkNDg3YmRmNTYwODRlYjM2MWFkMmRiZjViNi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTcpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTI0OTZiZDhlOWU1MWNjMzM4NTVhNzlkMmJmNTcma2V5PTEzNmM1MDEwZWRkNTJkMTNhZWIxNzk4NzdkMDFlOWFh"
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D877"
   },
   {
     "id": "skysport258",
@@ -1564,8 +1630,7 @@
     "category": [
       "sky",
       "sport"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjMxX2Z+MF9nfjFfc35hM2RiMmQ4ZS1lMGE4LTRjNWMtYTVjNS0zZDcwMDZmY2Y5NGJfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH44ZjRjOWFkOTY5MGM0ZDkwNzM0NjYwY2UwMjg0YzA5ZC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTgpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWJiMDA0MGM2ZDA0YjgyMmRhOWFlMWFmODk3N2Qma2V5PWM4MGJhNTZmZGVlNzc4MjMxM2EzMzY5MWU5Y2MyMTQ2"
+    ]
   },
   {
     "id": "skysport259",
@@ -1583,8 +1648,7 @@
     "category": [
       "sky",
       "sport"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjMyX2Z+MF9nfjFfc34xNWJhMjFjNC1jMzAwLTQzNmYtODk0ZS1jNDhjMjgxYzg1YTBfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH5iZTY5NGFkNTk4YjQ2MDc0ZjFhM2FhYWVhOWQzOWZlMy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTkpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTg2MjcyOTRmY2JkNWU3MjRlMmI1MjFjODdhZWIma2V5PWMyNmJjNmUzM2U4ZjM5ZGM3NDhmNjY4ODU5MzVhNjNm"
+    ]
   },
   {
     "id": "dazn1",
@@ -1592,13 +1656,24 @@
     "name": "Dazn 1",
     "poster": "https://i.pinimg.com/736x/7e/78/4b/7e784b0cacc3ed5732b937ad8c466a77.jpg",
     "description": "Dazn 1",
-    "staticUrlMpd": "aHR0cHM6Ly9hYmU2Zmp4YWFhYWFhYWFtYzRwZzU1ZWtjeXF6NC5vdHRlLmxpdmUuY2Yud3cuYWl2LWNkbi5uZXQvZHViLW5pdHJvL2xpdmUvY2xpZW50cy9kYXNoL2VuYy9sZ2s4a3BwY2xjL291dC92MS9mNTExNzNiNmIwNjI0YTQzODYzNThhYjhkZmVlMjU3Zi9jZW5jLm1wZCZrZXlfaWQ9ODI3MmJmNmJhNDZmMjNmOWRhNTI3MDA1N2I2ZTAyOGEma2V5PTc0YWU3MGRkMTBiNGJiMzhlZDZmZmU4NDNmM2UyY2Nk",
-    "staticUrlD": "https://thedaddy.click/stream/stream-877.php",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=877",
     "vavooNames": [
       "DAZN 1"
     ],
     "epgChannelIds": [
       "dazn1.it"
+    ],
+    "category": "sport",
+    "staticUrlD_CF": "{usableAddonBase}/dlhd.m3u8?src=https%3A%2F%2Fdlhd.dad%2Fwatch.php%3Fid%3D877"
+  },
+  {
+    "id": "dazn2",
+    "type": "tv",
+    "name": "Dazn 2",
+    "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/DAZN_2.svg/882px-DAZN_2.svg.png",
+    "description": "Dazn 2",
+    "epgChannelIds": [
+      "dazn2.it"
     ],
     "category": "sport"
   },
@@ -1631,8 +1706,7 @@
     "category": [
       "sky",
       "kids"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjM3X2Z+MF9nfjFfc34zZjI1YmI5OS1jN2FlLTQxZDAtODZiYy0xZjM1Y2I4MmE5ZjVfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTNfeH45ZTgwY2U5MzdiOWI1MGYxMTQ4Y2JmMWZlNTBiMGI2Zi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoZGVha2lkcykvbWFzdGVyXzJoci1hYWMubXBkJmtleV9pZD0xMTE1YTY0ZTU1MjI4YTEyNGFlYTFmMGYyNzVjYmI3MiZrZXk9ZWZiMGQ2MzI3ZGM4NTY2NjA0ZjQwMWFlZjczYjU0ZTc="
+    ]
   },
   {
     "id": "nickjr",
@@ -1649,14 +1723,13 @@
     "category": [
       "sky",
       "kids"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjM4X2Z+MF9nfjFfc35jM2E5MmI2Ni1mMmRmLTQzYmUtYTI3Yi05MzQ2MTI1OWQyYWZfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTZfeH4zNWVlYjQ5OTJmNDViYTQ3NGFhMmQ1MmRhNDdmZGNhNy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwobmlja2p1bmlvcikvbWFzdGVyXzJoci1hYWMubXBkJmtleV9pZD0xMTE1OWMwM2IxYjgxYTM3MDU2NDFmNzhmZmRlZGQ3OCZrZXk9MDRmYjI0ODRiNDIxYzM1YWFjOWIyZDVjZWExYzVjYjk="
+    ]
   },
   {
     "id": "skyadventure",
     "type": "tv",
     "name": "Sky Adventure",
-    "poster": "https://upload.wikimedia.org/wikipedia/en/thumb/a/a9/Sky_Adventure_%28logo%29.svg/1024px-Sky_Adventure_%28logo%29.svg.png?20250818150335",
+    "poster": "https://upload.wikimedia.org/wikipedia/commons/b/b7/Sky_Adventure_Logo_1080p.png",
     "description": "Sky Adventure - Sky",
     "vavooNames": [
       "SKY ADVENTURE"
@@ -1667,8 +1740,7 @@
     "category": [
       "sky",
       "documentari"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjMwX2Z+MF9nfjFfc34yNmUwODE1Mi1iNWIxLTQ4NTEtYjJkYi02MDJhYTM0ZDU4OWVfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NThfeH4xNDEwODkxNzdjNWYwYzEyMTU1YjNiOGRhNWY4OTNhNS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5YWR2ZW50dXJlKS9tYXN0ZXJfMmhyLWFhYy5tcGQma2V5X2lkPTExMTU4MDM1ZmZiZjE3ZWViZDAyMDI3ZTk2MzgzMTYxJmtleT03ZTFlYTEwNDI4ZThjNWNkZmRhYzZjNTViMjMwMThkMg=="
+    ]
   },
   {
     "id": "nickelodeon",
@@ -1685,8 +1757,7 @@
     "category": [
       "sky",
       "kids"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjM2X2Z+MF9nfjFfc35hOGJjYTBjYS1jOGNmLTQ0MzYtOWRjOC0xYjg0MjdkNTc4ZDFfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTdfeH5jYmJlMmVhZGM3OGM4MzYzNmE0YmY2ZjcxYjg3YmEwOC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwobmlja2Vsb2Rlb24pL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTAyYWI2ZDg4NzU0NzI3ZDU4ZjA5NTI5NzdhODMma2V5PTUzNmQ0MmRhNDc4ODMyNGU3YzdhYWY3MmNlYjA2MWMy"
+    ]
   },
   {
     "id": "cartoonnetwork",
@@ -1703,8 +1774,7 @@
     "category": [
       "sky",
       "kids"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjM1X2Z+MF9nfjFfc34zN2IwM2I4Ny03Y2VmLTQ3ZGEtYmIyMC1lODYzOTQ1NWM5ZTFfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NjBfeH41Y2FkMDk4ZTU4N2EwZGI3ZGRiMDQ5MzM1ODgxMmI4Ny9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoY2FydG9vbm5ldHdvcmspL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNTc2OTQxNmYzZGMyNTJhMTA1ZTliNmJhYTg0ZTcma2V5PTQ0YjEzNTZiOWQ2MDk0NDhiOGMxMDJiMDliY2M0Y2Nh"
+    ]
   },
   {
     "id": "boomerang",
@@ -1721,8 +1791,7 @@
     "category": [
       "sky",
       "kids"
-    ],
-    "staticUrlMpd": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzYxNzIxMjM5X2Z+MF9nfjFfc35lMmNiM2RlYS1jZTFmLTQ2YjktYTc1ZC05MTQxMzM2YjgyY2VfdX5hN2IxMjBiMTkyYWIwZWZlYjUzNjE1NTJmY2YzYmRiNmY3NjQ0MTljNGEyMzA2NDRiMzk4NmM0ZWNhNDQyNjE4ZDJjMjhjMjE0ZTQxODY1MDJiYmIyOWE0OGNmYzdjM2Zfa35BX2x+NTVfeH45OGJhODZjZjQ5ZDQ2ZWY1OGRiODE5ZGY3OTU4OWQ0OC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoYm9vbWVyYW5nKS9tYXN0ZXJfMmhyLWFhYy5tcGQma2V5X2lkPTExMTVjYzQxYTBkYWY1N2EyMmMxYzgxYmQxMzliNTU5JmtleT0zMTM0N2Y5YmJjOTA3MTNlOTcyMjQ5YjU0ZWM4ODJiMg=="
+    ]
   },
   {
     "id": "primafila1",
@@ -3271,5 +3340,21 @@
       "63724270c7c2360007b170e8"
     ],
     "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/63724270c7c2360007b170e8/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "boomerang",
+    "type": "tv",
+    "name": "Boomerang",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/boomerang-it.png",
+    "description": "Boomerang - Sky",
+    "staticUrl": "aHR0cHM6Ly9nMDAzLWxpbi1pdC1jbWFmLXByZC14YS5wY2RuMDcuY3Nzb3R0MDIuY29tL25vd2l0bGluMS9Db250ZW50L0NNQUZfQ1RSX1MxL0xpdmUvY2hhbm5lbChib29tZXJhbmcpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWNjNDFhMGRhZjU3YTIyYzFjODFiZDEzOWI1NTkma2V5PTMxMzQ3ZjliYmM5MDcxM2U5NzIyNDliNTRlYzg4MmIy",
+    "staticUrl2": "aHR0cHM6Ly9nMDAzLWxpbi1pdC1jbWFmLXByZC14YS5wY2RuMDcuY3Nzb3R0MDIuY29tL25vd2l0bGluMS9Db250ZW50L0NNQUZfQ1RSX1MxL0xpdmUvY2hhbm5lbChib29tZXJhbmcpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWNjNDFhMGRhZjU3YTIyYzFjODFiZDEzOWI1NTkma2V5PTMxMzQ3ZjliYmM5MDcxM2U5NzIyNDliNTRlYzg4MmIy",
+    "vavooNames": [
+      "test"
+    ],
+    "epgChannelIds": [
+      "test.it"
+    ],
+    "category": "test"
   }
 ]
