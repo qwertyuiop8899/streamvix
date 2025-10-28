@@ -1140,7 +1140,7 @@
     "id": "comedycentral",
     "type": "tv",
     "name": "Comedy Central",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Comedy_Central_2018.svg/2880px-Comedy_Central_2018.svg.png",
+    "poster": "https://logos-world.net/wp-content/uploads/2022/06/Comedy-Central-Productions-Symbol-700x394.png",
     "description": "Comedy Central - Sky",
     "vavooNames": [
       "COMEDY CENTRAL"
@@ -1729,7 +1729,7 @@
     "id": "skyadventure",
     "type": "tv",
     "name": "Sky Adventure",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/b/b7/Sky_Adventure_Logo_1080p.png",
+    "poster": "https://upload.wikimedia.org/wikipedia/en/thumb/a/a9/Sky_Adventure_%28logo%29.svg/1024px-Sky_Adventure_%28logo%29.svg.png?20250818150335",
     "description": "Sky Adventure - Sky",
     "vavooNames": [
       "SKY ADVENTURE"
@@ -3340,21 +3340,5 @@
       "63724270c7c2360007b170e8"
     ],
     "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/63724270c7c2360007b170e8/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
-  },
-  {
-    "id": "boomerang",
-    "type": "tv",
-    "name": "Boomerang",
-    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/boomerang-it.png",
-    "description": "Boomerang - Sky",
-    "staticUrl": "aHR0cHM6Ly9nMDAzLWxpbi1pdC1jbWFmLXByZC14YS5wY2RuMDcuY3Nzb3R0MDIuY29tL25vd2l0bGluMS9Db250ZW50L0NNQUZfQ1RSX1MxL0xpdmUvY2hhbm5lbChib29tZXJhbmcpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWNjNDFhMGRhZjU3YTIyYzFjODFiZDEzOWI1NTkma2V5PTMxMzQ3ZjliYmM5MDcxM2U5NzIyNDliNTRlYzg4MmIy",
-    "staticUrl2": "aHR0cHM6Ly9nMDAzLWxpbi1pdC1jbWFmLXByZC14YS5wY2RuMDcuY3Nzb3R0MDIuY29tL25vd2l0bGluMS9Db250ZW50L0NNQUZfQ1RSX1MxL0xpdmUvY2hhbm5lbChib29tZXJhbmcpL21hc3Rlcl8yaHItYWFjLm1wZCZrZXlfaWQ9MTExNWNjNDFhMGRhZjU3YTIyYzFjODFiZDEzOWI1NTkma2V5PTMxMzQ3ZjliYmM5MDcxM2U5NzIyNDliNTRlYzg4MmIy",
-    "vavooNames": [
-      "test"
-    ],
-    "epgChannelIds": [
-      "test.it"
-    ],
-    "category": "test"
   }
 ]
