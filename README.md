@@ -54,6 +54,7 @@ http://urladdon/rbtv/reload       avvia arricchimento RB77/RBTV
 
 http://urladdon/spso/reload       avvia arricchimento SPSO
 
+http://urladdon/amstaff/reload       avvia arricchimento MPD
 
 ## 🔧 Configurazione Semplificata
 
@@ -938,6 +939,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
