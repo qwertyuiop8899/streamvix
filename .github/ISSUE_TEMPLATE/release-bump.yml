@@ -19,7 +19,7 @@ body:
     attributes:
       label: Versione
       description: "Inserisci la nuova versione (formato X.Y.23). [Version](https://github.com/qwertyuiop8899/streamvix/blob/main/package.json)"
-      placeholder: "Vedi sotto la versione corrente"
+      placeholder: "Controlla il link sopra per la versione corrente"
     validations:
       required: true
   - type: checkboxes
