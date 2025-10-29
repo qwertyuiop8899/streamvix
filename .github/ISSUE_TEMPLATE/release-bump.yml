@@ -18,8 +18,8 @@ body:
     id: version
     attributes:
       label: Versione
-      description: Inserisci la nuova versione (formato X.Y.Z)
-      placeholder: 6.7.23
+      description: "Inserisci la nuova versione (formato X.Y.Z). Vedi il commento automatico del bot qui sotto per la versione corrente e i suggerimenti di bump."
+      placeholder: "Vedi commento bot ⬇️"
     validations:
       required: true
   - type: checkboxes
