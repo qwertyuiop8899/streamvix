@@ -289,7 +289,7 @@ export function startAmstaffScheduler() {
     setInterval(async () => {
         console.log('[AMSTAFF] 🔄 Aggiornamento orario programmato...');
         await updateAmstaffChannels();
-    }, 3600000);
+    }, 1200000);
     
     console.log('[AMSTAFF] 📅 Scheduler attivato: aggiornamenti ogni ora');
 }
