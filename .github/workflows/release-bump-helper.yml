@@ -1,0 +1,102 @@
+name: Release Bump Helper
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  show-current-version:
+    if: contains(github.event.issue.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      issues: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Get current version from package.json
+        id: current
+        run: |
+          CURRENT_VERSION=$(jq -r '.version' package.json)
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "📌 Versione corrente rilevata: $CURRENT_VERSION"
+      
+      - name: Comment on issue with current version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const currentVersion = '${{ steps.current.outputs.version }}';
+            const issueNumber = context.issue.number;
+            
+            // Funzione helper per incrementare la versione
+            function incrementVersion(version, type) {
+              const parts = version.split('.').map(Number);
+              if (type === 'patch') {
+                parts[2]++;
+              } else if (type === 'minor') {
+                parts[1]++;
+                parts[2] = 0;
+              } else if (type === 'major') {
+                parts[0]++;
+                parts[1] = 0;
+                parts[2] = 0;
+              }
+              return parts.join('.');
+            }
+            
+            const patchVersion = incrementVersion(currentVersion, 'patch');
+            const minorVersion = incrementVersion(currentVersion, 'minor');
+            const majorVersion = incrementVersion(currentVersion, 'major');
+            
+            // Controlla se esiste già un commento del bot
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+            });
+            
+            const botComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('📌 **Versione corrente:**')
+            );
+            
+            const commentBody = [
+              '## 📌 **Versione corrente:** `' + currentVersion + '`',
+              '',
+              '### 📝 Istruzioni per il bump:',
+              '',
+              '1. Inserisci la **nuova versione** nel campo sopra (formato `X.Y.Z`)',
+              '2. Esempi comuni di bump:',
+              '   - **Patch** (fix/bugfix): `' + currentVersion + '` → `' + patchVersion + '`',
+              '   - **Minor** (feature): `' + currentVersion + '` → `' + minorVersion + '`',
+              '   - **Major** (breaking change): `' + currentVersion + '` → `' + majorVersion + '`',
+              '',
+              '3. Conferma e invia l\'issue',
+              '',
+              '---',
+              '',
+              '> 🤖 _Questo commento viene aggiornato automaticamente ad ogni modifica dell\'issue._'
+            ].join('\n');
+            
+            if (botComment) {
+              // Aggiorna commento esistente
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody,
+              });
+              console.log('✅ Commento aggiornato con versione corrente');
+            } else {
+              // Crea nuovo commento
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: commentBody,
+              });
+              console.log('✅ Nuovo commento creato con versione corrente');
+            }
