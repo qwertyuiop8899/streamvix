@@ -465,38 +465,41 @@ function getStreamPriority(stream: { url: string; title: string }): number {
     // 3. Freeshot (cerca [🏟 Free] o freeshot)
     if (/freeshot|\[🏟\s*Free\]|🏟.*free/i.test(title)) return 3;
 
-    // 4. [P🐽D]
-    if (/\[P🐽D\]/i.test(title)) return 4;
+    // 4. staticUrlMpd (🎬MPD - canali statici con MPD iniettati dinamicamente)
+    if (/\[🎬MPD\]/i.test(title)) return 4;
 
-    // 5. Daddy con 🇮🇹 (estratti, wrappati MFP o diretti ma NON 🔄 e NON [Player Esterno])
-    if (/^🇮🇹(?!🔄)/.test(title) && !/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 5;
+    // 5. [P🐽D]
+    if (/\[P🐽D\]/i.test(title)) return 5;
 
-    // 6. Vavoo MFP (contiene "Vavoo" E contiene mfp/mediaflow nel URL)
-    if (/vavoo/i.test(title) && /mfp|mediaflow|proxy.*stream/i.test(url)) return 6;
+    // 6. Daddy con 🇮🇹 (estratti, wrappati MFP o diretti ma NON 🔄 e NON [Player Esterno])
+    if (/^🇮🇹(?!🔄)/.test(title) && !/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 6;
 
-    // 7. GDplayer
-    if (/\[🌐Gd\]|\bGd\b|gdplayer/i.test(title)) return 7;
+    // 7. Vavoo MFP (contiene "Vavoo" E contiene mfp/mediaflow nel URL)
+    if (/vavoo/i.test(title) && /mfp|mediaflow|proxy.*stream/i.test(url)) return 7;
 
-    // 8. RBTV
-    if (/\[?(RB|RBTV|rb77)\]?/i.test(title)) return 8;
+    // 8. GDplayer
+    if (/\[🌐Gd\]|\bGd\b|gdplayer/i.test(title)) return 8;
 
-    // 9. SPON
-    if (/\[?SPON\]?/i.test(title)) return 9;
+    // 9. RBTV
+    if (/\[?(RB|RBTV|rb77)\]?/i.test(title)) return 9;
 
-    // 10. SPSO
-    if (/\[?SPSO\]?/i.test(title)) return 10;
+    // 10. SPON
+    if (/\[?SPON\]?/i.test(title)) return 10;
 
-    // 11. STRD
-    if (/\[?STRD\]?/i.test(title) || /\[Strd\]/i.test(title)) return 11;
+    // 11. SPSO
+    if (/\[?SPSO\]?/i.test(title)) return 11;
 
-    // 12. Altri daddy FAST dynamic (estratti ma non italiani, non leftover)
-    if (!/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 12;
+    // 12. STRD
+    if (/\[?STRD\]?/i.test(title) || /\[Strd\]/i.test(title)) return 12;
 
-    // 13. [Player Esterno] daddy leftover (oltre CAP)
-    if (/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 13;
+    // 13. Altri daddy FAST dynamic (estratti ma non italiani, non leftover)
+    if (!/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 13;
+
+    // 14. [Player Esterno] daddy leftover (oltre CAP)
+    if (/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 14;
 
     // Default: altri stream non categorizzati (mettiamo dopo i daddy ma prima dei leftover)
-    return 12.5;
+    return 13.5;
 }
 
 /**
@@ -2390,38 +2393,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     } catch (e2) {
                                         vdbg('Vavoo/MFP injection error', String((e2 as any)?.message || e2));
                                     }
-                                    // Iniezioni extra: DAZN ZONA IT -> usa staticUrlMpd di 'dazn1'; EUROSPORT 1/2 IT -> usa staticUrlMpd di 'eurosport1'/'eurosport2'
-                                    try {
-                                        const textsScan: string[] = [channel?.name || '', ...candidateTexts].map(t => (t || '').toLowerCase());
-                                        const hasDaznZonaIt = textsScan.some(t => /dazn\s*zona\s*it/.test(t));
-                                        const hasEu1It = textsScan.some(t => /eurosport\s*1/.test(t) && /\bit\b/.test(t));
-                                        const hasEu2It = textsScan.some(t => /eurosport\s*2/.test(t) && /\bit\b/.test(t));
-                                        const injectFromStaticMpd = async (staticId: string) => {
-                                            try {
-                                                const base = (staticBaseChannels || []).find((c: any) => c && c.id === staticId);
-                                                if (!base || !base.staticUrlMpd) return;
-                                                const decodedUrl = decodeStaticUrl(base.staticUrlMpd);
-                                                let finalUrl = decodedUrl;
-                                                let proxyUsed = false;
-                                                if (mfpUrl && mfpPsw) {
-                                                    const urlParts = decodedUrl.split('&');
-                                                    const baseUrl = urlParts[0];
-                                                    const additionalParams = urlParts.slice(1);
-                                                    finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
-                                                    for (const param of additionalParams) if (param) finalUrl += `&${param}`;
-                                                    proxyUsed = true;
-                                                }
-                                                const title = `${proxyUsed ? '' : '[❌Proxy]'}[🎬MPD] ${base.name} [ITA]`;
-                                                let insertAt = 0;
-                                                try { while (insertAt < streams.length && /(\(Vavoo🔓\))/i.test(streams[insertAt].title)) insertAt++; } catch {}
-                                                try { streams.splice(insertAt, 0, { url: finalUrl, title }); } catch { streams.push({ url: finalUrl, title }); }
-                                                vdbg('Injected staticUrlMpd from static channel', { id: staticId, url: finalUrl.substring(0, 140) });
-                                            } catch {}
-                                        };
-                                        if (hasDaznZonaIt) await injectFromStaticMpd('dazn1');
-                                        if (hasEu1It) await injectFromStaticMpd('eurosport1');
-                                        if (hasEu2It) await injectFromStaticMpd('eurosport2');
-                                    } catch {}
                                     console.log(`✅ [VAVOO] Injected first stream from alias='${alias}' -> ${vUrl.substring(0, 60)}...`);
                                 } else {
                                     console.log(`⚠️ [VAVOO] Alias trovato ma nessun URL in cache: '${alias}'`);
@@ -2558,6 +2529,77 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                         } catch (e) {
                             debugLog(`Freeshot import/fetch fallito: ${e}`);
+                        }
+                        
+                        // === INJECTION GENERICO staticUrlMpd (come Vavoo) - Posizione #4 dopo Freeshot ===
+                        try {
+                            const mpdInjectedChannels = new Set<string>(); // Track per evitare duplicati
+                            
+                            // Loop su TUTTI i canali statici con staticUrlMpd
+                            for (const staticCh of staticBaseChannels) {
+                                if (!staticCh || !staticCh.staticUrlMpd) continue;
+                                if (mpdInjectedChannels.has(staticCh.id)) continue; // Skip già iniettati
+                                
+                                const aliases = staticCh.vavooNames || [staticCh.name];
+                                
+                                // Match fuzzy (come Vavoo)
+                                let matched = false;
+                                for (const alias of aliases) {
+                                    if (matched) break;
+                                    const normalizedAlias = normAlias(alias);
+                                    
+                                    const matches = providerTitlesExt.some((pt: string) => {
+                                        const normalizedProvider = normAlias(pt);
+                                        return normalizedProvider.includes(normalizedAlias) || normalizedAlias.includes(normalizedProvider);
+                                    });
+                                    
+                                    if (matches) {
+                                        // TROVATO! Inietta MPD (legge SEMPRE da staticBaseChannels fresh)
+                                        try {
+                                            const decodedUrl = decodeStaticUrl(staticCh.staticUrlMpd);
+                                            let finalUrl = decodedUrl;
+                                            let proxyUsed = false;
+                                            
+                                            if (mfpUrl && mfpPsw) {
+                                                const urlParts = decodedUrl.split('&');
+                                                const baseUrl = urlParts[0];
+                                                const additionalParams = urlParts.slice(1);
+                                                finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                                                for (const param of additionalParams) if (param) finalUrl += `&${param}`;
+                                                proxyUsed = true;
+                                            }
+                                            
+                                            const title = `${proxyUsed ? '' : '[❌Proxy]'}[🎬MPD] ${staticCh.name} [ITA]`;
+                                            
+                                            // Inserisce in posizione #4: dopo Vavoo Clean, D_CF, Freeshot
+                                            let insertAt = 0;
+                                            try { 
+                                                while (insertAt < streams.length && /(\(Vavoo🔓\))/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /🇮🇹🔄/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🏟\s*Free\]/i.test(streams[insertAt].title)) insertAt++;
+                                            } catch {}
+                                            
+                                            try { 
+                                                streams.splice(insertAt, 0, { url: finalUrl, title }); 
+                                            } catch { 
+                                                streams.push({ url: finalUrl, title }); 
+                                            }
+                                            
+                                            mpdInjectedChannels.add(staticCh.id);
+                                            matched = true;
+                                            console.log(`✅ [MPD] Injected ${staticCh.name} (matched alias: ${alias}) for dynamic event`);
+                                        } catch (injectErr) {
+                                            debugLog(`[MPD] Injection failed for ${staticCh.name}:`, injectErr);
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (mpdInjectedChannels.size > 0) {
+                                console.log(`✅ [MPD] Total injected: ${mpdInjectedChannels.size} channels with staticUrlMpd`);
+                            }
+                        } catch (e) {
+                            console.error('[MPD] Injection error:', (e as any)?.message || e);
                         }
                         
                         // (Normalizzazione CF rimossa: ora pubblichiamo link avvolti con extractor on-demand)
@@ -4894,6 +4936,58 @@ app.get('/spso/reload', async (req: Request, res: Response) => {
         const clip = (s: string) => s && s.length > 1200 ? s.slice(-1200) : s;
         return res.json({ ok: true, force, ms: took, stdout: clip(execResult.stdout), stderr: clip(execResult.stderr) });
     } catch (e: any) {
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
+// ================= AMSTAFF FORCED RELOAD ENDPOINT =====================
+// GET /amstaff/reload?token=XYZ
+// Triggera manualmente l'aggiornamento dei canali Amstaff e restituisce statistiche
+app.get('/amstaff/reload', async (req: Request, res: Response) => {
+    try {
+        const requiredToken = process?.env?.AMSTAFF_RELOAD_TOKEN;
+        const provided = (req.query.token as string) || '';
+        if (requiredToken && provided !== requiredToken) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+        
+        console.log('[AMSTAFF][RELOAD][API] Manual trigger requested');
+        const started = Date.now();
+        
+        // Importa dinamicamente la funzione di aggiornamento
+        const { updateAmstaffChannels } = await import('./utils/amstaffUpdater');
+        
+        // Esegue l'aggiornamento
+        const channelsUpdated = await updateAmstaffChannels();
+        
+        const took = Date.now() - started;
+        
+        // Forza reload di tv_channels.json dopo l'update
+        try {
+            _loadStaticChannelsIfChanged(true);
+        } catch (e) {
+            console.warn('[AMSTAFF][RELOAD][API] Warning: static reload failed', e);
+        }
+        
+        // Conta canali con staticUrlMpd
+        let mpdCount = 0;
+        for (const c of staticBaseChannels) {
+            if (c && (c as any).staticUrlMpd) mpdCount++;
+        }
+        
+        console.log(`[AMSTAFF][RELOAD][API] Updated ${channelsUpdated} channels in ${took}ms, total staticUrlMpd=${mpdCount}`);
+        
+        return res.json({
+            ok: true,
+            channelsUpdated,
+            totalChannels: staticBaseChannels.length,
+            staticUrlMpdCount: mpdCount,
+            ms: took,
+            timestamp: new Date().toISOString()
+        });
+    } catch (e: any) {
+        console.error('[AMSTAFF][RELOAD][API] Error:', e);
         return res.status(500).json({ ok: false, error: e?.message || String(e) });
     }
 });
