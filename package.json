@@ -1,6 +1,6 @@
 {
   "name": "streamvix",
-  "version": "8.2.23",
+  "version": "8.3.23",
   "description": "StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, StreamingWatch, CB01, TV ed Eventi Live",
   "main": "dist/addon.js",
   "packageManager": "pnpm@8.15.5",
