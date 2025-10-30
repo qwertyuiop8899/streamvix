@@ -41,6 +41,7 @@ try {
 /**
  * Cerca un mapping statico IMDB→TMDB per una specifica stagione.
  * Usato per serie con ID TMDB diversi per stagione (es. Monster).
+ * Supporta anche entry semplici con solo tmdb_id diretto (senza mappings).
  * @param imdbId - ID IMDB (es. "tt13207736")
  * @param season - Numero stagione (es. 1, 2, 3)
  * @returns TMDB ID per quella stagione se trovato, altrimenti null
@@ -49,7 +50,14 @@ function getStaticTmdbMapping(imdbId: string, season: number): string | null {
   const entry = IMDB_TO_TMDB_MAP[imdbId];
   if (!entry) return null;
   
-  const mapping = entry.mappings.find(m => m.imdbSeason === season);
+  // Entry semplice: solo tmdb_id diretto (senza array mappings)
+  if ((entry as any).tmdb_id && !entry.mappings) {
+    console.log(`[IMDB→TMDB] Mapping statico semplice trovato: ${imdbId} → TMDB ${(entry as any).tmdb_id} (${entry.title})`);
+    return (entry as any).tmdb_id;
+  }
+  
+  // Entry con mappings per stagione
+  const mapping = entry.mappings?.find(m => m.imdbSeason === season);
   if (mapping) {
     console.log(`[IMDB→TMDB] Mapping statico trovato: ${imdbId} S${season} → TMDB ${mapping.tmdb_id} (${entry.title})`);
     return mapping.tmdb_id;
@@ -163,6 +171,13 @@ function getObject(id: string) {
 }
 
 export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string): Promise<string | null> {
+  // Prima controlla il mapping statico (per ID non linkati correttamente in TMDB)
+  const entry = IMDB_TO_TMDB_MAP[imdbId];
+  if (entry && (entry as any).tmdb_id && !entry.mappings) {
+    console.log(`[IMDB→TMDB] Mapping statico semplice usato: ${imdbId} → TMDB ${(entry as any).tmdb_id} (${entry.title})`);
+    return (entry as any).tmdb_id;
+  }
+  
   if (!tmdbApiKey) {
     console.error("TMDB_API_KEY is not configured.");
     return null;
