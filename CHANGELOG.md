@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.23](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.22...v1.9.23) (2025-10-30)
+
+
+### Bug Fixes
+
+* foodish ([77320d2](https://github.com/qwertyuiop8899/streamvix/commit/77320d22627b92c96d53c3ab5b6d16bcbd7fc36e))
+
 ## [1.9.22](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.21...v1.9.22) (2025-10-29)
 
 
