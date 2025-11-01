@@ -249,6 +249,7 @@ Se vuoi modificare solo la finestra di visibilità estesa fino a una certa ora, 
 | `RBTV_DISCOVERY_AFTER_MIN` | 10 | Minuti dopo start per discovery RB77 |
 | `STREAMED_ENABLE` | 0 | 1 = abilita integrazione Streamed |
 | `SPSO_PLAYLIST_URL` | auto | URL playlist SPSO custom |
+| `STATIC_DADDY_LAZY` | 1 | **Estrazione DaddyHD canali statici**: 1 (default) = lazy/veloce (link diretto, non estratto, estrazione al play), 0 = eager/lento (estrazione preventiva prima di mostrare lista) |
 
 ---
 ## 🐽 Integrazione Provider [P🐽D]
