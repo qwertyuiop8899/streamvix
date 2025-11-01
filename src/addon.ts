@@ -2224,12 +2224,35 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             return { streams: [] };
                         }
                     } catch {}
-                    // Assicura che i canali dinamici siano presenti anche se la prima richiesta è uno stream (senza passare dal catalog)
+                    // OTTIMIZZAZIONE: Carica dynamic channels solo se il canale non è già in staticBaseChannels
+                    // Questo evita il caricamento inutile per canali TV statici (Sky, Rai, ecc.)
                     try {
-                        loadDynamicChannels(false);
-                        tvChannels = mergeDynamic([...staticBaseChannels]);
+                        // Parse ID prima di cercare
+                        let cleanIdPreCheck = id;
+                        if (id.startsWith('tv:')) cleanIdPreCheck = id.replace('tv:', '');
+                        else if (id.startsWith('tv%3A')) cleanIdPreCheck = id.replace('tv%3A', '');
+                        else if (id.includes('%3A')) {
+                            cleanIdPreCheck = decodeURIComponent(id);
+                            if (cleanIdPreCheck.startsWith('tv:')) cleanIdPreCheck = cleanIdPreCheck.replace('tv:', '');
+                        }
+                        
+                        // Check se esiste già in staticBaseChannels
+                        const isStaticChannel = staticBaseChannels.some((c: any) => c && c.id === cleanIdPreCheck);
+                        
+                        if (isStaticChannel) {
+                            // Canale statico: usa solo staticBaseChannels (NO dynamic channels load)
+                            tvChannels = [...staticBaseChannels];
+                            debugLog(`⚡ [PERF] Static channel detected (${cleanIdPreCheck}): skipped dynamic load`);
+                        } else {
+                            // Canale non trovato in static: potrebbe essere dinamico, carica e mergia
+                            loadDynamicChannels(false);
+                            tvChannels = mergeDynamic([...staticBaseChannels]);
+                            debugLog(`🔄 [PERF] Dynamic load required for channel: ${cleanIdPreCheck}`);
+                        }
                     } catch (e) {
                         console.error('❌ Stream handler: mergeDynamic failed:', e);
+                        // Fallback: usa solo static
+                        tvChannels = [...staticBaseChannels];
                     }
                     // Improved channel ID parsing to handle different formats from Stremio
                     let cleanId = id;
