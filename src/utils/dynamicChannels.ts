@@ -34,13 +34,12 @@ let dynamicCache: DynamicChannel[] | null = null;
 let lastLoad = 0;
 let lastKnownMtimeMs = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minuti
-// Flag per disabilitare completamente la cache (CAMBIO: default OFF per performance - abilita cache sempre)
-// Per disabilitare la cache (debug): impostare esplicitamente NO_DYNAMIC_CACHE=1
+// Flag per disabilitare completamente la cache (di default ON per provare senza cache)
 const NO_DYNAMIC_CACHE: boolean = (() => {
   try {
-    const v = (process?.env?.NO_DYNAMIC_CACHE ?? '0').toString().toLowerCase();
+    const v = (process?.env?.NO_DYNAMIC_CACHE ?? '1').toString().toLowerCase();
     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
-  } catch { return false; }
+  } catch { return true; }
 })();
 // Flag per disabilitare il filtro runtime su date.
 // CAMBIO: default ora = OFF (0) così il comportamento "purge automatico" torna quello atteso:
@@ -149,7 +148,6 @@ export function getDynamicFileStats(): { exists: boolean; size: number; mtimeMs:
 
 export function loadDynamicChannels(force = false): DynamicChannel[] {
   const now = Date.now();
-  const startTime = Date.now();
   // Se richiesto, forza sempre il reload (no cache)
   if (NO_DYNAMIC_CACHE) {
     force = true;
@@ -169,10 +167,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       }
     }
   } catch {}
-  if (!force && dynamicCache && (now - lastLoad) < CACHE_TTL) {
-    try { console.log(`⚡ [DynamicChannels] Servito da cache (${dynamicCache.length} canali) in ${Date.now() - startTime}ms`); } catch {}
-    return dynamicCache;
-  }
+  if (!force && dynamicCache && (now - lastLoad) < CACHE_TTL) return dynamicCache;
   try {
     if (!fs.existsSync(DYNAMIC_FILE)) {
       dynamicCache = [];
@@ -319,8 +314,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           const c = (ch?.category || 'unknown').toString().toLowerCase();
           catMapKept[c] = (catMapKept[c] || 0) + 1;
         }
-        const loadTime = Date.now() - startTime;
-        console.log(`⚡ [DynamicChannels] Caricato da disco in ${loadTime}ms: count=${filtered.length} per categoria:`, catMapKept);
+        console.log(`[DynamicChannels] KEPT count=${filtered.length} per categoria:`, catMapKept);
       } catch {}
       dynamicCache = filtered;
       lastLoad = now;
