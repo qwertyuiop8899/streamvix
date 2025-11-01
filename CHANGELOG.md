@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.24](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.23...v1.9.24) (2025-11-01)
+
+
+### Bug Fixes
+
+* dlhd lazy mode ([a5d8f1b](https://github.com/qwertyuiop8899/streamvix/commit/a5d8f1b581401d27b1aeb8f5f8c10a68863efeca))
+* domains update ([362f9e6](https://github.com/qwertyuiop8899/streamvix/commit/362f9e660b6a5609f242669b6da7e12d357093b8))
+
 ## [1.9.23](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.22...v1.9.23) (2025-10-30)
 
 
