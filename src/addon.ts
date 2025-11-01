@@ -3211,47 +3211,69 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // La versione D classica resta condizionata alla presenza MFP (altrimenti occultata come prima)
                     if ((channel as any).staticUrlD) {
                         if (mfpUrl && mfpPsw) {
-                            // Nuova logica: chiama extractor/video con redirect_stream=false, poi costruisci il link proxy/hls/manifest.m3u8
-                            const daddyApiBase = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
-                            try {
-                                const res = await fetch(daddyApiBase);
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    let finalUrl = data.mediaflow_proxy_url || `${mfpUrl}/proxy/hls/manifest.m3u8`;
-                                    // Aggiungi i parametri di query se presenti
-                                    if (data.query_params) {
-                                        const params = new URLSearchParams();
-                                        for (const [key, value] of Object.entries(data.query_params)) {
-                                            if (value !== null) {
-                                                params.append(key, String(value));
+                            // LAZY MODE: wrap diretto come dynamic (veloce), MFP estrae al click
+                            // EAGER MODE: estrazione preventiva (lento ma completo)
+                            // Controllato da env STATIC_DADDY_LAZY (default: 1 = lazy/veloce)
+                            const lazyMode = (() => {
+                                try {
+                                    const val = (process?.env?.STATIC_DADDY_LAZY ?? '1').toString().toLowerCase();
+                                    return val !== '0' && val !== 'false' && val !== 'off' && val !== 'no';
+                                } catch { return true; } // default lazy
+                            })();
+                            
+                            if (lazyMode) {
+                                // LAZY: wrap diretto (come dynamic channels), MFP estrae on-demand al playback
+                                const wrappedUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent((channel as any).staticUrlD)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                streams.push({
+                                    url: wrappedUrl,
+                                    title: `[🌐D] ${channel.name} [ITA]`
+                                });
+                                debugLog(`Aggiunto staticUrlD LAZY (wrap diretto): ${wrappedUrl}`);
+                            } else {
+                                // EAGER: estrazione preventiva con extractor/video (comportamento precedente)
+                                const daddyApiBase = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
+                                try {
+                                    const res = await fetch(daddyApiBase);
+                                    if (res.ok) {
+                                        const data = await res.json();
+                                        let finalUrl = data.mediaflow_proxy_url || `${mfpUrl}/proxy/hls/manifest.m3u8`;
+                                        // Aggiungi i parametri di query se presenti
+                                        if (data.query_params) {
+                                            const params = new URLSearchParams();
+                                            for (const [key, value] of Object.entries(data.query_params)) {
+                                                if (value !== null) {
+                                                    params.append(key, String(value));
+                                                }
+                                            }
+                                            finalUrl += (finalUrl.includes('?') ? '&' : '?') + params.toString();
+                                        }
+                                        // Aggiungi il parametro d per il destination_url
+                                        if (data.destination_url) {
+                                            const destParam = 'd=' + encodeURIComponent(data.destination_url);
+                                            finalUrl += (finalUrl.includes('?') ? '&' : '?') + destParam;
+                                        }
+                                        // Aggiungi gli header come parametri h_
+                                        if (data.request_headers) {
+                                            for (const [key, value] of Object.entries(data.request_headers)) {
+                                                if (value !== null) {
+                                                    const headerParam = `h_${key}=${encodeURIComponent(String(value))}`;
+                                                    finalUrl += '&' + headerParam;
+                                                }
                                             }
                                         }
-                                        finalUrl += (finalUrl.includes('?') ? '&' : '?') + params.toString();
+                                        streams.push({
+                                            url: finalUrl,
+                                            title: `[🌐D] ${channel.name} [ITA]`
+                                        });
+                                        debugLog(`Aggiunto staticUrlD EAGER (estrazione preventiva): ${finalUrl}`);
+                                    } else {
+                                        // Nothing returned; avoid adding extractor/video fallback
+                                        debugLog(`staticUrlD EAGER: extractor response not OK (status ${res.status})`);
                                     }
-                                    // Aggiungi il parametro d per il destination_url
-                                    if (data.destination_url) {
-                                        const destParam = 'd=' + encodeURIComponent(data.destination_url);
-                                        finalUrl += (finalUrl.includes('?') ? '&' : '?') + destParam;
-                                    }
-                                    // Aggiungi gli header come parametri h_
-                                    if (data.request_headers) {
-                                        for (const [key, value] of Object.entries(data.request_headers)) {
-                                            if (value !== null) {
-                                                const headerParam = `h_${key}=${encodeURIComponent(String(value))}`;
-                                                finalUrl += '&' + headerParam;
-                                            }
-                                        }
-                                    }
-                                    streams.push({
-                                        url: finalUrl,
-                                        title: `[🌐D] ${channel.name} [ITA]`
-                                    });
-                                    debugLog(`Aggiunto staticUrlD Proxy (MFP, nuova logica): ${finalUrl}`);
-                                } else {
-                                    // Nothing returned; avoid adding extractor/video fallback
+                                } catch (err) {
+                                    // Error; skip extractor/video fallback altogether
+                                    debugLog(`staticUrlD EAGER: extractor error: ${(err as any)?.message || err}`);
                                 }
-                            } catch (err) {
-                                // Error; skip extractor/video fallback altogether
                             }
                         } else {
                             // Richiesta: nascondere versione direct senza MFP
