@@ -44,6 +44,7 @@ interface TVChannel {
 /**
  * Parse formato M3U
  * Estrae EXTINF metadata: tvg-id, tvg-logo, group-title, channel name
+ * Estrae anche #KODIPROP license_key (key_id:key) per DRM
  */
 function parseM3U(m3uText: string): RmChannel[] {
     const channels: RmChannel[] = [];
@@ -62,12 +63,36 @@ function parseM3U(m3uText: string): RmChannel[] {
             const commaIndex = line.lastIndexOf(',');
             const name = commaIndex >= 0 ? line.substring(commaIndex + 1).trim() : '';
             
-            // URL nella prossima riga non-commento
+            // Cerca #KODIPROP license_key e URL nelle righe successive
             let url = '';
+            let keyId = '';
+            let key = '';
+            
             for (let j = i + 1; j < lines.length; j++) {
                 const nextLine = lines[j].trim();
-                if (nextLine && !nextLine.startsWith('#')) {
+                
+                // Skip righe vuote
+                if (!nextLine) continue;
+                
+                // Estrae key_id:key da #KODIPROP
+                if (nextLine.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
+                    const licenseKey = nextLine.substring('#KODIPROP:inputstream.adaptive.license_key='.length);
+                    const [extractedKeyId, extractedKey] = licenseKey.split(':');
+                    if (extractedKeyId && extractedKey) {
+                        keyId = extractedKeyId.trim();
+                        key = extractedKey.trim();
+                    }
+                    continue;
+                }
+                
+                // URL è la prima riga non-commento
+                if (!nextLine.startsWith('#')) {
                     url = nextLine;
+                    
+                    // Se abbiamo key_id e key, aggiungili all'URL
+                    if (keyId && key) {
+                        url += `&key_id=${keyId}&key=${key}`;
+                    }
                     break;
                 }
             }
