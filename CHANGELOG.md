@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.26](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.25...v1.9.26) (2025-11-02)
+
+
+### Bug Fixes
+
+* add key ([30a66be](https://github.com/qwertyuiop8899/streamvix/commit/30a66be14bc21191d5b499358948ae5bf319e5e7))
+* mpd2 ([02241ae](https://github.com/qwertyuiop8899/streamvix/commit/02241ae317baee54743416e3fb5f7589dd464eaa))
+
 ## [1.9.25](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.24...v1.9.25) (2025-11-01)
 
 
