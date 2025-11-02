@@ -32,6 +32,8 @@ import { fetchPage } from './providers/flaresolverr';
 import { resolveGdplayerForChannel, inferGdplayerSlug } from './extractors/gdplayerRuntime';
 // Amstaff updater
 import { startAmstaffScheduler } from './utils/amstaffUpdater';
+// RM updater (MPD2)
+import { startRmScheduler } from './utils/rmUpdater';
 
 // ================= TYPES & INTERFACES =================
 interface AddonConfig {
@@ -467,6 +469,9 @@ function getStreamPriority(stream: { url: string; title: string }): number {
 
     // 4. staticUrlMpd (🎬MPD - canali statici con MPD iniettati dinamicamente)
     if (/\[🎬MPD\]/i.test(title)) return 4;
+
+    // 4.5. staticUrlMpd2 (🎬MPD2 - seconda sorgente RM)
+    if (/\[🎬MPD2\]/i.test(title)) return 4.5;
 
     // 5. [P🐽D]
     if (/\[P🐽D\]/i.test(title)) return 5;
@@ -2601,6 +2606,77 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         } catch (e) {
                             console.error('[MPD] Injection error:', (e as any)?.message || e);
                         }
+
+                        // === INJECTION staticUrlMpd2 (RM - 🎬MPD2) - Posizione #5 dopo MPD ===
+                        try {
+                            const mpd2InjectedChannels = new Set<string>();
+                            
+                            // Loop su TUTTI i canali statici con staticUrlMpd2
+                            for (const staticCh of staticBaseChannels) {
+                                if (!staticCh || !staticCh.staticUrlMpd2) continue;
+                                if (mpd2InjectedChannels.has(staticCh.id)) continue;
+                                
+                                const aliases = staticCh.vavooNames || [staticCh.name];
+                                
+                                // Match fuzzy (come MPD)
+                                let matched = false;
+                                for (const alias of aliases) {
+                                    if (matched) break;
+                                    const normalizedAlias = normAlias(alias);
+                                    
+                                    const matches = providerTitlesExt.some((pt: string) => {
+                                        const normalizedProvider = normAlias(pt);
+                                        return normalizedProvider.includes(normalizedAlias) || normalizedAlias.includes(normalizedProvider);
+                                    });
+                                    
+                                    if (matches) {
+                                        try {
+                                            const decodedUrl = decodeStaticUrl(staticCh.staticUrlMpd2);
+                                            let finalUrl = decodedUrl;
+                                            let proxyUsed = false;
+                                            
+                                            if (mfpUrl && mfpPsw) {
+                                                const urlParts = decodedUrl.split('&');
+                                                const baseUrl = urlParts[0];
+                                                const additionalParams = urlParts.slice(1);
+                                                finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                                                for (const param of additionalParams) if (param) finalUrl += `&${param}`;
+                                                proxyUsed = true;
+                                            }
+                                            
+                                            const title = `${proxyUsed ? '' : '[❌Proxy]'}[🎬MPD2] ${staticCh.name} [ITA]`;
+                                            
+                                            // Inserisce in posizione #5: dopo MPD
+                                            let insertAt = 0;
+                                            try { 
+                                                while (insertAt < streams.length && /(\(Vavoo🔓\))/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /🇮🇹🔄/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🏟\s*Free\]/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🎬MPD\]/i.test(streams[insertAt].title)) insertAt++;
+                                            } catch {}
+                                            
+                                            try { 
+                                                streams.splice(insertAt, 0, { url: finalUrl, title }); 
+                                            } catch { 
+                                                streams.push({ url: finalUrl, title }); 
+                                            }
+                                            
+                                            mpd2InjectedChannels.add(staticCh.id);
+                                            matched = true;
+                                            console.log(`✅ [MPD2] Injected ${staticCh.name} (matched alias: ${alias}) - RM source`);
+                                        } catch (injectErr) {
+                                            debugLog(`[MPD2] Injection failed for ${staticCh.name}:`, injectErr);
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (mpd2InjectedChannels.size > 0) {
+                                console.log(`✅ [MPD2] Total injected: ${mpd2InjectedChannels.size} channels with staticUrlMpd2 (RM)`);
+                            }
+                        } catch (e) {
+                            console.error('[MPD2] Injection error:', (e as any)?.message || e);
+                        }
                         
                         // (Normalizzazione CF rimossa: ora pubblichiamo link avvolti con extractor on-demand)
                         // Append leftover entries (beyond CAP) con stessa logica on-demand (proxy/hls diretto)
@@ -2895,6 +2971,36 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         } else {
                             // Richiesta: nascondere versione direct senza MFP
                             debugLog(`(NASCONDI) staticUrlMpd Direct senza MFP: ${decodedUrl}`);
+                        }
+                    }
+
+                    // staticUrlMpd2 (RM - seconda sorgente MPD)
+                    console.log(`🔧 [staticUrlMpd2] DEBUG - channel has staticUrlMpd2? ${!!(channel as any).staticUrlMpd2}`);
+                    if ((channel as any).staticUrlMpd2) {
+                        console.log(`🔧 [staticUrlMpd2] Raw URL: ${(channel as any).staticUrlMpd2}`);
+                        const decodedUrl2 = decodeStaticUrl((channel as any).staticUrlMpd2);
+                        console.log(`🔧 [staticUrlMpd2] Decoded URL: ${decodedUrl2.substring(0, 100)}...`);
+                        
+                        if (mfpUrl && mfpPsw) {
+                            const urlParts = decodedUrl2.split('&');
+                            const baseUrl = urlParts[0];
+                            const additionalParams = urlParts.slice(1);
+                            
+                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                            
+                            for (const param of additionalParams) {
+                                if (param) {
+                                    proxyUrl += `&${param}`;
+                                }
+                            }
+                            
+                            streams.push({
+                                url: proxyUrl,
+                                title: `[🎬MPD2] ${channel.name} [ITA]`
+                            });
+                            console.log(`[DEBUG] Aggiunto staticUrlMpd2 Proxy (MFP): ${proxyUrl.substring(0, 150)}...`);
+                        } else {
+                            debugLog(`(NASCONDI) staticUrlMpd2 Direct senza MFP: ${decodedUrl2}`);
                         }
                     }
 
@@ -5052,6 +5158,58 @@ app.get('/static/reload', (req: Request, res: Response) => {
 });
 // =============================================================
 
+// ================= MANUAL RM UPDATE ENDPOINT =================
+// GET /rm/update?token=XYZ - Forza aggiornamento canali RM (MPD2)
+app.get('/rm/update', async (req: Request, res: Response) => {
+    try {
+        const requiredToken = process?.env?.STATIC_RELOAD_TOKEN;
+        const provided = (req.query.token as string) || '';
+        if (requiredToken && provided !== requiredToken) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+        
+        console.log('[RM][API] Manual update triggered via /rm/update');
+        const { updateRmChannels } = await import('./utils/rmUpdater');
+        const updated = await updateRmChannels();
+        
+        return res.json({
+            ok: true,
+            updated: updated,
+            message: `Updated ${updated} channels with staticUrlMpd2`
+        });
+    } catch (e: any) {
+        console.error('[RM][API] Error:', e);
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
+// ================= MANUAL AMSTAFF UPDATE ENDPOINT ============
+// GET /amstaff/update?token=XYZ - Forza aggiornamento canali Amstaff (MPD)
+app.get('/amstaff/update', async (req: Request, res: Response) => {
+    try {
+        const requiredToken = process?.env?.STATIC_RELOAD_TOKEN;
+        const provided = (req.query.token as string) || '';
+        if (requiredToken && provided !== requiredToken) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+        
+        console.log('[AMSTAFF][API] Manual update triggered via /amstaff/update');
+        const { updateAmstaffChannels } = await import('./utils/amstaffUpdater');
+        const updated = await updateAmstaffChannels();
+        
+        return res.json({
+            ok: true,
+            updated: updated,
+            message: `Updated ${updated} channels with staticUrlMpd`
+        });
+    } catch (e: any) {
+        console.error('[AMSTAFF][API] Error:', e);
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
 // ================= MANUAL PURGE ENDPOINT =====================
 // Esegue la stessa logica delle 02:00: rimuove dal file gli eventi del giorno precedente
 app.get('/live/purge', (req: Request, res: Response) => {
@@ -5385,5 +5543,14 @@ try {
     console.log('✅ Amstaff auto-updater attivato');
 } catch (e) {
     console.error('❌ Errore avvio Amstaff updater:', e);
+}
+
+// =============== RM AUTO-UPDATER (MPD2) ============================
+// Avvia aggiornamento automatico canali RM ogni 15 minuti
+try {
+    startRmScheduler();
+    console.log('✅ RM auto-updater attivato (MPD2)');
+} catch (e) {
+    console.error('❌ Errore avvio RM updater:', e);
 }
 // ====================================================================
