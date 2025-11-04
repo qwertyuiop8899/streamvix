@@ -34,6 +34,8 @@ import { resolveGdplayerForChannel, inferGdplayerSlug } from './extractors/gdpla
 import { startAmstaffScheduler } from './utils/amstaffUpdater';
 // RM updater (MPD2)
 import { startRmScheduler } from './utils/rmUpdater';
+// ThisNot updater
+import { startThisNotUpdater } from './utils/thisnotChannels';
 
 // ================= TYPES & INTERFACES =================
 interface AddonConfig {
@@ -632,7 +634,8 @@ const baseManifest: Manifest = {
                         "Boxing",
                         "Darts",
                         "Baseball",
-                        "NFL"
+                        "NFL",
+                        "THISNOT"
                     ]
                 },
                 { name: "genre", isRequired: false },
@@ -1822,6 +1825,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     genreMap['liga'] = 'liga';
                     genreMap['bundesliga'] = 'bundesliga';
                     genreMap['ligue 1'] = 'ligue1';
+                    genreMap['thisnot'] = 'thisnot';
                     const target = genreMap[norm] || norm;
                     requestedSlug = target;
                     filteredChannels = tvChannels.filter(ch => getChannelCategories(ch).includes(target));
@@ -1931,38 +1935,72 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // Per canali dinamici: niente EPG, mostra solo ora inizio evento
                 if ((channel as any)._dynamic) {
                     const eventStart = (channel as any).eventStart || (channel as any).eventstart; // fallback
-                    const stripTimePrefix = (t: string): string => t.replace(/^\s*([⏰🕒]?\s*)?\d{1,2}[\.:]\d{2}\s*[:\-]\s*/i, '').trim();
-                    if (eventStart) {
-                        try {
-                            const hhmm = epgManager ? epgManager.formatDynamicHHMM(eventStart) : new Date(eventStart).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\./g, ':');
-                            const ddmm = epgManager ? epgManager.formatDynamicDDMM(eventStart) : '';
-                            const rawTitle = stripTimePrefix(channel.name || '');
-                            const parts = rawTitle.split(' - ').map(s => s.trim()).filter(Boolean);
-                            const eventTitle = parts[0] || rawTitle;
-                            // Deriva league + date + country dal resto
-                            let tail = parts.slice(1).join(' - ');
-                            const dateMatch = rawTitle.match(/\b(\d{1,2}\/\d{1,2})\b/);
-                            const dateStr = dateMatch?.[1] || ddmm;
-                            const hasItaly = /\bitaly\b/i.test(rawTitle);
-                            // Rimuovi date/country dal tail per ottenere la lega pulita
-                            let league = tail
-                                .replace(/\b(\d{1,2}\/\d{1,2})\b/gi, '')
-                                .replace(/\bitaly\b/gi, '')
-                                .replace(/\s{2,}/g, ' ')
-                                .replace(/^[-–—\s]+|[-–—\s]+$/g, '')
+                    const isThisNot = ((channel as any).category || '').toLowerCase() === 'thisnot';
+                    
+                    // Per canali THISNOT: usa il formato originale senza manipolazioni
+                    if (isThisNot) {
+                        // Nome canale già nel formato: "04/11 ⏰ 21:00 - JUVENTUS VS SPORTING LISBONA"
+                        console.log(`[THISNOT] Processing channel: "${channel.name}"`);
+                        
+                        // Estrai le parti per la descrizione
+                        const nameMatch = channel.name.match(/^(\d{2}\/\d{2})\s*⏰\s*(\d{2}:\d{2})\s*-\s*(.+?)(?:\s*-\s*\d{2}\/\d{2})?$/);
+                        if (nameMatch) {
+                            const dateStr = nameMatch[1];  // "04/11"
+                            const timeStr = nameMatch[2];  // "21:00"
+                            let teams = nameMatch[3];      // "JUVENTUS VS SPORTING LISBONA"
+                            
+                            // Rimuovi eventuali competizioni e date finali
+                            teams = teams
+                                .replace(/\s*-\s*(Serie A|Bundesliga|LaLiga|Premier League|Champions League)\s*$/i, '')
+                                .replace(/\s*-\s*\d{2}\/\d{2}\s*$/g, '')
                                 .trim();
-                            // Titolo canale: Evento ⏰ HH:MM - DD/MM (senza Italy, senza lega)
-                            // (Removed [Gd] visual prefix; retain internal flag only)
-                            const baseEventName = `${eventTitle} ⏰ ${hhmm}${dateStr ? ` - ${dateStr}` : ''}`;
-                            (channelWithPrefix as any).name = baseEventName;
-                            // Summary: 🔴 Inizio: HH:MM - Evento - Lega - DD/MM Italy
-                            channelWithPrefix.description = `🔴 Inizio: ${hhmm} - ${eventTitle}${league ? ` - ${league}` : ''}${dateStr ? ` - ${dateStr}` : ''}${hasItaly ? ' Italy' : ''}`.trim();
-                        } catch {
-                            channelWithPrefix.description = channel.name || '';
+                            
+                            // Nome: mantieni originale
+                            channelWithPrefix.name = channel.name;
+                            // Descrizione: 🔴 Inizio: HH:MM - DD/MM ⏰ TEAMS
+                            channelWithPrefix.description = `🔴 Inizio: ${timeStr} - ${dateStr} ⏰ ${teams}`;
+                            console.log(`[THISNOT] Description: "${channelWithPrefix.description}"`);
+                        } else {
+                            console.log(`[THISNOT] No match for: "${channel.name}"`);
+                            // Fallback: mantieni nome originale e crea descrizione semplice
+                            channelWithPrefix.name = channel.name;
+                            channelWithPrefix.description = `🔴 ${channel.name}`;
                         }
                     } else {
-                        // Se manca l'orario, mantieni nome e descrizione originali
-                        channelWithPrefix.description = channel.name || '';
+                        // Logica originale per altri canali dinamici
+                        const stripTimePrefix = (t: string): string => t.replace(/^\s*([⏰🕒]?\s*)?\d{1,2}[\.:]\d{2}\s*[:\-]\s*/i, '').trim();
+                        if (eventStart) {
+                            try {
+                                const hhmm = epgManager ? epgManager.formatDynamicHHMM(eventStart) : new Date(eventStart).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\./g, ':');
+                                const ddmm = epgManager ? epgManager.formatDynamicDDMM(eventStart) : '';
+                                const rawTitle = stripTimePrefix(channel.name || '');
+                                const parts = rawTitle.split(' - ').map(s => s.trim()).filter(Boolean);
+                                const eventTitle = parts[0] || rawTitle;
+                                // Deriva league + date + country dal resto
+                                let tail = parts.slice(1).join(' - ');
+                                const dateMatch = rawTitle.match(/\b(\d{1,2}\/\d{1,2})\b/);
+                                const dateStr = dateMatch?.[1] || ddmm;
+                                const hasItaly = /\bitaly\b/i.test(rawTitle);
+                                // Rimuovi date/country dal tail per ottenere la lega pulita
+                                let league = tail
+                                    .replace(/\b(\d{1,2}\/\d{1,2})\b/gi, '')
+                                    .replace(/\bitaly\b/gi, '')
+                                    .replace(/\s{2,}/g, ' ')
+                                    .replace(/^[-–—\s]+|[-–—\s]+$/g, '')
+                                    .trim();
+                                // Titolo canale: Evento ⏰ HH:MM - DD/MM (senza Italy, senza lega)
+                                // (Removed [Gd] visual prefix; retain internal flag only)
+                                const baseEventName = `${eventTitle} ⏰ ${hhmm}${dateStr ? ` - ${dateStr}` : ''}`;
+                                (channelWithPrefix as any).name = baseEventName;
+                                // Summary: 🔴 Inizio: HH:MM - Evento - Lega - DD/MM Italy
+                                channelWithPrefix.description = `🔴 Inizio: ${hhmm} - ${eventTitle}${league ? ` - ${league}` : ''}${dateStr ? ` - ${dateStr}` : ''}${hasItaly ? ' Italy' : ''}`.trim();
+                            } catch {
+                                channelWithPrefix.description = channel.name || '';
+                            }
+                        } else {
+                            // Se manca l'orario, mantieni nome e descrizione originali
+                            channelWithPrefix.description = channel.name || '';
+                        }
                     }
                 } else if (epgManager) {
                     // Canali tradizionali: EPG
@@ -2006,13 +2044,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     builder.defineMetaHandler(async ({ type, id }: { type: string; id: string }) => {
         console.log(`📺 META REQUEST: type=${type}, id=${id}`);
         if (type === "tv") {
-            try {
-                const cfg = { ...configCache } as AddonConfig;
-                if (cfg.disableLiveTv) {
-                    console.log('📴 TV meta disabled by config.disableLiveTv');
-                    return { meta: null };
-                }
-            } catch {}
             // Gestisci tutti i possibili formati di ID che Stremio può inviare
             let cleanId = id;
             if (id.startsWith('tv:')) {
@@ -2026,6 +2057,57 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     cleanId = cleanId.replace('tv:', '');
                 }
             }
+            
+            // === THISNOT META HANDLER ===
+            // Prima controlla se è un canale ThisNot
+            const allChannels = loadDynamicChannels(false);
+            const thisnotChannel = allChannels.find((c: any) => c.id === cleanId && (c.category || '').toLowerCase() === 'thisnot');
+            
+            if (thisnotChannel) {
+                console.log(`✅ Found ThisNot channel for meta: ${thisnotChannel.name}`);
+                
+                // Crea la descrizione usando lo stesso formato del catalog
+                let description = `🔴 Live Sports Event: ${thisnotChannel.name}\n\nStreaming MPD con DRM Clearkey`;
+                const nameMatch = thisnotChannel.name.match(/^(\d{2}\/\d{2})\s*⏰\s*(\d{2}:\d{2})\s*-\s*(.+?)(?:\s*-\s*\d{2}\/\d{2})?$/);
+                if (nameMatch) {
+                    const dateStr = nameMatch[1];  // "04/11"
+                    const timeStr = nameMatch[2];  // "21:00"
+                    let teams = nameMatch[3];      // "ATLETICO MADRID VS ROYALE UNION SG"
+                    
+                    // Rimuovi eventuali competizioni e date finali
+                    teams = teams
+                        .replace(/\s*-\s*(Serie A|Bundesliga|LaLiga|Premier League|Champions League)\s*$/i, '')
+                        .replace(/\s*-\s*\d{2}\/\d{2}\s*$/g, '')
+                        .trim();
+                    
+                    description = `🔴 Inizio: ${timeStr} - ${dateStr} ⏰ ${teams}`;
+                }
+                
+                const meta = {
+                    id: `tv:${thisnotChannel.id}`,
+                    type: 'tv',
+                    name: thisnotChannel.name || 'Unknown',
+                    poster: thisnotChannel.logo || 'https://github.com/qwertyuiop8899/logo/blob/main/TSNT.png?raw=true',
+                    posterShape: 'square',
+                    background: thisnotChannel.logo,
+                    description: description,
+                    genres: ['Sport', 'Live', 'ThisNot'],
+                    year: new Date().getFullYear().toString(),
+                    releaseInfo: "Live Event",
+                    country: "IT",
+                    language: "it"
+                };
+                return { meta };
+            }
+            
+            // Se non è ThisNot, continua con la logica normale
+            try {
+                const cfg = { ...configCache } as AddonConfig;
+                if (cfg.disableLiveTv) {
+                    console.log('📴 TV meta disabled by config.disableLiveTv');
+                    return { meta: null };
+                }
+            } catch {}
 
             const channel = tvChannels.find((c: any) => c.id === cleanId);
             if (channel) {
@@ -2221,21 +2303,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                 // === LOGICA TV ===
                 if (type === "tv") {
-                    // Runtime disable live TV
-                    try {
-                        const cfg2 = { ...configCache } as AddonConfig;
-                        if (cfg2.disableLiveTv) {
-                            console.log('📴 TV streams disabled by config.disableLiveTv');
-                            return { streams: [] };
-                        }
-                    } catch {}
-                    // Assicura che i canali dinamici siano presenti anche se la prima richiesta è uno stream (senza passare dal catalog)
-                    try {
-                        loadDynamicChannels(false);
-                        tvChannels = mergeDynamic([...staticBaseChannels]);
-                    } catch (e) {
-                        console.error('❌ Stream handler: mergeDynamic failed:', e);
-                    }
                     // Improved channel ID parsing to handle different formats from Stremio
                     let cleanId = id;
 
@@ -2250,6 +2317,80 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (cleanId.startsWith('tv:')) {
                             cleanId = cleanId.replace('tv:', '');
                         }
+                    }
+                    
+                    // === THISNOT STREAM HANDLER ===
+                    // Prima controlla se è un canale ThisNot
+                    const allChannels = loadDynamicChannels(false);
+                    const thisnotChannel = allChannels.find((c: any) => c.id === cleanId && c.category === 'thisnot');
+                    
+                    if (thisnotChannel) {
+                        console.log(`✅ Found ThisNot channel for stream: ${thisnotChannel.name}`);
+                        const streams: Stream[] = [];
+                        
+                        if (thisnotChannel.streams && Array.isArray(thisnotChannel.streams)) {
+                            for (const stream of thisnotChannel.streams) {
+                                if (stream.url) {
+                                    // Decodifica la staticUrlMpd da base64
+                                    let decodedUrl = '';
+                                    try {
+                                        decodedUrl = Buffer.from(stream.url, 'base64').toString('utf-8');
+                                        console.log(`🔓 Decoded ThisNot stream URL: ${decodedUrl.substring(0, 100)}...`);
+                                    } catch (e) {
+                                        console.error('❌ Error decoding ThisNot stream URL:', e);
+                                        continue;
+                                    }
+                                    
+                                    // Formato decodificato: https://url.mpd&key_id=xxx&key=yyy
+                                    let finalUrl = decodedUrl;
+                                    let proxyUsed = false;
+                                    
+                                    // Wrappa con MediaflowProxy se disponibile
+                                    if (mfpUrl && mfpPsw) {
+                                        const urlParts = decodedUrl.split('&');
+                                        const baseUrl = urlParts[0]; // URL MPD base
+                                        const additionalParams = urlParts.slice(1); // key_id e key
+                                        finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                                        // Aggiungi i parametri DRM
+                                        for (const param of additionalParams) {
+                                            if (param) finalUrl += `&${param}`;
+                                        }
+                                        proxyUsed = true;
+                                        console.log(`🔒 Wrapped ThisNot with MFP: ${finalUrl.substring(0, 100)}...`);
+                                    } else {
+                                        console.warn('⚠️ MediaflowProxy not configured for ThisNot streams');
+                                    }
+                                    
+                                    streams.push({
+                                        url: finalUrl,
+                                        title: `${proxyUsed ? '' : '[❌Proxy]'}🏆 ThisNot [ITA]`,
+                                        behaviorHints: {
+                                            notWebReady: true,
+                                            bingeGroup: `thisnot-${cleanId}`
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                        
+                        console.log(`✅ Returning ${streams.length} ThisNot streams (MFP: ${mfpUrl ? 'SET' : 'MISSING'})`);
+                        return { streams };
+                    }
+                    
+                    // Runtime disable live TV (solo per canali normali)
+                    try {
+                        const cfg2 = { ...configCache } as AddonConfig;
+                        if (cfg2.disableLiveTv) {
+                            console.log('📴 TV streams disabled by config.disableLiveTv');
+                            return { streams: [] };
+                        }
+                    } catch {}
+                    // Assicura che i canali dinamici siano presenti anche se la prima richiesta è uno stream (senza passare dal catalog)
+                    try {
+                        loadDynamicChannels(false);
+                        tvChannels = mergeDynamic([...staticBaseChannels]);
+                    } catch (e) {
+                        console.error('❌ Stream handler: mergeDynamic failed:', e);
                     }
 
                     debugLog(`Looking for channel with ID: ${cleanId} (original ID: ${id})`);
@@ -4950,6 +5091,41 @@ app.get('/live/reload', (_: Request, res: Response) => {
 });
 // =============================================================
 
+// ================= THISNOT RELOAD ENDPOINT ====================
+// Esegue manualmente l'aggiornamento dei canali ThisNot
+app.get('/tn/reload', async (_: Request, res: Response) => {
+    try {
+        console.log('🔄 [ThisNot] Reload manuale richiesto via endpoint /tn/reload');
+        
+        // Importa la funzione di aggiornamento
+        const { updateThisNotChannels } = await import('./utils/thisnotChannels');
+        
+        // Esegue l'aggiornamento
+        await updateThisNotChannels();
+        
+        // Ricarica i canali dinamici per ottenere il conteggio aggiornato
+        const dyn = loadDynamicChannels(true);
+        const thisnotCount = dyn.filter((c: any) => c.category === 'THISNOT').length;
+        
+        console.log(`✅ [ThisNot] Reload completato: ${thisnotCount} canali ThisNot attivi`);
+        
+        res.json({ 
+            ok: true, 
+            thisnotChannels: thisnotCount,
+            totalDynamicChannels: dyn.length,
+            message: `ThisNot aggiornato con successo! ${thisnotCount} eventi di oggi disponibili.`
+        });
+    } catch (e: any) {
+        console.error('❌ [ThisNot] Errore durante reload:', e);
+        res.status(500).json({ 
+            ok: false, 
+            error: e?.message || String(e),
+            stack: e?.stack 
+        });
+    }
+});
+// =============================================================
+
 // ================= STREAMED FORCED RELOAD ENDPOINT =====================
 // GET /streamed/reload?token=XYZ&force=1
 // Esegue streamed_channels.py una volta (opzionalmente con modalità force che ignora le finestre temporali)
@@ -5552,5 +5728,15 @@ try {
     console.log('✅ RM auto-updater attivato (MPD2)');
 } catch (e) {
     console.error('❌ Errore avvio RM updater:', e);
+}
+// ====================================================================
+
+// =============== THISNOT AUTO-UPDATER ==============================
+// Avvia aggiornamento automatico canali ThisNot ogni 2 ore
+try {
+    startThisNotUpdater(2);
+    console.log('✅ ThisNot auto-updater attivato (ogni 2 ore)');
+} catch (e) {
+    console.error('❌ Errore avvio ThisNot updater:', e);
 }
 // ====================================================================
