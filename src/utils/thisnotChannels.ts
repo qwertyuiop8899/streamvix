@@ -401,13 +401,11 @@ function convertToThisNotDynamicChannels(thisnotChannels: ThisNotChannel[]): Dyn
             const minute = formatMatch[4];
             const year = new Date().getFullYear();
             
-            // IMPORTANTE: Il runtime filter usa Intl.DateTimeFormat con timezone Europe/Rome
-            // Dobbiamo creare una data ISO che rappresenti l'orario italiano SENZA conversioni
-            // Usiamo il formato ISO con offset +01:00 (CET inverno) o +02:00 (CEST estate)
-            // Per ora usiamo +01:00 (novembre = inverno)
+            // IMPORTANTE: Il runtime filter è DISABILITATO per ThisNot (mantiene sempre tutto)
+            // Creiamo comunque eventStart per ordinamento e info, usando anno corrente
+            // Usiamo offset +01:00 (CET inverno) o +02:00 (CEST estate)
+            // Per novembre = inverno = +01:00
             eventStart = `${year}-${month}-${day}T${hour}:${minute}:00+01:00`;
-            
-            console.log(`🕐 [ThisNot] DEBUG eventStart per ${channel.name.substring(0, 30)}: ${eventStart}`);
         }
         
         return {
