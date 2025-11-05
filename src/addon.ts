@@ -2322,7 +2322,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // === THISNOT STREAM HANDLER ===
                     // Prima controlla se è un canale ThisNot
                     const allChannels = loadDynamicChannels(false);
-                    const thisnotChannel = allChannels.find((c: any) => c.id === cleanId && c.category === 'thisnot');
+                    const thisnotChannel = allChannels.find((c: any) => c.id === cleanId && (c.category || '').toLowerCase() === 'thisnot');
                     
                     if (thisnotChannel) {
                         console.log(`✅ Found ThisNot channel for stream: ${thisnotChannel.name}`);
