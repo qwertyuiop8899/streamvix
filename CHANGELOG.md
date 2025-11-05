@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.33](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.32...v1.9.33) (2025-11-05)
+
+
+### Bug Fixes
+
+* add dzn nz ([e2a9589](https://github.com/qwertyuiop8899/streamvix/commit/e2a9589f2a37310cca0bbee7b077ee9013bcf045))
+
 ## [1.9.32](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.31...v1.9.32) (2025-11-05)
 
 
