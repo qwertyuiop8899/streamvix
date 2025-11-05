@@ -26,10 +26,10 @@ Istanza ElfHosted a pagamento CON Mediaflo Proxy incluso (Per Eventi Sportivi)
 * **🌐 Proxy Unificato:** Un solo proxy MFP per tutti i contenuti (film, serie, anime, TV, eventi sportivi).
 * **⚽ Eventi Sportivi Avanzati:** 
   - **SPON (Schedule-based):** Matching automatico eventi sportivi con canali Sportzonline (wrap MFP diretto + fallback estrattore TypeScript)
-  - **SPSO:** Integrazione playlist SportSOnline con varianti `[SPSO]`
-  - **RB77:** Flussi italiani certificati con simboli dinamici (🚫/�)
-  - **Streamed:** Arricchimento playlist con matching fuzzy e finestre temporali
-  - **P🐽D (Pig):** Stream prioritari broadcaster (SKY, DAZN, Eurosport)
+  - **SPSO:** Integrazione playlist SportSOnline con varianti `[SPSO]` OFF
+  - **RB77:** Flussi italiani certificati con simboli dinamici (🚫/�) OFF
+  - **Streamed:** Arricchimento playlist con matching fuzzy e finestre temporali OFF
+  - **P🐽D (Pig):** Stream prioritari broadcaster (SKY, DAZN, Eurosport) OFF
 * **🎯 Ottimizzazione Automatica:** MFP wrap diretto per massima velocità, estrattori TypeScript come fallback sicuro
 * **📡 Supporto Live TV:** Canali TV italiani e Eventi Sportivi visibili senza Mediaflow Proxy, scegliere i canali [Vavoo] o con 🏠.
 * **🔓 Supporto Stream Senza Mediaflow Proxy:** Canali TV italiani e Eventi Sportivi, Film e Serie TV, scegliere gli stream con 🔓 per avviarli senza aver bisogno di un MediaflowProxy. (Nota Bene, per avviare gli stream senza proxy ci potrebbe essere bisogno di un player esterno o VLC, prova con il player di default, se non va usa un player esterno tipo VLC)
@@ -945,6 +945,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
