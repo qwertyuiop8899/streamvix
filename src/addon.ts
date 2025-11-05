@@ -34,6 +34,8 @@ import { resolveGdplayerForChannel, inferGdplayerSlug } from './extractors/gdpla
 import { startAmstaffScheduler } from './utils/amstaffUpdater';
 // RM updater (MPD2)
 import { startRmScheduler } from './utils/rmUpdater';
+// NZ updater (Dazn)
+import { startNzScheduler } from './utils/nzUpdater';
 // ThisNot updater
 import { startThisNotUpdater } from './utils/thisnotChannels';
 
@@ -5139,6 +5141,42 @@ app.get('/tn/reload', async (_: Request, res: Response) => {
 });
 // =============================================================
 
+// ================= NZ (DAZN) RELOAD ENDPOINT ====================
+// Esegue manualmente l'aggiornamento del canale DAZN 1 da pagina spagna
+app.get('/nz/reload', async (_: Request, res: Response) => {
+    try {
+        console.log('🔄 [NZ] Reload manuale richiesto via endpoint /nz/reload');
+        
+        // Importa la funzione di aggiornamento
+        const { updateNzChannel } = await import('./utils/nzUpdater');
+        
+        // Esegue l'aggiornamento
+        const success = await updateNzChannel();
+        
+        if (success) {
+            console.log(`✅ [NZ] Reload completato: DAZN 1 aggiornato`);
+            res.json({ 
+                ok: true, 
+                message: 'DAZN 1 aggiornato con successo! Nuovo link MPD estratto dalla pagina.'
+            });
+        } else {
+            console.log(`⚠️ [NZ] Reload completato ma nessun aggiornamento (link non trovato o errore)`);
+            res.json({ 
+                ok: false, 
+                message: 'DAZN 1: link MPD non trovato nella pagina o canale non presente in tv_channels.json'
+            });
+        }
+    } catch (e: any) {
+        console.error('❌ [NZ] Errore durante reload:', e);
+        res.status(500).json({ 
+            ok: false, 
+            error: e?.message || String(e),
+            stack: e?.stack 
+        });
+    }
+});
+// =============================================================
+
 // ================= STREAMED FORCED RELOAD ENDPOINT =====================
 // GET /streamed/reload?token=XYZ&force=1
 // Esegue streamed_channels.py una volta (opzionalmente con modalità force che ignora le finestre temporali)
@@ -5741,6 +5779,16 @@ try {
     console.log('✅ RM auto-updater attivato (MPD2)');
 } catch (e) {
     console.error('❌ Errore avvio RM updater:', e);
+}
+// ====================================================================
+
+// =============== NZ AUTO-UPDATER (DAZN) ============================
+// Avvia aggiornamento automatico DAZN 1 ogni 20 minuti
+try {
+    startNzScheduler();
+    console.log('✅ NZ auto-updater attivato (DAZN)');
+} catch (e) {
+    console.error('❌ Errore avvio NZ updater:', e);
 }
 // ====================================================================
 
