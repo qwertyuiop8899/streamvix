@@ -2076,7 +2076,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             // === THISNOT META HANDLER ===
             // Prima controlla se è un canale ThisNot
             const allChannels = loadDynamicChannels(false);
-            const thisnotChannel = allChannels.find((c: any) => c.id === cleanId && (c.category || '').toLowerCase() === 'thisnot');
+            
+            // Match ThisNot channels by ID prefix (thisnot_XX_) ignoring timestamp, or by category if exact match fails
+            let thisnotChannel = allChannels.find((c: any) => c.id === cleanId && (c.category || '').toLowerCase() === 'thisnot');
+            
+            // Se non trovato con ID esatto, prova con prefisso (ignora timestamp finale)
+            if (!thisnotChannel && cleanId.startsWith('thisnot_')) {
+                const idPrefix = cleanId.substring(0, cleanId.lastIndexOf('_') + 1); // "thisnot_45_"
+                thisnotChannel = allChannels.find((c: any) => 
+                    c.id.startsWith(idPrefix) && (c.category || '').toLowerCase() === 'thisnot'
+                );
+                if (thisnotChannel) {
+                    console.log(`✅ Found ThisNot channel by prefix match: ${cleanId} -> ${thisnotChannel.id}`);
+                }
+            }
             
             if (thisnotChannel) {
                 console.log(`✅ Found ThisNot channel for meta: ${thisnotChannel.name}`);
@@ -2337,7 +2350,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // === THISNOT STREAM HANDLER ===
                     // Prima controlla se è un canale ThisNot
                     const allChannels = loadDynamicChannels(false);
-                    const thisnotChannel = allChannels.find((c: any) => c.id === cleanId && (c.category || '').toLowerCase() === 'thisnot');
+                    
+                    // Match ThisNot channels by ID prefix (thisnot_XX_) ignoring timestamp, or by category if exact match fails
+                    let thisnotChannel = allChannels.find((c: any) => c.id === cleanId && (c.category || '').toLowerCase() === 'thisnot');
+                    
+                    // Se non trovato con ID esatto, prova con prefisso (ignora timestamp finale)
+                    if (!thisnotChannel && cleanId.startsWith('thisnot_')) {
+                        const idPrefix = cleanId.substring(0, cleanId.lastIndexOf('_') + 1); // "thisnot_45_"
+                        thisnotChannel = allChannels.find((c: any) => 
+                            c.id.startsWith(idPrefix) && (c.category || '').toLowerCase() === 'thisnot'
+                        );
+                        if (thisnotChannel) {
+                            console.log(`✅ Found ThisNot channel by prefix match: ${cleanId} -> ${thisnotChannel.id}`);
+                        }
+                    }
                     
                     if (thisnotChannel) {
                         console.log(`✅ Found ThisNot channel for stream: ${thisnotChannel.name}`);
