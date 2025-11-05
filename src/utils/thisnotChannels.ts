@@ -1,4 +1,4 @@
-// ThisNot channels updater
+// ThisNot channels updater 
 import { DynamicChannel, loadDynamicChannels, saveDynamicChannels } from './dynamicChannels';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
