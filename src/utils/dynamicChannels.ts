@@ -307,6 +307,12 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       let removedPrevDay = 0;
       let removedExpiredAge = 0;
       const filtered: DynamicChannel[] = data.filter(ch => {
+        // THISNOT: mantieni SEMPRE tutti i canali ThisNot senza filtri temporali
+        const category = (ch.category || '').toString().toLowerCase();
+        if (category === 'thisnot') {
+          return true; // Skip tutti i filtri temporali per ThisNot
+        }
+        
         if (!ch.eventStart) return true; // keep if undated
         const chDate = datePartRome(ch.eventStart);
         if (!chDate) return true;
