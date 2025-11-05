@@ -396,7 +396,9 @@ function convertToThisNotDynamicChannels(thisnotChannels: ThisNotChannel[]): Dyn
             const minute = formatMatch[4];
             const year = new Date().getFullYear();
             // Crea una data ISO con orario in timezone Europe/Rome
-            eventStart = `${year}-${month}-${day}T${hour}:${minute}:00+01:00`;
+            // Usa toISOString() per avere il formato corretto senza timezone hardcodato
+            const dateObj = new Date(`${year}-${month}-${day}T${hour}:${minute}:00`);
+            eventStart = dateObj.toISOString();
         }
         
         return {
