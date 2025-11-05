@@ -1,15 +1,20 @@
 // ThisNot channels updater
-import { DynamicChannel, loadDynamicChannels, saveDynamicChannels } from './dynamicChannels';
+import { DynamicChannel } from './dynamicChannels';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { wrapper } from 'axios-cookiejar-support';
 import { CookieJar } from 'tough-cookie';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const THISNOT_CATEGORY = 'thisnot';
 const BASE_URL = "https://thisnot.business";
 const PASSWORD = "2025";
 const LOGO_URL = "https://github.com/qwertyuiop8899/logo/blob/main/TSNT.png?raw=true";
+
+// File separato per ThisNot per evitare conflitti con Live.py
+const THISNOT_FILE = '/tmp/thisnot_channels.json';
 
 const COMPETITIONS: Record<string, string> = {
     "Serie A": `${BASE_URL}/serieA.php`,
@@ -395,11 +400,14 @@ function convertToThisNotDynamicChannels(thisnotChannels: ThisNotChannel[]): Dyn
             const hour = formatMatch[3];
             const minute = formatMatch[4];
             const year = new Date().getFullYear();
-            // Crea una data ISO interpretando l'orario come Europe/Rome (CET/CEST)
-            // Crea la stringa nel formato corretto per essere parsata come UTC
-            // e poi aggiusta per il timezone italiano (-1 ora in inverno, -2 in estate)
-            const dateStr = `${year}-${month}-${day}T${hour}:${minute}:00.000Z`;
-            eventStart = dateStr;
+            
+            // IMPORTANTE: Il runtime filter usa Intl.DateTimeFormat con timezone Europe/Rome
+            // Dobbiamo creare una data ISO che rappresenti l'orario italiano SENZA conversioni
+            // Usiamo il formato ISO con offset +01:00 (CET inverno) o +02:00 (CEST estate)
+            // Per ora usiamo +01:00 (novembre = inverno)
+            eventStart = `${year}-${month}-${day}T${hour}:${minute}:00+01:00`;
+            
+            console.log(`🕐 [ThisNot] DEBUG eventStart per ${channel.name.substring(0, 30)}: ${eventStart}`);
         }
         
         return {
@@ -418,43 +426,65 @@ function convertToThisNotDynamicChannels(thisnotChannels: ThisNotChannel[]): Dyn
 }
 
 /**
- * Aggiorna i canali ThisNot nel file dynamic_channels.json
- * Rimuove i vecchi canali ThisNot e aggiunge quelli nuovi
+ * Salva i canali ThisNot nel file separato /tmp/thisnot_channels.json
+ * NON tocca dynamic_channels.json per evitare conflitti con Live.py
+ */
+function saveThisNotChannels(channels: DynamicChannel[]): void {
+    try {
+        const data = JSON.stringify(channels, null, 2);
+        fs.writeFileSync(THISNOT_FILE, data, 'utf-8');
+        console.log(`� [ThisNot] Salvati ${channels.length} canali su ${THISNOT_FILE}`);
+    } catch (error) {
+        console.error(`❌ [ThisNot] Errore salvataggio file: ${error}`);
+        throw error;
+    }
+}
+
+/**
+ * Carica i canali ThisNot dal file separato
+ */
+export function loadThisNotChannels(): DynamicChannel[] {
+    try {
+        if (!fs.existsSync(THISNOT_FILE)) {
+            console.log(`ℹ️  [ThisNot] File ${THISNOT_FILE} non esiste, ritorno array vuoto`);
+            return [];
+        }
+        
+        const data = fs.readFileSync(THISNOT_FILE, 'utf-8');
+        const channels = JSON.parse(data) as DynamicChannel[];
+        console.log(`📂 [ThisNot] Caricati ${channels.length} canali da ${THISNOT_FILE}`);
+        return channels;
+    } catch (error) {
+        console.error(`❌ [ThisNot] Errore caricamento file: ${error}`);
+        return [];
+    }
+}
+
+/**
+ * Aggiorna i canali ThisNot nel file separato /tmp/thisnot_channels.json
+ * NON modifica dynamic_channels.json (usato da Live.py)
  */
 export async function updateThisNotChannels(): Promise<void> {
     try {
         console.log('\n🔄 [ThisNot] Inizio aggiornamento canali ThisNot...');
-        
-        // Carica i canali esistenti (NON forzare reload per evitare race conditions)
-        const existingChannels = loadDynamicChannels(false);
-        
-        // Rimuovi i vecchi canali ThisNot (sia 'thisnot' che 'THISNOT' per retrocompatibilità)
-        const otherChannels = existingChannels.filter(ch => {
-            const cat = (ch.category || '').toLowerCase();
-            return cat !== 'thisnot';
-        });
-        console.log(`📊 [ThisNot] Rimossi ${existingChannels.length - otherChannels.length} vecchi canali ThisNot`);
         
         // Fetch nuovi canali da ThisNot
         const thisnotChannels = await fetchThisNotChannels();
         console.log(`📡 [ThisNot] Estratti ${thisnotChannels.length} nuovi canali`);
         
         if (thisnotChannels.length === 0) {
-            console.warn('⚠️ [ThisNot] Nessun canale estratto, mantengo canali esistenti');
+            console.warn('⚠️ [ThisNot] Nessun canale estratto, mantengo file esistente');
             return;
         }
         
         // Converti nel formato DynamicChannel
         const newThisNotChannels = convertToThisNotDynamicChannels(thisnotChannels);
         
-        // Unisci con i canali esistenti (non ThisNot)
-        const updatedChannels = [...otherChannels, ...newThisNotChannels];
-        
-        // Salva nel file
-        saveDynamicChannels(updatedChannels);
+        // Salva nel file separato (NON tocca dynamic_channels.json)
+        saveThisNotChannels(newThisNotChannels);
         
         console.log(`✅ [ThisNot] Aggiornamento completato: ${newThisNotChannels.length} canali ThisNot attivi`);
-        console.log(`📊 [ThisNot] Totale canali dinamici: ${updatedChannels.length}`);
+        console.log(`� [ThisNot] File separato: ${THISNOT_FILE}`);
         
     } catch (error) {
         console.error('❌ [ThisNot] Errore durante l\'aggiornamento:', error);
