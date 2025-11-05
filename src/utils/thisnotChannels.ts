@@ -1,4 +1,4 @@
-// ThisNot channels updater 
+// ThisNot channels updater
 import { DynamicChannel, loadDynamicChannels, saveDynamicChannels } from './dynamicChannels';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
@@ -395,10 +395,11 @@ function convertToThisNotDynamicChannels(thisnotChannels: ThisNotChannel[]): Dyn
             const hour = formatMatch[3];
             const minute = formatMatch[4];
             const year = new Date().getFullYear();
-            // Crea una data ISO con orario in timezone Europe/Rome
-            // Usa toISOString() per avere il formato corretto senza timezone hardcodato
-            const dateObj = new Date(`${year}-${month}-${day}T${hour}:${minute}:00`);
-            eventStart = dateObj.toISOString();
+            // Crea una data ISO interpretando l'orario come Europe/Rome (CET/CEST)
+            // Crea la stringa nel formato corretto per essere parsata come UTC
+            // e poi aggiusta per il timezone italiano (-1 ora in inverno, -2 in estate)
+            const dateStr = `${year}-${month}-${day}T${hour}:${minute}:00.000Z`;
+            eventStart = dateStr;
         }
         
         return {
