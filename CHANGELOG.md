@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.29](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.28...v1.9.29) (2025-11-05)
+
+
+### Bug Fixes
+
+* tn proxy ([41a153a](https://github.com/qwertyuiop8899/streamvix/commit/41a153a147f1e8de8a7b9c86d39fcaf9c7001a61))
+
 ## [1.9.28](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.27...v1.9.28) (2025-11-05)
 
 
