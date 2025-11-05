@@ -589,7 +589,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "8.6.24",
+    version: "8.5.24",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con VixSRC, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -1828,6 +1828,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     genreMap['thisnot'] = 'thisnot';
                     const target = genreMap[norm] || norm;
                     requestedSlug = target;
+                    
+                    // DEBUG: Log primi 5 canali ThisNot PRIMA del filtro
+                    if (target === 'thisnot') {
+                        const thisnotChannels = tvChannels.filter((ch: any) => {
+                            const catRaw = ch.category;
+                            return catRaw === 'thisnot' || catRaw === 'THISNOT' || (Array.isArray(catRaw) && catRaw.includes('thisnot'));
+                        }).slice(0, 5);
+                        console.log(`🔍 DEBUG: Trovati ${thisnotChannels.length} canali con category='thisnot' (pre-filter)`);
+                        thisnotChannels.forEach((ch: any, idx: number) => {
+                            console.log(`  [${idx}] id=${ch.id}, name="${ch.name}", category=${JSON.stringify(ch.category)}, getChannelCategories=${JSON.stringify(getChannelCategories(ch))}`);
+                        });
+                    }
+                    
                     filteredChannels = tvChannels.filter(ch => getChannelCategories(ch).includes(target));
                     console.log(`🔍 Genre='${norm}' -> slug='${target}' results=${filteredChannels.length}`);
                 } else {
