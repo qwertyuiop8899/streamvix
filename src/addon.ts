@@ -51,6 +51,7 @@ interface AddonConfig {
     guardaserieEnabled?: boolean;
     guardahdEnabled?: boolean;
     eurostreamingEnabled?: boolean;
+    loonexEnabled?: boolean;
     disableLiveTv?: boolean;
     disableVixsrc?: boolean;
     tvtapProxyEnabled?: boolean;
@@ -660,6 +661,7 @@ const baseManifest: Manifest = {
     { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
     { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
     { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox" },
+    { key: "loonexEnabled", title: "Enable Loonex", type: "checkbox" },
     { key: "cb01Enabled", title: "Enable CB01 Mixdrop", type: "checkbox" },
     { key: "streamingwatchEnabled", title: "StreamingWatch 🔓", type: "checkbox" },
     { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: true },
@@ -4028,6 +4030,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const eurostreamingEnabled = eurostreamingEnv !== undefined
                     ? eurostreamingEnv
                     : (config.eurostreamingEnabled !== false); // default true
+                // Loonex: default OFF (nuovo provider)
+                const loonexEnabled = envFlag('LOONEX_ENABLED') ?? (config.loonexEnabled === true);
                 // Nuovo flag per inserire VixSrc nell'esecuzione parallela (prima era fuori e poteva saltare)
                 const vixsrcEnabled = (() => {
                     try {
@@ -4038,8 +4042,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 })();
                 let vixsrcScheduled = false; // per evitare doppia esecuzione nel blocco sequenziale più sotto
 
-                // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardaHdEnabled || eurostreamingEnabled || vixsrcEnabled)) {
+                // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld + Loonex
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || vixsrcEnabled)) {
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
@@ -4092,6 +4096,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (l.includes('cb01')) return 'cb01';
                         if (l.includes('streamingwatch')) return 'streamingwatch';
                         if (l.includes('eurostreaming')) return 'eurostreaming';
+                        if (l.includes('loonex')) return 'loonex';
                         return 'generic';
                     };
                     const unifyStreams = (original: Stream[], providerLabelName: string): Stream[] => {
@@ -4462,6 +4467,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             });
                             return esProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                         }, providerLabel('eurostreaming'), true));
+                    }
+
+                    // Loonex (serie TV)
+                    if (loonexEnabled && type === 'series' && seasonNumber != null && episodeNumber != null && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
+                        providerPromises.push(runProvider('Loonex', true, async () => {
+                            const { getLoonexStreams } = await import('./providers/loonex-provider');
+                            // Extract IDs from the request
+                            const tmdbId = id.startsWith('tmdb:') ? id.replace('tmdb:', '').split(':')[0] : undefined;
+                            const imdbId = id.startsWith('tt') ? id.split(':')[0] : '';
+                            console.log(`[DEBUG-LOONEX] Calling getLoonexStreams: type=${type}, imdbId=${imdbId}, tmdbId=${tmdbId}, S${seasonNumber}E${episodeNumber}`);
+                            // Non passiamo il titolo, lo recupererà da TMDb
+                            const streams = await getLoonexStreams(type, imdbId, undefined, seasonNumber, episodeNumber, tmdbId);
+                            return { streams };
+                        }, providerLabel('loonex')));
                     }
 
 
@@ -5146,7 +5165,10 @@ app.get('/tn/reload', async (_: Request, res: Response) => {
         
         // Ricarica i canali dinamici per ottenere il conteggio aggiornato
         const dyn = loadDynamicChannels(true);
-        const thisnotCount = dyn.filter((c: any) => c.category === 'THISNOT').length;
+        const thisnotCount = dyn.filter((c: any) => {
+            const cat = (c.category || '').toString().toLowerCase();
+            return cat === 'thisnot';
+        }).length;
         
         console.log(`✅ [ThisNot] Reload completato: ${thisnotCount} canali ThisNot attivi`);
         
