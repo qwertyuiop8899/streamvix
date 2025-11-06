@@ -125,12 +125,10 @@ async function getEpisodes(seriesUrl: string): Promise<LoonexEpisode[]> {
                 const $btn = $(btnElement);
                 const episodeUrl = $btn.attr('href');
                 
-                // Trova il titolo dell'episodio (nel div padre)
-                const episodeTitle = $btn.closest('.episode-item, .d-flex')
-                    .parent()
-                    .find('.episode-title, .episode-number')
-                    .text()
-                    .trim();
+                // Trova il titolo dell'episodio: è nel primo .d-flex > span del parent
+                const parentDiv = $btn.closest('.d-flex').parent();
+                const firstDFlex = parentDiv.find('.d-flex').first();
+                const episodeTitle = firstDFlex.find('span').first().text().trim();
 
                 if (episodeUrl && episodeUrl.includes('/guarda/')) {
                     episodes.push({
@@ -276,11 +274,23 @@ export async function getLoonexStreams(
         }
 
         // IMPORTANTE: Loonex può avere un episodio 0x00 (prequel) che non esiste su IMDb/TMDb
-        // Filtra gli episodi che contengono "0x00" o simili nel titolo
+        // Filtra gli episodi che contengono "0x00" nell'URL o nel titolo
         const filteredEpisodes = episodes.filter(ep => {
             const title = ep.title.toLowerCase();
-            // Rimuovi episodi che sono chiaramente 0x00 o "episodio 0"
-            return !title.includes('0x00') && !title.match(/^0x0+$/);
+            const url = ep.episodeUrl.toLowerCase();
+            
+            // Rimuovi episodi con:
+            // - URL che contiene "0x00" (es: overthegardenwall_0x00)
+            // - Titolo che inizia con "0 -" (es: "0 - PREQUEL")
+            // - Titolo che contiene "0x00"
+            // - Titolo che contiene "prequel"
+            const isPrequel = url.includes('0x00') || 
+                            url.includes('_0x0') ||
+                            title.startsWith('0 -') || 
+                            title.includes('0x00') || 
+                            title.includes('prequel');
+            
+            return !isPrequel;
         });
         
         if (filteredEpisodes.length < episodes.length) {
