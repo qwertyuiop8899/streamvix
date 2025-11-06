@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.37](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.36...v1.9.37) (2025-11-06)
+
+
+### Bug Fixes
+
+* loonex ([adb9ac6](https://github.com/qwertyuiop8899/streamvix/commit/adb9ac69b461f423e1e4e0a868c77eeaa4ee3610))
+
 ## [1.9.36](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.35...v1.9.36) (2025-11-06)
 
 
