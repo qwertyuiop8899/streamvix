@@ -1,4 +1,4 @@
-// ThisNot channels updater
+// ThisNot channels updater. 
 import { DynamicChannel } from './dynamicChannels';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
@@ -61,31 +61,22 @@ if (proxyUrl) {
         }
     };
     clientProxy = wrapper(axios.create(clientProxyConfig));
-    console.log(`🔧 [ThisNot] Proxy fallback configurato: ${proxyUrl.split('@')[1] || proxyUrl}`);
-} else {
-    console.log(`ℹ️  [ThisNot] Nessun proxy fallback (DLHD_PROXY non impostato)`);
 }
 
 // Helper per fare richieste con fallback automatico
 async function makeRequest(url: string, options: any = {}): Promise<any> {
     // Prima prova senza proxy
     try {
-        console.log(`🌐 [ThisNot] Tentativo connessione diretta: ${url}`);
         const response = await clientDirect.get(url, options);
-        console.log(`✅ [ThisNot] Connessione diretta riuscita`);
         return response;
     } catch (directError: any) {
-        console.log(`⚠️  [ThisNot] Connessione diretta fallita: ${directError.message}`);
-        
         // Se c'è un proxy configurato, riprova con proxy
         if (clientProxy) {
             try {
-                console.log(`🔄 [ThisNot] Tentativo con proxy fallback...`);
                 const response = await clientProxy.get(url, options);
-                console.log(`✅ [ThisNot] Connessione con proxy riuscita`);
                 return response;
             } catch (proxyError: any) {
-                console.log(`❌ [ThisNot] Anche il proxy ha fallito: ${proxyError.message}`);
+                console.error(`❌ [ThisNot] Errore connessione: ${proxyError.message}`);
                 throw proxyError;
             }
         } else {
@@ -104,7 +95,6 @@ async function makePostRequest(url: string, data: any, options: any = {}): Promi
         // Se c'è un proxy configurato, riprova con proxy
         if (clientProxy) {
             try {
-                console.log(`🔄 [ThisNot] Tentativo POST con proxy fallback...`);
                 const response = await clientProxy.post(url, data, options);
                 return response;
             } catch (proxyError: any) {
@@ -117,7 +107,6 @@ async function makePostRequest(url: string, data: any, options: any = {}): Promi
 }
 
 async function performLogin(url: string, pwd: string): Promise<boolean> {
-    console.log(`\n🔑 Tentativo di login su ${url}`);
     try {
         const response = await makeRequest(url);
         const $ = cheerio.load(response.data);
@@ -149,14 +138,12 @@ async function performLogin(url: string, pwd: string): Promise<boolean> {
         });
         
         if (!loginResponse.data.toUpperCase().includes("INSERIRE PASSWORD")) {
-            console.log("✅ Login riuscito");
             return true;
         }
         
-        console.log("❌ Password non accettata");
         return false;
     } catch (e) {
-        console.log(`Errore nel login: ${e}`);
+        console.error(`❌ [ThisNot] Errore login: ${e}`);
         return false;
     }
 }
@@ -193,17 +180,14 @@ function decodeToken(tokenRaw: string): { keyid: string | null, key: string | nu
             if (entries.length > 0) {
                 [keyid, key] = entries[0] as [string, string];
             } else {
-                console.log(`⚠️ Formato token sconosciuto: ${decodedStr}`);
                 return { keyid: null, key: null };
             }
         } else {
-            console.log(`⚠️ Formato token sconosciuto: ${decodedStr}`);
             return { keyid: null, key: null };
         }
         
         return { keyid: keyid.toLowerCase(), key: key.toLowerCase() };
     } catch (e) {
-        console.log(`❌ Errore decodifica token '${tokenRaw}': ${e}`);
         return { keyid: null, key: null };
     }
 }
@@ -234,12 +218,26 @@ function parseDate(dateText: string): string {
     }
 }
 
+/**
+ * Verifica se una data è il giorno corrente
+ */
+function isToday(dateStr: string): boolean {
+    try {
+        // dateStr formato: "DD-MM"
+        const [day, month] = dateStr.split('-');
+        const today = new Date();
+        const todayDay = String(today.getDate()).padStart(2, '0');
+        const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
+        
+        return day === todayDay && month === todayMonth;
+    } catch (e) {
+        return false;
+    }
+}
+
 async function processCompetition(name: string, url: string): Promise<ThisNotChannel[]> {
-    console.log(`\n🏆 Elaborazione competizione: ${name} (${url})`);
-    
     const htmlContent = await getPageContent(url);
     if (!htmlContent) {
-        console.log(`❌ Impossibile caricare la pagina di ${name}`);
         return [];
     }
     
@@ -262,6 +260,11 @@ async function processCompetition(name: string, url: string): Promise<ThisNotCha
             continue;
         }
         
+        // FILTRO: Salta se non è oggi
+        if (!isToday(currentDate)) {
+            continue;
+        }
+        
         try {
             const homeDiv = $(elem).find('.home.team');
             const awayDiv = $(elem).find('.away.team');
@@ -277,8 +280,6 @@ async function processCompetition(name: string, url: string): Promise<ThisNotCha
             // Estrai l'orario dalla classe .tile.time
             const timeDiv = $(elem).find('.tile.time');
             const matchTime = timeDiv.length > 0 ? timeDiv.text().trim() : '';
-            
-            console.log(`\n⚽ ${matchName}${matchTime ? ` (${matchTime})` : ''}`);
             
             const playerTag = $(elem).find('a[href]');
             if (playerTag.length === 0) {
@@ -309,7 +310,6 @@ async function processCompetition(name: string, url: string): Promise<ThisNotCha
             }
             
             if (iframeSrc.includes('nochannel.php')) {
-                console.log(`⚠️ Nessun canale disponibile per ${matchName}`);
                 continue;
             }
             
@@ -317,7 +317,6 @@ async function processCompetition(name: string, url: string): Promise<ThisNotCha
             const tokenMatch = iframeSrc.match(/ck=([A-Za-z0-9+/=_-]+)/);
             
             if (!mpdUrlMatch || !tokenMatch) {
-                console.log(`❌ MPD o token mancanti per ${matchName}`);
                 continue;
             }
             
@@ -352,32 +351,172 @@ async function processCompetition(name: string, url: string): Promise<ThisNotCha
                 logo: LOGO_URL
             });
             
-            console.log(`✅ Aggiunto: ${channelName}`);
-            
         } catch (e) {
-            console.log(`Errore partita ${i + 1}: ${e}`);
+            // Silenziosamente continua in caso di errore su singola partita
             continue;
         }
     }
     
-    console.log(`\n✅ ${name}: ${channels.length} canali estratti`);
+    return channels;
+}
+
+/**
+ * Processa le tabelle HTML dalla pagina eventi.php (Calcio, Tennis, etc.)
+ * Questi eventi sono sempre del giorno corrente
+ */
+async function processHtmlTables(): Promise<ThisNotChannel[]> {
+    const eventsUrl = `${BASE_URL}/eventi.php`;
+    const htmlContent = await getPageContent(eventsUrl);
+    
+    if (!htmlContent) {
+        return [];
+    }
+    
+    const $ = cheerio.load(htmlContent);
+    const channels: ThisNotChannel[] = [];
+    
+    // Estrai la data dall'<h1> - formato: "Calendario Giovedi 6 Novembre"
+    let currentDate = '';
+    const h1Text = $('h1').first().text().trim();
+    if (h1Text) {
+        // Cerca pattern "6 Novembre" o "06 Novembre" dopo il giorno della settimana
+        const dateMatch = h1Text.match(/(\d+)\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i);
+        if (dateMatch) {
+            currentDate = parseDate(`${dateMatch[1]} ${dateMatch[2]}`);
+        }
+    }
+    
+    // Trova tutte le sezioni con <h2> (Calcio, Tennis, etc.)
+    const h2Tags = $('h2');
+    
+    for (let i = 0; i < h2Tags.length; i++) {
+        const h2 = h2Tags.eq(i);
+        const sectionName = h2.text().trim();
+        
+        // Trova la tabella successiva all'h2
+        const table = h2.next('table');
+        if (table.length === 0) {
+            continue;
+        }
+        
+        // Processa tutte le righe della tabella (escludi header)
+        const rows = table.find('tr');
+        
+        for (let j = 0; j < rows.length; j++) {
+            const row = rows.eq(j);
+            
+            // Skip header row
+            if (row.attr('class')?.includes('mobile')) {
+                continue;
+            }
+            
+            const cells = row.find('td');
+            if (cells.length < 4) {
+                continue;
+            }
+            
+            try {
+                const time = cells.eq(0).text().trim();
+                const competition = cells.eq(1).text().trim();
+                const match = cells.eq(2).text().trim();
+                const linkCell = cells.eq(3);
+                const linkTag = linkCell.find('a');
+                
+                if (linkTag.length === 0 || !linkTag.attr('href')) {
+                    continue;
+                }
+                
+                const playerHref = linkTag.attr('href');
+                if (!playerHref) {
+                    continue;
+                }
+                
+                const playerUrl = new URL(playerHref, BASE_URL).href;
+                const playerContent = await getPageContent(playerUrl);
+                
+                if (!playerContent) {
+                    continue;
+                }
+                
+                const iframeMatch = playerContent.match(/<iframe[^>]*src=["']([^"']+)["']/i);
+                if (!iframeMatch) {
+                    continue;
+                }
+                
+                let iframeSrc = iframeMatch[1];
+                
+                if (iframeSrc.startsWith("chrome-extension://") && iframeSrc.includes("#https://")) {
+                    iframeSrc = iframeSrc.split("#", 2)[1];
+                }
+                
+                if (iframeSrc.includes('nochannel.php')) {
+                    continue;
+                }
+                
+                const mpdUrlMatch = iframeSrc.match(/(https?:\/\/[^\s"'#]+\.mpd(?:\/[^?\s"'#]*)*)/);
+                const tokenMatch = iframeSrc.match(/ck=([A-Za-z0-9+/=_-]+)/);
+                
+                if (!mpdUrlMatch || !tokenMatch) {
+                    continue;
+                }
+                
+                let mpdUrl = mpdUrlMatch[1];
+                mpdUrl = mpdUrl.split('?')[0].split('#')[0];
+                
+                const tokenRaw = tokenMatch[1];
+                const { keyid, key } = decodeToken(tokenRaw);
+                
+                if (!keyid || !key) {
+                    continue;
+                }
+                
+                // Costruisci il nome del canale: "DD/MM ⏰ HH:MM - MATCH - COMPETITION"
+                let channelName: string;
+                if (currentDate && time) {
+                    channelName = `${currentDate.replace('-', '/')} ⏰ ${time} - ${match} - ${competition}`;
+                } else if (time) {
+                    channelName = `⏰ ${time} - ${match} - ${competition}`;
+                } else {
+                    channelName = `${match} - ${competition}`;
+                }
+                
+                const staticUrlMpd = createStaticUrlMpd(mpdUrl, keyid, key);
+                
+                channels.push({
+                    name: channelName,
+                    staticUrlMpd: staticUrlMpd,
+                    logo: LOGO_URL
+                });
+                
+            } catch (e) {
+                // Silenziosamente continua in caso di errore su singola riga
+                continue;
+            }
+        }
+    }
+    
     return channels;
 }
 
 async function fetchThisNotChannels(): Promise<ThisNotChannel[]> {
     if (!await performLogin(`${BASE_URL}/serieA.php`, PASSWORD)) {
-        console.log("FATAL: Login fallito. Interrompo.");
+        console.error("❌ [ThisNot] Login fallito");
         return [];
     }
     
     const allChannels: ThisNotChannel[] = [];
     
+    // Processa le competizioni (Serie A, Bundesliga, etc.) - SOLO eventi di oggi
     for (const [compName, compUrl] of Object.entries(COMPETITIONS)) {
         const channels = await processCompetition(compName, compUrl);
         allChannels.push(...channels);
     }
     
-    console.log(`\n🎉 Totale: ${allChannels.length} canali estratti da tutte le competizioni!`);
+    // Processa le tabelle HTML (Calcio, Tennis, etc.) - sempre del giorno corrente
+    const htmlTableChannels = await processHtmlTables();
+    allChannels.push(...htmlTableChannels);
+    
+    console.log(`✅ [ThisNot] ${allChannels.length} eventi OGGI estratti`);
     return allChannels;
 }
 
@@ -386,8 +525,6 @@ async function fetchThisNotChannels(): Promise<ThisNotChannel[]> {
  * MANTIENE la data nel nome del canale (es: "04-11 - JUVENTUS VS TORINO - Serie A")
  */
 function convertToThisNotDynamicChannels(thisnotChannels: ThisNotChannel[]): DynamicChannel[] {
-    console.log(`✅ [ThisNot] Conversione ${thisnotChannels.length} canali (mantenendo data nel nome)`);
-    
     return thisnotChannels.map((channel, index) => {
         // Estrai data e orario dal nome del canale
         // Formato: "04/11 ⏰ 21:00 - ATLETICO MADRID VS ROYALE UNION SG"
@@ -431,9 +568,8 @@ function saveThisNotChannels(channels: DynamicChannel[]): void {
     try {
         const data = JSON.stringify(channels, null, 2);
         fs.writeFileSync(THISNOT_FILE, data, 'utf-8');
-        console.log(`� [ThisNot] Salvati ${channels.length} canali su ${THISNOT_FILE}`);
     } catch (error) {
-        console.error(`❌ [ThisNot] Errore salvataggio file: ${error}`);
+        console.error(`❌ [ThisNot] Errore salvataggio: ${error}`);
         throw error;
     }
 }
@@ -444,16 +580,14 @@ function saveThisNotChannels(channels: DynamicChannel[]): void {
 export function loadThisNotChannels(): DynamicChannel[] {
     try {
         if (!fs.existsSync(THISNOT_FILE)) {
-            console.log(`ℹ️  [ThisNot] File ${THISNOT_FILE} non esiste, ritorno array vuoto`);
             return [];
         }
         
         const data = fs.readFileSync(THISNOT_FILE, 'utf-8');
         const channels = JSON.parse(data) as DynamicChannel[];
-        console.log(`📂 [ThisNot] Caricati ${channels.length} canali da ${THISNOT_FILE}`);
         return channels;
     } catch (error) {
-        console.error(`❌ [ThisNot] Errore caricamento file: ${error}`);
+        console.error(`❌ [ThisNot] Errore caricamento: ${error}`);
         return [];
     }
 }
@@ -464,14 +598,11 @@ export function loadThisNotChannels(): DynamicChannel[] {
  */
 export async function updateThisNotChannels(): Promise<void> {
     try {
-        console.log('\n🔄 [ThisNot] Inizio aggiornamento canali ThisNot...');
-        
-        // Fetch nuovi canali da ThisNot
+        // Fetch nuovi canali da ThisNot (solo eventi di oggi)
         const thisnotChannels = await fetchThisNotChannels();
-        console.log(`📡 [ThisNot] Estratti ${thisnotChannels.length} nuovi canali`);
         
         if (thisnotChannels.length === 0) {
-            console.warn('⚠️ [ThisNot] Nessun canale estratto, mantengo file esistente');
+            console.log('⚠️ [ThisNot] Nessun evento OGGI');
             return;
         }
         
@@ -481,35 +612,32 @@ export async function updateThisNotChannels(): Promise<void> {
         // Salva nel file separato (NON tocca dynamic_channels.json)
         saveThisNotChannels(newThisNotChannels);
         
-        console.log(`✅ [ThisNot] Aggiornamento completato: ${newThisNotChannels.length} canali ThisNot attivi`);
-        console.log(`� [ThisNot] File separato: ${THISNOT_FILE}`);
+        console.log(`✅ [ThisNot] ${newThisNotChannels.length} eventi OGGI aggiornati`);
         
     } catch (error) {
-        console.error('❌ [ThisNot] Errore durante l\'aggiornamento:', error);
+        console.error('❌ [ThisNot] Errore aggiornamento:', error);
         throw error;
     }
 }
 
 /**
  * Avvia il loop di aggiornamento ogni 2 ore
+ * Filtra automaticamente solo gli eventi del giorno corrente
  */
 export function startThisNotUpdater(intervalHours: number = 2): void {
     const intervalMs = intervalHours * 60 * 60 * 1000;
     
-    console.log(`🚀 [ThisNot] Avvio updater con intervallo di ${intervalHours} ore`);
+    console.log(`🚀 [ThisNot] Updater avviato (ogni ${intervalHours}h, solo eventi OGGI)`);
     
     // Esegui subito il primo aggiornamento
     updateThisNotChannels().catch(err => {
-        console.error('❌ [ThisNot] Errore nel primo aggiornamento:', err);
+        console.error('❌ [ThisNot] Errore aggiornamento:', err);
     });
     
     // Schedula gli aggiornamenti successivi
     setInterval(() => {
-        console.log(`⏰ [ThisNot] Avvio aggiornamento schedulato...`);
         updateThisNotChannels().catch(err => {
-            console.error('❌ [ThisNot] Errore nell\'aggiornamento schedulato:', err);
+            console.error('❌ [ThisNot] Errore aggiornamento:', err);
         });
     }, intervalMs);
-    
-    console.log(`✅ [ThisNot] Updater avviato con successo`);
 }
