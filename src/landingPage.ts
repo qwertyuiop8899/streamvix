@@ -328,6 +328,7 @@ function landingTemplate(manifest: any) {
 						'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
 						'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
 						'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Lento🐌)</span>', invert: false },
+						'loonexEnabled': { title: 'Loonex 🎬 - 🔓', invert: false },
 						'cb01Enabled': { title: 'CB01 🎞️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci MFP per abilitare)</span>', invert: false },
 						'streamingwatchEnabled': { title: 'StreamingWatch 📼 - 🔓', invert: false },
 							'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false },
@@ -340,8 +341,8 @@ function landingTemplate(manifest: any) {
 						const hasDefault = (typeof (elem as any).default === 'boolean');
 						// For inverted toggles (disable*), show ON when default=false (i.e., feature enabled)
 						let isChecked = hasDefault ? (t.invert ? !((elem as any).default as boolean) : !!(elem as any).default) : true;
-						// Force Eurostreaming OFF by default (unless explicit default true)
-							if (key === 'eurostreamingEnabled' && !hasDefault) isChecked = false;
+						// Force Eurostreaming & Loonex OFF by default (unless explicit default true)
+							if ((key === 'eurostreamingEnabled' || key === 'loonexEnabled') && !hasDefault) isChecked = false;
 						const checkedAttr = isChecked ? ' checked' : '';
 						const extraAttr = key==='mediaflowMaster' ? ' data-master-mfp="1"' : '';
 						const extraAttrTmdb = key==='personalTmdbKey' ? ' data-personal-tmdb="1"' : '';
@@ -755,6 +756,7 @@ function landingTemplate(manifest: any) {
 						'streamingwatchEnabled', // StreamingWatch
 						'guardaserieEnabled',    // GuardaSerie
 						'eurostreamingEnabled',  // Eurostreaming
+						'loonexEnabled',         // Loonex
 						'animesaturnEnabled',    // Anime Saturn
 						'animeworldEnabled',     // Anime World
 						'animeunityEnabled'      // Anime Unity (moved LAST per richiesta)
