@@ -27,7 +27,8 @@ const CHANNEL_NAME_MAPPING: Record<string, string> = {
     "SKY CALCIO 257": "SKY SPORT 257",
     "SKY CALCIO 258": "SKY SPORT 258",
     "SKY CALCIO 259": "SKY SPORT 259",
-    "SKY HISTORY": "HISTORY CHANNEL"
+    "SKY HISTORY": "HISTORY CHANNEL",
+    "SKY COLLECTION": "SKY COLLECTION"
 };
 
 interface AmstaffChannel {
