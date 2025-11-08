@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.10.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.1...v1.10.2) (2025-11-08)
+
+
+### Bug Fixes
+
+* landing issues ([786a1ff](https://github.com/qwertyuiop8899/streamvix/commit/786a1ff3b0ed0f33b114eaa5e9567e7f39160f09))
+* tas ([867d176](https://github.com/qwertyuiop8899/streamvix/commit/867d1766068b2208c7a2759068eff9e1679d3c60))
+* toon ([7ab4a74](https://github.com/qwertyuiop8899/streamvix/commit/7ab4a742b06f5d4a27e561e32432c44a9b5386b0))
+* vavoo clean ([a18374f](https://github.com/qwertyuiop8899/streamvix/commit/a18374fe778021267bf2e84b67226bf1d74fa9e8))
+
 ## [1.10.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.0...v1.10.1) (2025-11-08)
 
 
