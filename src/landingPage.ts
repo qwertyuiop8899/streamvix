@@ -318,6 +318,13 @@ function landingTemplate(manifest: any) {
 				} else if (elem.type === 'checkbox') {
 					// Skip only personalTmdbKey (custom placement); mediaflowMaster & localMode will be moved later
 					if (key === 'personalTmdbKey') return; // removed from UI
+					// Sub-menu items: create hidden inputs to store their values from manifest
+					if (['animeunityAuto', 'animeunityFhd', 'vixDirect', 'vixDirectFhd', 'vixProxy', 'vixProxyFhd'].includes(key)) {
+						const isChecked = (typeof (elem as any).default === 'boolean') && ((elem as any).default as boolean);
+						const checkedAttr = isChecked ? ' checked' : '';
+						options += `<input type="checkbox" id="hidden_${key}" data-config-key="${key}" style="display:none;"${checkedAttr} />`;
+						return;
+					}
 					// Custom pretty toggle for known keys
 						const toggleMap: any = {
 						'disableVixsrc': { title: 'VixSrc 🍿', invert: true },
@@ -332,7 +339,7 @@ function landingTemplate(manifest: any) {
 						'toonitaliaEnabled': { title: 'ToonItalia 🎨 - 🔒', invert: false },
 						'cb01Enabled': { title: 'CB01 🎞️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci MFP per abilitare)</span>', invert: false },
 						'streamingwatchEnabled': { title: 'StreamingWatch 📼 - 🔓', invert: false },
-							'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false },
+							// 'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false }, // NASCOSTO
 							'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
 							'mediaflowMaster': { title: 'MediaflowProxy 🔄', invert: false },
 					}
@@ -526,6 +533,13 @@ function landingTemplate(manifest: any) {
 							auWrap.parentNode.insertBefore(auSub, auWrap.nextSibling);
 							var auAuto = document.getElementById('animeunityAutoToggle');
 							var auFhd = document.getElementById('animeunityFhdToggle');
+							// Restore state from hidden config fields (populated by manifest from URL)
+							try {
+								var hiddenAuto = document.getElementById('hidden_animeunityAuto');
+								var hiddenFhd = document.getElementById('hidden_animeunityFhd');
+								if (auAuto && hiddenAuto && hiddenAuto.type === 'checkbox') auAuto.checked = hiddenAuto.checked;
+								if (auFhd && hiddenFhd && hiddenFhd.type === 'checkbox') auFhd.checked = hiddenFhd.checked;
+							} catch(e) { console.warn('AnimeUnity state restore failed:', e); }
 							function updateAuVisual(){
 								var info = document.getElementById('animeunityDefaultMsg');
 								if (!info) return;
@@ -534,7 +548,17 @@ function landingTemplate(manifest: any) {
 								if (auFhd && auFhd.checked) active.push('FHD');
 								if (active.length === 0) info.textContent = 'Nessuna selezione = SOLO AUTO'; else info.textContent = 'Modalità: ' + active.join(', ');
 							}
-							[auAuto, auFhd].forEach(function(el){ if (el) el.addEventListener('change', function(){ updateAuVisual(); if (typeof window.updateLink==='function') window.updateLink(); }); });
+							[auAuto, auFhd].forEach(function(el){ 
+								if (el) el.addEventListener('change', function(){ 
+									updateAuVisual(); 
+									// Sync hidden inputs for config persistence
+									var hiddenAuto = document.getElementById('hidden_animeunityAuto');
+									var hiddenFhd = document.getElementById('hidden_animeunityFhd');
+									if (hiddenAuto && auAuto) hiddenAuto.checked = auAuto.checked;
+									if (hiddenFhd && auFhd) hiddenFhd.checked = auFhd.checked;
+									if (typeof window.updateLink==='function') window.updateLink(); 
+								}); 
+							});
 							updateAuVisual();
 						}
 					}
@@ -561,8 +585,11 @@ function landingTemplate(manifest: any) {
 				var animeUnityRow = animeUnityEl ? animeUnityEl.closest('[data-toggle-row]') : null;
 				var cb01El = document.getElementById('cb01Enabled');
 				var cb01Row = cb01El ? cb01El.closest('[data-toggle-row]') : null;
+				var toonitaliaEl = document.getElementById('toonitaliaEnabled');
+				var toonitaliaRow = toonitaliaEl ? toonitaliaEl.closest('[data-toggle-row]') : null;
 				var storedVixsrcState = null; // remember previous user choice
 				var storedCb01State = null; // remember previous cb01 state
+				var storedToonitaliaState = null; // remember previous toonitalia state
 				function syncMfp(){
 					var on = mfpMaster ? mfpMaster.checked : false; // default OFF
 					var inputsFilled = mfpUrlInput && mfpPwdInput && mfpUrlInput.value.trim() !== '' && mfpPwdInput.value.trim() !== '';
@@ -572,6 +599,11 @@ function landingTemplate(manifest: any) {
 
 					if (mfpUrlEl) mfpUrlEl.style.display = on ? 'block':'none';
 					if (mfpPwdEl) mfpPwdEl.style.display = on ? 'block':'none';
+					// Clear MFP fields when toggle is OFF to avoid config inclusion
+					if (!on) {
+						if (mfpUrlInput) mfpUrlInput.value = '';
+						if (mfpPwdInput) mfpPwdInput.value = '';
+					}
 					if (animeUnityEl){
 						// AnimeUnity ora sempre disponibile come AnimeWorld (nessun gating MFP)
 						if (animeUnityRow) {
@@ -602,14 +634,34 @@ function landingTemplate(manifest: any) {
 							if (cb01Row) cb01Row.classList.remove('dimmed');
 							cb01El.disabled = !canEnableChildren;
 							if (canEnableChildren) {
-								if (noPreset && !cb01El.checked) { cb01El.checked = true; }
-								else if (storedCb01State !== null) { cb01El.checked = storedCb01State || true; storedCb01State = null; }
+								// Rimossa attivazione automatica: lascia lo stato scelto dall'utente
+								if (storedCb01State !== null) { cb01El.checked = storedCb01State; storedCb01State = null; }
 							} else {
 								if (storedCb01State === null) storedCb01State = cb01El.checked;
 								cb01El.checked = false;
 							}
 						}
 						if (cb01Row) setRowState(cb01Row);
+					}
+					// ToonItalia toggle gating (richiede MFP attivo e credenziali)
+					if (toonitaliaEl){
+						if (!on) { // Master OFF
+							if (storedToonitaliaState === null) storedToonitaliaState = toonitaliaEl.checked;
+							toonitaliaEl.checked = false;
+							toonitaliaEl.disabled = true;
+							if (toonitaliaRow) toonitaliaRow.classList.add('dimmed');
+						} else { // Master ON
+							if (toonitaliaRow) toonitaliaRow.classList.remove('dimmed');
+							toonitaliaEl.disabled = !canEnableChildren;
+							if (canEnableChildren) {
+								// Ripristina stato precedente se disponibile
+								if (storedToonitaliaState !== null) { toonitaliaEl.checked = storedToonitaliaState; storedToonitaliaState = null; }
+							} else {
+								if (storedToonitaliaState === null) storedToonitaliaState = toonitaliaEl.checked;
+								toonitaliaEl.checked = false;
+							}
+						}
+						if (toonitaliaRow) setRowState(toonitaliaRow);
 					}
 				}
 				if (mfpMaster){ mfpMaster.addEventListener('change', function(){ syncMfp(); updateLink(); }); syncMfp(); }
@@ -667,6 +719,17 @@ function landingTemplate(manifest: any) {
 						var vixProxyFhdToggle = document.getElementById('vixProxyFhdToggle');
 						var legendBtn = document.getElementById('vixLegendTrigger');
 						var legendPanel = document.getElementById('vixLegendPanel');
+						// Restore state from hidden config fields (populated by manifest from URL)
+						try {
+							var hiddenDirect = document.getElementById('hidden_vixDirect');
+							var hiddenDirectFhd = document.getElementById('hidden_vixDirectFhd');
+							var hiddenProxy = document.getElementById('hidden_vixProxy');
+							var hiddenProxyFhd = document.getElementById('hidden_vixProxyFhd');
+							if (vixDirectToggle && hiddenDirect && hiddenDirect.type === 'checkbox') vixDirectToggle.checked = hiddenDirect.checked;
+							if (vixDirectFhdToggle && hiddenDirectFhd && hiddenDirectFhd.type === 'checkbox') vixDirectFhdToggle.checked = hiddenDirectFhd.checked;
+							if (vixProxyToggle && hiddenProxy && hiddenProxy.type === 'checkbox') vixProxyToggle.checked = hiddenProxy.checked;
+							if (vixProxyFhdToggle && hiddenProxyFhd && hiddenProxyFhd.type === 'checkbox') vixProxyFhdToggle.checked = hiddenProxyFhd.checked;
+						} catch(e) { console.warn('VixSrc state restore failed:', e); }
 						if (legendBtn && legendPanel){ legendBtn.addEventListener('click', function(){ legendPanel.style.display = legendPanel.style.display==='none' ? 'block':'none'; }); }
 						function updateVixModeVisual(){
 							var info = document.getElementById('vixsrcDefaultMsg');
@@ -682,7 +745,21 @@ function landingTemplate(manifest: any) {
 								info.textContent = 'Modalità: ' + active.join(', ');
 							}
 						}
-						[vixDirectToggle, vixDirectFhdToggle, vixProxyToggle, vixProxyFhdToggle].forEach(function(el){ if (el) el.addEventListener('change', function(){ updateVixModeVisual(); updateLink(); }); });
+						[vixDirectToggle, vixDirectFhdToggle, vixProxyToggle, vixProxyFhdToggle].forEach(function(el){ 
+							if (el) el.addEventListener('change', function(){ 
+								updateVixModeVisual(); 
+								// Sync hidden inputs for config persistence
+								var hiddenDirect = document.getElementById('hidden_vixDirect');
+								var hiddenDirectFhd = document.getElementById('hidden_vixDirectFhd');
+								var hiddenProxy = document.getElementById('hidden_vixProxy');
+								var hiddenProxyFhd = document.getElementById('hidden_vixProxyFhd');
+								if (hiddenDirect && vixDirectToggle) hiddenDirect.checked = vixDirectToggle.checked;
+								if (hiddenDirectFhd && vixDirectFhdToggle) hiddenDirectFhd.checked = vixDirectFhdToggle.checked;
+								if (hiddenProxy && vixProxyToggle) hiddenProxy.checked = vixProxyToggle.checked;
+								if (hiddenProxyFhd && vixProxyFhdToggle) hiddenProxyFhd.checked = vixProxyFhdToggle.checked;
+								updateLink(); 
+							}); 
+						});
 						updateVixModeVisual();
 						if (vixsrcMain) {
 							vixsrcMain.addEventListener('change', function(){
@@ -733,16 +810,16 @@ function landingTemplate(manifest: any) {
 						liveWrapper.parentNode.insertBefore(liveSub, liveWrapper.nextSibling);
 					}
 				}
-				var tvtapToggleEl = (function(){ var n=document.getElementById('tvtapProxyEnabled'); return n? n.closest('.form-element'): null; })();
+				// var tvtapToggleEl = (function(){ var n=document.getElementById('tvtapProxyEnabled'); return n? n.closest('.form-element'): null; })(); // TVTAP RIMOSSO
 				var vavooToggleEl = (function(){ var n=document.getElementById('vavooNoMfpEnabled'); return n? n.closest('.form-element'): null; })();
 				function syncLive(){
 						var enabled = liveTvToggle ? liveTvToggle.checked : true; // slider ON means feature ON
 					if (liveSub) liveSub.style.display = enabled ? 'block':'none';
-					if (tvtapToggleEl) tvtapToggleEl.style.display = enabled ? 'block':'none';
+					// if (tvtapToggleEl) tvtapToggleEl.style.display = enabled ? 'block':'none'; // TVTAP RIMOSSO
 					if (vavooToggleEl) vavooToggleEl.style.display = enabled ? 'block':'none';
 					// Ensure they are inside subgroup container for visual grouping
 					if (enabled && liveSub){
-						if (tvtapToggleEl && tvtapToggleEl.parentElement !== liveSub) liveSub.appendChild(tvtapToggleEl);
+						// if (tvtapToggleEl && tvtapToggleEl.parentElement !== liveSub) liveSub.appendChild(tvtapToggleEl); // TVTAP RIMOSSO
 						if (vavooToggleEl && vavooToggleEl.parentElement !== liveSub) liveSub.appendChild(vavooToggleEl);
 					}
 				}
@@ -786,9 +863,9 @@ function landingTemplate(manifest: any) {
 								liveWrapper2.parentNode.insertBefore(liveSub2, liveWrapper2.nextSibling);
 							}
 							// Reinserisci i toggle TvTap e Vavoo dentro il blocco se non presenti
-							var tvtapToggleEl2 = (function(){ var n=document.getElementById('tvtapProxyEnabled'); return n? n.closest('.form-element'): null; })();
+							// var tvtapToggleEl2 = (function(){ var n=document.getElementById('tvtapProxyEnabled'); return n? n.closest('.form-element'): null; })(); // TVTAP RIMOSSO
 							var vavooToggleEl2 = (function(){ var n=document.getElementById('vavooNoMfpEnabled'); return n? n.closest('.form-element'): null; })();
-							if (tvtapToggleEl2 && tvtapToggleEl2.parentElement !== liveSub2) liveSub2.appendChild(tvtapToggleEl2);
+							// if (tvtapToggleEl2 && tvtapToggleEl2.parentElement !== liveSub2) liveSub2.appendChild(tvtapToggleEl2); // TVTAP RIMOSSO
 							if (vavooToggleEl2 && vavooToggleEl2.parentElement !== liveSub2) liveSub2.appendChild(vavooToggleEl2);
 						}
 					} catch(e) { console.warn('LiveTV block reposition after reorder failed', e); }
