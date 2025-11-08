@@ -329,6 +329,7 @@ function landingTemplate(manifest: any) {
 						'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
 						'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Lento🐌)</span>', invert: false },
 						'loonexEnabled': { title: 'Loonex 🎬 - 🔓', invert: false },
+						'toonitaliaEnabled': { title: 'ToonItalia 🎨 - 🔒', invert: false },
 						'cb01Enabled': { title: 'CB01 🎞️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci MFP per abilitare)</span>', invert: false },
 						'streamingwatchEnabled': { title: 'StreamingWatch 📼 - 🔓', invert: false },
 							'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false },
@@ -757,6 +758,7 @@ function landingTemplate(manifest: any) {
 						'guardaserieEnabled',    // GuardaSerie
 						'eurostreamingEnabled',  // Eurostreaming
 						'loonexEnabled',         // Loonex
+						'toonitaliaEnabled',     // ToonItalia
 						'animesaturnEnabled',    // Anime Saturn
 						'animeworldEnabled',     // Anime World
 						'animeunityEnabled'      // Anime Unity (moved LAST per richiesta)
