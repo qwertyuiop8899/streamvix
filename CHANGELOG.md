@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.0...v1.10.1) (2025-11-08)
+
+
+### Bug Fixes
+
+* add toonitalia ([6a40fb7](https://github.com/qwertyuiop8899/streamvix/commit/6a40fb78b4cae260023d6424520115661b729128))
+* bump version ([da0c258](https://github.com/qwertyuiop8899/streamvix/commit/da0c258957192778b6078e61d2a7283e7ae81749))
+
 ## [1.10.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.38...v1.10.0) (2025-11-08)
 
 
