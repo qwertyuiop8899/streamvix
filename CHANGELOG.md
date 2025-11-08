@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.2...v1.10.3) (2025-11-08)
+
+
+### Bug Fixes
+
+* amstf ([202dca7](https://github.com/qwertyuiop8899/streamvix/commit/202dca754c1f034902a45f4620914657d999c87a))
+
 ## [1.10.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.1...v1.10.2) (2025-11-08)
 
 
