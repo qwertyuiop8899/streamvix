@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.10.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.38...v1.10.0) (2025-11-08)
+
+
+### Features
+
+* **normalize-au:** add "Link Click Season 2" ([ed060b0](https://github.com/qwertyuiop8899/streamvix/commit/ed060b0591bbd303ccbca9101527374c5d824712))
+* **normalize-aw:** add "Link Click Season 2" ([4e41fac](https://github.com/qwertyuiop8899/streamvix/commit/4e41fac415014098ce2ecba24ed5683b32af2153))
+* **normalize:** add "Link Click Season 2" ([00f963c](https://github.com/qwertyuiop8899/streamvix/commit/00f963c66aa4bf0f24d608374394b71b782635c9))
+
+
+### Bug Fixes
+
+* domains update ([41347dc](https://github.com/qwertyuiop8899/streamvix/commit/41347dc4dd4c62e4cf823d9f77fb0f7f7c7ffdb5))
+* epg ([beaf195](https://github.com/qwertyuiop8899/streamvix/commit/beaf195fa7ee996b650a5f5b96160b4c65d296cf))
+* sk coll ([d5e2370](https://github.com/qwertyuiop8899/streamvix/commit/d5e237036f77cc260add148260d850cdb91054e1))
+
 ## [1.9.38](https://github.com/qwertyuiop8899/streamvix/compare/v1.9.37...v1.9.38) (2025-11-07)
 
 
