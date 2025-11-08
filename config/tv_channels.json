@@ -1007,6 +1007,23 @@
     "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=880"
   },
   {
+    "id": "skycollection",
+    "type": "tv",
+    "name": "Sky Collection",
+    "poster": "https://i.imgur.com/2chmed4.png",
+    "description": "Sky Collection - Sky",
+    "vavooNames": [
+      "SKY COLLECTION"
+    ],
+    "epgChannelIds": [
+      "skycollection.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
     "id": "skyatlantic",
     "type": "tv",
     "name": "Sky Atlantic",
