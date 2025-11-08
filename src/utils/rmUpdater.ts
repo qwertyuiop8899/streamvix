@@ -22,7 +22,8 @@ const TVG_ID_MAPPING: Record<string, string> = {
     'Sky.Sport.Golf.it': 'SKY SPORT GOLF',  // TODO: aggiungere in tv_channels se non presente
     'sky.tg24.it': 'SKY TG24',  // RM ha "SKY TG 24" (con spazio), vavooName è "SKY TG24" (senza)
     'history.it': 'HISTORY CHANNEL',
-    'MTV.HD.it': 'MTV'
+    'MTV.HD.it': 'MTV',
+    'Sky.Serie.Maratone.it': 'SKY COLLECTION'  // Sky Collection = Sky Serie Maratone
 };
 
 interface RmChannel {
