@@ -120,8 +120,8 @@ function extractChannelsFromJson(data: any): AmstaffChannel[] {
         if (typeof obj === 'object' && obj !== null) {
             if ('title' in obj && 'myresolve' in obj) {
                 let title = obj.title;
-                // Pulisce tag COLOR
-                title = title.replace(/\[COLOR lime\]/g, '').replace(/\[\/COLOR\]/g, '').trim();
+                // Pulisce TUTTI i tag COLOR (cyan, lime, red, ecc.)
+                title = title.replace(/\[COLOR [^\]]+\]/gi, '').replace(/\[\/COLOR\]/gi, '').trim();
                 
                 const myresolve = obj.myresolve;
                 if (myresolve && myresolve.startsWith('amstaff@@')) {
