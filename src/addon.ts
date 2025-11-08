@@ -52,6 +52,7 @@ interface AddonConfig {
     guardahdEnabled?: boolean;
     eurostreamingEnabled?: boolean;
     loonexEnabled?: boolean;
+    toonitaliaEnabled?: boolean;
     disableLiveTv?: boolean;
     disableVixsrc?: boolean;
     tvtapProxyEnabled?: boolean;
@@ -662,6 +663,7 @@ const baseManifest: Manifest = {
     { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
     { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox" },
     { key: "loonexEnabled", title: "Enable Loonex", type: "checkbox" },
+    { key: "toonitaliaEnabled", title: "Enable ToonItalia", type: "checkbox" },
     { key: "cb01Enabled", title: "Enable CB01 Mixdrop", type: "checkbox" },
     { key: "streamingwatchEnabled", title: "StreamingWatch 🔓", type: "checkbox" },
     { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: true },
@@ -4032,6 +4034,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     : (config.eurostreamingEnabled !== false); // default true
                 // Loonex: default OFF (nuovo provider)
                 const loonexEnabled = envFlag('LOONEX_ENABLED') ?? (config.loonexEnabled === true);
+                // ToonItalia: default OFF (nuovo provider)
+                const toonitaliaEnabled = envFlag('TOONITALIA_ENABLED') ?? (config.toonitaliaEnabled === true);
+                console.log(`[ToonItalia] Flag status: ${toonitaliaEnabled} (env: ${envFlag('TOONITALIA_ENABLED')}, config: ${config.toonitaliaEnabled})`);
                 // Nuovo flag per inserire VixSrc nell'esecuzione parallela (prima era fuori e poteva saltare)
                 const vixsrcEnabled = (() => {
                     try {
@@ -4097,6 +4102,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (l.includes('streamingwatch')) return 'streamingwatch';
                         if (l.includes('eurostreaming')) return 'eurostreaming';
                         if (l.includes('loonex')) return 'loonex';
+                        if (l.includes('toonitalia')) return 'toonitalia';
                         return 'generic';
                     };
                     const unifyStreams = (original: Stream[], providerLabelName: string): Stream[] => {
@@ -4282,6 +4288,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         break;
                                     case 'guardaserie':
                                         bingeGroup = 'guardaserie-std';
+                                        break;
+                                    case 'loonex':
+                                        bingeGroup = 'loonex-std';
+                                        break;
+                                    case 'toonitalia':
+                                        bingeGroup = 'toonitalia-std';
                                         break;
                                     default:
                                         bingeGroup = `${providerKey}-std`;
@@ -4483,6 +4495,40 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }, providerLabel('loonex')));
                     }
 
+                    // ToonItalia (serie TV/Anime) - Ricerca dinamica via TMDb
+                    if (toonitaliaEnabled && type === 'series' && seasonNumber != null && episodeNumber != null) {
+                        providerPromises.push(runProvider('ToonItalia', true, async () => {
+                            const { toonitalia } = await import('./providers/toonitalia-provider');
+                            
+                            // Costruisci ID nel formato appropriato
+                            let requestId: string;
+                            if (id.startsWith('tt')) {
+                                // IMDb ID: "tt1234567:season:episode"
+                                requestId = `${id.split(':')[0]}:${seasonNumber}:${episodeNumber}`;
+                            } else if (id.startsWith('tmdb:')) {
+                                // TMDb ID: "tmdb:12345:season:episode"
+                                const tmdbId = id.replace('tmdb:', '').split(':')[0];
+                                requestId = `tmdb:${tmdbId}:${seasonNumber}:${episodeNumber}`;
+                            } else {
+                                // Fallback (shouldn't happen)
+                                console.log('[ToonItalia] Unknown ID format:', id);
+                                return { streams: [] };
+                            }
+                            
+                            console.log(`[ToonItalia] Calling provider with: ${requestId}`);
+                            const streams = await toonitalia({
+                                id: requestId,
+                                type: type as 'movie' | 'series',
+                                config: {
+                                    mfpUrl: mfpUrl || '',
+                                    mfpPsw: mfpPsw || '',
+                                    tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
+                                }
+                            });
+                            return { streams };
+                        }, 'ToonItalia'));
+                    }
+
 
                     await Promise.all(providerPromises);
 
@@ -4505,6 +4551,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         else console.log('[AnimeUnity][LabelPass] Nessun stream FHD marcato (controllare estrazione variante)');
                     } catch (e) {
                         console.warn('[AnimeUnity][LabelPass] errore post-process badge FHD:', (e as any)?.message || e);
+                    }
+
+                    // Post-process ToonItalia streams to apply unified label
+                    try {
+                        for (const s of allStreams) {
+                            const lowerName = (s.name || s.title || '').toLowerCase();
+                            if (lowerName.includes('toonitalia')) {
+                                s.name = mapLegacyProviderName(s.name || 'ToonItalia');
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[ToonItalia][LabelPass] errore post-process label:', (e as any)?.message || e);
                     }
                 }
 
