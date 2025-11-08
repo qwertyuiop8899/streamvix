@@ -224,6 +224,10 @@ const exactMap: Record<string,string> = {
     "Ranma1/2 (2024) Season 2": "Ranma \u00bd (2024) 2",
 
 
+        "Link Click Season 2": "Link Click 2",
+
+
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
