@@ -655,8 +655,14 @@ const baseManifest: Manifest = {
         { key: "mediaFlowProxyPassword", title: "MediaFlow Proxy Password", type: "text" },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
     { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox" },
+    { key: "vixDirect", title: "VixSrc Direct mode", type: "checkbox" },
+    { key: "vixDirectFhd", title: "VixSrc Direct FHD mode", type: "checkbox" },
+    { key: "vixProxy", title: "VixSrc Proxy mode", type: "checkbox" },
+    { key: "vixProxyFhd", title: "VixSrc Proxy FHD mode", type: "checkbox" },
     { key: "disableLiveTv", title: "Live TV 📺 [Molti canali hanno bisogno di MFP]", type: "checkbox", default: false },
     { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
+    { key: "animeunityAuto", title: "AnimeUnity AUTO mode", type: "checkbox" },
+    { key: "animeunityFhd", title: "AnimeUnity FHD mode", type: "checkbox" },
     { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
     { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
     { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
@@ -666,7 +672,7 @@ const baseManifest: Manifest = {
     { key: "toonitaliaEnabled", title: "Enable ToonItalia", type: "checkbox" },
     { key: "cb01Enabled", title: "Enable CB01 Mixdrop", type: "checkbox" },
     { key: "streamingwatchEnabled", title: "StreamingWatch 🔓", type: "checkbox" },
-    { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: true },
+    // { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: true }, // TVTAP RIMOSSO
     { key: "vavooNoMfpEnabled", title: "Vavoo NO MFP 🔓", type: "checkbox", default: true },
     // UI helper toggles (not used directly server-side but drive dynamic form logic)
     { key: "personalTmdbKey", title: "TMDB API KEY Personale", type: "checkbox" },
