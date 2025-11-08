@@ -1,0 +1,43 @@
+{
+  "_comment": "Normalizations system for ToonItalia provider",
+  "_usage": {
+    "title_aliases": "Maps alternative titles to the correct search term (e.g., Japanese name -> Italian name)",
+    "id_overrides": "Maps IMDb/TMDb IDs to direct URL + optional section filter. Use 'section' ONLY to choose between duplicate content versions (e.g., 'Episodi TV:' vs 'Episodi Dvd:'), NOT to limit to a single season!"
+  },
+  
+  "title_aliases": {
+    "carletto il principe dei mostri": "carletto il principe dei mostri",
+    "kaibutsu-kun": "carletto il principe dei mostri",
+    "daria": "daria",
+    "over the garden wall": "over the garden wall",
+    "otgw": "over the garden wall"
+  },
+  
+  "id_overrides": {
+    "_examples_comment": "Examples of valid configurations:",
+    
+    "tt0320874": {
+      "_comment": "Carletto il principe dei mostri - Has both DVD and TV episodes, automatic DVD filtering will prefer TV version",
+      "url": "https://toonitalia.xyz/carletto-il-principe-dei-mostri/"
+    },
+    
+    "_example_tt1234567": {
+      "_comment": "Example: Series with no duplicates - no section needed",
+      "url": "https://toonitalia.xyz/example-series/",
+      "_note": "Omit 'section' field to extract all episodes from entire page"
+    },
+    
+    "_example_tt7654321": {
+      "_comment": "Example: Series with 'Episodi ITA' vs 'Episodi SUB' - choose ITA",
+      "url": "https://toonitalia.xyz/another-series/",
+      "section": "Episodi ITA:",
+      "_note": "Section filter extracts ALL episodes from that section (all seasons)"
+    },
+    
+    "_example_tmdb_12345": {
+      "_comment": "Example: Can use TMDb ID format instead of IMDb",
+      "url": "https://toonitalia.xyz/tmdb-series/",
+      "_note": "Works with both 'tt1234567' (IMDb) and 'tmdb:12345' (TMDb) formats"
+    }
+  }
+}
