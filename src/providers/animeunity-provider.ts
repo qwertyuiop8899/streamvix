@@ -27,25 +27,32 @@ async function invokePythonScraper(args: string[]): Promise<any> {
 
         pythonProcess.stderr.on('data', (data: Buffer) => {
             stderr += data.toString();
+            // Log stderr immediatamente per errori AnimeUnity
+            const stderrLine = data.toString().trim();
+            if (stderrLine.includes('[AnimeUnity][ERROR]') || stderrLine.includes('[AnimeUnity][WARN]')) {
+                console.error(stderrLine);
+            }
         });
 
         pythonProcess.on('close', (code: number) => {
             if (code !== 0) {
-                console.error(`Python script exited with code ${code}`);
-                console.error(stderr);
+                console.error(`[AnimeUnity][PY] Python script exited with code ${code}`);
+                if (stderr) {
+                    console.error(`[AnimeUnity][PY] Error details: ${stderr}`);
+                }
                 return reject(new Error(`Python script error: ${stderr}`));
             }
             try {
                 resolve(JSON.parse(stdout));
             } catch (e) {
-                console.error('Failed to parse Python script output:');
+                console.error('[AnimeUnity][PY] Failed to parse Python script output:');
                 console.error(stdout);
                 reject(new Error('Failed to parse Python script output.'));
             }
         });
 
         pythonProcess.on('error', (err: Error) => {
-            console.error('Failed to start Python script:', err);
+            console.error('[AnimeUnity][PY] Failed to start Python script:', err);
             reject(err);
         });
     });
