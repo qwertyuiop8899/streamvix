@@ -31,31 +31,58 @@ TIMEOUT = 20
 
 def get_session_tokens():
     """Recupera token di sessione per le richieste API"""
-    response = requests.get(f"{BASE_URL}/", headers=HEADERS, timeout=TIMEOUT)
-    response.raise_for_status()
+    try:
+        response = requests.get(f"{BASE_URL}/", headers=HEADERS, timeout=TIMEOUT)
+        response.raise_for_status()
+        
+        # Log solo errori HTTP
+        if response.status_code != 200:
+            print(f"[AnimeUnity][ERROR] HTTP {response.status_code} on {BASE_URL}", file=sys.stderr)
+            print(f"[AnimeUnity][ERROR] Response size: {len(response.content)} bytes", file=sys.stderr)
+            if response.status_code == 403:
+                print(f"[AnimeUnity][ERROR] 403 Forbidden - Possibile blocco Cloudflare/IP", file=sys.stderr)
+            elif response.status_code == 503:
+                print(f"[AnimeUnity][ERROR] 503 Service Unavailable - Sito potrebbe essere offline", file=sys.stderr)
 
-    soup = BeautifulSoup(response.text, "html.parser")
-    csrf_token = soup.select_one("meta[name=csrf-token]")["content"]
-    cookies = response.cookies.get_dict()
+        soup = BeautifulSoup(response.text, "html.parser")
+        csrf_token_elem = soup.select_one("meta[name=csrf-token]")
+        
+        # Log solo se CSRF token manca (segnale di blocco)
+        if not csrf_token_elem:
+            print(f"[AnimeUnity][ERROR] CSRF token not found - Possibile blocco Cloudflare", file=sys.stderr)
+            print(f"[AnimeUnity][ERROR] Page title: {soup.find('title').text if soup.find('title') else 'N/A'}", file=sys.stderr)
+            raise Exception("CSRF token not found in response")
+        
+        csrf_token = csrf_token_elem["content"]
+        cookies = response.cookies.get_dict()
 
-    return {
-        "csrf_token": csrf_token,
-        "cookies": cookies,
-        "session_headers": {
-            "X-Requested-With": "XMLHttpRequest",
-            "Content-Type": "application/json;charset=utf-8",
-            "X-CSRF-Token": csrf_token,
-            "Referer": BASE_URL,
-            "User-Agent": USER_AGENT
+        return {
+            "csrf_token": csrf_token,
+            "cookies": cookies,
+            "session_headers": {
+                "X-Requested-With": "XMLHttpRequest",
+                "Content-Type": "application/json;charset=utf-8",
+                "X-CSRF-Token": csrf_token,
+                "Referer": BASE_URL,
+                "User-Agent": USER_AGENT
+            }
         }
-    }
+    except requests.exceptions.Timeout:
+        print(f"[AnimeUnity][ERROR] Timeout connecting to {BASE_URL} (>{TIMEOUT}s)", file=sys.stderr)
+        raise
+    except requests.exceptions.ConnectionError as e:
+        print(f"[AnimeUnity][ERROR] Connection failed: {str(e)[:100]}", file=sys.stderr)
+        raise
+    except requests.exceptions.HTTPError as e:
+        print(f"[AnimeUnity][ERROR] HTTP Error: {e}", file=sys.stderr)
+        raise
 
 def search_anime(query, dubbed=False):
     """Ricerca anime tramite API livesearch e archivio"""
     try:
         session_data = get_session_tokens()
     except Exception as e:
-        print(f"⚠️ Errore ottenimento token di sessione: {e}", file=sys.stderr)
+        print(f"[AnimeUnity][ERROR] Failed to get session tokens: {e}", file=sys.stderr)
         return []
 
     results = []
@@ -83,7 +110,7 @@ def search_anime(query, dubbed=False):
             response.raise_for_status()
 
             data = response.json()
-            print(f"Debug: Risposta da {endpoint['url']}: {data.get('records', [])[:2]}", file=sys.stderr)
+            # Rimuovo il debug log verboso - log solo se ci sono errori
 
             for record in data.get("records", []):
                 if not record or not record.get("id"):
@@ -108,12 +135,20 @@ def search_anime(query, dubbed=False):
                             "name_eng": title_eng.strip() if title_eng else "",
                             "episodes_count": record.get("episodes_count", 0)
                         })
+        except requests.exceptions.Timeout:
+            print(f"[AnimeUnity][ERROR] Timeout on search API: {endpoint['url']}", file=sys.stderr)
+            continue
+        except requests.exceptions.HTTPError as e:
+            print(f"[AnimeUnity][ERROR] HTTP {e.response.status_code} on search API: {endpoint['url']}", file=sys.stderr)
+            continue
         except Exception as e:
-            # Print error to stderr so it doesn't interfere with JSON output
-            print(f"⚠️ Errore ricerca {endpoint['url']}: {e}", file=sys.stderr)
+            print(f"[AnimeUnity][ERROR] Search API failed {endpoint['url']}: {str(e)[:100]}", file=sys.stderr)
             continue
 
-    print(f"Debug: Trovati {len(results)} risultati per '{query}'", file=sys.stderr)
+    # Log solo se nessun risultato (possibile problema)
+    if len(results) == 0:
+        print(f"[AnimeUnity][WARN] No results found for query: '{query}'", file=sys.stderr)
+    
     return results
 
 def search_anime_with_fallback(query, dubbed=False):
