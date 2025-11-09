@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.3...v1.10.4) (2025-11-09)
+
+
+### Bug Fixes
+
+* guru ([147357b](https://github.com/qwertyuiop8899/streamvix/commit/147357b2971afba0bcb25c5b0e085221a05a7f85))
+
 ## [1.10.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.2...v1.10.3) (2025-11-08)
 
 
