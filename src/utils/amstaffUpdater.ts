@@ -149,13 +149,60 @@ function extractChannelsFromJson(data: any): AmstaffChannel[] {
 }
 
 /**
- * Scarica canali da Amstaff
+ * Scarica credenziali dal GitHub di Mandrakodi
  */
-async function fetchAmstaffChannels(): Promise<Record<string, string>> {
-    const url = Buffer.from('aHR0cHM6Ly90ZXN0MzQzNDQuaGVyb2t1YXBwLmNvbS9maWx0ZXIucGhwP251bVRlc3Q9QTFBMjYw', 'base64').toString('utf-8');
+async function getGithubCredentials(): Promise<{ password: string; deviceId: string }> {
+    // aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL21hbmRyYWtvZGkvbWFuZHJha29kaS5naXRodWIuaW8vbWFpbi9sYXVuY2hlci5weQ==
+    const launcherUrl = Buffer.from('aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL21hbmRyYWtvZGkvbWFuZHJha29kaS5naXRodWIuaW8vbWFpbi9sYXVuY2hlci5weQ==', 'base64').toString('utf-8');
     
     try {
-        const response = await axios.get(url, { timeout: 30000 });
+        console.log('[AMSTAFF] 📥 Scaricamento credenziali da GitHub...');
+        const response = await axios.get(launcherUrl, { timeout: 10000 });
+        
+        // TWFuZHJhS29kaTM= / MksxV1BO
+        const password = Buffer.from('TWFuZHJhS29kaTM=', 'base64').toString('utf-8');
+        const deviceId = Buffer.from('MksxV1BO', 'base64').toString('utf-8');
+        
+        console.log(`[AMSTAFF] ✅ Credenziali: ${password} / ${deviceId}`);
+        return { password, deviceId };
+    } catch (error) {
+        console.log('[AMSTAFF] ⚠️  Usando credenziali di backup...');
+        return { 
+            password: Buffer.from('TWFuZHJhS29kaTM=', 'base64').toString('utf-8'), 
+            deviceId: Buffer.from('MksxV1BO', 'base64').toString('utf-8')
+        };
+    }
+}
+
+/**
+ * Scarica canali da Amstaff con autenticazione
+ */
+async function fetchAmstaffChannels(): Promise<Record<string, string>> {
+    // aHR0cHM6Ly90ZXN0MzQzNDQuaGVyb2t1YXBwLmNvbS9maWx0ZXIucGhw
+    const BASE_URL = Buffer.from('aHR0cHM6Ly90ZXN0MzQzNDQuaGVyb2t1YXBwLmNvbS9maWx0ZXIucGhw', 'base64').toString('utf-8');
+    const VERSION = Buffer.from('Mi4wLjA=', 'base64').toString('utf-8'); // 2.0.0
+    const NUM_TEST = Buffer.from('QTFBMjYw', 'base64').toString('utf-8'); // A1A260
+    
+    try {
+        // Ottieni credenziali
+        const { password, deviceId } = await getGithubCredentials();
+        
+        // Costruisci User-Agent con autenticazione
+        // TWFuZHJhS29kaTI= = MandraKodi2
+        const userAgentPrefix = Buffer.from('TWFuZHJhS29kaTI=', 'base64').toString('utf-8');
+        const userAgent = `${userAgentPrefix}@@${VERSION}@@${password}@@${deviceId}`;
+        
+        // Scarica canali
+        const url = `${BASE_URL}?numTest=${NUM_TEST}`;
+        console.log(`[AMSTAFF] 🔗 Richiesta: ${url}`);
+        
+        const response = await axios.get(url, {
+            timeout: 30000,
+            headers: {
+                'User-Agent': userAgent
+            }
+        });
+        
         const channels = extractChannelsFromJson(response.data);
         
         const processedChannels: Record<string, string> = {};
