@@ -1,4 +1,4 @@
-# Scegli un'immagine  Node.js  di base  
+# Scegli un'immagine  Node.js  di base
 FROM node:20-slim
 ARG CACHE_BUST=23
 RUN echo "Cache bust: $CACHE_BUST"
