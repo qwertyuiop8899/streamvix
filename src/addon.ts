@@ -594,7 +594,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "9.0.23",
+    version: "8.8.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con VixSRC, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -4311,10 +4311,22 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             return { ...st, title: unifiedTitle, name: providerLabel(providerKey, isFhdOrDual), behaviorHints: mergedHints } as Stream;
                         });
                     };
-                    const runProvider = async (name: string, enabled: boolean, handler: () => Promise<{ streams: Stream[] }>, streamName: string, isMixdropSensitive = false) => {
+                    const runProvider = async (name: string, enabled: boolean, handler: () => Promise<{ streams: Stream[] }>, streamName: string, isMixdropSensitive = false, timeoutMs: number | null = null) => {
                         if (enabled) {
                             try {
-                                const result = await handler();
+                                let result;
+                                
+                                if (timeoutMs !== null && timeoutMs > 0) {
+                                    // Provider con timeout personalizzato
+                                    const timeoutPromise = new Promise<{ streams: Stream[] }>((_, reject) => {
+                                        setTimeout(() => reject(new Error(`${name} timeout after ${timeoutMs}ms`)), timeoutMs);
+                                    });
+                                    result = await Promise.race([handler(), timeoutPromise]);
+                                } else {
+                                    // Provider senza timeout (comportamento attuale)
+                                    result = await handler();
+                                }
+                                
                                 if (result && result.streams) {
                                     const prepared = result.streams.map(s => {
                                         if (isMixdropSensitive) {
@@ -4378,7 +4390,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 streams.push({ title: finalTitle, url: st.streamUrl, behaviorHints: { notWebReady: true, headers: { Referer: st.referer } } as any, isSyntheticFhd: st.isSyntheticFhd, originalName: (st as any).originalName } as any);
                             }
                             return { streams };
-                        }, providerLabel('vixsrc')));
+                        }, providerLabel('vixsrc'), false, 10000));  // VixSrc: timeout 10s
                     }
 
                     // AnimeUnity
@@ -4429,7 +4441,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (id.startsWith('tt')) return gsProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return gsProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             return { streams: [] };
-                        }, providerLabel('guardaserie')));
+                        }, providerLabel('guardaserie'), false, 10000));  // GuardaSerie: timeout 10s
                     }
 
                     // GuardaHD
@@ -4445,7 +4457,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (id.startsWith('tt')) return ghProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             return { streams: [] };
-                        }, providerLabel('guardahd'), true));
+                        }, providerLabel('guardahd'), true, 10000));  // GuardaHD: timeout 10s
                     }
 
                     // CB01 (Mixdrop only)
@@ -4459,7 +4471,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return cbProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        }, providerLabel('cb01'), true));
+                        }, providerLabel('cb01'), true, 10000));  // CB01: timeout 10s
                     }
 
                     // StreamingWatch (nuovo provider) - supporta film e serie
@@ -4471,7 +4483,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return swProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        }, providerLabel('streamingwatch')));
+                        }, providerLabel('streamingwatch'), false, 10000));  // StreamingWatch: timeout 10s
                     }
 
                     // Eurostreaming
@@ -4485,7 +4497,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return esProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        }, providerLabel('eurostreaming'), true));
+                        }, providerLabel('eurostreaming'), true, 18000));  // Eurostreaming: timeout 18s
                     }
 
                     // Loonex (serie TV)
