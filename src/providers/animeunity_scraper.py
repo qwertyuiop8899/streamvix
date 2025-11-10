@@ -17,28 +17,21 @@ import os
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin, unquote
 
-def _decode_proxy_cred(encoded: str, key: str = None) -> str:
-    try:
-        if key is None:
-            key = base64.b64decode("YW5pbWV1bml0eTIwMjU=").decode()
-        decoded = base64.b64decode(encoded).decode()
-        result = ''.join(chr(ord(c) ^ ord(key[i % len(key)])) for i, c in enumerate(decoded))
-        return result
-    except:
-        return ""
-
-_PROXY_USER = "EhobCAQYGAAM" 
-_PROXY_PASS = "EhobCAQYGAAM" 
-_PROXY_HOST = "WVdHXFNNQFpFVwAG" 
-_PROXY_PORT = "WV5cWA==" 
-
 def _get_proxy_url() -> str:
-    user = _decode_proxy_cred(_PROXY_USER)
-    psw = _decode_proxy_cred(_PROXY_PASS)
-    host = _decode_proxy_cred(_PROXY_HOST)
-    port = _decode_proxy_cred(_PROXY_PORT)
-    if user and psw and host and port:
-        return f"http://{user}:{psw}@{host}:{port}"
+    """
+    Ottiene URL proxy da variabile d'ambiente PROXY.
+    Se non impostata, ritorna stringa vuota (nessun proxy).
+    
+    Esempio: PROXY=http://user:pass@host:port
+    """
+    proxy_url = os.environ.get("PROXY", "").strip()
+    if proxy_url:
+        # Valida che sia un URL valido
+        if proxy_url.startswith("http://") or proxy_url.startswith("https://"):
+            return proxy_url
+        else:
+            print(f"[AnimeUnity][WARN] Invalid PROXY format (must start with http:// or https://): {proxy_url[:50]}", file=sys.stderr)
+            return ""
     return ""
 
 with open(os.path.join(os.path.dirname(__file__), '../../config/domains.json'), encoding='utf-8') as f:
