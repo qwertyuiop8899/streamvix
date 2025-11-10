@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.10.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.5...v1.10.6) (2025-11-10)
+
+
+### Bug Fixes
+
+* bump version ([0cc2571](https://github.com/qwertyuiop8899/streamvix/commit/0cc2571c0918e6749e8d33cdb516aa7fba24330c))
+* toon as au rm ([b8df215](https://github.com/qwertyuiop8899/streamvix/commit/b8df21534100384310178d746a85359ea3a141c3))
+* vari ([c759e83](https://github.com/qwertyuiop8899/streamvix/commit/c759e83159a2ed79568baba920f26923be70f4af))
+
 ## [1.10.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.4...v1.10.5) (2025-11-09)
 
 
