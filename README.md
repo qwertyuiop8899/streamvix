@@ -76,8 +76,8 @@ StreamViX utilizza un **sistema di proxy unificato** che semplifica la configura
 - `ANIMESATURN_ENABLED`: Abilita AnimeSaturn (true/false)
 - `Enable MPD Streams`: (true/false) Non funzionanti, lasciare false
 - `Enable Live TV`: Abilita per vedere live TV e eventi sportivi (true/false)
-- `DLHD_PROXY`: ENV pubblica proxy residenziale
-- `PROXY`: ENV pubblico proxy personale
+- `DLHD_PROXY`: ENV pubblica proxy residenziale kubernetes - config maps
+- `PROXY`: ENV pubblico proxy personale kubernetes - config maps
 
 ### ⚙️ Configurazione Eventi Sportivi (Opzionale)
 - `SPON_PROG_URL`: URL custom per download prog.txt Sportzonline (default: auto)
@@ -947,6 +947,7 @@ Thanks to https://github.com/ThEditor https://github.com/ThEditor/stremsrc for t
 Un ringraziamento speciale a @UrloMythus per gli extractor e per la logica kitsu
 
 Funzionalità dinamiche FAST / CAP / purge implementate nel 2025.
+
 
 
 
