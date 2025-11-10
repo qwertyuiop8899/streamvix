@@ -799,8 +799,15 @@ export class AnimeWorldProvider {
   private async fallbackFilterYearSearch(normalizedTitle: string, startDate: string, isMovie: boolean, episodeNumber: number | null, seasonNumber: number | null): Promise<{ streams: StreamForStremio[] }> {
     try {
       console.log('[AnimeWorld][FallbackFilter] Triggered with title=', normalizedTitle, 'date=', startDate);
-      // Emula lo "split(':')[0]" aggressivo del vecchio script: tronca al primo ':'
-      let query = normalizedTitle.includes(':') ? normalizedTitle.split(':')[0] : normalizedTitle;
+      // Emula lo "split(':')[0]" aggressivo del vecchio script: tronca al primo ':' o '?'
+      let query = normalizedTitle;
+      if (normalizedTitle.includes(':')) {
+        query = normalizedTitle.split(':')[0];
+      } else if (normalizedTitle.includes('?')) {
+        query = normalizedTitle.split('?')[0];
+      }
+      query = query.trim();
+      console.log('[AnimeWorld][FallbackFilter] Truncated query:', query);
       // Nel vecchio script poi spazio -> '+' prima della costruzione URL; lo scraper fa gia' replace interno (spazi -> +) prima di generare URL, passiamo quindi query semplice
       const results = await invokePython(['search','--query', query,'--date', startDate]);
       if (!Array.isArray(results) || !results.length) {
