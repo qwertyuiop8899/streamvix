@@ -12,9 +12,35 @@ import re
 import time
 import argparse
 import sys
+import base64
+import os
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin, unquote
-import json, os
+
+def _decode_proxy_cred(encoded: str, key: str = None) -> str:
+    try:
+        if key is None:
+            key = base64.b64decode("YW5pbWV1bml0eTIwMjU=").decode()
+        decoded = base64.b64decode(encoded).decode()
+        result = ''.join(chr(ord(c) ^ ord(key[i % len(key)])) for i, c in enumerate(decoded))
+        return result
+    except:
+        return ""
+
+_PROXY_USER = "EhobCAQYGAAM" 
+_PROXY_PASS = "EhobCAQYGAAM" 
+_PROXY_HOST = "WVdHXFNNQFpFVwAG" 
+_PROXY_PORT = "WV5cWA==" 
+
+def _get_proxy_url() -> str:
+    user = _decode_proxy_cred(_PROXY_USER)
+    psw = _decode_proxy_cred(_PROXY_PASS)
+    host = _decode_proxy_cred(_PROXY_HOST)
+    port = _decode_proxy_cred(_PROXY_PORT)
+    if user and psw and host and port:
+        return f"http://{user}:{psw}@{host}:{port}"
+    return ""
+
 with open(os.path.join(os.path.dirname(__file__), '../../config/domains.json'), encoding='utf-8') as f:
     DOMAINS = json.load(f)
 BASE_URL = f"https://www.{DOMAINS['animeunity']}"
@@ -31,51 +57,78 @@ TIMEOUT = 20
 
 def get_session_tokens():
     """Recupera token di sessione per le richieste API"""
-    try:
-        response = requests.get(f"{BASE_URL}/", headers=HEADERS, timeout=TIMEOUT)
-        response.raise_for_status()
-        
-        # Log solo errori HTTP
-        if response.status_code != 200:
-            print(f"[AnimeUnity][ERROR] HTTP {response.status_code} on {BASE_URL}", file=sys.stderr)
-            print(f"[AnimeUnity][ERROR] Response size: {len(response.content)} bytes", file=sys.stderr)
-            if response.status_code == 403:
-                print(f"[AnimeUnity][ERROR] 403 Forbidden - Possibile blocco Cloudflare/IP", file=sys.stderr)
-            elif response.status_code == 503:
-                print(f"[AnimeUnity][ERROR] 503 Service Unavailable - Sito potrebbe essere offline", file=sys.stderr)
+    proxy_url = _get_proxy_url()
+    use_proxy = False
+    
+    for attempt in range(2):  # Max 2 tentativi: diretto + proxy
+        try:
+            proxies = None
+            if use_proxy and proxy_url:
+                proxies = {"http": proxy_url, "https": proxy_url}
+                print(f"[AnimeUnity][INFO] Tentativo con proxy VPS...", file=sys.stderr)
+            
+            response = requests.get(
+                f"{BASE_URL}/", 
+                headers=HEADERS, 
+                timeout=TIMEOUT,
+                proxies=proxies
+            )
+            response.raise_for_status()
+            
+            # Log solo errori HTTP
+            if response.status_code != 200:
+                print(f"[AnimeUnity][ERROR] HTTP {response.status_code} on {BASE_URL}", file=sys.stderr)
+                print(f"[AnimeUnity][ERROR] Response size: {len(response.content)} bytes", file=sys.stderr)
+                if response.status_code == 403:
+                    print(f"[AnimeUnity][ERROR] 403 Forbidden - Possibile blocco Cloudflare/IP", file=sys.stderr)
+                elif response.status_code == 503:
+                    print(f"[AnimeUnity][ERROR] 503 Service Unavailable - Sito potrebbe essere offline", file=sys.stderr)
 
-        soup = BeautifulSoup(response.text, "html.parser")
-        csrf_token_elem = soup.select_one("meta[name=csrf-token]")
-        
-        # Log solo se CSRF token manca (segnale di blocco)
-        if not csrf_token_elem:
-            print(f"[AnimeUnity][ERROR] CSRF token not found - Possibile blocco Cloudflare", file=sys.stderr)
-            print(f"[AnimeUnity][ERROR] Page title: {soup.find('title').text if soup.find('title') else 'N/A'}", file=sys.stderr)
-            raise Exception("CSRF token not found in response")
-        
-        csrf_token = csrf_token_elem["content"]
-        cookies = response.cookies.get_dict()
+            soup = BeautifulSoup(response.text, "html.parser")
+            csrf_token_elem = soup.select_one("meta[name=csrf-token]")
+            
+            # Log solo se CSRF token manca (segnale di blocco)
+            if not csrf_token_elem:
+                print(f"[AnimeUnity][ERROR] CSRF token not found - Possibile blocco Cloudflare", file=sys.stderr)
+                print(f"[AnimeUnity][ERROR] Page title: {soup.find('title').text if soup.find('title') else 'N/A'}", file=sys.stderr)
+                raise Exception("CSRF token not found in response")
+            
+            csrf_token = csrf_token_elem["content"]
+            cookies = response.cookies.get_dict()
 
-        return {
-            "csrf_token": csrf_token,
-            "cookies": cookies,
-            "session_headers": {
-                "X-Requested-With": "XMLHttpRequest",
-                "Content-Type": "application/json;charset=utf-8",
-                "X-CSRF-Token": csrf_token,
-                "Referer": BASE_URL,
-                "User-Agent": USER_AGENT
+            if use_proxy:
+                print(f"[AnimeUnity][SUCCESS] Connessione riuscita tramite proxy", file=sys.stderr)
+
+            return {
+                "csrf_token": csrf_token,
+                "cookies": cookies,
+                "session_headers": {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type": "application/json;charset=utf-8",
+                    "X-CSRF-Token": csrf_token,
+                    "Referer": BASE_URL,
+                    "User-Agent": USER_AGENT
+                },
+                "proxies": proxies  # Passa i proxy alla sessione
             }
-        }
-    except requests.exceptions.Timeout:
-        print(f"[AnimeUnity][ERROR] Timeout connecting to {BASE_URL} (>{TIMEOUT}s)", file=sys.stderr)
-        raise
-    except requests.exceptions.ConnectionError as e:
-        print(f"[AnimeUnity][ERROR] Connection failed: {str(e)[:100]}", file=sys.stderr)
-        raise
-    except requests.exceptions.HTTPError as e:
-        print(f"[AnimeUnity][ERROR] HTTP Error: {e}", file=sys.stderr)
-        raise
+            
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 403 and not use_proxy and proxy_url:
+                print(f"[AnimeUnity][WARN] 403 Forbidden - Ritento con proxy VPS...", file=sys.stderr)
+                use_proxy = True
+                continue  # Riprova con proxy
+            else:
+                print(f"[AnimeUnity][ERROR] HTTP Error: {e}", file=sys.stderr)
+                raise
+        except requests.exceptions.Timeout:
+            print(f"[AnimeUnity][ERROR] Timeout connecting to {BASE_URL} (>{TIMEOUT}s)", file=sys.stderr)
+            raise
+        except requests.exceptions.ConnectionError as e:
+            print(f"[AnimeUnity][ERROR] Connection failed: {str(e)[:100]}", file=sys.stderr)
+            raise
+    
+    # Se arriviamo qui, entrambi i tentativi sono falliti
+    raise Exception("Failed to get session tokens after both direct and proxy attempts")
 
 def search_anime(query, dubbed=False):
     """Ricerca anime tramite API livesearch e archivio"""
@@ -105,6 +158,7 @@ def search_anime(query, dubbed=False):
                 json=endpoint["payload"],
                 headers=session_data["session_headers"],
                 cookies=session_data["cookies"],
+                proxies=session_data.get("proxies"),  # Usa i proxy dalla sessione
                 timeout=TIMEOUT
             )
             response.raise_for_status()
@@ -177,11 +231,19 @@ def get_episodes_list(anime_id):
     """Recupera lista episodi tramite API info_api"""
     episodes = []
 
+    # Ottieni i proxy dalla sessione corrente (se disponibili)
+    try:
+        session_data = get_session_tokens()
+        proxies = session_data.get("proxies")
+    except:
+        proxies = None
+
     try:
         # Ottieni conteggio episodi
         count_response = requests.get(
             f"{BASE_URL}/info_api/{anime_id}/",
             headers=HEADERS,
+            proxies=proxies,
             timeout=TIMEOUT
         )
         count_response.raise_for_status()
@@ -196,6 +258,7 @@ def get_episodes_list(anime_id):
                 f"{BASE_URL}/info_api/{anime_id}/1",
                 params={"start_range": start, "end_range": end},
                 headers=HEADERS,
+                proxies=proxies,
                 timeout=TIMEOUT
             )
             episodes_response.raise_for_status()
@@ -211,8 +274,20 @@ def get_video_page_content(anime_id, anime_slug, episode_id):
     """Ottiene contenuto pagina episodio per estrazione embed URL"""
     episode_url = f"{BASE_URL}/anime/{anime_id}-{anime_slug}/{episode_id}"
 
+    # Ottieni i proxy dalla sessione corrente (se disponibili)
     try:
-        response = requests.get(episode_url, headers=HEADERS, timeout=TIMEOUT)
+        session_data = get_session_tokens()
+        proxies = session_data.get("proxies")
+    except:
+        proxies = None
+
+    try:
+        response = requests.get(
+            episode_url, 
+            headers=HEADERS, 
+            proxies=proxies,
+            timeout=TIMEOUT
+        )
         response.raise_for_status()
         return response.text
     except Exception as e:
