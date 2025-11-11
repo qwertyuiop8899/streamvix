@@ -21,7 +21,7 @@ async function getTmdbIdFromImdb(imdbId: string, tmdbKey: string): Promise<strin
     // Lazy import to avoid circular deps if any
     const mod = await import('../extractor');
     const imdbOnly = imdbId.split(':')[0];
-    const tmdbId = await mod.getTmdbIdFromImdbId(imdbOnly, tmdbKey);
+    const tmdbId = await mod.getTmdbIdFromImdbId(imdbOnly, tmdbKey, 'tv');
     return tmdbId || null;
   } catch {
     return null;
