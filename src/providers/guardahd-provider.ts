@@ -87,7 +87,7 @@ export class GuardaHdProvider {
     if (this.config.tmdbApiKey && (/^tt\d{7,8}$/i.test(realTitle) || /^movie\s+tt\d+/i.test(realTitle) || realTitle.toLowerCase() === 'movie')) {
       try {
         console.log('[GH][TMDB] trying italian title lookup for', imdbOnly);
-        const tmdbId = await getTmdbIdFromImdbId(imdbOnly, this.config.tmdbApiKey);
+        const tmdbId = await getTmdbIdFromImdbId(imdbOnly, this.config.tmdbApiKey, 'movie');
         console.log('[GH][TMDB] tmdbId=', tmdbId);
         if (tmdbId) {
           const resp = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${this.config.tmdbApiKey}&language=it`);
