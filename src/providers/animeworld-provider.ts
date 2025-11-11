@@ -71,7 +71,7 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
     if (!tmdbKey) throw new Error('TMDB_API_KEY non configurata');
     const imdbIdOnly = id.split(':')[0];
     const { getTmdbIdFromImdbId } = await import('../extractor');
-    tmdbId = await getTmdbIdFromImdbId(imdbIdOnly, tmdbKey);
+    tmdbId = await getTmdbIdFromImdbId(imdbIdOnly, tmdbKey, 'tv');
     if (!tmdbId) throw new Error('TMDB ID non trovato per IMDB: ' + id);
     try {
       const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
