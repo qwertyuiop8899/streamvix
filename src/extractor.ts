@@ -170,7 +170,7 @@ function getObject(id: string) {
   };
 }
 
-export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string): Promise<string | null> {
+export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string, preferredType?: 'movie' | 'tv'): Promise<string | null> {
   // Prima controlla il mapping statico (per ID non linkati correttamente in TMDB)
   const entry = IMDB_TO_TMDB_MAP[imdbId];
   if (entry && (entry as any).tmdb_id && !entry.mappings) {
@@ -190,11 +190,28 @@ export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string): 
       return null;
     }
     const data = await response.json();
-    if (data.movie_results && data.movie_results.length > 0) {
-      return data.movie_results[0].id.toString();
-    } else if (data.tv_results && data.tv_results.length > 0) {
-      return data.tv_results[0].id.toString();
+    
+    // Priorità intelligente: se preferredType è specificato, cerca prima quel tipo
+    const movieResults = data.movie_results || [];
+    const tvResults = data.tv_results || [];
+    
+    if (preferredType === 'tv' && tvResults.length > 0) {
+      console.log(`[IMDB→TMDB] Preferred TV: ${imdbId} → TMDB ${tvResults[0].id} (${tvResults[0].name})`);
+      return tvResults[0].id.toString();
+    } else if (preferredType === 'movie' && movieResults.length > 0) {
+      console.log(`[IMDB→TMDB] Preferred Movie: ${imdbId} → TMDB ${movieResults[0].id} (${movieResults[0].title})`);
+      return movieResults[0].id.toString();
     }
+    
+    // Fallback: se preferredType non trova nulla, prova l'altro tipo
+    if (movieResults.length > 0) {
+      console.log(`[IMDB→TMDB] Fallback Movie: ${imdbId} → TMDB ${movieResults[0].id} (${movieResults[0].title})`);
+      return movieResults[0].id.toString();
+    } else if (tvResults.length > 0) {
+      console.log(`[IMDB→TMDB] Fallback TV: ${imdbId} → TMDB ${tvResults[0].id} (${tvResults[0].name})`);
+      return tvResults[0].id.toString();
+    }
+    
     console.warn(`No TMDB movie or TV results found for IMDb ID: ${imdbId}`);
     return null;
   } catch (error) {
@@ -324,7 +341,7 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
       tmdbId = id.split(':')[1] || null;
     } else {
       const imdbIdForMovie = id; // legacy imdb id
-      tmdbId = await getTmdbIdFromImdbId(imdbIdForMovie, config.tmdbApiKey);
+      tmdbId = await getTmdbIdFromImdbId(imdbIdForMovie, config.tmdbApiKey, 'movie');
       if (!tmdbId) return null;
     }
     if (!tmdbId) return null;
@@ -372,7 +389,7 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
     
     // Se non trovato mapping statico, usa API TMDB classica
     if (!tmdbSeriesId) {
-      tmdbSeriesId = await getTmdbIdFromImdbId(obj.id, config.tmdbApiKey);
+      tmdbSeriesId = await getTmdbIdFromImdbId(obj.id, config.tmdbApiKey, 'tv');
     }
   }
   if (!tmdbSeriesId) return null;
@@ -488,7 +505,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     if (imdbOrTmdbId.startsWith('tmdb:')) {
       tmdbId = imdbOrTmdbId.split(':')[1] || null;
     } else {
-      tmdbId = await getTmdbIdFromImdbId(imdbOrTmdbId, tmdbApiKey);
+      tmdbId = await getTmdbIdFromImdbId(imdbOrTmdbId, tmdbApiKey, 'movie');
     }
     if (!tmdbId) return null;
     const movieDetailsUrl = `${TMDB_API_BASE_URL}/movie/${tmdbId}?api_key=${tmdbApiKey}&language=it`;
@@ -513,7 +530,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       const parts = imdbOrTmdbComposite.split(':');
       tmdbId = parts[1] || null; // tmdb:tmdbId:season:episode
     } else {
-      tmdbId = await getTmdbIdFromImdbId(imdbOrTmdbComposite.split(':')[0], tmdbApiKey);
+      tmdbId = await getTmdbIdFromImdbId(imdbOrTmdbComposite.split(':')[0], tmdbApiKey, 'tv');
     }
     if (!tmdbId) return null;
     const seriesDetailsUrl = `${TMDB_API_BASE_URL}/tv/${tmdbId}?api_key=${tmdbApiKey}&language=it`;
