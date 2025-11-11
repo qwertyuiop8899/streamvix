@@ -179,7 +179,7 @@ export class GuardaSerieProvider {
     if (kind === 'imdb') {
       const imdbOnly = id.split(':')[0];
       const mod = await import('../extractor');
-      const tmdbId = await mod.getTmdbIdFromImdbId(imdbOnly, key);
+      const tmdbId = await mod.getTmdbIdFromImdbId(imdbOnly, key, isMovie ? 'movie' : 'tv');
       if (!tmdbId) throw new Error('No TMDB');
       return this.fetchTmdbTitle(tmdbId, isMovie, key);
     }
