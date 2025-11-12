@@ -147,7 +147,7 @@ export class Cb01Provider {
           headers,
           httpsAgent: proxyAgent,
           proxy: false,
-          timeout: 50000  // 10 secondi per fallback
+          timeout: 10000  // 10 secondi per fallback
         });
         
         log('✅ PROXY fallback works for', url);
