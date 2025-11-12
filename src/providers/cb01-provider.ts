@@ -118,7 +118,7 @@ export class Cb01Provider {
           headers,
           httpsAgent: proxyAgent,
           proxy: false,
-          timeout: 3000  // 5 secondi
+          timeout: 4000  // 4 secondi
         });
         
         log('✅ DLHD_PROXY works for', url);
