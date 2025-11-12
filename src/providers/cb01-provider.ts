@@ -108,7 +108,7 @@ export class Cb01Provider {
     // Attempt 2: Try with DLHD_PROXY (timeout 5s)
     if (process.env.DLHD_PROXY) {
       try {
-        log('Trying DLHD_PROXY (timeout 5s)...');
+        log('Trying DLHD_PROXY (timeout 3s)...');
         const httpsAgent = new https.Agent({ rejectUnauthorized: false });
         const proxyAgent = new HttpsProxyAgent(process.env.DLHD_PROXY, {
           rejectUnauthorized: false
@@ -118,7 +118,7 @@ export class Cb01Provider {
           headers,
           httpsAgent: proxyAgent,
           proxy: false,
-          timeout: 5000  // 5 secondi
+          timeout: 3000  // 5 secondi
         });
         
         log('✅ DLHD_PROXY works for', url);
@@ -147,7 +147,7 @@ export class Cb01Provider {
           headers,
           httpsAgent: proxyAgent,
           proxy: false,
-          timeout: 10000  // 10 secondi per fallback
+          timeout: 50000  // 10 secondi per fallback
         });
         
         log('✅ PROXY fallback works for', url);
