@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.10](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.9...v1.10.10) (2025-11-16)
+
+
+### Bug Fixes
+
+* gs domain ([08e17d2](https://github.com/qwertyuiop8899/streamvix/commit/08e17d223281403ac263556e8941264089c6de02))
+* will ([c9a91e0](https://github.com/qwertyuiop8899/streamvix/commit/c9a91e0d5420fb8fc369ec9f434b417de6711a72))
+
 ## [1.10.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.8...v1.10.9) (2025-11-12)
 
 
