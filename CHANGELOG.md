@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.10.11](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.10...v1.10.11) (2025-11-19)
+
+
+### Bug Fixes
+
+* domains update ([a3535fa](https://github.com/qwertyuiop8899/streamvix/commit/a3535fabb61eec3f2b8712e2bb5c64e8c53de523))
+* domains update ([704527b](https://github.com/qwertyuiop8899/streamvix/commit/704527b70104089ded4d9854c6bbbf419cb94b9d))
+* epg ([f6134cb](https://github.com/qwertyuiop8899/streamvix/commit/f6134cbaf8aa2e8b909f8b5fe8857cb285403a1f))
+* rm ([ef25a8b](https://github.com/qwertyuiop8899/streamvix/commit/ef25a8b8a97cbbf70a52ef0fa845d0ce57777124))
+
 ## [1.10.10](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.9...v1.10.10) (2025-11-16)
 
 
