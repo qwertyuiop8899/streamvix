@@ -58,7 +58,7 @@
       "RETE 4"
     ],
     "epgChannelIds": [
-      "rete4.it"
+      "rete.4.it"
     ]
   },
   {
@@ -73,7 +73,7 @@
       "CANALE 5"
     ],
     "epgChannelIds": [
-      "canale5.it"
+      "canale.5.it"
     ]
   },
   {
@@ -242,7 +242,7 @@
       "CIELO"
     ],
     "epgChannelIds": [
-      "CieloTv.it"
+      "Cielo.it"
     ],
     "category": "sky"
   },
@@ -317,27 +317,12 @@
       "REAL TIME"
     ],
     "epgChannelIds": [
-      "RealTime.it"
+      "real.time.it"
     ],
     "category": [
       "general",
       "discovery"
     ]
-  },
-  {
-    "id": "qvc",
-    "type": "tv",
-    "name": "QVC",
-    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/qvc.png",
-    "description": "QVC - Canale commerciale",
-    "staticUrlF": "https://qrg.akamaized.net/hls/live/2017383/lsqvc1it/master.m3u8",
-    "vavooNames": [
-      "QVC"
-    ],
-    "epgChannelIds": [
-      "QVC.it"
-    ],
-    "category": "general"
   },
   {
     "id": "foodnetwork",
@@ -350,7 +335,7 @@
       "FOOD NETWORK"
     ],
     "epgChannelIds": [
-      "FoodNetwork.it"
+      "food.network.it"
     ],
     "category": [
       "discovery",
@@ -416,7 +401,7 @@
       "WARNER TV"
     ],
     "epgChannelIds": [
-      "WarnerTV.it"
+      "warner.tv.it"
     ],
     "category": [
       "discovery",
@@ -811,7 +796,7 @@
       "SKY CINEMA UNO"
     ],
     "epgChannelIds": [
-      "skycinemauno.it"
+      "sky.cinema.uno.it"
     ],
     "category": [
       "sky",
@@ -830,7 +815,7 @@
       "SKY CINEMA DUE"
     ],
     "epgChannelIds": [
-      "skycinemadue.it"
+      "sky.cinema.due.it"
     ],
     "category": [
       "sky",
@@ -849,7 +834,7 @@
       "SKY CINEMA COMEDY"
     ],
     "epgChannelIds": [
-      "skycinemacomedy.it"
+      "sky.cinema.comedy.it"
     ],
     "category": [
       "sky",
@@ -868,7 +853,7 @@
       "SKY CINEMA ACTION"
     ],
     "epgChannelIds": [
-      "skycinemaaction.it"
+      "sky.cinema.action.it"
     ],
     "category": [
       "sky",
@@ -887,7 +872,7 @@
       "SKY CINEMA FAMILY"
     ],
     "epgChannelIds": [
-      "skycinemafamily.it"
+      "sky.cinema.family.it"
     ],
     "category": [
       "sky",
@@ -906,7 +891,7 @@
       "SKY CINEMA COLLECTION"
     ],
     "epgChannelIds": [
-      "skycinemacollection.it"
+      "sky.cinema.collection.it"
     ],
     "category": [
       "sky",
@@ -925,7 +910,7 @@
       "SKY CINEMA DRAMA"
     ],
     "epgChannelIds": [
-      "skycinemadrama.it"
+      "sky.cinema.drama.it"
     ],
     "category": [
       "sky",
@@ -944,7 +929,7 @@
       "SKY CINEMA SUSPENSE"
     ],
     "epgChannelIds": [
-      "skycinemasuspense.it"
+      "sky.cinema.suspense.it"
     ],
     "category": [
       "sky",
@@ -963,7 +948,7 @@
       "SKY CINEMA ROMANCE"
     ],
     "epgChannelIds": [
-      "skycinemaromance.it"
+      "sky.cinema.romance.it"
     ],
     "category": [
       "sky",
@@ -983,7 +968,7 @@
       "SKY UNO"
     ],
     "epgChannelIds": [
-      "skyuno.it"
+      "sky.uno.it"
     ],
     "category": "sky"
   },
@@ -998,7 +983,7 @@
       "SKY SERIE"
     ],
     "epgChannelIds": [
-      "skyserie.it"
+      "sky.serie.it"
     ],
     "category": [
       "sky",
@@ -1016,7 +1001,7 @@
       "SKY COLLECTION"
     ],
     "epgChannelIds": [
-      "Sky.Serie.Maratone.it"
+      "sky.serie.maratone.it"
     ],
     "category": [
       "sky",
@@ -1033,7 +1018,7 @@
       "SKY ATLANTIC"
     ],
     "epgChannelIds": [
-      "skyatlantic.it"
+      "sky.atlantic.it"
     ],
     "category": [
       "sky",
@@ -1050,7 +1035,7 @@
       "SKY CRIME"
     ],
     "epgChannelIds": [
-      "skycrime.it"
+      "sky.crime.it"
     ],
     "category": "sky"
   },
@@ -1064,7 +1049,7 @@
       "SKY INVESTIGATION"
     ],
     "epgChannelIds": [
-      "skyinvestigation.it"
+      "sky.investigation.it"
     ],
     "category": [
       "sky",
@@ -1081,7 +1066,7 @@
       "SKY DOCUMENTARIES"
     ],
     "epgChannelIds": [
-      "skydocumentaries.it"
+      "sky.documentaries.it"
     ],
     "category": [
       "sky",
@@ -1098,7 +1083,7 @@
       "SKY NATURE"
     ],
     "epgChannelIds": [
-      "skynature.it"
+      "sky.nature.it"
     ],
     "category": [
       "sky",
@@ -1132,7 +1117,7 @@
       "SKY ARTE"
     ],
     "epgChannelIds": [
-      "skyarte.it"
+      "sky.arte.it"
     ],
     "category": [
       "sky",
@@ -1163,9 +1148,26 @@
       "COMEDY CENTRAL"
     ],
     "epgChannelIds": [
-      "comedycentral.it"
+      "comedy.central.it"
     ],
     "category": "sky"
+  },
+  {
+    "id": "skyadventure",
+    "type": "tv",
+    "name": "Sky Adventure",
+    "poster": "https://upload.wikimedia.org/wikipedia/commons/f/f9/Sky_Adventure.png",
+    "description": "Sky Adventure - Sky",
+    "vavooNames": [
+      "SKY ADVENTURE"
+    ],
+    "epgChannelIds": [
+      "sky.adventure.it"
+    ],
+    "category": [
+      "sky",
+      "documentari"
+    ]
   },
   {
     "id": "skysport24",
@@ -1178,7 +1180,7 @@
       "SKY SPORT 24"
     ],
     "epgChannelIds": [
-      "skysport24.it"
+      "sky.sport.24.it"
     ],
     "category": [
       "sky",
@@ -1197,7 +1199,7 @@
       "SKY SPORT UNO"
     ],
     "epgChannelIds": [
-      "skysportuno.it"
+      "sky.sport.uno.it"
     ],
     "category": [
       "sky",
@@ -1216,7 +1218,7 @@
       "SKY SPORT F1"
     ],
     "epgChannelIds": [
-      "skysportf1.it"
+      "sky.sport.f1.it"
     ],
     "category": [
       "sky",
@@ -1235,7 +1237,7 @@
       "SKY SPORT CALCIO"
     ],
     "epgChannelIds": [
-      "skysportcalcio.it"
+      "sky.sport.calcio.it"
     ],
     "category": [
       "sky",
@@ -1254,7 +1256,7 @@
       "SKY SPORT TENNIS"
     ],
     "epgChannelIds": [
-      "skysporttennis.it"
+      "sky.sport.tennis.it"
     ],
     "category": [
       "sky",
@@ -1273,7 +1275,7 @@
       "SKY SPORT MOTOGP"
     ],
     "epgChannelIds": [
-      "skysportmotogp.it"
+      "sky.sport.motogp.it"
     ],
     "category": [
       "sky",
@@ -1292,7 +1294,7 @@
       "SKY SPORT ARENA"
     ],
     "epgChannelIds": [
-      "skysportarena.it"
+      "sky.sport.arena.it"
     ],
     "category": [
       "sky",
@@ -1311,7 +1313,7 @@
       "SKY SPORT MAX"
     ],
     "epgChannelIds": [
-      "skysportmax.it"
+      "sky.sport.max.it"
     ],
     "category": [
       "sky",
@@ -1330,7 +1332,7 @@
       "SKY SPORT NBA"
     ],
     "epgChannelIds": [
-      "skysportnba.it"
+      "sky.sport.nba.it"
     ],
     "category": [
       "sky",
@@ -1386,7 +1388,7 @@
     "id": "eurosport1",
     "type": "tv",
     "name": "Eurosport 1",
-    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_1.svg",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/spain/eurosport-1-es.png",
     "description": "Eurosport 1",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MSkvbWFuaWZlc3QubXBkJmtleV9pZD00NmU1NTljMmY5ZjY0NWNlOGQ4MGM3ZmEyMDQ0NmJkYiZrZXk9NTk3ZDIxNGQ2NjM0MmVlMDQyYmNjZmZlYjE2NWU3NTA=",
     "staticUrlD": "https://dlhd.dad/watch.php?id=878",
@@ -1394,7 +1396,7 @@
       "EUROSPORT 1"
     ],
     "epgChannelIds": [
-      "eurosport1.it"
+      "eurosport.1.it"
     ],
     "category": "sport",
     "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=878"
@@ -1403,7 +1405,7 @@
     "id": "eurosport2",
     "type": "tv",
     "name": "Eurosport 2",
-    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_2.svg",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/spain/eurosport-1-es.png",
     "description": "Eurosport 2",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MikvbWFuaWZlc3QubXBkJmtleV9pZD1lODM3MjI4M2E1MjM0NDRjODQ2NDZjNDE3MmIxYmMwZiZrZXk9OTY5YTkwZTFhMWE2NDI0YTY4ZmU0YjVkNzc2MzY4ZWM=",
     "staticUrlD": "https://dlhd.dad/watch.php?id=879",
@@ -1411,7 +1413,7 @@
       "EUROSPORT 2"
     ],
     "epgChannelIds": [
-      "eurosport2.it"
+      "eurosport.2.it"
     ],
     "category": "sport",
     "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=879"
@@ -1420,7 +1422,7 @@
     "id": "eurosport3",
     "type": "tv",
     "name": "Eurosport 3",
-    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_3.svg",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_3.png",
     "description": "Eurosport 3",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MykvbWFuaWZlc3QubXBkJmtleV9pZD0xZTIzOThiMGVlYjA0ODI5YjQ3MTFlMTRiNGE5MTI0NCZrZXk9MTFlMjY2NTllYmZlY2Y2YTIyZWQ1NmRhMzQwNDQ4Y2Q=",
     "epgChannelIds": [
@@ -1432,7 +1434,7 @@
     "id": "eurosport4",
     "type": "tv",
     "name": "Eurosport 4",
-    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_4.svg",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_4.png",
     "description": "Eurosport 4",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NCkvbWFuaWZlc3QubXBkJmtleV9pZD05ZGQ3YmU3OWU0NGY0ZDA4YTkxZWM1ZDE1NTNmMTdiOCZrZXk9OGE2MjM2OWY4MWE0YjZlNWYyZDQ4NDZmN2JkNWU3ZDE=",
     "epgChannelIds": [
@@ -1444,7 +1446,7 @@
     "id": "eurosport5",
     "type": "tv",
     "name": "Eurosport 5",
-    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_5.svg",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_5.png",
     "description": "Eurosport 5",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NSkvbWFuaWZlc3QubXBkJmtleV9pZD1iNDhlN2U2ZDk2ZGE0NzlkYTY1ZTQzNWNlNjVmYWViMSZrZXk9NDhjNzAzODc5Y2U0ZGVlZGI1YTIxMjRhMzBhMTNiYzQ==",
     "epgChannelIds": [
@@ -1456,7 +1458,7 @@
     "id": "eurosport6",
     "type": "tv",
     "name": "Eurosport 6",
-    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_6.svg",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_6.png",
     "description": "Eurosport 6",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NikvbWFuaWZlc3QubXBkJmtleV9pZD1lYWQxYzU2N2EzZGY0ODYxOTc5OWIyZTc4YjE4ZmRmYSZrZXk9MWRlOWQ5YWY1NjUxMjk2YWE2NzkxMzk3OWFkOGM2OTQ==",
     "epgChannelIds": [
@@ -1485,13 +1487,13 @@
     "id": "skysportmix",
     "type": "tv",
     "name": "Sky Sport Mix",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Sky_Sport_Mix_Logo_2022.svg/2560px-Sky_Sport_Mix_Logo_2022.svg.png",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-mix-it.png",
     "description": "Sky Sport Mix - Sky",
     "vavooNames": [
       "SKY SPORT MIX"
     ],
     "epgChannelIds": [
-      "skysportmix.it"
+      "sky.sport.mix.it"
     ],
     "category": [
       "sky",
@@ -1509,7 +1511,7 @@
       "SKY SPORT 251"
     ],
     "epgChannelIds": [
-      "skysport251.it"
+      "sky.sport..251.it"
     ],
     "category": [
       "sky",
@@ -1528,7 +1530,7 @@
       "SKY SPORT 252"
     ],
     "epgChannelIds": [
-      "skysport252.it"
+      "sky.sport..252.it"
     ],
     "category": [
       "sky",
@@ -1547,7 +1549,7 @@
       "SKY SPORT 253"
     ],
     "epgChannelIds": [
-      "skysport253.it"
+      "sky.sport..253.it"
     ],
     "category": [
       "sky",
@@ -1566,7 +1568,7 @@
       "SKY SPORT 254"
     ],
     "epgChannelIds": [
-      "skysport254.it"
+      "sky.sport..254.it"
     ],
     "category": [
       "sky",
@@ -1585,7 +1587,7 @@
       "SKY SPORT 255"
     ],
     "epgChannelIds": [
-      "skysport255.it"
+      "sky.sport..255.it"
     ],
     "category": [
       "sky",
@@ -1604,7 +1606,7 @@
       "SKY SPORT 256"
     ],
     "epgChannelIds": [
-      "skysport256.it"
+      "sky.sport..256.it"
     ],
     "category": [
       "sky",
@@ -1623,7 +1625,7 @@
       "SKY SPORT 257"
     ],
     "epgChannelIds": [
-      "skysport257.it"
+      "sky.sport..257.it"
     ],
     "category": [
       "sky",
@@ -1642,7 +1644,7 @@
       "SKY SPORT 258"
     ],
     "epgChannelIds": [
-      "skysport258.it"
+      "sky.sport..258.it"
     ],
     "category": [
       "sky",
@@ -1660,7 +1662,7 @@
       "SKY SPORT 259"
     ],
     "epgChannelIds": [
-      "skysport259.it"
+      "sky.sport..259.it"
     ],
     "category": [
       "sky",
@@ -1740,23 +1742,6 @@
     "category": [
       "sky",
       "kids"
-    ]
-  },
-  {
-    "id": "skyadventure",
-    "type": "tv",
-    "name": "Sky Adventure",
-    "poster": "https://upload.wikimedia.org/wikipedia/en/thumb/a/a9/Sky_Adventure_%28logo%29.svg/1024px-Sky_Adventure_%28logo%29.svg.png?20250818150335",
-    "description": "Sky Adventure - Sky",
-    "vavooNames": [
-      "SKY ADVENTURE"
-    ],
-    "epgChannelIds": [
-      "skyadventure.it"
-    ],
-    "category": [
-      "sky",
-      "documentari"
     ]
   },
   {
@@ -2601,6 +2586,19 @@
       "62e7fb67478a5b0007e6c50c"
     ],
     "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62e7fb67478a5b0007e6c50c/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvrobotwars",
+    "type": "tv",
+    "name": "Pluto Robot Wars",
+    "poster": "https://images.pluto.tv/channels/651581ba6a84140008593586/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "651581ba6a84140008593586"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/651581ba6a84140008593586/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel
+"
   },
   {
     "id": "plutotvcinemaitaliano",
