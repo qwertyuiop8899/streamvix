@@ -1156,7 +1156,7 @@
     "id": "skyadventure",
     "type": "tv",
     "name": "Sky Adventure",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/f/f9/Sky_Adventure.png",
+    "poster": "https://pixel.disco.nowtv.it/logo/skychb_961_lightnow/LOGO_CHANNEL_DARK/4000?language=it-IT&proposition=NOWOTT",
     "description": "Sky Adventure - Sky",
     "vavooNames": [
       "SKY ADVENTURE"
@@ -1422,7 +1422,7 @@
     "id": "eurosport3",
     "type": "tv",
     "name": "Eurosport 3",
-    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_3.png",
+    "poster": "https://www.monpetitforfait.com/comparateur-box-internet/wp-content/uploads/2021/05/eurosport-3-300x300.png",
     "description": "Eurosport 3",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MykvbWFuaWZlc3QubXBkJmtleV9pZD0xZTIzOThiMGVlYjA0ODI5YjQ3MTFlMTRiNGE5MTI0NCZrZXk9MTFlMjY2NTllYmZlY2Y2YTIyZWQ1NmRhMzQwNDQ4Y2Q=",
     "epgChannelIds": [
@@ -1434,7 +1434,7 @@
     "id": "eurosport4",
     "type": "tv",
     "name": "Eurosport 4",
-    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_4.png",
+    "poster": "https://www.monpetitforfait.com/comparateur-box-internet/wp-content/uploads/2021/05/eurosport-4-300x300.png",
     "description": "Eurosport 4",
     "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NCkvbWFuaWZlc3QubXBkJmtleV9pZD05ZGQ3YmU3OWU0NGY0ZDA4YTkxZWM1ZDE1NTNmMTdiOCZrZXk9OGE2MjM2OWY4MWE0YjZlNWYyZDQ4NDZmN2JkNWU3ZDE=",
     "epgChannelIds": [
@@ -1470,7 +1470,7 @@
     "id": "skysportlegend",
     "type": "tv",
     "name": "Sky Sport Legend",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Sky_Sport_Legend_-_Logo_2025.svg/2560px-Sky_Sport_Legend_-_Logo_2025.svg.png",
+    "poster": "https://pixel.disco.nowtv.it/logo/skychb_578_lightnow/LOGO_CHANNEL_DARK/4000?language=it-IT&proposition=NOWOTT",
     "description": "Sky Sport Legend - Sky",
     "vavooNames": [
       "SKY SPORT LEGEND"
@@ -1689,7 +1689,7 @@
     "id": "dazn2",
     "type": "tv",
     "name": "Dazn 2",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/DAZN_2.svg/882px-DAZN_2.svg.png",
+    "poster": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Tv-channel-%E2%94%82-dazn-2.png",
     "description": "Dazn 2",
     "epgChannelIds": [
       "dazn2.it"
@@ -1700,7 +1700,7 @@
     "id": "dazn",
     "type": "tv",
     "name": "Dazn",
-    "poster": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/DAZN_logo.svg/1024px-DAZN_logo.svg.png",
+    "poster": "https://upload.wikimedia.org/wikipedia/commons/d/d6/Dazn-logo.png",
     "description": "Dazn",
     "vavooNames": [
       "DAZN"
