@@ -640,7 +640,8 @@ const baseManifest: Manifest = {
                         "Darts",
                         "Baseball",
                         "NFL",
-                        "THISNOT"
+                        "THISNOT",
+                        "PPV"
                     ]
                 },
                 { name: "genre", isRequired: false },
@@ -1072,6 +1073,61 @@ function _loadStaticChannelsIfChanged(force = false) {
         console.log('[SPSO][INIT] poll ogni', intervalMs, 'ms');
     } catch (e) {
         console.log('[SPSO][INIT][ERR]', (e as any)?.message || e);
+    }
+})();
+
+// === PPV playlist enrichment ===
+(() => {
+    try {
+        // Always enable PPV unless explicitly disabled
+        let enableRaw = (process.env.PPV_ENABLE || '1').toString().toLowerCase();
+        if (!['1','true','on','yes'].includes(enableRaw)) return;
+        
+        const pythonBin = process.env.PYTHON_BIN || 'python3';
+        const scriptPath = path.join(__dirname, '..', 'ppv_streams.py');
+        if (!fs.existsSync(scriptPath)) { console.log('[PPV][INIT] script non trovato', scriptPath); return; }
+        
+        // const intervalMs = Math.max(60000, parseInt(process.env.PPV_POLL_INTERVAL_MS || '300000', 10)); // default 5m
+        
+        function runOnce(tag: string) {
+            const env: any = { ...process.env };
+            const t0 = Date.now();
+            const child = spawn(pythonBin, [scriptPath], { env });
+            let out=''; let err='';
+            child.stdout.on('data', d=> out+=d.toString());
+            child.stderr.on('data', d=> err+=d.toString());
+            child.on('close', code => {
+                const ms = Date.now() - t0;
+                if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[PPV][OUT]', l));
+                if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[PPV][ERR]', l));
+                console.log(`[PPV][RUN] done code=${code} ms=${ms}`);
+            });
+        }
+        
+        // Initial run with delay
+        setTimeout(()=> {
+            console.log('[PPV][INIT] Starting initial run...');
+            runOnce('init');
+        }, 10000); 
+        
+        // Scheduler: Run at minute 10 of every hour (covers 8:10, 10:10, etc.)
+        let lastRunMinute = -1;
+        setInterval(() => {
+            const now = new Date();
+            const m = now.getMinutes();
+            // Run at minute 10. We check every 30s.
+            if (m === 10 && m !== lastRunMinute) {
+                lastRunMinute = m;
+                console.log(`[PPV][SCHEDULER] Triggering scheduled update at ${now.toLocaleTimeString()}`);
+                runOnce('scheduled');
+            } else if (m !== 10) {
+                lastRunMinute = -1; // Reset
+            }
+        }, 30000);
+        
+        console.log('[PPV][INIT] Scheduler attivo: aggiornamento al minuto 10 di ogni ora');
+    } catch (e) {
+        console.log('[PPV][INIT][ERR]', (e as any)?.message || e);
     }
 })();
 
@@ -1839,6 +1895,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     genreMap['bundesliga'] = 'bundesliga';
                     genreMap['ligue 1'] = 'ligue1';
                     genreMap['thisnot'] = 'thisnot';
+                    genreMap['ppv'] = 'ppv';
                     const target = genreMap[norm] || norm;
                     requestedSlug = target;
                     
@@ -2672,8 +2729,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 resolved.push({ url: finalUrl, title: providerTitle });
                                 debugLog(`[DynamicStreams][ON-DEMAND] Link DLHD diretto proxy/hls: ${providerTitle} -> ${finalUrl}`);
                             } else {
-                                // Niente MFP = skip (come richiesto per evitare link diretti DLHD)
-                                debugLog(`[DynamicStreams][ON-DEMAND] MFP mancante, skip link DLHD: ${providerTitle}`);
+                                // Niente MFP
+                                // Se è un canale PPV o l'URL è già un proxy, lo permettiamo diretto
+                                if (d.url.includes('/proxy/') || (channel as any).id.startsWith('ppv_')) {
+                                     resolved.push({ url: d.url, title: providerTitle });
+                                     debugLog(`[DynamicStreams][ON-DEMAND] MFP mancante, ma URL proxy/PPV consentito diretto: ${providerTitle}`);
+                                } else {
+                                     // Niente MFP = skip (come richiesto per evitare link diretti DLHD)
+                                     debugLog(`[DynamicStreams][ON-DEMAND] MFP mancante, skip link DLHD: ${providerTitle}`);
+                                }
                             }
                         }
                         
