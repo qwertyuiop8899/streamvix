@@ -1,4 +1,4 @@
-// Dynamic channels utility (Node.js CommonJS style to avoid missing type declarations)
+// Dynamic channels utility (Node.js CommonJS style to avoid missing type declarations) 
 // If using TypeScript with proper @types/node, you can switch to import syntax.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 // Basic declarations to satisfy TS if @types/node absent
