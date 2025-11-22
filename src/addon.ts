@@ -5485,6 +5485,56 @@ app.get('/spso/reload', async (req: Request, res: Response) => {
 });
 // =============================================================
 
+// ================= PPV FORCED RELOAD ENDPOINT =====================
+// GET /ppv/reload?token=XYZ
+// Esegue ppv_streams.py una volta
+app.get('/ppv/reload', async (req: Request, res: Response) => {
+    try {
+        const requiredToken = process?.env?.PPV_RELOAD_TOKEN;
+        const provided = (req.query.token as string) || '';
+        if (requiredToken && provided !== requiredToken) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+        
+        const scriptPath = path.join(__dirname, '..', 'ppv_streams.py');
+        if (!fs.existsSync(scriptPath)) {
+            return res.status(404).json({ ok: false, error: 'ppv_streams.py not found' });
+        }
+        
+        const pythonBin = process.env.PYTHON_BIN || 'python3';
+        const env: any = { ...process.env };
+        
+        const started = Date.now();
+        const { execFile } = require('child_process');
+        
+        const execResult = await new Promise<{ stdout: string; stderr: string; code: number }>(resolve => {
+            const child = execFile(pythonBin, [scriptPath], { env }, (err: any, stdout: string, stderr: string) => {
+                resolve({ stdout, stderr, code: err && typeof err.code === 'number' ? err.code : 0 });
+            });
+            child.on('error', (e: any) => {
+                console.log('[PPV][RELOAD][ERR]', e?.message || e);
+            });
+        });
+        
+        // Ricarica dynamic in memoria
+        try { invalidateDynamicChannels(); loadDynamicChannels(true); } catch {}
+        
+        const took = Date.now() - started;
+        const clip = (s: string) => s && s.length > 1200 ? s.slice(-1200) : s;
+        
+        return res.json({ 
+            ok: true, 
+            ms: took, 
+            stdout: clip(execResult.stdout), 
+            stderr: clip(execResult.stderr),
+            channels: loadDynamicChannels(true).filter((c: any) => c.category === 'PPV').length
+        });
+    } catch (e: any) {
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
 // ================= AMSTAFF FORCED RELOAD ENDPOINT =====================
 // GET /amstaff/reload?token=XYZ
 // Triggera manualmente l'aggiornamento dei canali Amstaff e restituisce statistiche
