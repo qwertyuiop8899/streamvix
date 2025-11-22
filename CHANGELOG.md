@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.14](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.13...v1.10.14) (2025-11-22)
+
+
+### Bug Fixes
+
+* addon reload ([c2d1bcc](https://github.com/qwertyuiop8899/streamvix/commit/c2d1bcc70829bb183dfdbd6ba93e6fa8e83c4ead))
+
 ## [1.10.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.12...v1.10.13) (2025-11-22)
 
 
