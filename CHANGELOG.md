@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.12...v1.10.13) (2025-11-22)
+
+
+### Bug Fixes
+
+* add ppv ([5599971](https://github.com/qwertyuiop8899/streamvix/commit/5599971ea103a8bb07000c82ef16be491685de79))
+
 ## [1.10.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.11...v1.10.12) (2025-11-20)
 
 
