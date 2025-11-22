@@ -222,9 +222,27 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
         try { console.warn('[DynamicChannels] Errore caricamento ThisNot file, skip:', (thisnotErr as any)?.message); } catch {}
       }
     }
+
+    // Carica ppv_channels.json (PPV separato)
+    let ppvData: any[] = [];
+    const PPV_FILE = '/tmp/ppv_channels.json';
+    if (fs.existsSync(PPV_FILE)) {
+      try {
+        const ppvRaw = fs.readFileSync(PPV_FILE, 'utf-8');
+        if (ppvRaw.trim().length >= 2) {
+          const ppvParsed = JSON.parse(ppvRaw);
+          if (Array.isArray(ppvParsed)) {
+            ppvData = ppvParsed;
+            try { console.log(`[DynamicChannels] 🔗 Mergiati ${ppvData.length} canali PPV da ${PPV_FILE}`); } catch {}
+          }
+        }
+      } catch (ppvErr) {
+        try { console.warn('[DynamicChannels] Errore caricamento PPV file, skip:', (ppvErr as any)?.message); } catch {}
+      }
+    }
     
-    // Mergia i due array
-    const data = [...mainData, ...thisnotData];
+    // Mergia i tre array
+    const data = [...mainData, ...thisnotData, ...ppvData];
     
     if (data.length === 0) {
       dynamicCache = [];
