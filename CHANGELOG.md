@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.16](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.15...v1.10.16) (2025-11-24)
+
+
+### Bug Fixes
+
+* offset ([7c213c3](https://github.com/qwertyuiop8899/streamvix/commit/7c213c3980f9d36420aa00e0ee554548cb6c368b))
+
 ## [1.10.15](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.14...v1.10.15) (2025-11-22)
 
 
