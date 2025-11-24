@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.17](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.16...v1.10.17) (2025-11-24)
+
+
+### Bug Fixes
+
+* ppv ([53c24bb](https://github.com/qwertyuiop8899/streamvix/commit/53c24bb2cf54cacf759cbe0774992b871886ce53))
+* toon dvd string ([387285e](https://github.com/qwertyuiop8899/streamvix/commit/387285e8b74ee8bb3b70ac7b6f7a81a2ec041d1e))
+
 ## [1.10.16](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.15...v1.10.16) (2025-11-24)
 
 
