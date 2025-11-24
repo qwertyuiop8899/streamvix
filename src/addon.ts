@@ -1110,22 +1110,15 @@ function _loadStaticChannelsIfChanged(force = false) {
             runOnce('init');
         }, 10000); 
         
-        // Scheduler: Run at minute 10 of every hour (covers 8:10, 10:10, etc.)
-        let lastRunMinute = -1;
+        // Scheduler: Run every 5 minutes to keep LIVE/NOT LIVE status fresh
+        // Since it only parses a remote M3U, it's lightweight.
+        const PPV_INTERVAL = 5 * 60 * 1000; // 5 minutes
         setInterval(() => {
-            const now = new Date();
-            const m = now.getMinutes();
-            // Run at minute 10. We check every 30s.
-            if (m === 10 && m !== lastRunMinute) {
-                lastRunMinute = m;
-                console.log(`[PPV][SCHEDULER] Triggering scheduled update at ${now.toLocaleTimeString()}`);
-                runOnce('scheduled');
-            } else if (m !== 10) {
-                lastRunMinute = -1; // Reset
-            }
-        }, 30000);
+            console.log(`[PPV][SCHEDULER] Triggering scheduled update...`);
+            runOnce('scheduled');
+        }, PPV_INTERVAL);
         
-        console.log('[PPV][INIT] Scheduler attivo: aggiornamento al minuto 10 di ogni ora');
+        console.log(`[PPV][INIT] Scheduler attivo: aggiornamento ogni ${PPV_INTERVAL/1000}s`);
     } catch (e) {
         console.log('[PPV][INIT][ERR]', (e as any)?.message || e);
     }
