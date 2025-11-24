@@ -4112,7 +4112,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 let vixsrcScheduled = false; // per evitare doppia esecuzione nel blocco sequenziale più sotto
 
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld + Loonex
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || vixsrcEnabled)) {
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || streamingWatchEnabled || cb01Enabled || vixsrcEnabled)) {
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
                         mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
@@ -4572,7 +4572,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
 
                     // ToonItalia (serie TV/Anime) - Ricerca dinamica via TMDb
-                    if (toonitaliaEnabled && type === 'series' && seasonNumber != null && episodeNumber != null) {
+                    if (toonitaliaEnabled && seasonNumber != null && episodeNumber != null) {
                         providerPromises.push(runProvider('ToonItalia', true, async () => {
                             const { toonitalia } = await import('./providers/toonitalia-provider');
                             
@@ -4602,7 +4602,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 }
                             });
                             return { streams };
-                        }, 'ToonItalia'));
+                        }, 'ToonItalia', false, 25000));
                     }
 
 
