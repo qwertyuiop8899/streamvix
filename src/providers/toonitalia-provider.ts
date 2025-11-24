@@ -352,12 +352,6 @@ async function extractEpisodes(contentUrl: string, tmdbSeasonCount: number, pref
             const parent = currentContext(el).parent();
             const parentHtml = parent.html() || '';
             
-            // Skip se contiene "dvd" (case insensitive)
-            if (/dvd/i.test(parentHtml)) {
-                console.log(`[ToonItalia] Skipping DVD episode`);
-                return;
-            }
-            
             // Trova la posizione del link href nell'HTML del parent
             const linkHrefIndex = parentHtml.indexOf(`href="${voeUrl}"`);
             if (linkHrefIndex === -1) {
@@ -368,6 +362,12 @@ async function extractEpisodes(contentUrl: string, tmdbSeasonCount: number, pref
             // Prendi solo il testo PRIMA del link (max 200 caratteri prima per performance)
             const startIndex = Math.max(0, linkHrefIndex - 200);
             const textBeforeLink = parentHtml.substring(startIndex, linkHrefIndex);
+
+            // Skip se contiene "dvd" (case insensitive) come parola intera nel contesto immediato
+            if (/\bdvd\b/i.test(textBeforeLink)) {
+                console.log(`[ToonItalia] Skipping DVD episode (found in context)`);
+                return;
+            }
             
             // Rimuovi tag HTML
             const cleanText = textBeforeLink.replace(/<[^>]*>/g, ' ').trim();
