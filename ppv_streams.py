@@ -64,39 +64,71 @@ def parse_m3u(content):
         i += 1
     return channels
 
+import os
+import re
+import json
+import urllib.request
+import hashlib
+from datetime import datetime
+
+# URL of the M3U list
+# ...existing code...
 def process_channels(raw_channels):
     processed = []
+    # Use local time or UTC depending on how the scraper writes it. 
+    # The scraper writes local time of the machine running it (GitHub Actions = UTC usually)
+    # But we added +1 hour in scraper, so it's effectively CET/BST roughly.
+    # Let's use system time here.
+    now = datetime.now()
+
     for ch in raw_channels:
         group = ch["group"]
         emoji = EMOJI_MAP.get(group, "")
         
         name_raw = ch["name_raw"]
-        # Parse name and date/time: "Event Name [YYYY-MM-DD HH:MM]"
-        # User wants to invert time and date.
-        # Regex to capture name, date, time
-        match = re.match(r'(.*) \[(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})\]', name_raw)
         
-        final_name = name_raw
+        # Clean up potential existing prefixes from scraper if any, to be safe
+        name_clean = name_raw.replace("[LIVE] ", "").replace("[NOT LIVE] ", "")
+        
+        # Parse name and date/time: "Event Name [YYYY-MM-DD HH:MM]"
+        match = re.match(r'(.*) \[(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})\]', name_clean)
+        
+        final_name = name_clean
         event_start = None
+        status_prefix = ""
         
         if match:
             event_name = match.group(1).strip()
             date_str = match.group(2)
             time_str = match.group(3)
             
+            try:
+                # Parse event time
+                dt_str = f"{date_str} {time_str}"
+                event_dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
+                
+                # Logic: LIVE if within 30 mins (1800s) of start or started
+                # NOT LIVE if > 30 mins to start
+                # Note: This depends on 'now' and 'event_dt' being in same timezone context
+                time_diff = (event_dt - now).total_seconds()
+                
+                if time_diff > 1800: # More than 30 mins to go
+                    status_prefix = "[NOT LIVE] "
+                else:
+                    status_prefix = "[LIVE] "
+
+                # Create ISO eventStart
+                event_start = f"{date_str}T{time_str}:00Z"
+            except Exception as e:
+                print(f"Error parsing date for {event_name}: {e}")
+
             # User request: remove date from final name (kept only in eventStart)
+            # Add emoji only to name (status goes to stream title)
             final_name = f"{emoji} {event_name}".strip()
             
-            # Create ISO eventStart
-            try:
-                dt_str = f"{date_str}T{time_str}:00"
-                # Assuming UTC as is common in these lists
-                event_start = dt_str + "Z" 
-            except:
-                pass
         else:
             # If regex doesn't match, just prepend emoji
-            final_name = f"{emoji} {name_raw}".strip()
+            final_name = f"{emoji} {name_clean}".strip()
 
         # Generate a stable ID based on URL
         id_hash = hashlib.md5(ch["url"].encode('utf-8')).hexdigest()[:12]
@@ -113,7 +145,7 @@ def process_channels(raw_channels):
             "category": "PPV", # The main category
             "streams": [{
                 "url": ch["url"],
-                "title": "PPV Stream"
+                "title": f"{status_prefix}PPV Stream"
             }]
         }
         
