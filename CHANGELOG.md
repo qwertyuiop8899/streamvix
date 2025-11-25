@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.18](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.17...v1.10.18) (2025-11-25)
+
+
+### Bug Fixes
+
+* la7 ([538fe3c](https://github.com/qwertyuiop8899/streamvix/commit/538fe3c02960afbf7c57f2bd52f5de875cc096a9))
+
 ## [1.10.17](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.16...v1.10.17) (2025-11-24)
 
 
