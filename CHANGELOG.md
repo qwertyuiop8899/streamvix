@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.19](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.18...v1.10.19) (2025-11-25)
+
+
+### Bug Fixes
+
+* freechannel ([8efe9e6](https://github.com/qwertyuiop8899/streamvix/commit/8efe9e6ff3bcf5a7763ee4531235b5776702be06))
+* la7 ([b3ce421](https://github.com/qwertyuiop8899/streamvix/commit/b3ce421fb0b622a7be56891e01839376202b171c))
+
 ## [1.10.18](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.17...v1.10.18) (2025-11-25)
 
 
