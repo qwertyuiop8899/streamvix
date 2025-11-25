@@ -97,10 +97,10 @@
     "id": "la7",
     "type": "tv",
     "name": "LA7",
-    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/la7.png",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/LA7.png?raw=true",
     "description": "LA7 - Canale privato italiano",
     "category": "general",
-    "staticUrlF": "https://d15umi5iaezxgx.cloudfront.net/LA7/CLN/HLS-B/Live_1280x720_.m3u8",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/la7/browser-dash/la7.mpd",
     "vavooNames": [
       "LA7"
     ],
