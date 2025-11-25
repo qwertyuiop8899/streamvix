@@ -3067,7 +3067,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if ((channel as any).staticUrlF) {
                             const originalF = (channel as any).staticUrlF;
                             const nameLower = (channel.name || '').toLowerCase().trim();
-                            const raiMpdSet = new Set(['rai 1','rai 2','rai 3']); // Solo questi devono passare da proxy MPD
+                            const raiMpdSet = new Set(['']); // Solo questi devono passare da proxy MPD before 'rai 1','rai 2','rai 3'
                             // Altri canali RAI (4,5,Movie,Premium, ecc.) restano DIRECT (niente proxy HLS come richiesto)
                             let finalFUrl = originalF;
                             if (mfpUrl && mfpPsw && raiMpdSet.has(nameLower)) {
