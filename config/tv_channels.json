@@ -6,7 +6,7 @@
     "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rai1.png",
     "description": "Rai 1 - Canale pubblico italiano",
     "category": "rai",
-    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/rai1/browser-dash/rai1.mpd",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/rai1/browser-HLS8/rai1.m3u8",
     "staticUrlD": "https://dlhd.dad/watch.php?id=850",
     "vavooNames": [
       "RAI 1"
@@ -23,7 +23,7 @@
     "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rai2.png",
     "description": "Rai 2 - Canale pubblico italiano",
     "category": "rai",
-    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/rai2/browser-dash/rai2.mpd",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/rai2/browser-HLS8/rai2.m3u8",
     "vavooNames": [
       "RAI 2"
     ],
@@ -38,7 +38,7 @@
     "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rai3.png",
     "description": "Rai 3 - Canale pubblico italiano",
     "category": "rai",
-    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/rai3/browser-dash/rai3.mpd",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/rai3/browser-HLS8/rai3.m3u8",
     "vavooNames": [
       "RAI 3"
     ],
@@ -68,7 +68,7 @@
     "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/canale5.png",
     "description": "Canale 5 - Mediaset",
     "category": "mediaset",
-    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-c5/c5-clr.isml/index.m3u8",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/canale5/browser-HLS8/canale5.m3u8",
     "vavooNames": [
       "CANALE 5"
     ],
@@ -83,7 +83,7 @@
     "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/italia1.png",
     "description": "Italia 1 - Mediaset",
     "category": "mediaset",
-    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-i1/i1-clr.isml/index.m3u8",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/italia1/browser-HLS8/italia1.m3u8",
     "staticUrlD": "https://dlhd.dad/watch.php?id=854",
     "vavooNames": [
       "ITALIA 1"
@@ -100,7 +100,7 @@
     "poster": "https://github.com/qwertyuiop8899/logo/blob/main/LA7.png?raw=true",
     "description": "LA7 - Canale privato italiano",
     "category": "general",
-    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/la7/browser-dash/la7.mpd",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/la7/browser-HLS8/la7.m3u8",
     "vavooNames": [
       "LA7"
     ],
