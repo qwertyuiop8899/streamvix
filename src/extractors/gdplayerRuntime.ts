@@ -205,13 +205,13 @@ export async function resolveGdplayer(slug: string, opts?: { mfpUrl?: string; mf
     const finalUrl = `https://ava.karmakurama.com/${serverKeyNormalized}premium${code}/mono.m3u8`;
     out.url = finalUrl;
     gdLog('resolve:success', { slug, code, serverKey });
-    // 4. MFP wrapper opzionale
-    if (opts?.mfpUrl && opts?.mfpPassword) {
+    // 4. MFP wrapper opzionale (password opzionale)
+    if (opts?.mfpUrl) {
       const base = opts.mfpUrl.replace(/\/$/, '');
-      const pass = encodeURIComponent(opts.mfpPassword);
+      const passwordParam = opts.mfpPassword ? `api_password=${encodeURIComponent(opts.mfpPassword)}&` : '';
       const encoded = encodeURIComponent(finalUrl);
       // Headers di origine passati come parametri (stile già usato altrove)
-      out.wrappedUrl = `${base}/proxy/hls/manifest.m3u8?api_password=${pass}&d=${encoded}&h_Referer=${encodeURIComponent('https://en.freewatchtv.top/')}&h_Origin=${encodeURIComponent('https://en.freewatchtv.top')}&h_User-Agent=${encodeURIComponent(UA)}`;
+      out.wrappedUrl = `${base}/proxy/hls/manifest.m3u8?${passwordParam}d=${encoded}&h_Referer=${encodeURIComponent('https://en.freewatchtv.top/')}&h_Origin=${encodeURIComponent('https://en.freewatchtv.top')}&h_User-Agent=${encodeURIComponent(UA)}`;
       gdLog('resolve:wrap:mfp', { slug });
     }
   } catch (e: any) {
