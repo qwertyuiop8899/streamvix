@@ -388,7 +388,7 @@ export class Cb01Provider {
   }
 
   private async wrapMediaFlow(mixdropEmbed:string, pageHtml:string, ep?:{season:number;episode:number}, metaOverride?: {file:string|null; size:string|null}):Promise<StreamForStremio|null>{
-  const { mfpUrl, mfpPassword } = this.config; if(!mfpUrl || !mfpPassword) return null;
+  const { mfpUrl, mfpPassword } = this.config; if(!mfpUrl) return null;
   // Normalizza base URL mediaflow evitando doppio slash
   const mfpBase = mfpUrl.replace(/\/+$/, '');
     const originalEmbed = mixdropEmbed.trim();
@@ -402,7 +402,8 @@ export class Cb01Provider {
       log('mixdrop embed no id pattern, using original', { original: originalEmbed });
     }
     const encodedD = encodeURIComponent(dUrl);
-  const extractor = `${mfpBase}/extractor/video?host=Mixdrop&api_password=${encodeURIComponent(mfpPassword)}&d=${encodedD}&redirect_stream=false`;
+  const passwordParamCb01 = mfpPassword ? `&api_password=${encodeURIComponent(mfpPassword)}` : '';
+  const extractor = `${mfpBase}/extractor/video?host=Mixdrop${passwordParamCb01}&d=${encodedD}&redirect_stream=false`;
     log('extractor single call', { dUrl, encodedD, extractor });
     let data:any = null;
     try {
