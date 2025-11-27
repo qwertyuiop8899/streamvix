@@ -369,13 +369,14 @@ const dynamicStreamCache = new Map<string, { finalUrl: string; ts: number }>();
 const DYNAMIC_STREAM_TTL_MS = 5 * 60 * 1000; // 5 minuti
 
 async function resolveDynamicEventUrl(dUrl: string, providerTitle: string, mfpUrl?: string, mfpPsw?: string): Promise<{ url: string; title: string }> {
-    if (!mfpUrl || !mfpPsw) return { url: dUrl, title: providerTitle };
-    const cacheKey = `${mfpUrl}|${mfpPsw}|${dUrl}`;
+    if (!mfpUrl) return { url: dUrl, title: providerTitle };
+    const cacheKey = `${mfpUrl}|${mfpPsw || ''}|${dUrl}`;
     const now = Date.now();
     const cached = dynamicStreamCache.get(cacheKey);
     if (cached && (now - cached.ts) < DYNAMIC_STREAM_TTL_MS)
         return { url: cached.finalUrl, title: providerTitle };
-    const extractorUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(dUrl)}`;
+    const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+    const extractorUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false${passwordParam}&d=${encodeURIComponent(dUrl)}`;
     try {
         const res = await fetch(extractorUrl);
         if (res.ok) {
@@ -653,8 +654,8 @@ const baseManifest: Manifest = {
     behaviorHints: { configurable: true },
     config: [
         { key: "tmdbApiKey", title: "TMDB API Key", type: "text" },
-        { key: "mediaFlowProxyUrl", title: "MediaFlow Proxy URL", type: "text" },
-        { key: "mediaFlowProxyPassword", title: "MediaFlow Proxy Password", type: "text" },
+        { key: "mediaFlowProxyUrl", title: "☂️ Proxy URL", type: "text" },
+        { key: "mediaFlowProxyPassword", title: "Proxy Password (opzionale)", type: "text" },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
     { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox" },
     { key: "vixDirect", title: "VixSrc Direct mode", type: "checkbox" },
@@ -2448,11 +2449,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     let proxyUsed = false;
                                     
                                     // Wrappa con MediaflowProxy se disponibile
-                                    if (mfpUrl && mfpPsw) {
+                                    if (mfpUrl) {
                                         const urlParts = decodedUrl.split('&');
                                         const baseUrl = urlParts[0]; // URL MPD base
                                         const additionalParams = urlParts.slice(1); // key_id e key
-                                        finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                                        const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                                        finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
                                         // Aggiungi i parametri DRM
                                         for (const param of additionalParams) {
                                             if (param) finalUrl += `&${param}`;
@@ -2568,7 +2570,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     try {
                         const enableGdPlayer = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_ENABLE||'1'));
-                        if (enableGdPlayer && mfpUrl && mfpPsw && !(channel as any)._dynamic) { // richiede MFP configurato
+                        if (enableGdPlayer && mfpUrl && !(channel as any)._dynamic) { // richiede MFP URL configurato
                             const logEnabled = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_LOG||'1'));
                             const inferredSlug = inferGdplayerSlug(channel as any);
                             if (inferredSlug) {
@@ -2628,8 +2630,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     }
                                     // Iniezione Vavoo/MFP: incapsula SEMPRE l'URL vavoo.to originale (come in Live TV), senza extractor
                                     try {
-                                        if (mfpUrl && mfpPsw) {
-                                            const finalUrl2 = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(vUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                        if (mfpUrl) {
+                                            const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                            const finalUrl2 = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(vUrl)}${passwordParam}`;
                                             const title3 = `🌐 ${alias} (Vavoo/MFP) [ITA]`;
                                             let insertAt = 0;
                                             try { if (streams.length && /(\(Vavoo\))/i.test(streams[0].title)) insertAt = 1; } catch {}
@@ -2717,12 +2720,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (itaRegex.test(providerTitle) && !providerTitle.startsWith('🇮🇹')) providerTitle = `🇮🇹 ${providerTitle}`;
                             
                             // Costruiamo direttamente il link proxy/hls (NIENTE extractor, NIENTE redirect)
-                            if (mfpUrl && mfpPsw) {
-                                const finalUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(d.url)}`;
+                            if (mfpUrl) {
+                                const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                                const finalUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?${passwordParam}d=${encodeURIComponent(d.url)}`;
                                 resolved.push({ url: finalUrl, title: providerTitle });
                                 debugLog(`[DynamicStreams][ON-DEMAND] Link DLHD diretto proxy/hls: ${providerTitle} -> ${finalUrl}`);
                             } else {
-                                // Niente MFP
+                                // Niente MFP URL
                                 // Se è un canale PPV o l'URL è già un proxy, lo permettiamo diretto
                                 if (d.url.includes('/proxy/') || (channel as any).id.startsWith('ppv_')) {
                                      resolved.push({ url: d.url, title: providerTitle });
@@ -2753,12 +2757,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             
                             let providerTitle = (pd.title || 'Stream').trim();
                             // Costruiamo direttamente il link proxy/hls (NIENTE extractor)
-                            if (mfpUrl && mfpPsw) {
-                                const finalUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(pd.url)}`;
+                            if (mfpUrl) {
+                                const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                                const finalUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?${passwordParam}d=${encodeURIComponent(pd.url)}`;
                                 pdResolved.push({ url: finalUrl, title: providerTitle });
                                 debugLog(`[P🐽D][ON-DEMAND] Link P🐽D diretto proxy/hls: ${providerTitle} -> ${finalUrl}`);
                             } else {
-                                debugLog(`[P🐽D][ON-DEMAND] MFP mancante, skip link P🐽D: ${providerTitle}`);
+                                debugLog(`[P🐽D][ON-DEMAND] MFP URL mancante, skip link P🐽D: ${providerTitle}`);
                             }
                         }
                         // Aggiungi P🐽D in TESTA (unshift = priorità massima)
@@ -2815,11 +2820,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             let finalUrl = decodedUrl;
                                             let proxyUsed = false;
                                             
-                                            if (mfpUrl && mfpPsw) {
+                                            if (mfpUrl) {
                                                 const urlParts = decodedUrl.split('&');
                                                 const baseUrl = urlParts[0];
                                                 const additionalParams = urlParts.slice(1);
-                                                finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                                                const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                                                finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
                                                 for (const param of additionalParams) if (param) finalUrl += `&${param}`;
                                                 proxyUsed = true;
                                             }
@@ -2885,11 +2891,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             let finalUrl = decodedUrl;
                                             let proxyUsed = false;
                                             
-                                            if (mfpUrl && mfpPsw) {
+                                            if (mfpUrl) {
                                                 const urlParts = decodedUrl.split('&');
                                                 const baseUrl = urlParts[0];
                                                 const additionalParams = urlParts.slice(1);
-                                                finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                                                const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                                                finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
                                                 for (const param of additionalParams) if (param) finalUrl += `&${param}`;
                                                 proxyUsed = true;
                                             }
@@ -2930,7 +2937,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         
                         // (Normalizzazione CF rimossa: ora pubblichiamo link avvolti con extractor on-demand)
                         // Append leftover entries (beyond CAP) con stessa logica on-demand (proxy/hls diretto)
-            if (extraFast.length && mfpUrl && mfpPsw) {
+            if (extraFast.length && mfpUrl) {
                             const leftoversToShow = CAP === 1 ? extraFast.slice(0, 1) : extraFast;
                             let appended = 0;
                             for (const e of leftoversToShow) {
@@ -2940,7 +2947,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 t = t.replace(/^\s*\[(FAST|Player Esterno)\]\s*/i, '').trim();
                                 // NON aggiungiamo più [Player Esterno]: tutti i daddy ora usano proxy/hls
                                 // Costruiamo direttamente proxy/hls (NIENTE extractor)
-                                const finalUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(e.url)}`;
+                                const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                                const finalUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?${passwordParam}d=${encodeURIComponent(e.url)}`;
                                 streams.push({ url: finalUrl, title: t });
                                 appended++;
                             }
@@ -2948,7 +2956,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                         debugLog(`[DynamicStreams][ON-DEMAND] Pubblicati ${resolved.length}/${entries.length} link avvolti MFP in ${Date.now() - startDyn}ms`);
                         // Filtro minimale senza MFP: rimuovi solo gli URL diretti dlhd.dad (duplicati CF restano)
-                        if (!(mfpUrl && mfpPsw)) {
+                        if (!mfpUrl) {
                             const beforeExt = streams.length;
                             for (let i = streams.length - 1; i >= 0; i--) {
                                 if (/^https?:\/\/dlhd\.dad\/watch\.php\?id=\d+/i.test(streams[i].url)) streams.splice(i,1);
@@ -2958,7 +2966,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         // === GDPLAYER injection for dynamic (EXTRACTOR) dopo PD/Vavoo ===
                         try {
                             const enableGdPlayer = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_ENABLE||''));
-                            if (enableGdPlayer && mfpUrl && mfpPsw) { // richiede MFP
+                            if (enableGdPlayer && mfpUrl) { // richiede MFP URL
                                 const logEnabled = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_LOG||'1'));
                                 // Popola extraTexts con providerTitles extractor se mancante
                                 if (!(channel as any).extraTexts || !Array.isArray((channel as any).extraTexts)) {
@@ -3025,7 +3033,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         try {
                             const enableGdPlayer = /^(1|true|on)$/i.test(String(process?.env?.GDPLAYER_ENABLE||''));
                             const enableDcf = /^(1|true|on)$/i.test(String(process?.env?.DCF_ENABLE||''));
-                            if (enableGdPlayer && enableDcf && mfpUrl && mfpPsw) {
+                            if (enableGdPlayer && enableDcf && mfpUrl) {
                                 const gd = await resolveGdplayerForChannel(channel as any, { mfpUrl: mfpUrl, mfpPassword: mfpPsw });
                                 if (gd && gd.code && !(channel as any).staticUrlD_CF && /^\d+$/.test(gd.code)) {
                                     // Costruisci addonBaseUrl dalla richiesta corrente
@@ -3070,9 +3078,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const raiMpdSet = new Set(['']); // Solo questi devono passare da proxy MPD before 'rai 1','rai 2','rai 3'
                             // Altri canali RAI (4,5,Movie,Premium, ecc.) restano DIRECT (niente proxy HLS come richiesto)
                             let finalFUrl = originalF;
-                            if (mfpUrl && mfpPsw && raiMpdSet.has(nameLower)) {
+                            if (mfpUrl && raiMpdSet.has(nameLower)) {
                                 if (!originalF.startsWith(mfpUrl)) {
-                                    finalFUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(originalF)}`;
+                                    const passwordParamRai = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                                    finalFUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParamRai}d=${encodeURIComponent(originalF)}`;
                                 }
                             }
                             streams.push({
@@ -3114,14 +3123,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         console.log(`🔧 [staticUrl] mfpUrl: ${mfpUrl}`);
                         console.log(`🔧 [staticUrl] mfpPsw: ${mfpPsw ? '***' : 'NOT SET'}`);
 
-                        if (mfpUrl && mfpPsw) {
+                        if (mfpUrl) {
                             // Parse l'URL decodificato per separare l'URL base dai parametri
                             const urlParts = decodedUrl.split('&');
                             const baseUrl = urlParts[0]; // Primo elemento è l'URL base
                             const additionalParams = urlParts.slice(1); // Resto sono i parametri aggiuntivi
 
                             // Costruisci l'URL del proxy con l'URL base nel parametro d
-                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                            const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
 
                             // Aggiungi i parametri aggiuntivi (key_id, key, etc.) direttamente all'URL del proxy
                             for (const param of additionalParams) {
@@ -3161,14 +3171,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         console.log(`🔧 [staticUrl2] mfpUrl: ${mfpUrl}`);
                         console.log(`🔧 [staticUrl2] mfpPsw: ${mfpPsw ? '***' : 'NOT SET'}`);
 
-                        if (mfpUrl && mfpPsw) {
+                        if (mfpUrl) {
                             // Parse l'URL decodificato per separare l'URL base dai parametri
                             const urlParts = decodedUrl.split('&');
                             const baseUrl = urlParts[0]; // Primo elemento è l'URL base
                             const additionalParams = urlParts.slice(1); // Resto sono i parametri aggiuntivi
 
                             // Costruisci l'URL del proxy con l'URL base nel parametro d
-                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                            const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
 
                             // Aggiungi i parametri aggiuntivi (key_id, key, etc.) direttamente all'URL del proxy
                             for (const param of additionalParams) {
@@ -3197,14 +3208,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         console.log(`🔧 [staticUrlMpd] mfpUrl: ${mfpUrl}`);
                         console.log(`🔧 [staticUrlMpd] mfpPsw: ${mfpPsw ? '***' : 'NOT SET'}`);
 
-                        if (mfpUrl && mfpPsw) {
+                        if (mfpUrl) {
                             // Parse l'URL decodificato per separare l'URL base dai parametri
                             const urlParts = decodedUrl.split('&');
                             const baseUrl = urlParts[0]; // Primo elemento è l'URL base
                             const additionalParams = urlParts.slice(1); // Resto sono i parametri aggiuntivi
 
                             // Costruisci l'URL del proxy con l'URL base nel parametro d
-                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                            const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
 
                             // Aggiungi i parametri aggiuntivi (key_id, key, etc.) direttamente all'URL del proxy
                             for (const param of additionalParams) {
@@ -3231,12 +3243,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         const decodedUrl2 = decodeStaticUrl((channel as any).staticUrlMpd2);
                         console.log(`🔧 [staticUrlMpd2] Decoded URL: ${decodedUrl2.substring(0, 100)}...`);
                         
-                        if (mfpUrl && mfpPsw) {
+                        if (mfpUrl) {
                             const urlParts = decodedUrl2.split('&');
                             const baseUrl = urlParts[0];
                             const additionalParams = urlParts.slice(1);
                             
-                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(baseUrl)}`;
+                            const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
                             
                             for (const param of additionalParams) {
                                 if (param) {
@@ -3564,9 +3577,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             debugLog(`Errore gestione staticUrlD_CF: ${e}`);
                         }
                     }
-                    // La versione D classica resta condizionata alla presenza MFP (altrimenti occultata come prima)
+                    // La versione D classica resta condizionata alla presenza MFP URL (altrimenti occultata come prima)
                     if ((channel as any).staticUrlD) {
-                        if (mfpUrl && mfpPsw) {
+                        if (mfpUrl) {
                             // LAZY MODE: wrap diretto come dynamic (veloce), MFP estrae al click
                             // EAGER MODE: estrazione preventiva (lento ma completo)
                             // Controllato da env STATIC_DADDY_LAZY (default: 1 = lazy/veloce)
@@ -3579,7 +3592,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             
                             if (lazyMode) {
                                 // LAZY: wrap diretto (come dynamic channels), MFP estrae on-demand al playback
-                                const wrappedUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent((channel as any).staticUrlD)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                const wrappedUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent((channel as any).staticUrlD)}${passwordParam}`;
                                 streams.push({
                                     url: wrappedUrl,
                                     title: `[🌐D] ${channel.name} [ITA]`
@@ -3587,7 +3601,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 debugLog(`Aggiunto staticUrlD LAZY (wrap diretto): ${wrappedUrl}`);
                             } else {
                                 // EAGER: estrazione preventiva con extractor/video (comportamento precedente)
-                                const daddyApiBase = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
+                                const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                const daddyApiBase = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false${passwordParam}&d=${encodeURIComponent((channel as any).staticUrlD)}`;
                                 try {
                                     const res = await fetch(daddyApiBase);
                                     if (res.ok) {
@@ -3693,14 +3708,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             if (foundVavooLinks.length > 0) {
                             foundVavooLinks.forEach(({ url, key }, idx) => {
                                 const streamTitle = `[✌️ V-${idx + 1}] ${channel.name} [ITA]`;
-                                if (mfpUrl && mfpPsw) {
-                                    const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                if (mfpUrl) {
+                                    const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                    const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}${passwordParam}`;
                                     streams.push({
                                         title: streamTitle,
                                         url: vavooProxyUrl
                                     });
                                 } else {
-                                    // Richiesta: nascondere stream Vavoo direct senza MFP
+                                    // Richiesta: nascondere stream Vavoo direct senza MFP URL
                                 }
                 vavooFoundUrls.push(url);
                                 // For each found link, also prepare a clean variant labeled per index (➡️ V-1, V-2, ...)
@@ -3728,14 +3744,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const links = Array.isArray(exact) ? exact : [exact];
                                 links.forEach((url, idx) => {
                                     const streamTitle = `[✌️ V-${idx + 1}] ${channel.name} [ITA]`;
-                                    if (mfpUrl && mfpPsw) {
-                                        const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                    if (mfpUrl) {
+                                        const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                        const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}${passwordParam}`;
                                         streams.push({
                                             title: streamTitle,
                                             url: vavooProxyUrl
                                         });
                                     } else {
-                                        // Richiesta: nascondere stream Vavoo direct senza MFP
+                                        // Richiesta: nascondere stream Vavoo direct senza MFP URL
                                     }
                                     vavooFoundUrls.push(url);
                                     // Prepare clean variant per index as well
@@ -3821,9 +3838,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         const mfpUrl = (effectiveConfig.mediaFlowProxyUrl || process.env.MFP_URL || process.env.MEDIAFLOW_PROXY_URL || '').toString().trim();
                                         const mfpPsw = (effectiveConfig.mediaFlowProxyPassword || process.env.MFP_PASSWORD || process.env.MEDIAFLOW_PROXY_PASSWORD || process.env.MFP_PSW || '').toString().trim();
                                         
-                                        if (!mfpUrl || !mfpPsw) {
+                                        if (!mfpUrl) {
                                             // Skip silently (seconda chiamata senza config)
-                                            debugLog(`[SPON] MFP non configurato -> salto wrap per '${eventName}'`);
+                                            debugLog(`[SPON] MFP URL non configurato -> salto wrap per '${eventName}'`);
                                         } else {
                                             console.log('[SPON] ✓ MFP OK');
                                             const seen = new Set<string>();
@@ -3837,7 +3854,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                     seen.add(row.url);
                                                     const italianFlag = /^(hd7|hd8)$/i.test(row.channelCode) ? ' 🇮🇹' : '';
                                                     // Wrap diretto: MFP gestirà estrazione iframe + unpacking server-side
-                                                    const wrapped = `${mfpUrl.replace(/\/$/,'')}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(row.url)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                                    const passwordParamSpon = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                                    const wrapped = `${mfpUrl.replace(/\/$/,'')}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(row.url)}${passwordParamSpon}`;
                                                     collected.push({ url: wrapped, title: `[SPON${italianFlag}] ${eventName}${futureTag} (${tag})` } as any);
                                                     debugLog(`[SPON][ROW] wrapped ${tag}`);
                                                 } catch (err:any) { debugLog(`[SPON][ROW] unexpected error ${tag} ${(err?.message)||err}`); }
@@ -3856,8 +3874,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                         const italianFlag = /^(hd7|hd8)$/i.test(row.channelCode) ? ' 🇮🇹' : '';
                                                         const hdr = res.headers || {};
                                                         let finalUrl = res.url;
-                                                        if (Object.keys(hdr).length && mfpUrl && mfpPsw) {
-                                                            const wrappedFallback = `${mfpUrl.replace(/\/$/,'')}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(res.url)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                                        if (Object.keys(hdr).length && mfpUrl) {
+                                                            const passwordParamFallback = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                                            const wrappedFallback = `${mfpUrl.replace(/\/$/,'')}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(res.url)}${passwordParamFallback}`;
                                                             finalUrl = wrappedFallback;
                                                             debugLog(`[SPON][FALLBACK][ROW] wrapped extracted m3u8 in MFP ${tag}`);
                                                         }
@@ -3993,8 +4012,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                             if (tvtapUrl) {
                                 const baseTitle = `[📺 TvTap SD] ${channel.name} [ITA]`;
-                                if (tvtapNoProxy || !(mfpUrl && mfpPsw)) {
-                                    // NO Proxy mode scelto (checkbox ON) oppure mancano credenziali -> link diretto con icona 🔓 senza [❌Proxy]
+                                if (tvtapNoProxy || !mfpUrl) {
+                                    // NO Proxy mode scelto (checkbox ON) oppure manca URL proxy -> link diretto con icona 🔓
                                     streams.push({
                                         title: `🔓 ${baseTitle}`,
                                         url: tvtapUrl
@@ -4002,7 +4021,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     console.log(`[TVTap] DIRECT (NO PROXY mode=${tvtapNoProxy}) per ${channel.name} tramite ${vavooName}`);
                                 } else {
                                     // Checkbox OFF e credenziali presenti -> usa proxy
-                                    const tvtapProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(tvtapUrl)}&api_password=${encodeURIComponent(mfpPsw)}`;
+                                    const passwordParamTvtap = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                    const tvtapProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(tvtapUrl)}${passwordParamTvtap}`;
                                     streams.push({
                                         title: baseTitle,
                                         url: tvtapProxyUrl
