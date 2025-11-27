@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.21](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.20...v1.10.21) (2025-11-27)
+
+
+### Bug Fixes
+
+* add x and z ([5d3c580](https://github.com/qwertyuiop8899/streamvix/commit/5d3c580180d4ddbd7295cc2e78f00c1faa96c6cd))
+
 ## [1.10.20](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.19...v1.10.20) (2025-11-27)
 
 
