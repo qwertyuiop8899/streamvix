@@ -664,8 +664,8 @@ export class AnimeUnityProvider {
       // 2. Fallback MP4 policy:
       //    - Sempre se preferMp4=true
       //    - Oppure se HLS ha dato 403 (hls403) e non abbiamo stream HLS
-      //    - In caso hls403 richiede MFP configurato (mfpUrl + mfpPassword) per sicurezza
-      const mfpConfigured = !!(this.config.mfpUrl && this.config.mfpPassword);
+      //    - In caso hls403 richiede MFP URL configurato
+      const mfpConfigured = !!this.config.mfpUrl;
       const allowMp4 = preferMp4 || (hls403 && !added);
       if (allowMp4 && streamResult.mp4_url) {
         if (!preferMp4 && hls403 && !mfpConfigured) {
