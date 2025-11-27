@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.22](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.21...v1.10.22) (2025-11-27)
+
+
+### Bug Fixes
+
+* mpdz ([4854238](https://github.com/qwertyuiop8899/streamvix/commit/4854238981f9738e8810df413f1d744c9e7d20bc))
+
 ## [1.10.21](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.20...v1.10.21) (2025-11-27)
 
 
