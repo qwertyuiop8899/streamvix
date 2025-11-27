@@ -11,15 +11,16 @@ export class StreamtapeExtractor implements HostExtractor {
   supports(url: string) { return /streamtape\.com\//i.test(url); }
 
   async extract(rawUrl: string, ctx: ExtractorContext): Promise<ExtractResult> {
-  console.log('[STAPE][BEGIN]', rawUrl, 'mfp?', !!ctx.mfpUrl && !!ctx.mfpPassword);
-    if (!ctx.mfpUrl || !ctx.mfpPassword) {
-      console.log('[STAPE][SKIP] MFP missing, no streams');
+  console.log('[STAPE][BEGIN]', rawUrl, 'mfp?', !!ctx.mfpUrl);
+    if (!ctx.mfpUrl) {
+      console.log('[STAPE][SKIP] MFP URL missing, no streams');
       return { streams: [] };
     }
     const embedUrl = normalizeUrl(rawUrl);
     const encoded = encodeURIComponent(embedUrl);
     const base = ctx.mfpUrl.replace(/\/$/, '');
-    const finalUrl = `${base}/extractor/video?host=Streamtape&api_password=${encodeURIComponent(ctx.mfpPassword)}&d=${encoded}&redirect_stream=true`;
+    const passwordParam = ctx.mfpPassword ? `&api_password=${encodeURIComponent(ctx.mfpPassword)}` : '';
+    const finalUrl = `${base}/extractor/video?host=Streamtape${passwordParam}&d=${encoded}&redirect_stream=true`;
     console.log('[STAPE][WRAP]', embedUrl, '->', finalUrl);
     let line1 = (ctx.titleHint || 'Streamtape').trim();
     if (!/\[ITA\]$/i.test(line1)) line1 = line1 + ' • [ITA]';
