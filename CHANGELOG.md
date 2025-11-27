@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.10.20](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.19...v1.10.20) (2025-11-27)
+
+
+### Bug Fixes
+
+* bump version ([244566c](https://github.com/qwertyuiop8899/streamvix/commit/244566c35c23556a3595562490cd5bc8e2870c21))
+* release for proxy without password ([c6f60a4](https://github.com/qwertyuiop8899/streamvix/commit/c6f60a41c16a5a248dee2ea7c0af66e2cff2ada8))
+* typo ([d69436a](https://github.com/qwertyuiop8899/streamvix/commit/d69436afbf835251a2704cf8feb41022d21d9860))
+
 ## [1.10.19](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.18...v1.10.19) (2025-11-25)
 
 
