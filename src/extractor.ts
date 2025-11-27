@@ -551,14 +551,15 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   // Funzione per ottenere il proxy stream
   async function getProxyStream(url: string, id: string, type: ContentType, config: ExtractorConfig): Promise<VixCloudStreamInfo | null> {
     const { mfpUrl, mfpPsw, tmdbApiKey } = config;
-    if (!mfpUrl || !mfpPsw) {
-      console.warn('VixSrc: Proxy MFP non configurato');
+    if (!mfpUrl) {
+      console.warn('VixSrc: Proxy MFP URL non configurato');
       return null;
     }
 
   const cleanedMfpUrl = mfpUrl.endsWith('/') ? mfpUrl.slice(0, -1) : mfpUrl;
   // Prima richiesta: redirect_stream=false per ottenere JSON completo
-  const baseApi = `${cleanedMfpUrl}/extractor/video?host=VixCloud&redirect_stream=false&api_password=${encodeURIComponent(mfpPsw)}&d=${encodeURIComponent(url)}`;
+  const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+  const baseApi = `${cleanedMfpUrl}/extractor/video?host=VixCloud&redirect_stream=false${passwordParam}&d=${encodeURIComponent(url)}`;
   console.log(`[VixSrc][Proxy] FETCH JSON: ${baseApi}`);
 
   // Nuova funzione asincrona per ottenere l'URL m3u8 finale
@@ -1100,7 +1101,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   }
 
   function buildSyntheticProxyWrapper(innerSynthetic: string, referer: string): VixCloudStreamInfo | null {
-    if (!haveMfp || !config.vixDual || !config.mfpUrl || !config.mfpPsw) return null;
+    if (!haveMfp || !config.vixDual || !config.mfpUrl) return null;
     const cleaned = config.mfpUrl.endsWith('/') ? config.mfpUrl.slice(0,-1) : config.mfpUrl;
     let syntheticTarget = innerSynthetic;
     try {
@@ -1110,7 +1111,8 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         syntheticTarget = su.toString();
       }
     } catch {/* ignore */}
-    const wrapper = `${cleaned}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(syntheticTarget)}&api_password=${encodeURIComponent(config.mfpPsw)}`;
+    const passwordParam = config.mfpPsw ? `&api_password=${encodeURIComponent(config.mfpPsw)}` : '';
+    const wrapper = `${cleaned}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(syntheticTarget)}${passwordParam}`;
     const proxyOrig = streams.find(s=>s.source==='proxy');
     const baseName = proxyOrig ? proxyOrig.name.replace(/\s*🔒FHD$/,'').replace(/\s*🔒$/,'') : 'Proxy';
     return { name: baseName + ' 🔒 FHD', streamUrl: wrapper, referer, source: 'proxy', isSyntheticFhd: true, originalName: baseName };
