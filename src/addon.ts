@@ -34,10 +34,12 @@ import { resolveGdplayerForChannel, inferGdplayerSlug } from './extractors/gdpla
 import { startAmstaffScheduler } from './utils/amstaffUpdater';
 // RM updater (MPD2)
 import { startRmScheduler } from './utils/rmUpdater';
-// NZ updater (Dazn)
+// NZ updater)
 import { startNzScheduler } from './utils/nzUpdater';
 // ThisNot updater
 import { startThisNotUpdater } from './utils/thisnotChannels';
+import { startMpdzScheduler } from './utils/mpdzUpdater';
+import { startMpdxScheduler } from './utils/mpdxUpdater';
 
 // ================= TYPES & INTERFACES =================
 interface AddonConfig {
@@ -480,6 +482,12 @@ function getStreamPriority(stream: { url: string; title: string }): number {
 
     // 4.5. staticUrlMpd2 (🎬MPD2 - seconda sorgente RM)
     if (/\[🎬MPD2\]/i.test(title)) return 4.5;
+
+    // 4.6. staticUrlMpdz (🎬MPDz -  source)
+    if (/\[🎬MPDz\]/i.test(title)) return 4.6;
+
+    // 4.7. staticUrlMpdx (🎬MPDx -  source)
+    if (/\[🎬MPDx\]/i.test(title)) return 4.7;
 
     // 5. [P🐽D]
     if (/\[P🐽D\]/i.test(title)) return 5;
@@ -2934,7 +2942,148 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         } catch (e) {
                             console.error('[MPD2] Injection error:', (e as any)?.message || e);
                         }
-                        
+
+                        // === INJECTION staticUrlMpdz ( - 🎬MPDz) - Posizione #6 dopo MPD2 ===
+                        try {
+                            const mpdzInjectedChannels = new Set<string>();
+                            
+                            for (const staticCh of staticBaseChannels) {
+                                if (!staticCh || !(staticCh as any).staticUrlMpdz) continue;
+                                if (mpdzInjectedChannels.has(staticCh.id)) continue;
+                                
+                                const aliases = staticCh.vavooNames || [staticCh.name];
+                                
+                                let matched = false;
+                                for (const alias of aliases) {
+                                    if (matched) break;
+                                    const normalizedAlias = normAlias(alias);
+                                    
+                                    const matches = providerTitlesExt.some((pt: string) => {
+                                        const normalizedProvider = normAlias(pt);
+                                        return normalizedProvider.includes(normalizedAlias) || normalizedAlias.includes(normalizedProvider);
+                                    });
+                                    
+                                    if (matches) {
+                                        try {
+                                            const decodedUrl = decodeStaticUrl((staticCh as any).staticUrlMpdz);
+                                            let finalUrl = decodedUrl;
+                                            let proxyUsed = false;
+                                            
+                                            if (mfpUrl) {
+                                                const urlParts = decodedUrl.split('&');
+                                                const baseUrl = urlParts[0];
+                                                const additionalParams = urlParts.slice(1);
+                                                const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                                                finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
+                                                for (const param of additionalParams) if (param) finalUrl += `&${param}`;
+                                                proxyUsed = true;
+                                            }
+                                            
+                                            const title = `${proxyUsed ? '' : '[❌Proxy]'}[🎬MPDz] ${staticCh.name} [ITA]`;
+                                            
+                                            let insertAt = 0;
+                                            try { 
+                                                while (insertAt < streams.length && /(\(Vavoo🔓\))/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /🇮🇹🔄/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🏟\s*Free\]/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🎬MPD\]/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🎬MPD2\]/i.test(streams[insertAt].title)) insertAt++;
+                                            } catch {}
+                                            
+                                            try { 
+                                                streams.splice(insertAt, 0, { url: finalUrl, title }); 
+                                            } catch { 
+                                                streams.push({ url: finalUrl, title }); 
+                                            }
+                                            
+                                            mpdzInjectedChannels.add(staticCh.id);
+                                            matched = true;
+                                            console.log(`✅ [MPDz] Injected ${staticCh.name} (matched alias: ${alias}) -  source`);
+                                        } catch (injectErr) {
+                                            debugLog(`[MPDz] Injection failed for ${staticCh.name}:`, injectErr);
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (mpdzInjectedChannels.size > 0) {
+                                console.log(`✅ [MPDz] Total injected: ${mpdzInjectedChannels.size} channels with staticUrlMpdz ()`);
+                            }
+                        } catch (e) {
+                            console.error('[MPDz] Injection error:', (e as any)?.message || e);
+                        }
+
+                        // === INJECTION staticUrlMpdx ( - 🎬MPDx) - Posizione #7 dopo MPDz ===
+                        try {
+                            const mpdxInjectedChannels = new Set<string>();
+                            
+                            for (const staticCh of staticBaseChannels) {
+                                if (!staticCh || !(staticCh as any).staticUrlMpdx) continue;
+                                if (mpdxInjectedChannels.has(staticCh.id)) continue;
+                                
+                                const aliases = staticCh.vavooNames || [staticCh.name];
+                                
+                                let matched = false;
+                                for (const alias of aliases) {
+                                    if (matched) break;
+                                    const normalizedAlias = normAlias(alias);
+                                    
+                                    const matches = providerTitlesExt.some((pt: string) => {
+                                        const normalizedProvider = normAlias(pt);
+                                        return normalizedProvider.includes(normalizedAlias) || normalizedAlias.includes(normalizedProvider);
+                                    });
+                                    
+                                    if (matches) {
+                                        try {
+                                            const decodedUrl = decodeStaticUrl((staticCh as any).staticUrlMpdx);
+                                            let finalUrl = decodedUrl;
+                                            let proxyUsed = false;
+                                            
+                                            if (mfpUrl) {
+                                                const urlParts = decodedUrl.split('&');
+                                                const baseUrl = urlParts[0];
+                                                const additionalParams = urlParts.slice(1);
+                                                const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                                                finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
+                                                for (const param of additionalParams) if (param) finalUrl += `&${param}`;
+                                                proxyUsed = true;
+                                            }
+                                            
+                                            const title = `${proxyUsed ? '' : '[❌Proxy]'}[🎬MPDx] ${staticCh.name} [ITA]`;
+                                            
+                                            let insertAt = 0;
+                                            try { 
+                                                while (insertAt < streams.length && /(\(Vavoo🔓\))/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /🇮🇹🔄/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🏟\s*Free\]/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🎬MPD\]/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🎬MPD2\]/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🎬MPDz\]/i.test(streams[insertAt].title)) insertAt++;
+                                            } catch {}
+                                            
+                                            try { 
+                                                streams.splice(insertAt, 0, { url: finalUrl, title }); 
+                                            } catch { 
+                                                streams.push({ url: finalUrl, title }); 
+                                            }
+                                            
+                                            mpdxInjectedChannels.add(staticCh.id);
+                                            matched = true;
+                                            console.log(`✅ [MPDx] Injected ${staticCh.name} (matched alias: ${alias}) -  source`);
+                                        } catch (injectErr) {
+                                            debugLog(`[MPDx] Injection failed for ${staticCh.name}:`, injectErr);
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (mpdxInjectedChannels.size > 0) {
+                                console.log(`✅ [MPDx] Total injected: ${mpdxInjectedChannels.size} channels with staticUrlMpdx ()`);
+                            }
+                        } catch (e) {
+                            console.error('[MPDx] Injection error:', (e as any)?.message || e);
+                        }
+
                         // (Normalizzazione CF rimossa: ora pubblichiamo link avvolti con extractor on-demand)
                         // Append leftover entries (beyond CAP) con stessa logica on-demand (proxy/hls diretto)
             if (extraFast.length && mfpUrl) {
@@ -3264,6 +3413,62 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             console.log(`[DEBUG] Aggiunto staticUrlMpd2 Proxy (MFP): ${proxyUrl.substring(0, 150)}...`);
                         } else {
                             debugLog(`(NASCONDI) staticUrlMpd2 Direct senza MFP: ${decodedUrl2}`);
+                        }
+                    }
+
+                    // staticUrlMpdz ()
+                    if ((channel as any).staticUrlMpdz) {
+                        const decodedUrlz = decodeStaticUrl((channel as any).staticUrlMpdz);
+                        
+                        if (mfpUrl) {
+                            const urlParts = decodedUrlz.split('&');
+                            const baseUrl = urlParts[0];
+                            const additionalParams = urlParts.slice(1);
+                            
+                            const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
+                            
+                            for (const param of additionalParams) {
+                                if (param) {
+                                    proxyUrl += `&${param}`;
+                                }
+                            }
+                            
+                            streams.push({
+                                url: proxyUrl,
+                                title: `[🎬MPDz] ${channel.name} [ITA]`
+                            });
+                            debugLog(`Aggiunto staticUrlMpdz Proxy (MFP): ${proxyUrl.substring(0, 150)}...`);
+                        } else {
+                            debugLog(`(NASCONDI) staticUrlMpdz Direct senza MFP: ${decodedUrlz}`);
+                        }
+                    }
+
+                    // staticUrlMpdx ()
+                    if ((channel as any).staticUrlMpdx) {
+                        const decodedUrlx = decodeStaticUrl((channel as any).staticUrlMpdx);
+                        
+                        if (mfpUrl) {
+                            const urlParts = decodedUrlx.split('&');
+                            const baseUrl = urlParts[0];
+                            const additionalParams = urlParts.slice(1);
+                            
+                            const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
+                            
+                            for (const param of additionalParams) {
+                                if (param) {
+                                    proxyUrl += `&${param}`;
+                                }
+                            }
+                            
+                            streams.push({
+                                url: proxyUrl,
+                                title: `[🎬MPDx] ${channel.name} [ITA]`
+                            });
+                            debugLog(`Aggiunto staticUrlMpdx Proxy (MFP): ${proxyUrl.substring(0, 150)}...`);
+                        } else {
+                            debugLog(`(NASCONDI) staticUrlMpdx Direct senza MFP: ${decodedUrlx}`);
                         }
                     }
 
@@ -5689,6 +5894,46 @@ app.get('/amstaff/update', async (req: Request, res: Response) => {
 });
 // =============================================================
 
+// ================= MANUAL MPDZ UPDATE ENDPOINT ==============
+// GET /mpdz/update - Forza aggiornamento canali MPDz ()
+app.get('/mpdz/update', async (req: Request, res: Response) => {
+    try {
+        console.log('[MPDz][API] Manual update triggered via /mpdz/update');
+        const { updateMpdzChannels } = await import('./utils/mpdzUpdater');
+        const count = await updateMpdzChannels();
+        
+        return res.json({
+            ok: true,
+            count,
+            message: `Updated ${count} MPDz channels in tv_channels.json`
+        });
+    } catch (e: any) {
+        console.error('[MPDz][API] Error:', e);
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
+// ================= MANUAL MPDX UPDATE ENDPOINT ==============
+// GET /mpdx/update - Forza aggiornamento canali MPDx
+app.get('/mpdx/update', async (req: Request, res: Response) => {
+    try {
+        console.log('[MPDx][API] Manual update triggered via /mpdx/update');
+        const { updateMpdxChannels } = await import('./utils/mpdxUpdater');
+        const count = await updateMpdxChannels();
+        
+        return res.json({
+            ok: true,
+            count,
+            message: `Updated ${count} MPDx channels in tv_channels.json`
+        });
+    } catch (e: any) {
+        console.error('[MPDx][API] Error:', e);
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
 // ================= MANUAL PURGE ENDPOINT =====================
 // Esegue la stessa logica delle 02:00: rimuove dal file gli eventi del giorno precedente
 app.get('/live/purge', (req: Request, res: Response) => {
@@ -6051,5 +6296,25 @@ try {
     console.log('✅ ThisNot auto-updater attivato (ogni 2 ore)');
 } catch (e) {
     console.error('❌ Errore avvio ThisNot updater:', e);
+}
+// ====================================================================
+
+// =============== MPDZ AUTO-UPDATER ==============================
+// Avvia aggiornamento automatico canali MPDz () ogni 23 minuti
+try {
+    startMpdzScheduler(1380000);
+    console.log('✅ MPDz auto-updater attivato (ogni 23 min)');
+} catch (e) {
+    console.error('❌ Errore avvio MPDz updater:', e);
+}
+// ====================================================================
+
+// =============== MPDX AUTO-UPDATER ==============================
+// Avvia aggiornamento automatico canali MPDx ( worker) ogni 23 minuti
+try {
+    startMpdxScheduler(1380000);
+    console.log('✅ MPDx auto-updater attivato (ogni 23 min)');
+} catch (e) {
+    console.error('❌ Errore avvio MPDx updater:', e);
 }
 // ====================================================================
