@@ -6,7 +6,7 @@
 declare function require(name: string): any;
 const fs = require('fs');
 const path = require('path');
-// Declare __dirname for environments where TS complains (normally available in Node.js)
+// Declare __dirname for environments where TS complains (normally available in Node.js) 
 declare const __dirname: string;
 // Node's process is available (types provided by @types/node)
 declare const process: any;
