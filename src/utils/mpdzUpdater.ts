@@ -123,7 +123,9 @@ console.log(jsfuckdecode(fs.readFileSync(process.argv[2], 'utf8')));
         fs.writeFileSync(jsfuckFile, jsfuckCode);
         fs.writeFileSync(nodeScript, decoderCode);
         
-        const result = execSync(`node "${nodeScript}" "${jsfuckFile}"`, {
+        // Usa process.execPath per il percorso assoluto di Node.js (funziona in Docker/K8s)
+        const nodeExec = process.execPath;
+        const result = execSync(`"${nodeExec}" "${nodeScript}" "${jsfuckFile}"`, {
             timeout: 60000, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024
         });
         
