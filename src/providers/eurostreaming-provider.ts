@@ -178,12 +178,12 @@ export class EurostreamingProvider {
         const h = uObj.host.toLowerCase();
         if (h.includes('mixdrop')) {
           playerName = 'Mixdrop';
-          // Se configurato MFP, wrappiamo l'URL mixdrop nell'extractor
-          if (this.config.mfpUrl && this.config.mfpPassword) {
+          // Se configurato MFP URL, wrappiamo l'URL mixdrop nell'extractor
+          if (this.config.mfpUrl) {
             const base = this.config.mfpUrl.replace(/\/$/, '');
             const encoded = encodeURIComponent(s.url);
-            const pass = encodeURIComponent(this.config.mfpPassword);
-            finalUrl = `${base}/extractor/video?host=Mixdrop&api_password=${pass}&d=${encoded}&redirect_stream=true`;
+            const passwordParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
+            finalUrl = `${base}/extractor/video?host=Mixdrop${passwordParam}&d=${encoded}&redirect_stream=true`;
           }
         } else if (/deltabit|\/delta\//i.test(s.url)) {
           playerName = 'Deltabit';
@@ -202,7 +202,7 @@ export class EurostreamingProvider {
     if (!this.config.enabled) { console.log('[Eurostreaming] provider disabled'); return { streams: [] }; }
     try {
       console.log('[Eurostreaming] handleImdbRequest imdbId=', imdbId, 'season=', season, 'episode=', episode, 'isMovie=', isMovie);
-      const py = await runPythonEuro({ imdb: imdbId, season, episode, mfp: !!(this.config.mfpUrl && this.config.mfpPassword), isMovie, tmdbKey: this.config.tmdbApiKey });
+      const py = await runPythonEuro({ imdb: imdbId, season, episode, mfp: !!this.config.mfpUrl, isMovie, tmdbKey: this.config.tmdbApiKey });
       console.log('[Eurostreaming] python result keys=', Object.keys(py||{}));
       const formatted = this.formatStreams(py.streams);
       console.log('[Eurostreaming] formatted count=', formatted.length);
@@ -239,7 +239,7 @@ export class EurostreamingProvider {
         return this.handleImdbRequest(imdb, sSeason, sEpisode, isMovie);
       }
       console.log('[Eurostreaming][TMDB] imdb not resolved -> fallback python tmdb flow');
-      const py = await runPythonEuro({ tmdb: raw, season: sSeason, episode: sEpisode, mfp: !!(this.config.mfpUrl && this.config.mfpPassword), isMovie, tmdbKey: this.config.tmdbApiKey });
+      const py = await runPythonEuro({ tmdb: raw, season: sSeason, episode: sEpisode, mfp: !!this.config.mfpUrl, isMovie, tmdbKey: this.config.tmdbApiKey });
       console.log('[Eurostreaming][TMDB] python result keys=', Object.keys(py||{}));
       const formatted = this.formatStreams(py.streams);
       console.log('[Eurostreaming][TMDB] formatted count=', formatted.length);
