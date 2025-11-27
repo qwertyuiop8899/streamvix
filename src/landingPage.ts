@@ -337,11 +337,11 @@ function landingTemplate(manifest: any) {
 						'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Lento🐌)</span>', invert: false },
 						'loonexEnabled': { title: 'Loonex 🎬 - 🔓', invert: false },
 						'toonitaliaEnabled': { title: 'ToonItalia 🎨 - 🔒', invert: false },
-						'cb01Enabled': { title: 'CB01 🎞️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci MFP per abilitare)</span>', invert: false },
+						'cb01Enabled': { title: 'CB01 🎞️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci Proxy URL per abilitare)</span>', invert: false },
 						'streamingwatchEnabled': { title: 'StreamingWatch 📼 - 🔓', invert: false },
 							// 'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false }, // NASCOSTO
 							'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
-							'mediaflowMaster': { title: 'MediaflowProxy 🔄', invert: false },
+							'mediaflowMaster': { title: 'EasyProxy o MediaFlowProxy ☂️', invert: false },
 					}
 						if (toggleMap[key]) {
 						const t = toggleMap[key];
@@ -623,7 +623,9 @@ function landingTemplate(manifest: any) {
 					// Sync Local pill availability when VixSrc gating changes
 					try { if (typeof updateLocalAvailability === 'function') updateLocalAvailability(); } catch(e) {}
 
-					// CB01 toggle gating (richiede MFP attivo e credenziali come AnimeUnity)
+					// CB01 toggle gating (richiede MFP attivo, password opzionale)
+					var urlFilled = mfpUrlInput && mfpUrlInput.value.trim() !== '';
+					var canEnableWithUrl = on && urlFilled;
 					if (cb01El){
 						if (!on) { // Master OFF
 							if (storedCb01State === null) storedCb01State = cb01El.checked;
@@ -632,8 +634,8 @@ function landingTemplate(manifest: any) {
 							if (cb01Row) cb01Row.classList.add('dimmed');
 						} else { // Master ON
 							if (cb01Row) cb01Row.classList.remove('dimmed');
-							cb01El.disabled = !canEnableChildren;
-							if (canEnableChildren) {
+							cb01El.disabled = !canEnableWithUrl;
+							if (canEnableWithUrl) {
 								// Rimossa attivazione automatica: lascia lo stato scelto dall'utente
 								if (storedCb01State !== null) { cb01El.checked = storedCb01State; storedCb01State = null; }
 							} else {
@@ -643,7 +645,7 @@ function landingTemplate(manifest: any) {
 						}
 						if (cb01Row) setRowState(cb01Row);
 					}
-					// ToonItalia toggle gating (richiede MFP attivo e credenziali)
+					// ToonItalia toggle gating (richiede MFP attivo, password opzionale)
 					if (toonitaliaEl){
 						if (!on) { // Master OFF
 							if (storedToonitaliaState === null) storedToonitaliaState = toonitaliaEl.checked;
@@ -652,8 +654,8 @@ function landingTemplate(manifest: any) {
 							if (toonitaliaRow) toonitaliaRow.classList.add('dimmed');
 						} else { // Master ON
 							if (toonitaliaRow) toonitaliaRow.classList.remove('dimmed');
-							toonitaliaEl.disabled = !canEnableChildren;
-							if (canEnableChildren) {
+							toonitaliaEl.disabled = !canEnableWithUrl;
+							if (canEnableWithUrl) {
 								// Ripristina stato precedente se disponibile
 								if (storedToonitaliaState !== null) { toonitaliaEl.checked = storedToonitaliaState; storedToonitaliaState = null; }
 							} else {
