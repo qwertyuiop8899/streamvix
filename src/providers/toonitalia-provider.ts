@@ -452,9 +452,11 @@ async function getStreamFromVoe(voeUrl: string, config?: { mfpUrl?: string; mfpP
         const params = new URLSearchParams({
             host: 'Voe',
             d: voeUrl,
-            redirect_stream: 'false',
-            api_password: mfpConfig.password
+            redirect_stream: 'false'
         });
+        if (mfpConfig.password) {
+            params.append('api_password', mfpConfig.password);
+        }
         
         const response = await axios.get(`${extractorUrl}?${params.toString()}`, {
             headers: {
@@ -469,9 +471,11 @@ async function getStreamFromVoe(voeUrl: string, config?: { mfpUrl?: string; mfpP
             // Step 2: Costruisci il link finale con MediaFlow proxy
             const proxyUrl = `${mfpConfig.url}/proxy/hls/manifest.m3u8`;
             const proxyParams = new URLSearchParams({
-                api_password: mfpConfig.password,
                 d: destinationUrl
             });
+            if (mfpConfig.password) {
+                proxyParams.append('api_password', mfpConfig.password);
+            }
             
             // Aggiungi headers
             if (requestHeaders['user-agent']) {
