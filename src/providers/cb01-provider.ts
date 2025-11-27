@@ -425,7 +425,8 @@ export class Cb01Provider {
     const headers = data.request_headers || {};
     const ua = headers['user-agent'] || headers['User-Agent'] || this.userAgent;
     const ref = headers['referer'] || headers['Referer'] || 'https://mixdrop.ps/';
-  const finalBase = `${mfpBase}/proxy/stream?api_password=${encodeURIComponent(mfpPassword)}&d=${encodeURIComponent(dest)}&h_user-agent=${encodeURIComponent(ua)}&h_referer=${encodeURIComponent(ref)}`;
+  const passwordParam = mfpPassword ? `api_password=${encodeURIComponent(mfpPassword)}&` : '';
+  const finalBase = `${mfpBase}/proxy/stream?${passwordParam}d=${encodeURIComponent(dest)}&h_user-agent=${encodeURIComponent(ua)}&h_referer=${encodeURIComponent(ref)}`;
   const meta = metaOverride || this.extractStayonlineMeta(pageHtml) || { file:null, size: undefined };
   // Nuovo formato richiesto:
   // Linea 1: Nome completo file (con estensione) + [ITA]
