@@ -3,7 +3,7 @@ thanks to @urlomythus for the code https://github.com/UrloMythus/MammaMia/blob/m
  * Replica la logica essenziale di cb01.py limitandosi a:
  *  - Ricerca film: https://cb01net.lol/?s=<query>
  *  - Ricerca serie: https://cb01net.lol/serietv/?s=<query>
- *  - Film: usa iframen2 (Streaming HD) se presente, altrimenti iframen1
+ *  - Film: usa iframen2 (Streaming HD) se presente, altrimenti iframen1 
  *  - Serie: blocco STAGIONE X e match episodio -> prima occorrenza mixdrop/stayonline
  *  - Bypass stayonline (POST ajax) -> ottiene embed Mixdrop
  *  - Incapsula tramite MediaFlow extractor (redirect_stream=false) e ricostruisce link proxy /proxy/stream
