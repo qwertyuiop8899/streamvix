@@ -19,8 +19,8 @@ export class MixdropExtractor implements HostExtractor {
   id='mixdrop';
   supports(url:string){ return /mixdrop/i.test(url); }
   async extract(rawUrl: string, ctx: ExtractorContext): Promise<ExtractResult> {
-  // Require MediaFlow credentials; if missing, exclude Mixdrop entirely (per new rule)
-  if (!ctx.mfpUrl || !ctx.mfpPassword) return { streams: [] };
+  // Require MediaFlow URL; password is optional
+  if (!ctx.mfpUrl) return { streams: [] };
   // Emulate webstreamr: keep /e/ form for the public (embed) and fetch /f/ for meta (size/title)
   let embedUrl = normalizeUrl(rawUrl).replace('/f/', '/e/');
     if (!/\/e\//.test(embedUrl)) embedUrl = embedUrl.replace('/f/', '/e/');
@@ -36,9 +36,10 @@ export class MixdropExtractor implements HostExtractor {
     const resMatch = html.match(/(\b[1-9]\d{2,3}p\b)/i);
     // Real video URL is provided via MediaFlow proxy; we mimic by returning a proxy redirect style link if credentials provided, else keep embed (so Stremio opens it, or we provide file page URL as last resort)
     // If mfp available, wrap embedUrl (NOT /f/) to allow remote server to resolve actual media like original project.
-  // Build MediaFlow redirect URL (always, since we enforce presence above)
+  // Build MediaFlow redirect URL (always, since we enforce URL presence above)
   const encoded = encodeURIComponent(embedUrl);
-  const finalUrl = `${ctx.mfpUrl.replace(/\/$/,'')}/extractor/video?host=Mixdrop&api_password=${encodeURIComponent(ctx.mfpPassword)}&d=${encoded}&redirect_stream=true`;
+  const passwordParam = ctx.mfpPassword ? `&api_password=${encodeURIComponent(ctx.mfpPassword)}` : '';
+  const finalUrl = `${ctx.mfpUrl.replace(/\/$/,'')}/extractor/video?host=Mixdrop${passwordParam}&d=${encoded}&redirect_stream=true`;
 
     const bytes = sizeMatch ? parseSizeToBytes(sizeMatch[1]) : undefined;
     let sizePart = '';
