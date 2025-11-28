@@ -2603,6 +2603,42 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     // Dynamic event channels: dynamicDUrls -> usa stessa logica avanzata di staticUrlD per estrarre link finale
                     if ((channel as any)._dynamic) {
+                        // === PPV EARLY RETURN: solo stream originali PPV, niente extra ===
+                        const channelCategory = ((channel as any).category || '').toString().toUpperCase();
+                        const isPPV = channelCategory === 'PPV' || (channel as any).id?.startsWith('ppv_');
+                        if (isPPV) {
+                            console.log(`[PPV] ✅ Canale PPV rilevato: ${channel.id} - restituisco solo stream originali`);
+                            const ppvStreams: Stream[] = [];
+                            const dArr = Array.isArray((channel as any).dynamicDUrls) ? (channel as any).dynamicDUrls : [];
+                            for (const d of dArr) {
+                                if (d.url) {
+                                    // Determina se LIVE o NOT LIVE basandosi su eventStart
+                                    let streamName = 'Live 🔴'; // default
+                                    try {
+                                        const evStart = (channel as any).eventStart || (channel as any).eventstart;
+                                        if (evStart) {
+                                            const startDate = new Date(evStart);
+                                            const now = Date.now();
+                                            const diffMs = startDate.getTime() - now;
+                                            // NOT LIVE se mancano più di 30 minuti (1800000 ms)
+                                            if (diffMs > 1800000) {
+                                                streamName = '🚫 NOT LIVE';
+                                            } else {
+                                                streamName = '🔴 LIVE';
+                                            }
+                                        }
+                                    } catch {}
+                                    ppvStreams.push({
+                                        url: d.url,
+                                        title: d.title || '🇬🇧 PPV',
+                                        name: streamName
+                                    } as any);
+                                }
+                            }
+                            console.log(`[PPV] Returning ${ppvStreams.length} PPV-only streams`);
+                            return { streams: ppvStreams };
+                        }
+                        
                         const dArr = Array.isArray((channel as any).dynamicDUrls) ? (channel as any).dynamicDUrls : [];
                         console.log(`[DynamicStreams] Channel ${channel.id} dynamicDUrls count=${dArr.length}`);
                         if (dArr.length === 0) {
@@ -4004,9 +4040,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         } catch {}
                         // === SPON (sportzonline) injection (always-on, no placeholders / no time gating) ===
                         try {
-                            const eventName = (channel as any).name || '';
+                            const eventNameRaw = (channel as any).name || '';
                             
-                            if (!eventName) {
+                            if (!eventNameRaw) {
                                 // skip silently
                             } else {
                                 const { fetchSponSchedule, matchRowsForEvent, debugExtractTeams } = await import('./extractors/sponSchedule');
@@ -4016,33 +4052,42 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 
                                 if (!Array.isArray(schedule) || !schedule.length) {
                                     console.log(`[SPON] ⚠️ No schedule data available`);
-                                    debugLog(`[SPON][DEBUG] schedule empty/invalid for '${eventName}'`);
+                                    debugLog(`[SPON][DEBUG] schedule empty/invalid for '${eventNameRaw}'`);
                                 } else {
-                                    const matched = matchRowsForEvent({ name: eventName }, schedule as any) || [];
+                                    const matched = matchRowsForEvent({ name: eventNameRaw }, schedule as any) || [];
                                     
                                     if (!matched.length) {
-                                        console.log(`[SPON] 🔍 Event NOT found: "${eventName}"`);
-                                        debugLog(`[SPON][DEBUG] matched=0 for '${eventName}'`);
+                                        console.log(`[SPON] 🔍 Event NOT found: "${eventNameRaw}"`);
+                                        debugLog(`[SPON][DEBUG] matched=0 for '${eventNameRaw}'`);
                                     } else {
-                                        console.log(`[SPON] ✅ Event found: "${eventName}" → ${matched.length} streams`);
+                                        console.log(`[SPON] ✅ Event found: "${eventNameRaw}" → ${matched.length} streams`);
                                         // Calcolo futureTag usando eventStart dal canale dinamico (già in UTC, convertito correttamente)
-                                        let eventStart: Date | null = null; let futureTag = '';
+                                        let eventStart: Date | null = null; let futureTag = ''; let sponDisplayName = eventNameRaw;
                                         try {
                                             // Usa eventStart dal canale dinamico (da dynamic_channels.json) se disponibile
                                             const channelEventStart = (channel as any).eventStart || (channel as any).eventstart;
                                             if (channelEventStart) {
                                                 eventStart = new Date(channelEventStart);
                                                 const deltaMs = eventStart.getTime() - Date.now();
+                                                // Converti in Europe/Rome per display
+                                                const romeTime = eventStart.toLocaleTimeString('it-IT', { 
+                                                    timeZone: 'Europe/Rome', 
+                                                    hour: '2-digit', 
+                                                    minute: '2-digit',
+                                                    hour12: false
+                                                });
+                                                const romeDate = eventStart.toLocaleDateString('it-IT', {
+                                                    timeZone: 'Europe/Rome',
+                                                    day: '2-digit',
+                                                    month: '2-digit'
+                                                });
                                                 if (deltaMs > 0) {
-                                                    // Converti in Europe/Rome per display
-                                                    const romeTime = eventStart.toLocaleTimeString('it-IT', { 
-                                                        timeZone: 'Europe/Rome', 
-                                                        hour: '2-digit', 
-                                                        minute: '2-digit',
-                                                        hour12: false
-                                                    });
                                                     futureTag = ` (Inizia alle ${romeTime})`;
                                                 }
+                                                // Ricostruisci sponDisplayName con orario corretto da eventStart
+                                                // Rimuovi orario esistente dal nome e aggiungi quello corretto
+                                                let cleanName = eventNameRaw.replace(/^⏰\s*\d{1,2}:\d{2}\s*:\s*/, '').trim();
+                                                sponDisplayName = `⏰ ${romeTime} : ${cleanName}`;
                                             } else {
                                                 // Fallback: calcola da prog.txt (meno preciso)
                                                 const nowDate = new Date();
@@ -4063,7 +4108,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         
                                         if (!mfpUrl) {
                                             // Skip silently (seconda chiamata senza config)
-                                            debugLog(`[SPON] MFP URL non configurato -> salto wrap per '${eventName}'`);
+                                            debugLog(`[SPON] MFP URL non configurato -> salto wrap per '${eventNameRaw}'`);
                                         } else {
                                             console.log('[SPON] ✓ MFP OK');
                                             const seen = new Set<string>();
@@ -4079,7 +4124,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                     // Wrap diretto: MFP gestirà estrazione iframe + unpacking server-side
                                                     const passwordParamSpon = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
                                                     const wrapped = `${mfpUrl.replace(/\/$/,'')}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(row.url)}${passwordParamSpon}`;
-                                                    collected.push({ url: wrapped, title: `[SPON${italianFlag}] ${eventName}${futureTag} (${tag})` } as any);
+                                                    collected.push({ url: wrapped, title: `[SPON${italianFlag}] ${sponDisplayName}${futureTag} (${tag})` } as any);
                                                     debugLog(`[SPON][ROW] wrapped ${tag}`);
                                                 } catch (err:any) { debugLog(`[SPON][ROW] unexpected error ${tag} ${(err?.message)||err}`); }
                                             }
@@ -4103,7 +4148,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                             finalUrl = wrappedFallback;
                                                             debugLog(`[SPON][FALLBACK][ROW] wrapped extracted m3u8 in MFP ${tag}`);
                                                         }
-                                                        collected.push({ url: finalUrl, title: `[SPON${italianFlag}] ${eventName}${futureTag} (${tag})` } as any);
+                                                        collected.push({ url: finalUrl, title: `[SPON${italianFlag}] ${sponDisplayName}${futureTag} (${tag})` } as any);
                                                         debugLog(`[SPON][FALLBACK][ROW] extracted ${tag}`);
                                                     } catch (err:any) { debugLog(`[SPON][FALLBACK][ROW] failed ${tag} ${(err?.message)||err}`); }
                                                 }
@@ -4127,10 +4172,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                 }
                                                 const existing = new Set(streams.map(s=>s.url));
                                                 const finalIns = collected.filter(s=>s.url && !existing.has(s.url));
-                                                if (finalIns.length) { streams.splice(insertAt,0,...(finalIns as any)); debugLog(`[SPON] Injected ${finalIns.length} SPON streams (always-on) per '${eventName}'`); }
-                                                else debugLog(`[SPON] Nessun nuovo stream (duplicati) per '${eventName}'`);
+                                                if (finalIns.length) { streams.splice(insertAt,0,...(finalIns as any)); debugLog(`[SPON] Injected ${finalIns.length} SPON streams (always-on) per '${eventNameRaw}'`); }
+                                                else debugLog(`[SPON] Nessun nuovo stream (duplicati) per '${eventNameRaw}'`);
                                             } else {
-                                                debugLog(`[SPON] Nessun stream estratto per '${eventName}' (no placeholder)`);
+                                                debugLog(`[SPON] Nessun stream estratto per '${eventNameRaw}' (no placeholder)`);
                                             }
                                         }
                                     }
