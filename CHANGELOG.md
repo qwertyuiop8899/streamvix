@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.23](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.22...v1.10.23) (2025-11-28)
+
+
+### Bug Fixes
+
+* spon ([aff6746](https://github.com/qwertyuiop8899/streamvix/commit/aff674655260cf97b6d6ca59b043dee439dd6acb))
+
 ## [1.10.22](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.21...v1.10.22) (2025-11-27)
 
 
