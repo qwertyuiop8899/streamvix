@@ -4063,29 +4063,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         debugLog(`[SPON][DEBUG] matched=0 for '${eventNameRaw}'`);
                                     } else {
                                         console.log(`[SPON] ✅ Event found: "${eventNameRaw}" → ${matched.length} streams`);
-                                        // sponDisplayName usa direttamente il nome del canale (già con orario Rome corretto da Live.py)
-                                        // Non ricostruiamo da prog.txt per evitare timezone mismatch
-                                        let eventStart: Date | null = null; let futureTag = ''; 
-                                        const sponDisplayName = eventNameRaw; // Usa nome canale così com'è (già corretto)
-                                        try {
-                                            // Calcola futureTag solo per indicare se l'evento non è ancora iniziato
-                                            const channelEventStart = (channel as any).eventStart || (channel as any).eventstart;
-                                            if (channelEventStart) {
-                                                eventStart = new Date(channelEventStart);
-                                                const deltaMs = eventStart.getTime() - Date.now();
-                                                if (deltaMs > 0) {
-                                                    // Estrai orario dal nome canale (già Rome) per futureTag
-                                                    const timeMatch = eventNameRaw.match(/⏰\s*(\d{1,2}:\d{2})/);
-                                                    const displayTime = timeMatch ? timeMatch[1] : eventStart.toLocaleTimeString('it-IT', { 
-                                                        timeZone: 'Europe/Rome', 
-                                                        hour: '2-digit', 
-                                                        minute: '2-digit',
-                                                        hour12: false
-                                                    });
-                                                    futureTag = ` (Inizia alle ${displayTime})`;
-                                                }
-                                            }
-                                        } catch {}
                                         // FIXED: usa fallback a configCache se config è vuoto (seconda chiamata stream)
                                         const effectiveConfig = (config && (config.mediaFlowProxyUrl || config.mediaFlowProxyPassword)) ? config : configCache;
                                         const mfpUrl = (effectiveConfig.mediaFlowProxyUrl || process.env.MFP_URL || process.env.MEDIAFLOW_PROXY_URL || '').toString().trim();
@@ -4109,7 +4086,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                     // Wrap diretto: MFP gestirà estrazione iframe + unpacking server-side
                                                     const passwordParamSpon = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
                                                     const wrapped = `${mfpUrl.replace(/\/$/,'')}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(row.url)}${passwordParamSpon}`;
-                                                    collected.push({ url: wrapped, title: `[SPON${italianFlag}] ${sponDisplayName}${futureTag} (${tag})` } as any);
+                                                    // Titolo semplificato: solo [SPON 🇮🇹] (TAG) senza dettagli evento
+                                                    collected.push({ url: wrapped, title: `[SPON${italianFlag}] (${tag})` } as any);
                                                     debugLog(`[SPON][ROW] wrapped ${tag}`);
                                                 } catch (err:any) { debugLog(`[SPON][ROW] unexpected error ${tag} ${(err?.message)||err}`); }
                                             }
@@ -4133,7 +4111,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                             finalUrl = wrappedFallback;
                                                             debugLog(`[SPON][FALLBACK][ROW] wrapped extracted m3u8 in MFP ${tag}`);
                                                         }
-                                                        collected.push({ url: finalUrl, title: `[SPON${italianFlag}] ${sponDisplayName}${futureTag} (${tag})` } as any);
+                                                        // Titolo semplificato: solo [SPON 🇮🇹] (TAG) senza dettagli evento
+                                                        collected.push({ url: finalUrl, title: `[SPON${italianFlag}] (${tag})` } as any);
                                                         debugLog(`[SPON][FALLBACK][ROW] extracted ${tag}`);
                                                     } catch (err:any) { debugLog(`[SPON][FALLBACK][ROW] failed ${tag} ${(err?.message)||err}`); }
                                                 }
