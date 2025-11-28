@@ -4025,18 +4025,36 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         debugLog(`[SPON][DEBUG] matched=0 for '${eventName}'`);
                                     } else {
                                         console.log(`[SPON] ✅ Event found: "${eventName}" → ${matched.length} streams`);
-                                        // Calcolo solo per futureTag (no gating)
+                                        // Calcolo futureTag usando eventStart dal canale dinamico (già in UTC, convertito correttamente)
                                         let eventStart: Date | null = null; let futureTag = '';
                                         try {
-                                            const nowDate = new Date();
-                                            const weekdayMap: Record<string, number> = { 'SUNDAY':0,'MONDAY':1,'TUESDAY':2,'WEDNESDAY':3,'THURSDAY':4,'FRIDAY':5,'SATURDAY':6 };
-                                            const target = weekdayMap[matched[0].day.toUpperCase()] ?? nowDate.getDay();
-                                            const base = new Date(nowDate);
-                                            const diff = (target - base.getDay() + 7) % 7; base.setDate(base.getDate()+diff);
-                                            const [hh,mm] = matched[0].time.split(':').map(n=>parseInt(n,10));
-                                            base.setHours(hh,mm,0,0); eventStart = base;
-                                            const deltaMs = eventStart.getTime() - Date.now();
-                                            if (deltaMs > 0) futureTag = ` (Inizia alle ${matched[0].time})`;
+                                            // Usa eventStart dal canale dinamico (da dynamic_channels.json) se disponibile
+                                            const channelEventStart = (channel as any).eventStart || (channel as any).eventstart;
+                                            if (channelEventStart) {
+                                                eventStart = new Date(channelEventStart);
+                                                const deltaMs = eventStart.getTime() - Date.now();
+                                                if (deltaMs > 0) {
+                                                    // Converti in Europe/Rome per display
+                                                    const romeTime = eventStart.toLocaleTimeString('it-IT', { 
+                                                        timeZone: 'Europe/Rome', 
+                                                        hour: '2-digit', 
+                                                        minute: '2-digit',
+                                                        hour12: false
+                                                    });
+                                                    futureTag = ` (Inizia alle ${romeTime})`;
+                                                }
+                                            } else {
+                                                // Fallback: calcola da prog.txt (meno preciso)
+                                                const nowDate = new Date();
+                                                const weekdayMap: Record<string, number> = { 'SUNDAY':0,'MONDAY':1,'TUESDAY':2,'WEDNESDAY':3,'THURSDAY':4,'FRIDAY':5,'SATURDAY':6 };
+                                                const target = weekdayMap[matched[0].day.toUpperCase()] ?? nowDate.getDay();
+                                                const base = new Date(nowDate);
+                                                const diff = (target - base.getDay() + 7) % 7; base.setDate(base.getDate()+diff);
+                                                const [hh,mm] = matched[0].time.split(':').map(n=>parseInt(n,10));
+                                                base.setHours(hh,mm,0,0); eventStart = base;
+                                                const deltaMs = eventStart.getTime() - Date.now();
+                                                if (deltaMs > 0) futureTag = ` (Inizia alle ${matched[0].time})`;
+                                            }
                                         } catch {}
                                         // FIXED: usa fallback a configCache se config è vuoto (seconda chiamata stream)
                                         const effectiveConfig = (config && (config.mediaFlowProxyUrl || config.mediaFlowProxyPassword)) ? config : configCache;
