@@ -2613,7 +2613,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             for (const d of dArr) {
                                 if (d.url) {
                                     // Determina se LIVE o NOT LIVE basandosi su eventStart
-                                    let streamName = 'Live 🔴'; // default
+                                    let liveStatus = '🔴 LIVE'; // default
                                     try {
                                         const evStart = (channel as any).eventStart || (channel as any).eventstart;
                                         if (evStart) {
@@ -2622,16 +2622,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             const diffMs = startDate.getTime() - now;
                                             // NOT LIVE se mancano più di 30 minuti (1800000 ms)
                                             if (diffMs > 1800000) {
-                                                streamName = '🚫 NOT LIVE';
+                                                liveStatus = '🚫 NOT LIVE';
                                             } else {
-                                                streamName = '🔴 LIVE';
+                                                liveStatus = '🔴 LIVE';
                                             }
                                         }
                                     } catch {}
+                                    // name = LIVE/NOT LIVE status (come 'Live 🔴' in altri stream)
+                                    // title = 🇬🇧 PPV (descrizione stream)
                                     ppvStreams.push({
                                         url: d.url,
-                                        title: d.title || '🇬🇧 PPV',
-                                        name: streamName
+                                        name: liveStatus,
+                                        title: '🇬🇧 PPV'
                                     } as any);
                                 }
                             }
@@ -4061,44 +4063,27 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         debugLog(`[SPON][DEBUG] matched=0 for '${eventNameRaw}'`);
                                     } else {
                                         console.log(`[SPON] ✅ Event found: "${eventNameRaw}" → ${matched.length} streams`);
-                                        // Calcolo futureTag usando eventStart dal canale dinamico (già in UTC, convertito correttamente)
-                                        let eventStart: Date | null = null; let futureTag = ''; let sponDisplayName = eventNameRaw;
+                                        // sponDisplayName usa direttamente il nome del canale (già con orario Rome corretto da Live.py)
+                                        // Non ricostruiamo da prog.txt per evitare timezone mismatch
+                                        let eventStart: Date | null = null; let futureTag = ''; 
+                                        const sponDisplayName = eventNameRaw; // Usa nome canale così com'è (già corretto)
                                         try {
-                                            // Usa eventStart dal canale dinamico (da dynamic_channels.json) se disponibile
+                                            // Calcola futureTag solo per indicare se l'evento non è ancora iniziato
                                             const channelEventStart = (channel as any).eventStart || (channel as any).eventstart;
                                             if (channelEventStart) {
                                                 eventStart = new Date(channelEventStart);
                                                 const deltaMs = eventStart.getTime() - Date.now();
-                                                // Converti in Europe/Rome per display
-                                                const romeTime = eventStart.toLocaleTimeString('it-IT', { 
-                                                    timeZone: 'Europe/Rome', 
-                                                    hour: '2-digit', 
-                                                    minute: '2-digit',
-                                                    hour12: false
-                                                });
-                                                const romeDate = eventStart.toLocaleDateString('it-IT', {
-                                                    timeZone: 'Europe/Rome',
-                                                    day: '2-digit',
-                                                    month: '2-digit'
-                                                });
                                                 if (deltaMs > 0) {
-                                                    futureTag = ` (Inizia alle ${romeTime})`;
+                                                    // Estrai orario dal nome canale (già Rome) per futureTag
+                                                    const timeMatch = eventNameRaw.match(/⏰\s*(\d{1,2}:\d{2})/);
+                                                    const displayTime = timeMatch ? timeMatch[1] : eventStart.toLocaleTimeString('it-IT', { 
+                                                        timeZone: 'Europe/Rome', 
+                                                        hour: '2-digit', 
+                                                        minute: '2-digit',
+                                                        hour12: false
+                                                    });
+                                                    futureTag = ` (Inizia alle ${displayTime})`;
                                                 }
-                                                // Ricostruisci sponDisplayName con orario corretto da eventStart
-                                                // Rimuovi orario esistente dal nome e aggiungi quello corretto
-                                                let cleanName = eventNameRaw.replace(/^⏰\s*\d{1,2}:\d{2}\s*:\s*/, '').trim();
-                                                sponDisplayName = `⏰ ${romeTime} : ${cleanName}`;
-                                            } else {
-                                                // Fallback: calcola da prog.txt (meno preciso)
-                                                const nowDate = new Date();
-                                                const weekdayMap: Record<string, number> = { 'SUNDAY':0,'MONDAY':1,'TUESDAY':2,'WEDNESDAY':3,'THURSDAY':4,'FRIDAY':5,'SATURDAY':6 };
-                                                const target = weekdayMap[matched[0].day.toUpperCase()] ?? nowDate.getDay();
-                                                const base = new Date(nowDate);
-                                                const diff = (target - base.getDay() + 7) % 7; base.setDate(base.getDate()+diff);
-                                                const [hh,mm] = matched[0].time.split(':').map(n=>parseInt(n,10));
-                                                base.setHours(hh,mm,0,0); eventStart = base;
-                                                const deltaMs = eventStart.getTime() - Date.now();
-                                                if (deltaMs > 0) futureTag = ` (Inizia alle ${matched[0].time})`;
                                             }
                                         } catch {}
                                         // FIXED: usa fallback a configCache se config è vuoto (seconda chiamata stream)
