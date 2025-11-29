@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.24](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.23...v1.10.24) (2025-11-29)
+
+
+### Bug Fixes
+
+* timeout ([1b9edb7](https://github.com/qwertyuiop8899/streamvix/commit/1b9edb71810ab858ad5a4023421cdf3b605d8286))
+
 ## [1.10.23](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.22...v1.10.23) (2025-11-28)
 
 
