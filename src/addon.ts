@@ -4699,7 +4699,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 streams.push({ title: finalTitle, url: st.streamUrl, behaviorHints: { notWebReady: true, headers: { Referer: st.referer } } as any, isSyntheticFhd: st.isSyntheticFhd, originalName: (st as any).originalName } as any);
                             }
                             return { streams };
-                        }, providerLabel('vixsrc'), false, 10000));  // VixSrc: timeout 10s
+                        }, providerLabel('vixsrc'), false, 30000));  // VixSrc: timeout 30s
                     }
 
                     // AnimeUnity
@@ -4713,7 +4713,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         else res = { streams: [] };
                         // Uniforma pattern VixSrc: non manipolare multi-line title qui; providerLabel userà isSyntheticFhd
                         return res;
-                    }, providerLabel('animeunity')));
+                    }, providerLabel('animeunity'), false, 30000));  // AnimeUnity: timeout 30s
 
                     // AnimeSaturn
                     providerPromises.push(runProvider('AnimeSaturn', animeSaturnEnabled, async () => {
@@ -4724,7 +4724,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (id.startsWith('tt')) return animeSaturnProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                         if (id.startsWith('tmdb:')) return animeSaturnProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                         return { streams: [] };
-                    }, providerLabel('animesaturn')));
+                    }, providerLabel('animesaturn'), false, 30000));  // AnimeSaturn: timeout 30s
 
                     // AnimeWorld
                     providerPromises.push(runProvider('AnimeWorld', animeWorldEnabled, async () => {
@@ -4735,7 +4735,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (id.startsWith('tt')) return animeWorldProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                         if (id.startsWith('tmdb:')) return animeWorldProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                         return { streams: [] };
-                    }, providerLabel('animeworld')));
+                    }, providerLabel('animeworld'), false, 30000));  // AnimeWorld: timeout 30s
 
                     // GuardaSerie
                     if (guardaSerieEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
@@ -4750,7 +4750,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (id.startsWith('tt')) return gsProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return gsProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             return { streams: [] };
-                        }, providerLabel('guardaserie'), false, 10000));  // GuardaSerie: timeout 10s
+                        }, providerLabel('guardaserie'), false, 30000));  // GuardaSerie: timeout 30s
                     }
 
                     // GuardaHD
@@ -4766,7 +4766,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (id.startsWith('tt')) return ghProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             return { streams: [] };
-                        }, providerLabel('guardahd'), true, 10000));  // GuardaHD: timeout 10s
+                        }, providerLabel('guardahd'), true, 30000));  // GuardaHD: timeout 30s
                     }
 
                     // CB01 (Mixdrop only)
@@ -4780,7 +4780,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return cbProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        }, providerLabel('cb01'), true, 10000));  // CB01: timeout 10s
+                        }, providerLabel('cb01'), true, 30000));  // CB01: timeout 30s
                     }
 
                     // StreamingWatch (nuovo provider) - supporta film e serie
@@ -4792,7 +4792,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return swProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        }, providerLabel('streamingwatch'), false, 10000));  // StreamingWatch: timeout 10s
+                        }, providerLabel('streamingwatch'), false, 30000));  // StreamingWatch: timeout 30s
                     }
 
                     // Eurostreaming
@@ -4806,7 +4806,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return esProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        }, providerLabel('eurostreaming'), true, 18000));  // Eurostreaming: timeout 18s
+                        }, providerLabel('eurostreaming'), true, 30000));  // Eurostreaming: timeout 30s
                     }
 
                     // Loonex (serie TV)
@@ -4820,7 +4820,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             // Non passiamo il titolo, lo recupererà da TMDb
                             const streams = await getLoonexStreams(type, imdbId, undefined, seasonNumber, episodeNumber, tmdbId);
                             return { streams };
-                        }, providerLabel('loonex')));
+                        }, providerLabel('loonex'), false, 30000));  // Loonex: timeout 30s
                     }
 
                     // ToonItalia (serie TV/Anime) - Ricerca dinamica via TMDb
@@ -4854,7 +4854,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 }
                             });
                             return { streams };
-                        }, 'ToonItalia', false, 25000));
+                        }, 'ToonItalia', false, 30000));  // ToonItalia: timeout 30s
                     }
 
 
