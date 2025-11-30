@@ -20,7 +20,7 @@ interface StreamRequest {
 }
 
 /**
- * Ottiene la configurazione MediaFlow da variabili di ambiente o config passata
+ * Ottiene la configurazione MediaFlow dalla config passata, con fallback a env vars (per installazioni locali)
  */
 function getMediaFlowConfig(config?: { mfpUrl?: string; mfpPsw?: string }) {
     return {
