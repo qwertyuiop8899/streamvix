@@ -2473,9 +2473,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     
                     // Runtime disable live TV (solo per canali normali)
+                    // FIX: usa config dell'utente, NON configCache globale
                     try {
-                        const cfg2 = { ...configCache } as AddonConfig;
-                        if (cfg2.disableLiveTv) {
+                        if ((config as any).disableLiveTv) {
                             console.log('📴 TV streams disabled by config.disableLiveTv');
                             return { streams: [] };
                         }
@@ -4335,10 +4335,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const toonitaliaEnabled = envFlag('TOONITALIA_ENABLED') ?? (config.toonitaliaEnabled === true);
                 console.log(`[ToonItalia] Flag status: ${toonitaliaEnabled} (env: ${envFlag('TOONITALIA_ENABLED')}, config: ${config.toonitaliaEnabled})`);
                 // Nuovo flag per inserire VixSrc nell'esecuzione parallela (prima era fuori e poteva saltare)
+                // FIX: usa config dell'utente, NON configCache globale
                 const vixsrcEnabled = (() => {
                     try {
-                        const cfg3 = { ...configCache } as AddonConfig;
-                        if (cfg3.disableVixsrc === true) return false;
+                        if ((config as any).disableVixsrc === true) return false;
                     } catch {}
                     return true; // default ON
                 })();
@@ -4876,7 +4876,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }
 
                 if (!vixsrcScheduled && !id.startsWith('kitsu:') && !id.startsWith('mal:') && !id.startsWith('tv:')) {
-                    try { const cfg3 = { ...configCache } as AddonConfig; if (cfg3.disableVixsrc === true) return { streams: allStreams }; } catch {}
+                    // FIX: usa config dell'utente, NON configCache globale
+                    try { if ((config as any).disableVixsrc === true) return { streams: allStreams }; } catch {}
                     const finalConfig: ExtractorConfig = {
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                         mfpUrl: mfpUrl,
