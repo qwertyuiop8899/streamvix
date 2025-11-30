@@ -8,7 +8,6 @@
  *  - Normalization of protocol and filtering self links
  *  - Delegation of embed resolution to per-host extractors
  * Only reduced to a single domain (mostraguarda.stream) and integrated with the local
- * flaresolverr helper (flaresolverr.ts) using SOLVER_URL. Thanks to webstreamr authors. MIT license retained.
  */
 import type { StreamForStremio } from '../types/animeunity';
 import { extractFromUrl } from '../extractors';
