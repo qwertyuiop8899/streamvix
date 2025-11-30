@@ -7,20 +7,14 @@ import { getDomain } from '../utils/domains';
 import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
 
 // Helper function to invoke the Python scraper
-async function invokePythonScraper(args: string[]): Promise<any> {
+// MFP config viene passata esplicitamente, con fallback a env vars per installazioni locali
+async function invokePythonScraper(args: string[], mfpConfig?: { mfpUrl?: string; mfpPassword?: string }): Promise<any> {
     const scriptPath = path.join(__dirname, 'animesaturn.py');
     const command = 'python3';
 
-    // Ottieni la config globale se disponibile
-    let mfpProxyUrl = '';
-    let mfpProxyPassword = '';
-    try {
-        // Cerca la config dall'ambiente
-        mfpProxyUrl = process.env.MFP_PROXY_URL || process.env.MFP_URL || '';
-        mfpProxyPassword = process.env.MFP_PROXY_PASSWORD || process.env.MFP_PSW || '';
-    } catch (e) {
-        console.error('Error getting MFP config:', e);
-    }
+    // MFP dalla config passata, fallback a env vars per installazioni locali
+    const mfpProxyUrl = mfpConfig?.mfpUrl || process.env.MFP_PROXY_URL || process.env.MFP_URL || '';
+    const mfpProxyPassword = mfpConfig?.mfpPassword || process.env.MFP_PROXY_PASSWORD || process.env.MFP_PSW || '';
 
     // Aggiungi gli argomenti proxy MFP se presenti
     if (mfpProxyUrl && mfpProxyPassword) {
