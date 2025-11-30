@@ -2367,33 +2367,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             try {
                 console.log(`🔍 Stream request: ${type}/${id}`);
 
-                // FIX: Usa SOLO la config dalla richiesta dell'utente, NON aggiornare mai configCache con MFP
-                // Questo evita che la config di un utente sovrascriva quella di un altro (race condition)
+                // FIX DEFINITIVO: L'MFP viene preso dalla config dell'utente (requestConfig)
+                // Se l'utente non ha MFP configurato, usa env vars come fallback (per installazioni locali)
+                // MAI dalla configCache globale (che era il bug - veniva contaminata da altri utenti)
                 let config: any = {};
                 if (requestConfig && Object.keys(requestConfig).length > 0) {
-                    // Usa la config dell'utente dalla richiesta
                     config = { ...requestConfig };
-                    console.log(`🔧 [MFP-FIX] Using user config from request: MFP=${config.mediaFlowProxyUrl ? 'SET' : 'MISSING'}`);
-                } else {
-                    // Nessuna config nella richiesta, usa solo env vars come fallback (NON configCache che è condivisa!)
-                    console.log(`🔧 [MFP-FIX] No user config in request, will use env vars as fallback`);
                 }
-                // NON aggiorniamo più configCache con MFP per evitare inquinamento tra utenti
+                
+                // MFP: prima dalla config utente, poi da env vars (per installazioni locali)
+                const mfpUrl = (config.mediaFlowProxyUrl || process.env.MFP_URL || '').toString().trim();
+                const mfpPsw = (config.mediaFlowProxyPassword || process.env.MFP_PSW || process.env.MFP_PASSWORD || '').toString().trim();
+                console.log(`🔧 [MFP] User config: url=${mfpUrl || '(none)'} pass=${mfpPsw ? 'SET' : '(none)'}`);
 
                 const allStreams: Stream[] = [];
-
-                // Prima della logica degli stream TV, aggiungi:
-                // Usa sempre lo stesso proxy per tutto
-                // MediaFlow config: allow fallback to environment variables if not provided via addon config
-                let mfpUrlRaw = '';
-                let mfpPswRaw = '';
-                try {
-                    mfpUrlRaw = (config.mediaFlowProxyUrl || (process && process.env && (process.env.MFP_URL || process.env.MEDIAFLOW_PROXY_URL)) || '').toString().trim();
-                    mfpPswRaw = (config.mediaFlowProxyPassword || (process && process.env && (process.env.MFP_PASSWORD || process.env.MEDIAFLOW_PROXY_PASSWORD)) || '').toString().trim();
-                } catch {}
-                let mfpUrl = mfpUrlRaw ? normalizeProxyUrl(mfpUrlRaw) : '';
-                let mfpPsw = mfpPswRaw;
-                debugLog(`[MFP] Using url=${mfpUrl ? 'SET' : 'MISSING'} pass=${mfpPsw ? 'SET' : 'MISSING'}`);
 
                 // === LOGICA TV ===
                 if (type === "tv") {
@@ -4059,10 +4046,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         debugLog(`[SPON][DEBUG] matched=0 for '${eventNameRaw}'`);
                                     } else {
                                         console.log(`[SPON] ✅ Event found: "${eventNameRaw}" → ${matched.length} streams`);
-                                        // FIXED: usa fallback a configCache se config è vuoto (seconda chiamata stream)
-                                        const effectiveConfig = (config && (config.mediaFlowProxyUrl || config.mediaFlowProxyPassword)) ? config : configCache;
-                                        const mfpUrl = (effectiveConfig.mediaFlowProxyUrl || process.env.MFP_URL || process.env.MEDIAFLOW_PROXY_URL || '').toString().trim();
-                                        const mfpPsw = (effectiveConfig.mediaFlowProxyPassword || process.env.MFP_PASSWORD || process.env.MEDIAFLOW_PROXY_PASSWORD || process.env.MFP_PSW || '').toString().trim();
+                                        // FIX DEFINITIVO: MFP viene SOLO dalla config utente, mai da cache o env
+                                        // Le variabili mfpUrl e mfpPsw sono già estratte all'inizio dello stream handler
                                         
                                         if (!mfpUrl) {
                                             // Skip silently (seconda chiamata senza config)
@@ -4363,24 +4348,24 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || streamingWatchEnabled || cb01Enabled || vixsrcEnabled)) {
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
-                        mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
-                        mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
+                        mfpUrl: mfpUrl,
+                        mfpPassword: mfpPsw,
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                         animeunityAuto: (()=>{ const v = (config as any).animeunityAuto; if (v===undefined) return undefined; return v===true || v==='true' || v==='on' || v===1; })(),
                         animeunityFhd: (()=>{ const v = (config as any).animeunityFhd; if (v===undefined) return undefined; return v===true || v==='true' || v==='on' || v===1; })(),
                     };
                     const animeSaturnConfig = {
                         enabled: animeSaturnEnabled,
-                        mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
-                        mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
-                        mfpProxyUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
-                        mfpProxyPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
+                        mfpUrl: mfpUrl,
+                        mfpPassword: mfpPsw,
+                        mfpProxyUrl: mfpUrl,
+                        mfpProxyPassword: mfpPsw,
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                     };
                     const animeWorldConfig = {
                         enabled: animeWorldEnabled,
-                        mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
-                        mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
+                        mfpUrl: mfpUrl,
+                        mfpPassword: mfpPsw,
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                     };
                     // Parsing stagione/episodio per IMDB/TMDB
@@ -4655,8 +4640,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         providerPromises.push(runProvider('VixSrc', true, async () => {
                             const finalConfig: ExtractorConfig = {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
-                                mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL,
-                                mfpPsw: config.mediaFlowProxyPassword || process.env.MFP_PSW,
+                                mfpUrl: mfpUrl,
+                                mfpPsw: mfpPsw,
                                 // vixLocal flag removed (property not in config)
                                 vixDual: !!(config as any)?.vixDual,
                                 // Propaga nuove checkbox per bridge interno
@@ -4740,8 +4725,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const gsProvider = new GuardaSerieProvider({
                                 enabled: true,
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
-                                mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
-                                mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || ''
+                                mfpUrl: mfpUrl,
+                                mfpPassword: mfpPsw
                             });
                             if (id.startsWith('tt')) return gsProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return gsProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
@@ -4756,8 +4741,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const ghProvider = new GuardaHdProvider({
                                 enabled: true,
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
-                                mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
-                                mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || ''
+                                mfpUrl: mfpUrl,
+                                mfpPassword: mfpPsw
                             });
                             if (id.startsWith('tt')) return ghProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
@@ -4771,8 +4756,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const { Cb01Provider } = await import('./providers/cb01-provider');
                             const cbProvider = new Cb01Provider({
                                 enabled: true,
-                                mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
-                                mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
+                                mfpUrl: mfpUrl,
+                                mfpPassword: mfpPsw,
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return cbProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
@@ -4797,8 +4782,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const { EurostreamingProvider } = await import('./providers/eurostreaming-provider');
                             const esProvider = new EurostreamingProvider({
                                 enabled: true,
-                                mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL || '',
-                                mfpPassword: config.mediaFlowProxyPassword || process.env.MFP_PSW || '',
+                                mfpUrl: mfpUrl,
+                                mfpPassword: mfpPsw,
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return esProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
@@ -4894,8 +4879,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     try { const cfg3 = { ...configCache } as AddonConfig; if (cfg3.disableVixsrc === true) return { streams: allStreams }; } catch {}
                     const finalConfig: ExtractorConfig = {
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
-                        mfpUrl: config.mediaFlowProxyUrl || process.env.MFP_URL,
-                        mfpPsw: config.mediaFlowProxyPassword || process.env.MFP_PSW,
+                        mfpUrl: mfpUrl,
+                        mfpPsw: mfpPsw,
                         // vixLocal flag removed
                         vixDual: !!(config as any)?.vixDual,
                         vixDirect: (config as any)?.vixDirect === true,
@@ -5311,12 +5296,15 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     // ...
 
     // Parse configuration from URL path segment once (before TV logic)
+    // FIX DEFINITIVO: NON scrivere MAI la config dell'utente nella cache globale!
+    // Ogni utente ha la sua config nel URL, non deve inquinare quella degli altri.
+    // La configCache è per settings del SERVER (env vars), non per config utente.
     if (configString && configString.length > 10 && !configString.startsWith('stream') && !configString.startsWith('meta') && !configString.startsWith('manifest')) {
         const parsedConfig = parseConfigFromArgs(configString);
         if (Object.keys(parsedConfig).length > 0) {
-            debugLog('🔧 Found valid config in URL, updating global cache');
-            Object.assign(configCache, parsedConfig);
-            debugLog('🔧 Updated global config cache:', configCache);
+            debugLog('🔧 Found valid config in URL (NOT updating global cache - user-specific)');
+            // NON FARE PIÙ: Object.assign(configCache, parsedConfig);
+            // La config dell'utente viene passata tramite requestConfig nell'SDK
         }
     }
 
