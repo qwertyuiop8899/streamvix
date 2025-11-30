@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.26](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.25...v1.10.26) (2025-11-30)
+
+
+### Bug Fixes
+
+* mfp cache ([972248b](https://github.com/qwertyuiop8899/streamvix/commit/972248ba94fc52669a9d062a714573cfb425c895))
+
 ## [1.10.25](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.24...v1.10.25) (2025-11-30)
 
 
