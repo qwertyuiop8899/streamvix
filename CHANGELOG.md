@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.28](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.27...v1.10.28) (2025-11-30)
+
+
+### Bug Fixes
+
+* remove SW e streamtape ([3ba6b5e](https://github.com/qwertyuiop8899/streamvix/commit/3ba6b5ebc65e7d10a9c1feb065adadbe1d891d9b))
+
 ## [1.10.27](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.26...v1.10.27) (2025-11-30)
 
 
