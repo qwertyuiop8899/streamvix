@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.27](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.26...v1.10.27) (2025-11-30)
+
+
+### Bug Fixes
+
+* disable vixsrc ([80975a2](https://github.com/qwertyuiop8899/streamvix/commit/80975a294e3bbd05bebb49dea40c7b15d0d90d04))
+
 ## [1.10.26](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.25...v1.10.26) (2025-11-30)
 
 
