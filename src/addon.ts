@@ -2367,22 +2367,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             try {
                 console.log(`🔍 Stream request: ${type}/${id}`);
 
-                // FIXED: Usa config dalla richiesta se disponibile, altrimenti usa cache
-                // e aggiorna cache se la richiesta ha MFP
-                let config = { ...configCache };
+                // FIX: Usa SOLO la config dalla richiesta dell'utente, NON aggiornare mai configCache con MFP
+                // Questo evita che la config di un utente sovrascriva quella di un altro (race condition)
+                let config: any = {};
                 if (requestConfig && Object.keys(requestConfig).length > 0) {
-                    console.log(`🔧 [SPON-FIX] Config received from request:`, requestConfig);
-                    config = { ...config, ...requestConfig };
-                    // Aggiorna cache se requestConfig ha MFP
-                    if (requestConfig.mediaFlowProxyUrl || requestConfig.mediaFlowProxyPassword) {
-                        console.log(`🔧 [SPON-FIX] Updating configCache with MFP from request`);
-                        Object.assign(configCache, {
-                            mediaFlowProxyUrl: requestConfig.mediaFlowProxyUrl || configCache.mediaFlowProxyUrl,
-                            mediaFlowProxyPassword: requestConfig.mediaFlowProxyPassword || configCache.mediaFlowProxyPassword
-                        });
-                    }
+                    // Usa la config dell'utente dalla richiesta
+                    config = { ...requestConfig };
+                    console.log(`🔧 [MFP-FIX] Using user config from request: MFP=${config.mediaFlowProxyUrl ? 'SET' : 'MISSING'}`);
+                } else {
+                    // Nessuna config nella richiesta, usa solo env vars come fallback (NON configCache che è condivisa!)
+                    console.log(`🔧 [MFP-FIX] No user config in request, will use env vars as fallback`);
                 }
-                console.log(`🔧 Using config for stream (MFP: ${config.mediaFlowProxyUrl ? 'SET' : 'MISSING'}):`, config);
+                // NON aggiorniamo più configCache con MFP per evitare inquinamento tra utenti
 
                 const allStreams: Stream[] = [];
 
