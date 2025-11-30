@@ -138,8 +138,10 @@ export class GuardaHdProvider {
     }).toArray().filter(Boolean) as string[];
     // Rimuove eventuali self host (non dovrebbero comparire come embed esterno)
     const external = urls.filter(u=> !/mostraguarda/gi.test(new URL(u).host));
+    // Filtra streamtape (non funziona)
+    const noStreamtape = external.filter(u => !/streamtape\.com/i.test(u));
     // Dedup
-    const dedup = Array.from(new Set(external)).slice(0,40);
+    const dedup = Array.from(new Set(noStreamtape)).slice(0,40);
     const out: StreamForStremio[] = [];
     const seen = new Set<string>();
     for (const eurl of dedup) {
