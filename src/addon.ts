@@ -4323,7 +4323,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (config.guardaserieEnabled === true);
                 const guardaHdEnabled = envFlag('GUARDAHD_ENABLED') ?? (config.guardahdEnabled === true);
                 const cb01Enabled = envFlag('CB01_ENABLED') ?? (config as any).cb01Enabled === true;
-                const streamingWatchEnabled = envFlag('STREAMINGWATCH_ENABLED') ?? (config as any).streamingwatchEnabled === true;
+                // StreamingWatch: env DISABLE_STREAMINGWATCH=true disabilita globalmente (anche se utente ha abilitato)
+                const streamingWatchDisabledGlobally = process.env.DISABLE_STREAMINGWATCH === 'true';
+                const streamingWatchEnabled = streamingWatchDisabledGlobally ? false : (envFlag('STREAMINGWATCH_ENABLED') ?? (config as any).streamingwatchEnabled === true);
                 // Eurostreaming: default ON unless explicitly disabled (config false) or env sets true/false
                 const eurostreamingEnv = envFlag('EUROSTREAMING_ENABLED');
                 const eurostreamingEnabled = eurostreamingEnv !== undefined
