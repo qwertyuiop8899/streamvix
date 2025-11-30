@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.25](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.24...v1.10.25) (2025-11-30)
+
+
+### Bug Fixes
+
+* config cache ([e57725b](https://github.com/qwertyuiop8899/streamvix/commit/e57725b1b0ae9eeef373a31e25f839d887c2454e))
+
 ## [1.10.24](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.23...v1.10.24) (2025-11-29)
 
 
