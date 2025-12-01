@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.30](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.29...v1.10.30) (2025-12-01)
+
+
+### Bug Fixes
+
+* mfp url ([ac3133f](https://github.com/qwertyuiop8899/streamvix/commit/ac3133f238c35593861d988b21df1cccdd569be0))
+* rm2 ([b31f8f1](https://github.com/qwertyuiop8899/streamvix/commit/b31f8f1ab7988994df6b542372e4663a48143768))
+
 ## [1.10.29](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.28...v1.10.29) (2025-11-30)
 
 
