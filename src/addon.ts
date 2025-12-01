@@ -372,18 +372,20 @@ const DYNAMIC_STREAM_TTL_MS = 5 * 60 * 1000; // 5 minuti
 
 async function resolveDynamicEventUrl(dUrl: string, providerTitle: string, mfpUrl?: string, mfpPsw?: string): Promise<{ url: string; title: string }> {
     if (!mfpUrl) return { url: dUrl, title: providerTitle };
-    const cacheKey = `${mfpUrl}|${mfpPsw || ''}|${dUrl}`;
+    // Normalizza mfpUrl per evitare doppio slash
+    const mfpBase = mfpUrl.replace(/\/+$/, '');
+    const cacheKey = `${mfpBase}|${mfpPsw || ''}|${dUrl}`;
     const now = Date.now();
     const cached = dynamicStreamCache.get(cacheKey);
     if (cached && (now - cached.ts) < DYNAMIC_STREAM_TTL_MS)
         return { url: cached.finalUrl, title: providerTitle };
     const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
-    const extractorUrl = `${mfpUrl}/extractor/video?host=DLHD&redirect_stream=false${passwordParam}&d=${encodeURIComponent(dUrl)}`;
+    const extractorUrl = `${mfpBase}/extractor/video?host=DLHD&redirect_stream=false${passwordParam}&d=${encodeURIComponent(dUrl)}`;
     try {
         const res = await fetch(extractorUrl);
         if (res.ok) {
             const data = await res.json();
-            let finalUrl = data.mediaflow_proxy_url || `${mfpUrl}/proxy/hls/manifest.m3u8`;
+            let finalUrl = data.mediaflow_proxy_url || `${mfpBase}/proxy/hls/manifest.m3u8`;
             if (data.query_params) {
                 const params = new URLSearchParams();
                 for (const [k, v] of Object.entries(data.query_params)) {
@@ -2376,7 +2378,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }
                 
                 // MFP: prima dalla config utente, poi da env vars (per installazioni locali)
-                const mfpUrl = (config.mediaFlowProxyUrl || process.env.MFP_URL || '').toString().trim();
+                // NORMALIZZA: rimuovi trailing slash per evitare doppi slash in URL tipo /proxy/...
+                const mfpUrl = (config.mediaFlowProxyUrl || process.env.MFP_URL || '').toString().trim().replace(/\/+$/, '');
                 const mfpPsw = (config.mediaFlowProxyPassword || process.env.MFP_PSW || process.env.MFP_PASSWORD || '').toString().trim();
                 console.log(`🔧 [MFP] User config: url=${mfpUrl || '(none)'} pass=${mfpPsw ? 'SET' : '(none)'}`);
 
