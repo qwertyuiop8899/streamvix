@@ -228,14 +228,37 @@ async function fetchRmChannels(): Promise<Record<string, string>> {
         
         try {
             console.log(`[RM] 📥 Downloading source ${i + 1}/3...`);
-            const response = await axios.get(url, { timeout: 30000 });
+            const response = await axios.get(url, { 
+                timeout: 30000,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'application/json, text/plain, */*',
+                    'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7'
+                }
+            });
             
             const channels = parseM3U(response.data);
             console.log(`[RM]   ✅ Parsed ${channels.length} channels`);
             
             allChannels.push(...channels);
         } catch (error: any) {
-            console.error(`[RM]   ❌ Error source ${i + 1}:`, error.message);
+            // Log dettagliato per debug 401/403
+            const status = error.response?.status;
+            const statusText = error.response?.statusText;
+            const respHeaders = error.response?.headers;
+            console.error(`[RM]   ❌ Error source ${i + 1}: ${error.message}`);
+            if (status) {
+                console.error(`[RM]   📊 Status: ${status} ${statusText || ''}`);
+                if (respHeaders) {
+                    // Log headers utili per capire se è antibot
+                    const cfRay = respHeaders['cf-ray'];
+                    const server = respHeaders['server'];
+                    const wwwAuth = respHeaders['www-authenticate'];
+                    if (cfRay) console.error(`[RM]   ☁️  Cloudflare Ray: ${cfRay}`);
+                    if (server) console.error(`[RM]   🖥️  Server: ${server}`);
+                    if (wwwAuth) console.error(`[RM]   🔐 WWW-Authenticate: ${wwwAuth}`);
+                }
+            }
         }
     }
     
@@ -259,6 +282,14 @@ async function fetchRmChannels(): Promise<Record<string, string>> {
 export async function updateRmChannels(): Promise<number> {
     try {
         console.log('[RM] 📥 Inizio aggiornamento canali MPD2...');
+        
+        // Log IP pubblico del server per debug
+        try {
+            const ipResp = await axios.get('https://api.ipify.org?format=json', { timeout: 5000 });
+            console.log(`[RM] 🌐 IP pubblico server: ${ipResp.data?.ip || 'unknown'}`);
+        } catch (e) {
+            console.log('[RM] 🌐 IP pubblico: impossibile determinare');
+        }
         
         // Scarica canali RM
         const rmChannels = await fetchRmChannels();
@@ -284,7 +315,14 @@ export async function updateRmChannels(): Promise<number> {
         for (const sourceBase64 of RM_SOURCES) {
             const url = Buffer.from(sourceBase64, 'base64').toString('utf-8');
             try {
-                const response = await axios.get(url, { timeout: 30000 });
+                const response = await axios.get(url, { 
+                    timeout: 30000,
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'application/json, text/plain, */*',
+                        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7'
+                    }
+                });
                 const channels = parseM3U(response.data);
                 allRmChannels.push(...channels);
             } catch (e) {
