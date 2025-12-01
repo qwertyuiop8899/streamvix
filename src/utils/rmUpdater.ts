@@ -1,29 +1,24 @@
 /**
  * RM Channel Updater
  * Aggiorna automaticamente il campo staticUrlMpd2 in tv_channels.json con i link MPD
- * Parsing di playlist M3U con emoji nei nomi
+ * Sorgente: env RM_SOURCE_URL
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
 
-// URL base64-encoded dei 3 file M3U (come amstaff pattern)
-const RM_SOURCES = [
-    'aHR0cHM6Ly9hbWF0aWF6LmNvbS9pdGFsaWEvREFMTEFTL0xBS0VSUy9YUk9NL0pTLVBMQVlFUi1MSVNUL0VQRy1MSVNULU0zVS94cm9tLWl0YWxpYS1pbnRyYXR0ZW5pbWVudG9fLV90Zy5qc29u',
-    'aHR0cHM6Ly9hbWF0aWF6LmNvbS9pdGFsaWEvREFMTEFTL0xBS0VSUy9YUk9NL0pTLVBMQVlFUi1MSVNUL0VQRy1MSVNULU0zVS94cm9tLWl0YWxpYS1zcG9ydHNfLV90Zy5qc29u',
-    'aHR0cHM6Ly9hbWF0aWF6LmNvbS9pdGFsaWEvREFMTEFTL0xBS0VSUy9YUk9NL0pTLVBMQVlFUi1MSVNUL0VQRy1MSVNULU0zVS94cm9tLWl0YWxpYS1jaW5lbWFfLV90Zy5qc29u'
-];
+// Sorgente M3U da variabile ambiente (per sicurezza)
+const RM_SOURCE = process.env.RM_SOURCE_URL || '';
 
-// Mapping tvg-id → vavooName per canali con nomi diversi
-const TVG_ID_MAPPING: Record<string, string> = {
-    'Sky.Sport.24.it': 'SKY SPORT 24',
-    'Sky.Sport.NBA.it': 'SKY SPORT NBA',
-    'Sky.Sport.Golf.it': 'SKY SPORT GOLF',  // TODO: aggiungere in tv_channels se non presente
-    'sky.tg24.it': 'SKY TG24',  // RM ha "SKY TG 24" (con spazio), vavooName è "SKY TG24" (senza)
-    'history.it': 'HISTORY CHANNEL',
-    'MTV.HD.it': 'MTV',
-    'Sky.Serie.Maratone.it': 'SKY COLLECTION'  // Sky Collection = Sky Serie Maratone
+// Mapping nomi canale M3U → vavooName per canali con nomi diversi
+const NAME_MAPPING: Record<string, string> = {
+    'SKY MTV': 'MTV',
+    'SKY HISTORY': 'HISTORY CHANNEL',
+    'SKY SPORT BASKET': 'SKY SPORT NBA',
+    'SKY TG 24': 'SKY TG24',
+    'SKY COMEDY CENTRAL': 'COMEDY CENTRAL',
+    'SKY SPORT GOLF': 'SKY SPORT GOLF'
 };
 
 interface RmChannel {
@@ -32,6 +27,8 @@ interface RmChannel {
     group: string;
     logo: string;
     url: string;
+    keyId?: string;
+    key?: string;
 }
 
 interface TVChannel {
@@ -62,9 +59,13 @@ function parseM3U(m3uText: string): RmChannel[] {
             
             // Nome canale dopo l'ultima virgola (include emoji)
             const commaIndex = line.lastIndexOf(',');
-            const name = commaIndex >= 0 ? line.substring(commaIndex + 1).trim() : '';
+            const rawName = commaIndex >= 0 ? line.substring(commaIndex + 1).trim() : '';
+            
+            // Rimuovi (MPD) suffix dal nome
+            const name = rawName.replace(/\s*\(MPD\)\s*/g, '').trim();
             
             // Cerca #KODIPROP license_key e URL nelle righe successive
+            // IMPORTANTE: continua a leggere TUTTE le righe del blocco per prendere sia URL che key
             let url = '';
             let keyId = '';
             let key = '';
@@ -75,36 +76,50 @@ function parseM3U(m3uText: string): RmChannel[] {
                 // Skip righe vuote
                 if (!nextLine) continue;
                 
-                // Estrae key_id:key da #KODIPROP
+                // Nuova EXTINF = fine blocco corrente
+                if (nextLine.startsWith('#EXTINF:')) {
+                    break;
+                }
+                
+                // Estrae key_id:key da #KODIPROP (può apparire PRIMA o DOPO l'URL)
                 if (nextLine.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
                     const licenseKey = nextLine.substring('#KODIPROP:inputstream.adaptive.license_key='.length);
                     const [extractedKeyId, extractedKey] = licenseKey.split(':');
-                    if (extractedKeyId && extractedKey) {
+                    if (extractedKeyId && extractedKey && extractedKeyId !== '0000') {
                         keyId = extractedKeyId.trim();
                         key = extractedKey.trim();
                     }
                     continue;
                 }
                 
-                // URL è la prima riga non-commento
-                if (!nextLine.startsWith('#')) {
+                // Skip altre righe #KODIPROP e #EXTVLCOPT
+                if (nextLine.startsWith('#')) {
+                    continue;
+                }
+                
+                // URL è la prima riga non-commento con http/https
+                if ((nextLine.startsWith('http://') || nextLine.startsWith('https://')) && !url) {
                     url = nextLine;
-                    
-                    // Se abbiamo key_id e key, aggiungili all'URL
-                    if (keyId && key) {
-                        url += `&key_id=${keyId}&key=${key}`;
-                    }
-                    break;
+                    // NON fare break qui! Continua a cercare la license_key
                 }
             }
             
-            if (url && tvgIdMatch) {
+            // Aggiungi solo se ha URL valido (non vuoto)
+            if (url && name) {
+                // Se abbiamo key_id e key, aggiungili all'URL come query params
+                if (keyId && key) {
+                    const separator = url.includes('?') ? '&' : '?';
+                    url += `${separator}key_id=${keyId}&key=${key}`;
+                }
+                
                 channels.push({
-                    tvg_id: tvgIdMatch[1],
+                    tvg_id: tvgIdMatch ? tvgIdMatch[1] : '',
                     name: name,
                     group: groupMatch ? groupMatch[1] : '',
                     logo: tvgLogoMatch ? tvgLogoMatch[1] : '',
-                    url: url
+                    url: url,
+                    keyId: keyId || undefined,
+                    key: key || undefined
                 });
             }
         }
@@ -123,9 +138,9 @@ function normalizeForMatching(name: string): string {
         .replace(/[0-9]\uFE0F?\u20E3/g, '')
         // POI rimuovi altri emoji e simboli
         .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // Emoji Unicode BMP Supplementary
-        .replace(/[\u{2600}-\u{26FF}]/gu, '') // Emoji Miscellaneous Symbols (⚽, ⛳, etc.)
-        .replace(/[\u{2700}-\u{27BF}]/gu, '') // Dingbats (✂️, ✏️, etc.)
-        .replace(/[\uFE00-\uFE0F]/g, '') // Variation Selectors (FE0F per emoji colorate)
+        .replace(/[\u{2600}-\u{26FF}]/gu, '') // Emoji Miscellaneous Symbols
+        .replace(/[\u{2700}-\u{27BF}]/gu, '') // Dingbats
+        .replace(/[\uFE00-\uFE0F]/g, '') // Variation Selectors
         .replace(/[\u20E3]/g, '') // Combining Enclosing Keycap residuo
         .replace(/[\u{E0000}-\u{E007F}]/gu, '') // Tags
         .replace(/📺|🎭|🏎️|🏀/g, '') // Emoji specifiche comuni
@@ -135,15 +150,14 @@ function normalizeForMatching(name: string): string {
 }
 
 /**
- * Match tvg-id con canale in tv_channels.json
- * Usa SOLO vavooNames per evitare false positive
+ * Match nome canale M3U con canale in tv_channels.json
+ * Usa vavooNames per matching + NAME_MAPPING per nomi speciali
  */
 function matchChannel(tvChannels: TVChannel[], rmChannel: RmChannel): TVChannel | null {
     const normalizedRmName = normalizeForMatching(rmChannel.name);
-    const tvgIdLower = rmChannel.tvg_id.toLowerCase();
     
-    // Prima controlla mapping speciale tvg-id
-    const mappedName = TVG_ID_MAPPING[rmChannel.tvg_id];
+    // Prima controlla mapping speciale
+    const mappedName = NAME_MAPPING[rmChannel.name.toUpperCase()];
     if (mappedName) {
         const normalizedMapped = normalizeForMatching(mappedName);
         for (const channel of tvChannels) {
@@ -158,17 +172,11 @@ function matchChannel(tvChannels: TVChannel[], rmChannel: RmChannel): TVChannel 
     }
     
     for (const channel of tvChannels) {
-        // Skip se non ha vavooNames (troppo rischioso fare match generico)
+        // Skip se non ha vavooNames
         if (!channel.vavooNames || channel.vavooNames.length === 0) {
             continue;
         }
         
-        // 1. Matching ESATTO su tvg-id (se presente in vavooNames)
-        if (channel.vavooNames.some(v => v.toLowerCase() === tvgIdLower)) {
-            return channel;
-        }
-        
-        // 2. Matching ESATTO su nome normalizzato (vavooNames)
         for (const vavooName of channel.vavooNames) {
             const normalizedVavoo = normalizeForMatching(vavooName);
             
@@ -177,35 +185,30 @@ function matchChannel(tvChannels: TVChannel[], rmChannel: RmChannel): TVChannel 
                 return channel;
             }
             
-            // NUOVO: Match su numero specifico per canali numerati (251, 252, etc.)
-            // Estrae numeri a 3 cifre dalla fine del nome (es. "SKY SPORT 251" -> "251")
+            // Match su numero specifico per canali numerati (251, 252, etc.)
             const rmNumberMatch = normalizedRmName.match(/\b(\d{3})\b$/);
             const vavooNumberMatch = normalizedVavoo.match(/\b(\d{3})\b$/);
             
             if (rmNumberMatch && vavooNumberMatch) {
                 // Se entrambi hanno numero a 3 cifre alla fine, devono matchare ESATTAMENTE
                 if (rmNumberMatch[1] !== vavooNumberMatch[1]) {
-                    continue; // Numeri diversi = NO match
+                    continue;
                 }
-                // Se numeri matchano, verifica anche prefisso (es. "SKY SPORT")
+                // Se numeri matchano, verifica anche prefisso
                 const rmPrefix = normalizedRmName.replace(/\s*\d{3}\s*$/, '').trim();
                 const vavooPrefix = normalizedVavoo.replace(/\s*\d{3}\s*$/, '').trim();
                 if (rmPrefix === vavooPrefix) {
-                    return channel; // Match perfetto: stesso prefisso + stesso numero
+                    return channel;
                 }
             }
             
-            // Match su parole chiave specifiche (evita match generico "SKY" o "SPORT")
-            // IMPORTANTE: Solo se NON ci sono numeri a 3 cifre (evita match generico "SKY SPORT" per canali numerati)
+            // Match su parole chiave specifiche
             if (!rmNumberMatch && !vavooNumberMatch) {
-                // Richiede almeno 2 parole in comune E lunghezza nome > 8 caratteri
                 const rmWords = normalizedRmName.split(' ').filter(w => w.length > 3);
                 const vavooWords = normalizedVavoo.split(' ').filter(w => w.length > 3);
                 
                 if (rmWords.length >= 2 && vavooWords.length >= 2) {
                     const commonWords = rmWords.filter(w => vavooWords.includes(w));
-                    
-                    // Se hanno almeno 2 parole significative in comune
                     if (commonWords.length >= 2) {
                         return channel;
                     }
@@ -218,62 +221,32 @@ function matchChannel(tvChannels: TVChannel[], rmChannel: RmChannel): TVChannel 
 }
 
 /**
- * Scarica e parsa tutti i file M3U
+ * Scarica e parsa il file M3U
  */
-async function fetchRmChannels(): Promise<Record<string, string>> {
-    const allChannels: RmChannel[] = [];
+async function fetchRmChannels(): Promise<RmChannel[]> {
+    if (!RM_SOURCE) {
+        console.log('[RM] ⚠️  RM_SOURCE_URL non configurato, skip update');
+        return [];
+    }
     
-    for (let i = 0; i < RM_SOURCES.length; i++) {
-        const url = Buffer.from(RM_SOURCES[i], 'base64').toString('utf-8');
-        
-        try {
-            console.log(`[RM] 📥 Downloading source ${i + 1}/3...`);
-            const response = await axios.get(url, { 
-                timeout: 30000,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'application/json, text/plain, */*',
-                    'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7'
-                }
-            });
-            
-            const channels = parseM3U(response.data);
-            console.log(`[RM]   ✅ Parsed ${channels.length} channels`);
-            
-            allChannels.push(...channels);
-        } catch (error: any) {
-            // Log dettagliato per debug 401/403
-            const status = error.response?.status;
-            const statusText = error.response?.statusText;
-            const respHeaders = error.response?.headers;
-            console.error(`[RM]   ❌ Error source ${i + 1}: ${error.message}`);
-            if (status) {
-                console.error(`[RM]   📊 Status: ${status} ${statusText || ''}`);
-                if (respHeaders) {
-                    // Log headers utili per capire se è antibot
-                    const cfRay = respHeaders['cf-ray'];
-                    const server = respHeaders['server'];
-                    const wwwAuth = respHeaders['www-authenticate'];
-                    if (cfRay) console.error(`[RM]   ☁️  Cloudflare Ray: ${cfRay}`);
-                    if (server) console.error(`[RM]   🖥️  Server: ${server}`);
-                    if (wwwAuth) console.error(`[RM]   🔐 WWW-Authenticate: ${wwwAuth}`);
-                }
+    try {
+        console.log(`[RM] 📥 Downloading from RM_SOURCE_URL...`);
+        const response = await axios.get(RM_SOURCE, { 
+            timeout: 60000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': '*/*'
             }
-        }
+        });
+        
+        const channels = parseM3U(response.data);
+        console.log(`[RM] ✅ Parsed ${channels.length} channels`);
+        
+        return channels;
+    } catch (error: any) {
+        console.error(`[RM] ❌ Error downloading: ${error.message}`);
+        return [];
     }
-    
-    console.log(`[RM] ✅ Total channels: ${allChannels.length}`);
-    
-    // Converti in Record<tvg_id, base64_url>
-    const processedChannels: Record<string, string> = {};
-    
-    for (const channel of allChannels) {
-        // Codifica URL in base64 (come amstaff)
-        const urlBase64 = Buffer.from(channel.url).toString('base64');
-        processedChannels[channel.tvg_id] = urlBase64;
-    }
-    
-    return processedChannels;
 }
 
 /**
@@ -283,62 +256,55 @@ export async function updateRmChannels(): Promise<number> {
     try {
         console.log('[RM] 📥 Inizio aggiornamento canali MPD2...');
         
-        // Log IP pubblico del server per debug
-        try {
-            const ipResp = await axios.get('https://api.ipify.org?format=json', { timeout: 5000 });
-            console.log(`[RM] 🌐 IP pubblico server: ${ipResp.data?.ip || 'unknown'}`);
-        } catch (e) {
-            console.log('[RM] 🌐 IP pubblico: impossibile determinare');
-        }
-        
         // Scarica canali RM
         const rmChannels = await fetchRmChannels();
-        const rmCount = Object.keys(rmChannels).length;
         
-        if (rmCount === 0) {
+        if (rmChannels.length === 0) {
             console.log('[RM] ⚠️  Nessun canale scaricato');
             return 0;
         }
         
-        console.log(`[RM] ✅ Scaricati ${rmCount} canali`);
+        // Filtra solo canali Sky (per questo updater)
+        const skyChannels = rmChannels.filter(ch => 
+            ch.name.toUpperCase().includes('SKY') ||
+            ch.tvg_id.toLowerCase().includes('sky')
+        );
+        console.log(`[RM] 🎯 Canali Sky trovati: ${skyChannels.length}`);
         
-        // Legge tv_channels.json (stesso path di amstaff)
+        // Legge tv_channels.json
         const tvChannelsPath = path.join(__dirname, '../../config/tv_channels.json');
         console.log(`[RM] 📁 Percorso file: ${tvChannelsPath}`);
         const tvChannelsData = fs.readFileSync(tvChannelsPath, 'utf-8');
         const tvChannels: TVChannel[] = JSON.parse(tvChannelsData);
         
         let updates = 0;
-        
-        // Parsing completo delle sorgenti per matching migliore
-        const allRmChannels: RmChannel[] = [];
-        for (const sourceBase64 of RM_SOURCES) {
-            const url = Buffer.from(sourceBase64, 'base64').toString('utf-8');
-            try {
-                const response = await axios.get(url, { 
-                    timeout: 30000,
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Accept': 'application/json, text/plain, */*',
-                        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7'
-                    }
-                });
-                const channels = parseM3U(response.data);
-                allRmChannels.push(...channels);
-            } catch (e) {
-                // Già loggato sopra
-            }
-        }
+        const matched: string[] = [];
+        const unmatched: string[] = [];
         
         // Match e update
-        for (const rmChannel of allRmChannels) {
+        for (const rmChannel of skyChannels) {
             const matchedChannel = matchChannel(tvChannels, rmChannel);
             
             if (matchedChannel) {
                 const urlBase64 = Buffer.from(rmChannel.url).toString('base64');
                 matchedChannel.staticUrlMpd2 = urlBase64;
                 updates++;
-                console.log(`[RM]   ✅ ${matchedChannel.name} <- ${rmChannel.name} (${rmChannel.tvg_id})`);
+                matched.push(`${matchedChannel.name} <- ${rmChannel.name}`);
+            } else {
+                unmatched.push(rmChannel.name);
+            }
+        }
+        
+        // Log risultati
+        console.log(`[RM] ✅ Matched ${updates} canali:`);
+        for (const m of matched) {
+            console.log(`[RM]   ✅ ${m}`);
+        }
+        
+        if (unmatched.length > 0) {
+            console.log(`[RM] ⚠️  Unmatched ${unmatched.length} canali:`);
+            for (const u of unmatched) {
+                console.log(`[RM]   ❌ ${u}`);
             }
         }
         
@@ -347,7 +313,7 @@ export async function updateRmChannels(): Promise<number> {
             fs.writeFileSync(tvChannelsPath, JSON.stringify(tvChannels, null, 2), 'utf-8');
             console.log(`[RM] ✅ Aggiornati ${updates} canali con staticUrlMpd2`);
             
-            // Trigger reload (come amstaff)
+            // Trigger reload
             try {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 
