@@ -6,6 +6,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import axios from 'axios';
 
 // URL base64-encoded
 const _MPDX_URL_B64 = 'aHR0cHM6Ly9zcG9ydC5hbGVtYWdubzE5OTRhbGV4LndvcmtlcnMuZGV2Lw==';
@@ -134,10 +135,14 @@ export async function updateMpdxChannels(): Promise<number> {
         console.log('[MPDx] 📥 Inizio aggiornamento canali MPDx...');
         
         const url = _d(_MPDX_URL_B64);
-        const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const response = await axios.get(url, { 
+            timeout: 60000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
         
-        const jsonData = await response.json() as Array<{ text: string; idx: number }>;
+        const jsonData = response.data as Array<{ text: string; idx: number }>;
         console.log(`[MPDx] Downloaded ${jsonData.length} sections`);
         
         // Combina tutti i testi M3U
