@@ -9,6 +9,7 @@ import * as crypto from 'crypto';
 import { execSync } from 'child_process';
 import * as os from 'os';
 import * as path from 'path';
+import axios from 'axios';
 
 // Helper per decodificare base64
 const _d = (s: string): string => Buffer.from(s, 'base64').toString('utf8');
@@ -43,15 +44,14 @@ async function fetchJsFuckFromEdroid(): Promise<string | null> {
         const edroidUrl = _d(_EDROID_B64);
         console.log('[MPDz] Fetching e-droid page for JsFuck...');
         
-        const response = await fetch(edroidUrl, { 
-            signal: AbortSignal.timeout(30000) 
+        const response = await axios.get(edroidUrl, { 
+            timeout: 60000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        let html = await response.text();
+        let html = response.data;
         
         // Applica le sostituzioni
         html = html.replace(/@CCORCH@/g, ']').replace(/@MNQ@/g, '<');
@@ -300,10 +300,14 @@ export async function updateMpdzChannels(): Promise<number> {
         
         // Scarica e decripta
         const Url = _d(__B64);
-        const response = await fetch(Url, { signal: AbortSignal.timeout(30000) });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const response = await axios.get(Url, { 
+            timeout: 60000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
         
-        const encrypted = await response.text();
+        const encrypted = response.data;
         console.log(`[MPDz] Downloaded ${encrypted.length} chars`);
         
         const passphrase = await getPassphrase();
