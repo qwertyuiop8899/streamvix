@@ -1,7 +1,6 @@
 /**
  * MPDx Channel Updater
  * Aggiorna automaticamente il campo staticUrlMpdx in tv_channels.json
- * con i link MPD da  worker (pattern come rmUpdater/amstaffUpdater)
  */
 
 import * as fs from 'fs';
