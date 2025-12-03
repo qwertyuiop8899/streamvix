@@ -39,7 +39,7 @@ COMMON_HEADERS = {
 HEADERS = {"User-Agent": USER_AGENT}
 SESSION = requests.Session()  # sessione globale condivisa
 DEBUG_MODE = os.getenv("ANIMESATURN_DEBUG", "0") == "1"
-TIMEOUT = 30
+TIMEOUT = 60
 
 def debug(msg: str):
     if DEBUG_MODE:
