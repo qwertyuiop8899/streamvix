@@ -46,7 +46,7 @@ HEADERS = {
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1"
 }
-TIMEOUT = 8
+TIMEOUT = 60
 
 def get_session_tokens():
     """Recupera token di sessione per le richieste API"""
