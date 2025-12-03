@@ -13,7 +13,7 @@ const englishTitleCache = new Map<string, string>();
 // Helper to invoke python scraper with timeout & timing logs
 async function invokePython(args: string[], timeoutOverrideMs?: number): Promise<any> {
   const scriptPath = path.join(__dirname, 'animeworld_scraper.py');
-  const timeoutMsBase = parseInt(process.env.ANIMEWORLD_PY_TIMEOUT || '20000', 10); // default 20s
+  const timeoutMsBase = parseInt(process.env.ANIMEWORLD_PY_TIMEOUT || '60000', 10); // default 20s
   const timeoutMs = timeoutOverrideMs || timeoutMsBase;
   const start = Date.now();
   console.log('[AnimeWorld][PY] spawn', args.join(' '));
