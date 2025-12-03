@@ -67,12 +67,12 @@ def security_cookie(text: str):
 
 def fetch(url: str, cookies=None, allow_retry=True):
     cookies = cookies or {}
-    r = requests.get(url, headers=rand_headers(), cookies=cookies, timeout=25, verify=False)
+    r = requests.get(url, headers=rand_headers(), cookies=cookies, timeout=45, verify=False)
     if allow_retry and r.status_code == 202:
         ck = security_cookie(r.text)
         if ck:
             cookies.update(ck)
-            r = requests.get(url, headers=rand_headers(), cookies=cookies, timeout=25, verify=False)
+            r = requests.get(url, headers=rand_headers(), cookies=cookies, timeout=45, verify=False)
     return r, cookies
 
 def search(query: str, date: str = None) -> List[Dict[str, Any]]:
