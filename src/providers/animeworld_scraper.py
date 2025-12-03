@@ -193,7 +193,7 @@ def get_mp4_from_page(url: str, cookies=None) -> Optional[str]:
     if a_tag and a_tag.get('href'):
         test = a_tag['href']
         try:
-            h = requests.head(test, timeout=15, verify=False)
+            h = requests.head(test, timeout=45, verify=False)
             if h.status_code == 404:
                 return None
         except Exception:
