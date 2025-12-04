@@ -63,7 +63,7 @@ async function fetchFreeshot(code: string): Promise<FreeShotResolved> {
       timeout: 15000,
       headers: {
         'User-Agent': UA,
-        'Referer': `https://freeshot.live/embed/${code}.php`,
+        'Referer': 'https://thisnot.business/',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
       }
     });
@@ -74,14 +74,17 @@ async function fetchFreeshot(code: string): Promise<FreeShotResolved> {
       return ret;
     }
     const iframeUrl = iframeMatch[1];
+    
+    // Estrazione token per compatibilità (opzionale se usiamo replace)
     const tokenMatch = iframeUrl.match(/token=([A-Za-z0-9_-]+)/);
-    if (!tokenMatch) {
-      ret.error = 'token non trovato';
-      return ret;
+    if (tokenMatch) {
+      ret.token = tokenMatch[1];
     }
-    const token = tokenMatch[1];
-    ret.token = token;
-    ret.url = `https://beautifulpeople.lovecdn.ru/${code}/index.fmp4.m3u8?token=${token}`;
+
+    // Costruzione URL finale sostituendo embed.html con index.fmp4.m3u8
+    // Questo preserva host dinamico e tutti i parametri (token, remote, ecc.)
+    ret.url = iframeUrl.replace('embed.html', 'index.fmp4.m3u8');
+    
     return ret;
   } catch (e: any) {
     ret.error = e?.message || String(e);
