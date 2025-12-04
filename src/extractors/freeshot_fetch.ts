@@ -36,7 +36,7 @@ async function resolveCode(code: string): Promise<FreeShotResult> {
       timeout: 15000,
       headers: {
         'User-Agent': UA,
-        'Referer': `https://freeshot.live/embed/${code}.php`,
+        'Referer': 'https://thisnot.business/',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
       }
     });
@@ -51,15 +51,12 @@ async function resolveCode(code: string): Promise<FreeShotResult> {
     ret.iframe = iframeUrl;
 
     const tokenMatch = iframeUrl.match(/token=([A-Za-z0-9_-]+)/);
-    if (!tokenMatch) {
-      ret.error = 'token non trovato';
-      return ret;
+    if (tokenMatch) {
+      ret.token = tokenMatch[1];
     }
-    const token = tokenMatch[1];
-    ret.token = token;
 
-    // Costruzione URL finale HLS come da Python
-    ret.m3u8 = `https://beautifulpeople.lovecdn.ru/${code}/index.fmp4.m3u8?token=${token}`;
+    // Costruzione URL finale HLS dinamico
+    ret.m3u8 = iframeUrl.replace('embed.html', 'index.fmp4.m3u8');
     return ret;
   } catch (err: any) {
     ret.error = err?.message || String(err);
