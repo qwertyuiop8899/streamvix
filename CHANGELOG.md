@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.35](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.34...v1.10.35) (2025-12-04)
+
+
+### Bug Fixes
+
+* cb01 accetta senza psw ([44f640c](https://github.com/qwertyuiop8899/streamvix/commit/44f640c94af5f9f4b87fa08fc94b9f742f6d7f42))
+* imeout ([b9d370c](https://github.com/qwertyuiop8899/streamvix/commit/b9d370c7329b7d8d8e5682cfa9c27abc7feefe36))
+
 ## [1.10.34](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.33...v1.10.34) (2025-12-03)
 
 
