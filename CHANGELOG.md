@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.10.36](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.35...v1.10.36) (2025-12-04)
+
+
+### Bug Fixes
+
+* amstaff diff channels ([4a8c93b](https://github.com/qwertyuiop8899/streamvix/commit/4a8c93b859de4c74777aaeae1694fb29a9e2f441))
+* mpdx refresh safe ([88c60c4](https://github.com/qwertyuiop8899/streamvix/commit/88c60c4a94f32e600d1153a17565864cf76dfcff))
+* mpdz safe refresh ([23111cc](https://github.com/qwertyuiop8899/streamvix/commit/23111cc9e7d636f801832f26f98bcaab00eb14b7))
+* safe refresh rm ([ddcf4b0](https://github.com/qwertyuiop8899/streamvix/commit/ddcf4b097719804196ff8aedf60906b00ee52a02))
+
 ## [1.10.35](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.34...v1.10.35) (2025-12-04)
 
 
