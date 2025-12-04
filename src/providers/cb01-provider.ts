@@ -52,7 +52,8 @@ export class Cb01Provider {
 
   async handleImdbRequest(imdbId:string, season:number|null, episode:number|null, isMovie:boolean){
     if(!this.config.enabled) return { streams: [] };
-    if(!this.config.mfpUrl || !this.config.mfpPassword) return { streams: [] };
+    // ✅ MODIFICATO: Permetti l'esecuzione anche se la password è vuota, purché ci sia l'URL
+    if(!this.config.mfpUrl) return { streams: [] };
     const key = `${imdbId}|${isMovie?'movie':'series'}|${season||''}|${episode||''}`;
     const c = this.cache.get(key); if(c && Date.now()-c.ts < this.TTL) return { streams:c.streams };
     try {
