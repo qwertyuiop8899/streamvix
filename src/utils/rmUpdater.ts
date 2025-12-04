@@ -287,9 +287,12 @@ export async function updateRmChannels(): Promise<number> {
             
             if (matchedChannel) {
                 const urlBase64 = Buffer.from(rmChannel.url).toString('base64');
-                matchedChannel.staticUrlMpd2 = urlBase64;
-                updates++;
-                matched.push(`${matchedChannel.name} <- ${rmChannel.name}`);
+                // Aggiorna solo se il link è effettivamente cambiato
+                if (matchedChannel.staticUrlMpd2 !== urlBase64) {
+                    matchedChannel.staticUrlMpd2 = urlBase64;
+                    updates++;
+                    matched.push(`${matchedChannel.name} <- ${rmChannel.name} (UPDATED)`);
+                }
             } else {
                 unmatched.push(rmChannel.name);
             }
