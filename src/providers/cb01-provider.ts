@@ -91,24 +91,52 @@ export class Cb01Provider {
 
     // Attempt 1: Direct fetch (no proxy)
     try {
-      const res = await fetch(url, { headers });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+      const res = await fetch(url, { headers, signal: controller.signal });
+      clearTimeout(timeoutId);
       if(!res.ok) throw new Error('http '+res.status);
       return await res.text();
     } catch (error: any) {
       const status = error.message?.match(/http (\d+)/)?.[1];
+      const isTimeout = error.name === 'AbortError';
       
-      // Only retry with proxy if IP is blocked (403/400)
-      if (status !== '403' && status !== '400') {
+      // Retry if blocked (403/400) or timeout
+      if (status !== '403' && status !== '400' && !isTimeout) {
         throw error;
       }
       
-      log('IP blocked ('+status+'), trying with proxies...');
+      log(`Direct fetch failed (${isTimeout ? 'timeout' : status}), trying proxies...`);
     }
 
-    // Attempt 2: Try with DLHD_PROXY (timeout 5s)
+    // Attempt 2: Try with PROXY (fallback)
+    if (process.env.PROXY) {
+      try {
+        log('Trying PROXY (timeout 10s)...');
+        const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+        const proxyAgent = new HttpsProxyAgent(process.env.PROXY, {
+          rejectUnauthorized: false
+        });
+        
+        const response = await axios.get(url, {
+          headers,
+          httpsAgent: proxyAgent,
+          proxy: false,
+          timeout: 10000  // 10 secondi
+        });
+        
+        log('✅ PROXY works for', url);
+        return response.data;
+      } catch (proxyError: any) {
+        warn('PROXY failed:', proxyError.message);
+        // Continue to DLHD_PROXY fallback
+      }
+    }
+
+    // Attempt 3: Try with DLHD_PROXY (timeout 4s)
     if (process.env.DLHD_PROXY) {
       try {
-        log('Trying DLHD_PROXY (timeout 3s)...');
+        log('Trying DLHD_PROXY (timeout 4s)...');
         const httpsAgent = new https.Agent({ rejectUnauthorized: false });
         const proxyAgent = new HttpsProxyAgent(process.env.DLHD_PROXY, {
           rejectUnauthorized: false
@@ -124,37 +152,7 @@ export class Cb01Provider {
         log('✅ DLHD_PROXY works for', url);
         return response.data;
       } catch (proxyError: any) {
-        const isTimeout = proxyError.code === 'ECONNABORTED' || proxyError.message?.includes('timeout');
-        if (isTimeout) {
-          warn('DLHD_PROXY timeout after 5s, trying PROXY fallback...');
-        } else {
-          warn('DLHD_PROXY failed:', proxyError.message);
-        }
-        // Continue to PROXY fallback
-      }
-    }
-
-    // Attempt 3: Try with PROXY (fallback)
-    if (process.env.PROXY) {
-      try {
-        log('Trying PROXY fallback...');
-        const httpsAgent = new https.Agent({ rejectUnauthorized: false });
-        const proxyAgent = new HttpsProxyAgent(process.env.PROXY, {
-          rejectUnauthorized: false
-        });
-        
-        const response = await axios.get(url, {
-          headers,
-          httpsAgent: proxyAgent,
-          proxy: false,
-          timeout: 10000  // 10 secondi per fallback
-        });
-        
-        log('✅ PROXY fallback works for', url);
-        return response.data;
-      } catch (proxyError: any) {
-        warn('PROXY fallback failed:', proxyError.message);
-        throw proxyError;
+        warn('DLHD_PROXY failed:', proxyError.message);
       }
     }
 
