@@ -336,9 +336,12 @@ export async function updateMpdzChannels(): Promise<number> {
             
             if (matchedChannel) {
                 const urlBase64 = Buffer.from(mpdzCh.url).toString('base64');
-                matchedChannel.staticUrlMpdz = urlBase64;
-                updates++;
-                console.log(`[MPDz]   ✅ ${matchedChannel.name} <- ${mpdzCh.name}`);
+                // Aggiorna solo se il link è effettivamente cambiato
+                if (matchedChannel.staticUrlMpdz !== urlBase64) {
+                    matchedChannel.staticUrlMpdz = urlBase64;
+                    updates++;
+                    console.log(`[MPDz]   ✅ ${matchedChannel.name} <- ${mpdzCh.name} (UPDATED)`);
+                }
             }
         }
         
