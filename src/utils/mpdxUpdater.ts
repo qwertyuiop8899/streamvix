@@ -183,9 +183,12 @@ export async function updateMpdxChannels(): Promise<number> {
             
             if (matchedChannel) {
                 const urlBase64 = Buffer.from(mpdxCh.url).toString('base64');
-                matchedChannel.staticUrlMpdx = urlBase64;
-                updates++;
-                console.log(`[MPDx]   ✅ ${matchedChannel.name} <- ${mpdxCh.name}`);
+                // Aggiorna solo se il link è effettivamente cambiato
+                if (matchedChannel.staticUrlMpdx !== urlBase64) {
+                    matchedChannel.staticUrlMpdx = urlBase64;
+                    updates++;
+                    console.log(`[MPDx]   ✅ ${matchedChannel.name} <- ${mpdxCh.name} (UPDATED)`);
+                }
             }
         }
         
