@@ -266,9 +266,13 @@ export async function updateAmstaffChannels(): Promise<number> {
                     );
                     
                     if (matchingKey) {
-                        channel.staticUrlMpd = amstaffChannels[matchingKey];
-                        updates++;
-                        console.log(`[AMSTAFF]   ✅ ${channel.name} (${vavooName} -> ${matchingKey})`);
+                        const newUrl = amstaffChannels[matchingKey];
+                        // Aggiorna solo se il link è effettivamente cambiato
+                        if (channel.staticUrlMpd !== newUrl) {
+                            channel.staticUrlMpd = newUrl;
+                            updates++;
+                            console.log(`[AMSTAFF]   ✅ ${channel.name} (${vavooName} -> ${matchingKey}) (UPDATED)`);
+                        }
                         break;
                     }
                 }
