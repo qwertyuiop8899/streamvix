@@ -91,24 +91,76 @@ function normalizeName(name: string): string {
         .trim();
 }
 
+
+/**
+ * Normalizza rimuovendo anche gli spazi
+ */
+function normalizeStrict(name: string): string {
+    return normalizeName(name).replace(/\s/g, '');
+}
+
 /**
  * Match canale MPDx con tv_channels.json
  */
-function matchChannel(tvChannels: TVChannel[], mpdxName: string): TVChannel | null {
+function matchChannel(tvChannels: TVChannel[], mpdxCh: MpdxChannel): TVChannel | null {
+    const mpdxName = mpdxCh.name;
     const normalizedMpdx = normalizeName(mpdxName);
+    const strictMpdx = normalizeStrict(mpdxName);
     
+    // Extract ID from URL if possible
+    // URL format: .../channel(skycinemaaction)/...
+    const urlIdMatch = mpdxCh.url.match(/channel\(([^)]+)\)/);
+    const urlId = urlIdMatch ? urlIdMatch[1] : null;
+
+    if (urlId) {
+        // Try to match by ID first (very reliable)
+        // Check against channel.id (normalized) or epgChannelIds
+        const normalizedUrlId = urlId.toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        for (const channel of tvChannels) {
+            const chId = channel.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (chId === normalizedUrlId) return channel;
+            
+            // Flexible ID matching
+            if (chId.length > 3 && normalizedUrlId.includes(chId)) return channel;
+            if (normalizedUrlId.length > 3 && chId.includes(normalizedUrlId)) return channel;
+            
+            // Check epgChannelIds
+            if (channel.epgChannelIds) {
+                for (const epgId of channel.epgChannelIds) {
+                     if (epgId.toLowerCase().includes(urlId.toLowerCase())) return channel;
+                }
+            }
+        }
+        // If we found an ID but didn't match, log it
+        // if (mpdxName.toUpperCase().includes('CINEMA')) {
+        //      console.log(`[DEBUG] URL ID found: '${urlId}' (Norm: ${normalizedUrlId}) but no match in tv_channels.json`);
+        // }
+    } else {
+        // if (mpdxName.toUpperCase().includes('CINEMA')) {
+        //    console.log(`[DEBUG] No URL ID found for '${mpdxName}' in URL: ${mpdxCh.url}`);
+        // }
+    }
+
+    // Fallback to Name Matching
     for (const channel of tvChannels) {
         // Match esatto su vavooNames
         if (channel.vavooNames) {
             for (const vn of channel.vavooNames) {
                 const normalizedVavoo = normalizeName(vn);
+                const strictVavoo = normalizeStrict(vn);
+                
                 if (normalizedMpdx === normalizedVavoo) return channel;
+                if (strictMpdx === strictVavoo) return channel;
             }
         }
         
         // Match su name
         const normalizedName = normalizeName(channel.name);
+        const strictName = normalizeStrict(channel.name);
+        
         if (normalizedMpdx === normalizedName) return channel;
+        if (strictMpdx === strictName) return channel;
         
         // Match parziale per canali numerati (es. SKY SPORT 251)
         const mpdxNumMatch = normalizedMpdx.match(/(\d{3})$/);
@@ -123,6 +175,11 @@ function matchChannel(tvChannels: TVChannel[], mpdxName: string): TVChannel | nu
         if (normalizedMpdx.length > 5 && normalizedName.includes(normalizedMpdx)) return channel;
         if (normalizedName.length > 5 && normalizedMpdx.includes(normalizedName)) return channel;
     }
+    
+    // if (mpdxName.toUpperCase().includes('CINEMA')) {
+    //    console.log(`[DEBUG] Name match failed for '${mpdxName}' (Norm: '${normalizedMpdx}')`);
+    //    console.log(`[DEBUG] Full URL: ${mpdxCh.url}`);
+    // }
     return null;
 }
 
@@ -176,22 +233,31 @@ export async function updateMpdxChannels(): Promise<number> {
         const tvChannels: TVChannel[] = JSON.parse(tvChannelsData);
         
         let updates = 0;
+        let matches = 0;
         
         // Match e update
         for (const mpdxCh of mpdxChannels) {
-            const matchedChannel = matchChannel(tvChannels, mpdxCh.name);
+            const matchedChannel = matchChannel(tvChannels, mpdxCh);
             
             if (matchedChannel) {
+                matches++;
                 const urlBase64 = Buffer.from(mpdxCh.url).toString('base64');
                 // Aggiorna solo se il link è effettivamente cambiato
                 if (matchedChannel.staticUrlMpdx !== urlBase64) {
                     matchedChannel.staticUrlMpdx = urlBase64;
                     updates++;
                     console.log(`[MPDx]   ✅ ${matchedChannel.name} <- ${mpdxCh.name} (UPDATED)`);
+                } else {
+                     // Debug per verificare che il match avvenga
+                     // console.log(`[MPDx]   ℹ️  ${matchedChannel.name} matched (already up to date)`);
                 }
+            } else {
+                console.log(`[MPDx] ⚠️ Unmatched: '${mpdxCh.name}'`);
             }
         }
         
+        console.log(`[MPDx] 📊 Matched ${matches}/${mpdxChannels.length} channels`);
+
         if (updates > 0) {
             // Salva file aggiornato
             fs.writeFileSync(tvChannelsPath, JSON.stringify(tvChannels, null, 2), 'utf-8');
@@ -221,7 +287,7 @@ export async function updateMpdxChannels(): Promise<number> {
                 console.log('[MPDx] ⚠️  Errore trigger reload');
             }
         } else {
-            console.log('[MPDx] ⚠️  Nessun canale matchato');
+            console.log('[MPDx] ℹ️  Nessun canale aggiornato (tutti già aggiornati)');
         }
         
         return updates;
