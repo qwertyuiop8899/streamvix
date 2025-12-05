@@ -10,7 +10,7 @@ import { AnimeWorldProvider } from './providers/animeworld-provider';
 import { KitsuProvider } from './providers/kitsu';
 import { formatMediaFlowUrl } from './utils/mediaflow';
 import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels, getDynamicFilePath, getDynamicFileStats } from './utils/dynamicChannels';
-// --- Lightweight declarations to avoid TS complaints if @types/node non installati --- 
+// --- Lightweight declarations to avoid TS complaints if @types/node non installati ---
 // (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const __dirname: string;
@@ -34,8 +34,7 @@ import { resolveGdplayerForChannel, inferGdplayerSlug } from './extractors/gdpla
 import { startAmstaffScheduler } from './utils/amstaffUpdater';
 // RM updater (MPD2)
 import { startRmScheduler } from './utils/rmUpdater';
-// NZ updater)
-import { startNzScheduler } from './utils/nzUpdater';
+
 // ThisNot updater
 import { startThisNotUpdater } from './utils/thisnotChannels';
 import { startMpdzScheduler } from './utils/mpdzUpdater';
@@ -491,9 +490,6 @@ function getStreamPriority(stream: { url: string; title: string }): number {
     // 4.7. staticUrlMpdx (🎬MPDx -  source)
     if (/\[🎬MPDx\]/i.test(title)) return 4.7;
 
-    // 5. [P🐽D]
-    if (/\[P🐽D\]/i.test(title)) return 5;
-
     // 6. Daddy con 🇮🇹 (estratti, wrappati MFP o diretti ma NON 🔄 e NON [Player Esterno])
     if (/^🇮🇹(?!🔄)/.test(title) && !/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 6;
 
@@ -503,17 +499,8 @@ function getStreamPriority(stream: { url: string; title: string }): number {
     // 8. GDplayer
     if (/\[🌐Gd\]|\bGd\b|gdplayer/i.test(title)) return 8;
 
-    // 9. RBTV
-    if (/\[?(RB|RBTV|rb77)\]?/i.test(title)) return 9;
-
     // 10. SPON
     if (/\[?SPON\]?/i.test(title)) return 10;
-
-    // 11. SPSO
-    if (/\[?SPSO\]?/i.test(title)) return 11;
-
-    // 12. STRD
-    if (/\[?STRD\]?/i.test(title) || /\[Strd\]/i.test(title)) return 12;
 
     // 13. Altri daddy FAST dynamic (estratti ma non italiani, non leftover)
     if (!/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 13;
@@ -914,178 +901,9 @@ function _loadStaticChannelsIfChanged(force = false) {
 })();
 
 // (RIMOSSO) watcher dinamico separato (ora unificato sopra)
-// === STREAMED playlist enrichment (spawns external python script) ===
-(() => {
-    try {
-        // Auto-enable STREAMED enrichment if the user hasn't explicitly set STREAMED_ENABLE.
-        // Rationale: we want the enrichment active by default (was originally introduced for a test phase).
-        let enableRaw = (process.env.STREAMED_ENABLE || '0').toString().toLowerCase();
-        if (!enableRaw) {
-            // default ON in absence of explicit value so that the enrichment always runs unless explicitly disabled
-            enableRaw = '1';
-            process.env.STREAMED_ENABLE = '1';
-            console.log('[STREAMED][INIT] abilitazione automatica');
-        }
-        const enable = enableRaw;
-        if (!['1','true','on','yes'].includes(enable)) return;
-    const intervalMs = Math.max(30000, parseInt(process.env.STREAMED_POLL_INTERVAL_MS || '480000', 10)); // default 480s (8m)
-        const pythonBin = process.env.PYTHON_BIN || 'python3';
-        const scriptPath = path.join(__dirname, '..', 'streamed_channels.py');
-        if (!fs.existsSync(scriptPath)) { console.log('[STREAMED][INIT] script non trovato', scriptPath); return; }
-        function runOnce(tag: string) {
-            const env: any = { ...process.env };
-            // Propaga percorso dynamic se usato
-            try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
-            const t0 = Date.now();
-            const child = spawn(pythonBin, [scriptPath], { env });
-            let out = ''; let err = '';
-            child.stdout.on('data', d => { out += d.toString(); });
-            child.stderr.on('data', d => { err += d.toString(); });
-            child.on('close', code => {
-                const ms = Date.now() - t0;
-                if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[STREAMED][OUT]', l));
-                if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[STREAMED][ERR]', l));
-                console.log(`[STREAMED][RUN] done code=${code} ms=${ms}`);
-            });
-        }
-        // Force headers + force mode for initial test run (Bologna vs Genoa) unless user explicitly disables
-        const initialEnv = { ...process.env };
-        if (!initialEnv.STREAMED_FORCE) initialEnv.STREAMED_FORCE = '1';
-        if (!initialEnv.STREAMED_PROPAGATE_HEADERS) initialEnv.STREAMED_PROPAGATE_HEADERS = '1';
-        // Kick an immediate run (slight delay to allow Live.py generation) with forced env
-        setTimeout(()=>{
-            const t0 = Date.now();
-            try { initialEnv.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
-            const child = spawn(pythonBin, [scriptPath], { env: initialEnv });
-            let out=''; let err='';
-            child.stdout.on('data', (d: any)=> out+=d.toString());
-            child.stderr.on('data', (d: any)=> err+=d.toString());
-            child.on('close', (code: any) => {
-                const ms = Date.now() - t0;
-                if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[STREAMED][OUT][INIT]', l));
-                if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[STREAMED][ERR][INIT]', l));
-                console.log(`[STREAMED][RUN][INIT] done code=${code} ms=${ms}`);
-            });
-        }, 5000);
-        setInterval(()=>runOnce('loop'), intervalMs);
-        console.log('[STREAMED][INIT] abilitato poll ogni', intervalMs,'ms');
-    } catch (e) {
-        console.log('[STREAMED][INIT][ERR]', (e as any)?.message || e);
-    }
-})();
-
-// === RBTV (RB77) playlist enrichment ===
-(() => {
-    try {
-        let enableRaw = (process.env.RBTV_ENABLE || '0').toString().toLowerCase();
-        if (!enableRaw) {
-            enableRaw = '1';
-            process.env.RBTV_ENABLE = '1';
-            console.log('[RBTV][INIT] abilitazione automatica');
-        }
-        if (!['1','true','on','yes'].includes(enableRaw)) return;
-        const pythonBin = process.env.PYTHON_BIN || 'python3';
-        const scriptPath = path.join(__dirname, '..', 'rbtv_streams.py');
-        if (!fs.existsSync(scriptPath)) { console.log('[RBTV][INIT] script non trovato', scriptPath); return; }
-    const intervalMs = Math.max(60000, parseInt(process.env.RBTV_POLL_INTERVAL_MS || '480000', 10)); // default 480s (8m)
-        function runOnce(tag: string) {
-            const env: any = { ...process.env };
-            try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
-            const t0 = Date.now();
-            const child = spawn(pythonBin, [scriptPath], { env });
-            let out=''; let err='';
-            child.stdout.on('data', d=> out+=d.toString());
-            child.stderr.on('data', d=> err+=d.toString());
-            child.on('close', code => {
-                const ms = Date.now() - t0;
-                if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[RBTV][OUT]', l));
-                if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[RBTV][ERR]', l));
-                console.log(`[RBTV][RUN] done code=${code} ms=${ms}`);
-            });
-        }
-        // Primo giro forzato (RBTV_FORCE=1) ritardato per lasciare generare Live.py, simile a STREAMED_FORCE
-        setTimeout(()=> {
-            try {
-                const initialEnv: any = { ...process.env };
-                if (!initialEnv.RBTV_FORCE) initialEnv.RBTV_FORCE = '1'; // forza discovery iniziale
-                try { initialEnv.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
-                const t0 = Date.now();
-                const child = spawn(pythonBin, [scriptPath], { env: initialEnv });
-                let out=''; let err='';
-                child.stdout.on('data', (d: any)=> out+=d.toString());
-                child.stderr.on('data', (d: any)=> err+=d.toString());
-                child.on('close', (code: any) => {
-                    const ms = Date.now() - t0;
-                    if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[RBTV][OUT][INIT]', l));
-                    if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[RBTV][ERR][INIT]', l));
-                    console.log(`[RBTV][RUN][INIT] done code=${code} ms=${ms}`);
-                });
-            } catch (e) {
-                console.log('[RBTV][INIT][FORCE][ERR]', (e as any)?.message || e);
-            }
-        }, 7000);
-        setInterval(()=> runOnce('loop'), intervalMs);
-        console.log('[RBTV][INIT] poll ogni', intervalMs, 'ms');
-    } catch (e) {
-        console.log('[RBTV][INIT][ERR]', (e as any)?.message || e);
-    }
-})();
-
-// === SPSO (SportsOnline) playlist enrichment ===
-(() => {
-    try {
-        let enableRaw = (process.env.SPSO_ENABLE || '0').toString().toLowerCase();
-        if (!enableRaw) {
-            enableRaw = '1';
-            process.env.SPSO_ENABLE = '1';
-            console.log('[SPSO][INIT] abilitazione automatica');
-        }
-        if (!['1','true','on','yes'].includes(enableRaw)) return;
-        const pythonBin = process.env.PYTHON_BIN || 'python3';
-        const scriptPath = path.join(__dirname, '..', 'spso_streams.py');
-        if (!fs.existsSync(scriptPath)) { console.log('[SPSO][INIT] script non trovato', scriptPath); return; }
-    const intervalMs = Math.max(60000, parseInt(process.env.SPSO_POLL_INTERVAL_MS || '480000', 10)); // default 480s (8m)
-        function runOnce(tag: string) {
-            const env: any = { ...process.env };
-            try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
-            const t0 = Date.now();
-            const child = spawn(pythonBin, [scriptPath], { env });
-            let out=''; let err='';
-            child.stdout.on('data', d=> out+=d.toString());
-            child.stderr.on('data', d=> err+=d.toString());
-            child.on('close', code => {
-                const ms = Date.now() - t0;
-                if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[SPSO][OUT]', l));
-                if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[SPSO][ERR]', l));
-                console.log(`[SPSO][RUN] done code=${code} ms=${ms}`);
-            });
-        }
-        setTimeout(()=> {
-            try {
-                const initialEnv: any = { ...process.env };
-                if (!initialEnv.SPSO_FORCE) initialEnv.SPSO_FORCE = '1';
-                try { initialEnv.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
-                const t0 = Date.now();
-                const child = spawn(pythonBin, [scriptPath], { env: initialEnv });
-                let out=''; let err='';
-                child.stdout.on('data', d=> out+=d.toString());
-                child.stderr.on('data', d=> err+=d.toString());
-                child.on('close', code => {
-                    const ms = Date.now() - t0;
-                    if (out.trim()) out.split(/\r?\n/).forEach(l=>console.log('[SPSO][OUT][INIT]', l));
-                    if (err.trim()) err.split(/\r?\n/).forEach(l=>console.warn('[SPSO][ERR][INIT]', l));
-                    console.log(`[SPSO][RUN][INIT] done code=${code} ms=${ms}`);
-                });
-            } catch (e) {
-                console.log('[SPSO][INIT][FORCE][ERR]', (e as any)?.message || e);
-            }
-        }, 9000); // dopo RBTV per non sovrapporsi all'iniziale RBTV run
-        setInterval(()=> runOnce('loop'), intervalMs);
-        console.log('[SPSO][INIT] poll ogni', intervalMs, 'ms');
-    } catch (e) {
-        console.log('[SPSO][INIT][ERR]', (e as any)?.message || e);
-    }
-})();
+// === STREAMED playlist enrichment (RIMOSSO) ===
+// === RBTV (RB77) playlist enrichment (RIMOSSO) ===
+// === SPSO (SportsOnline) playlist enrichment (RIMOSSO) ===
 
 // === PPV playlist enrichment ===
 (() => {
@@ -1138,77 +956,8 @@ function _loadStaticChannelsIfChanged(force = false) {
 // (RIMOSSO) Adaptive windows: sostituito da watcher semplice costante.
 
 // =====================================
-// [P🐽D] STARTUP DIAGNOSTICS (container parity)
-// Attivabile con env: DIAG_PD=1 (default ON per ora salvo DIAG_PD=0)
-// Stampa informazioni su:
-//  - Presenza & hash di pig_channels.py
-//  - Presenza & hash di config/tv_channels.json
-//  - Presenza, size, mtime del dynamic_channels.json selezionato (via getDynamicFilePath)
-//  - Conteggio rapida occorrenze label "[P🐽D]" nel dynamic_channels.json (per confermare injection)
+// [P🐽D] STARTUP DIAGNOSTICS (RIMOSSO)
 // =====================================
-(() => {
-    try {
-        const envVal = (process?.env?.DIAG_PD || '1').toString().toLowerCase();
-        if (['0','false','off','no'].includes(envVal)) {
-            return; // diagnostics disabilitata
-        }
-        const root = path.join(__dirname, '..');
-        const fileInfo = (rel: string) => {
-            const p = path.join(root, rel);
-            if (!fs.existsSync(p)) return { path: p, exists: false, size: 0, mtime: 0, md5: '' };
-            const st = fs.statSync(p);
-            let md5 = '';
-            try { md5 = crypto.createHash('md5').update(fs.readFileSync(p)).digest('hex'); } catch {}
-            return { path: p, exists: true, size: st.size, mtime: st.mtimeMs, md5 };
-        };
-        const pig = fileInfo('pig_channels.py');
-        const tvc = fileInfo('config/tv_channels.json');
-        // dynamic file path discovery (may live in /tmp or config/)
-        let dynPath = '';
-        let dynStats: any = { path: '', exists: false, size: 0, mtime: 0, md5: '', pdStreams: 0 };
-        try {
-            dynPath = getDynamicFilePath();
-            if (dynPath && fs.existsSync(dynPath)) {
-                const st = fs.statSync(dynPath);
-                let md5 = '';
-                try { md5 = crypto.createHash('md5').update(fs.readFileSync(dynPath)).digest('hex'); } catch {}
-                // Quick scan for label occurrences (keep light: don't parse JSON if huge)
-                let pdStreams = 0;
-                try {
-                    const raw = fs.readFileSync(dynPath, 'utf-8');
-                    // Count occurrences of string "[P🐽D]" (label start) to confirm injection; fallback to "[P" if pig emoji missing fonts
-                    const re = /\[P🐽D\]/g; // literal match
-                    const reAlt = /\[P.D\]/g; // extremely defensive (unlikely)
-                    const matches = raw.match(re);
-                    pdStreams = matches ? matches.length : 0;
-                    if (!pdStreams) {
-                        const alt = raw.match(reAlt);
-                        if (alt) pdStreams = alt.length;
-                    }
-                } catch {}
-                dynStats = { path: dynPath, exists: true, size: st.size, mtime: st.mtimeMs, md5, pdStreams };
-            } else {
-                dynStats = { path: dynPath || '(empty)', exists: false, size: 0, mtime: 0, md5: '', pdStreams: 0 };
-            }
-        } catch (e) {
-            dynStats = { path: dynPath || '(error)', exists: false, size: 0, mtime: 0, md5: '', err: String(e), pdStreams: 0 };
-        }
-        const fmtTime = (ms: number) => {
-            if (!ms) return 0;
-            try { return new Date(ms).toISOString(); } catch { return ms; }
-        };
-        console.log('[P🐽D][DIAG] pig_channels.py', { exists: pig.exists, size: pig.size, mtime: fmtTime(pig.mtime), md5: pig.md5.slice(0,12) });
-        console.log('[P🐽D][DIAG] tv_channels.json', { exists: tvc.exists, size: tvc.size, mtime: fmtTime(tvc.mtime), md5: tvc.md5.slice(0,12) });
-        console.log('[P🐽D][DIAG] dynamic_channels.json', { path: dynStats.path, exists: dynStats.exists, size: dynStats.size, mtime: fmtTime(dynStats.mtime), md5: (dynStats.md5||'').slice(0,12), pdLabelCount: dynStats.pdStreams });
-        if (!dynStats.exists) {
-            console.warn('[P🐽D][DIAG] dynamic_channels.json NON TROVATO al bootstrap – Live.py o pig_channels.py non ancora eseguiti nel container?');
-        } else if (dynStats.exists && dynStats.pdStreams === 0) {
-            console.warn('[P🐽D][DIAG] dynamic_channels.json presente ma CONTATORE label [P🐽D] = 0 – possibili cause: pig_channels non eseguito / label diversa / build cache vecchia.');
-        }
-    } catch (e) {
-        try { console.error('[P🐽D][DIAG] Errore diagnostics startup:', e); } catch {}
-    }
-})();
 
 // Cache per i link Vavoo
 interface VavooCache {
@@ -2717,8 +2466,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (entries.length > CAP) {
                             // Tiered priority: tier1 strictly (it|ita|italy) first, then tier2 broader providers, then rest
                             const tier1Regex = /\b(it|ita|italy|italia)\b/i;
-                            // Aggiunto vavoo e p🐽d per evitare esclusione dal CAP
-                            const tier2Regex = /\b(italian|italiano|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai|vavoo|strd|rbtv|rb77|spso|pd)\b|p🐽d/i;
+                            // Aggiunto vavoo per evitare esclusione dal CAP
+                            const tier2Regex = /\b(italian|italiano|sky|tnt|amazon|dazn|eurosport|prime|bein|canal|sportitalia|now|rai|vavoo)\b/i;
                             const tier1: typeof entries = [];
                             const tier2: typeof entries = [];
                             const others: typeof entries = [];
@@ -4112,15 +3861,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                     if (aKey !== bKey) return aKey - bKey; return (a.title||'').localeCompare(b.title||'');
                                                 });
                                                 let insertAt = streams.length;
-                                                // 1. Prefer position immediately before first SPSO
-                                                for (let i=0;i<streams.length;i++) { if (/\[SPSO\]/i.test(streams[i].title)) { insertAt = i; break; } }
-                                                if (insertAt === streams.length) {
-                                                    // 2. No SPSO: place right AFTER last Daddy (with 🇮🇹 or rotating arrows emoji) if any
-                                                    const rotatingRegex = /[↻🔄🔁⟳🌀]/;
-                                                    for (let i=streams.length-1;i>=0;i--) {
-                                                        const t = streams[i].title || '';
-                                                        if (/daddy/i.test(t) && (t.includes('🇮🇹') || rotatingRegex.test(t))) { insertAt = i+1; break; }
-                                                    }
+                                                // 1. (SPSO rimosso)
+                                                // 2. Place right AFTER last Daddy (with 🇮🇹 or rotating arrows emoji) if any
+                                                const rotatingRegex = /[↻🔄🔁⟳🌀]/;
+                                                for (let i=streams.length-1;i>=0;i--) {
+                                                    const t = streams[i].title || '';
+                                                    if (/daddy/i.test(t) && (t.includes('🇮🇹') || rotatingRegex.test(t))) { insertAt = i+1; break; }
                                                 }
                                                 const existing = new Set(streams.map(s=>s.url));
                                                 const finalIns = collected.filter(s=>s.url && !existing.has(s.url));
@@ -5569,159 +5315,11 @@ app.get('/tn/reload', async (_: Request, res: Response) => {
 });
 // =============================================================
 
-// ================= NZ (DAZN) RELOAD ENDPOINT ====================
-// Esegue manualmente l'aggiornamento del canale DAZN 1 da pagina spagna
-app.get('/nz/reload', async (_: Request, res: Response) => {
-    try {
-        console.log('🔄 [NZ] Reload manuale richiesto via endpoint /nz/reload');
-        
-        // Importa la funzione di aggiornamento
-        const { updateNzChannel } = await import('./utils/nzUpdater');
-        
-        // Esegue l'aggiornamento
-        const success = await updateNzChannel();
-        
-        if (success) {
-            console.log(`✅ [NZ] Reload completato: DAZN 1 aggiornato`);
-            res.json({ 
-                ok: true, 
-                message: 'DAZN 1 aggiornato con successo! Nuovo link MPD estratto dalla pagina.'
-            });
-        } else {
-            console.log(`⚠️ [NZ] Reload completato ma nessun aggiornamento (link non trovato o errore)`);
-            res.json({ 
-                ok: false, 
-                message: 'DAZN 1: link MPD non trovato nella pagina o canale non presente in tv_channels.json'
-            });
-        }
-    } catch (e: any) {
-        console.error('❌ [NZ] Errore durante reload:', e);
-        res.status(500).json({ 
-            ok: false, 
-            error: e?.message || String(e),
-            stack: e?.stack 
-        });
-    }
-});
-// =============================================================
 
-// ================= STREAMED FORCED RELOAD ENDPOINT =====================
-// GET /streamed/reload?token=XYZ&force=1
-// Esegue streamed_channels.py una volta (opzionalmente con modalità force che ignora le finestre temporali)
-app.get('/streamed/reload', async (req: Request, res: Response) => {
-    try {
-        const requiredToken = process?.env?.STREAMED_RELOAD_TOKEN;
-        const provided = (req.query.token as string) || '';
-        if (requiredToken && provided !== requiredToken) {
-            return res.status(403).json({ ok: false, error: 'Forbidden' });
-        }
-        const force = 'force' in req.query && String(req.query.force).toLowerCase() !== '0';
-        const scriptPath = path.join(__dirname, '..', 'streamed_channels.py');
-        if (!fs.existsSync(scriptPath)) {
-            return res.status(404).json({ ok: false, error: 'streamed_channels.py not found' });
-        }
-        const pythonBin = process.env.PYTHON_BIN || 'python3';
-        const env: any = { ...process.env };
-        try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
-        if (force) env.STREAMED_FORCE = '1';
-        const started = Date.now();
-        const { execFile } = require('child_process');
-        const execResult = await new Promise<{ stdout: string; stderr: string; code: number }>(resolve => {
-            const child = execFile(pythonBin, [scriptPath, force ? '--force' : ''], { env }, (err: any, stdout: string, stderr: string) => {
-                resolve({ stdout, stderr, code: err && typeof err.code === 'number' ? err.code : 0 });
-            });
-            child.on('error', (e: any) => {
-                console.log('[STREAMED][RELOAD][ERR]', e?.message || e);
-            });
-        });
-        // Ricarica dynamic in memoria se il file è stato modificato
-        try { invalidateDynamicChannels(); loadDynamicChannels(true); } catch {}
-        const took = Date.now() - started;
-        const clip = (s: string) => s && s.length > 1200 ? s.slice(-1200) : s;
-        return res.json({ ok: true, force, ms: took, stdout: clip(execResult.stdout), stderr: clip(execResult.stderr) });
-    } catch (e: any) {
-        return res.status(500).json({ ok: false, error: e?.message || String(e) });
-    }
-});
-// =============================================================
 
-// ================= RBTV FORCED RELOAD ENDPOINT =====================
-// GET /rbtv/reload?token=XYZ&force=1
-// Esegue rbtv_streams.py una volta (opzionalmente con modalità force che ignora le finestre temporali)
-app.get('/rbtv/reload', async (req: Request, res: Response) => {
-    try {
-        const requiredToken = process?.env?.RBTV_RELOAD_TOKEN;
-        const provided = (req.query.token as string) || '';
-        if (requiredToken && provided !== requiredToken) {
-            return res.status(403).json({ ok: false, error: 'Forbidden' });
-        }
-        const force = 'force' in req.query && String(req.query.force).toLowerCase() !== '0';
-        const scriptPath = path.join(__dirname, '..', 'rbtv_streams.py');
-        if (!fs.existsSync(scriptPath)) {
-            return res.status(404).json({ ok: false, error: 'rbtv_streams.py not found' });
-        }
-        const pythonBin = process.env.PYTHON_BIN || 'python3';
-        const env: any = { ...process.env };
-        try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
-        if (force) env.RBTV_FORCE = '1';
-        const started = Date.now();
-        const { execFile } = require('child_process');
-        const execResult = await new Promise<{ stdout: string; stderr: string; code: number }>(resolve => {
-            const child = execFile(pythonBin, [scriptPath, force ? '--force' : ''], { env }, (err: any, stdout: string, stderr: string) => {
-                resolve({ stdout, stderr, code: err && typeof err.code === 'number' ? err.code : 0 });
-            });
-            child.on('error', (e: any) => {
-                console.log('[RBTV][RELOAD][ERR]', e?.message || e);
-            });
-        });
-        // Ricarica dynamic in memoria se il file è stato modificato
-        try { invalidateDynamicChannels(); loadDynamicChannels(true); } catch {}
-        const took = Date.now() - started;
-        const clip = (s: string) => s && s.length > 1200 ? s.slice(-1200) : s;
-        return res.json({ ok: true, force, ms: took, stdout: clip(execResult.stdout), stderr: clip(execResult.stderr) });
-    } catch (e: any) {
-        return res.status(500).json({ ok: false, error: e?.message || String(e) });
-    }
-});
-// =============================================================
-
-// ================= SPSO FORCED RELOAD ENDPOINT =====================
-// GET /spso/reload?token=XYZ&force=1
-// Esegue spso_streams.py una volta (modalità force opzionale)
-app.get('/spso/reload', async (req: Request, res: Response) => {
-    try {
-        const requiredToken = process?.env?.SPSO_RELOAD_TOKEN;
-        const provided = (req.query.token as string) || '';
-        if (requiredToken && provided !== requiredToken) {
-            return res.status(403).json({ ok: false, error: 'Forbidden' });
-        }
-        const force = 'force' in req.query && String(req.query.force).toLowerCase() !== '0';
-        const scriptPath = path.join(__dirname, '..', 'spso_streams.py');
-        if (!fs.existsSync(scriptPath)) {
-            return res.status(404).json({ ok: false, error: 'spso_streams.py not found' });
-        }
-        const pythonBin = process.env.PYTHON_BIN || 'python3';
-        const env: any = { ...process.env };
-        try { env.DYNAMIC_FILE = getDynamicFilePath(); } catch {}
-        if (force) env.SPSO_FORCE = '1';
-        const started = Date.now();
-        const { execFile } = require('child_process');
-        const execResult = await new Promise<{ stdout: string; stderr: string; code: number }>(resolve => {
-            const child = execFile(pythonBin, [scriptPath, force ? '--force' : ''], { env }, (err: any, stdout: string, stderr: string) => {
-                resolve({ stdout, stderr, code: err && typeof err.code === 'number' ? err.code : 0 });
-            });
-            child.on('error', (e: any) => {
-                console.log('[SPSO][RELOAD][ERR]', e?.message || e);
-            });
-        });
-        try { invalidateDynamicChannels(); loadDynamicChannels(true); } catch {}
-        const took = Date.now() - started;
-        const clip = (s: string) => s && s.length > 1200 ? s.slice(-1200) : s;
-        return res.json({ ok: true, force, ms: took, stdout: clip(execResult.stdout), stderr: clip(execResult.stderr) });
-    } catch (e: any) {
-        return res.status(500).json({ ok: false, error: e?.message || String(e) });
-    }
-});
+// ================= STREAMED FORCED RELOAD ENDPOINT (RIMOSSO) =====================
+// ================= RBTV FORCED RELOAD ENDPOINT (RIMOSSO) =====================
+// ================= SPSO FORCED RELOAD ENDPOINT (RIMOSSO) =====================
 // =============================================================
 
 // ================= PPV FORCED RELOAD ENDPOINT =====================
@@ -6300,15 +5898,7 @@ try {
 }
 // ====================================================================
 
-// =============== NZ AUTO-UPDATER (DAZN) ============================
-// Avvia aggiornamento automatico DAZN 1 ogni 20 minuti
-try {
-    startNzScheduler();
-    console.log('✅ NZ auto-updater attivato (DAZN)');
-} catch (e) {
-    console.error('❌ Errore avvio NZ updater:', e);
-}
-// ====================================================================
+
 
 // =============== THISNOT AUTO-UPDATER ==============================
 // Avvia aggiornamento automatico canali ThisNot ogni 2 ore
