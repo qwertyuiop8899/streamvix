@@ -2556,19 +2556,55 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         
                         // === Freeshot (iniezione DOPO DLHD resolved, PRIMA dei leftover) ===
                         try {
-                            const { resolveFreeshotForChannel } = await import('./extractors/freeshotRuntime');
+                            const { resolveFreeshotForChannel, getFreeshotCode } = await import('./extractors/freeshotRuntime');
                             const reqObj: any = (global as any).lastExpressRequest;
                             const clientIp = getClientIpFromReq(reqObj);
-                            const fr = await resolveFreeshotForChannel({ id: (channel as any).id, name: (channel as any).name, epgChannelIds: (channel as any).epgChannelIds, extraTexts: providerTitlesExt }, clientIp || undefined);
-                            if (fr && fr.url && !fr.error) {
-                                const freeName = (fr as any).displayName || (channel as any).name || 'Canale';
+                            
+                            let frUrl: string | undefined;
+                            let frName = (channel as any).name || 'Canale';
+                            let frError: string | undefined;
+
+                            // Se abbiamo MFP, usiamo la risoluzione lato proxy (Server-Side Resolution)
+                            // Questo risolve il problema dell'IP mismatch: il proxy genera il token e lo usa.
+                            if (mfpUrl) {
+                                const match = getFreeshotCode({ id: (channel as any).id, name: (channel as any).name, epgChannelIds: (channel as any).epgChannelIds, extraTexts: providerTitlesExt });
+                                if (match) {
+                                    const { code } = match;
+                                    // Costruiamo l'URL che il proxy dovrà risolvere
+                                    const popcdnUrl = `https://popcdn.day/go.php?stream=${encodeURIComponent(code)}`;
+                                    
+                                    // Aggiungiamo parametro filename fittizio per far generare un URL .m3u8 al formatMediaFlowUrl
+                                    const popcdnUrlWithFilename = `${popcdnUrl}&filename=manifest.m3u8`;
+                                    
+                                    // Avvolgiamo in MFP
+                                    frUrl = formatMediaFlowUrl(popcdnUrlWithFilename, mfpUrl, mfpPsw || '');
+                                    
+                                    // Forziamo endpoint HLS per compatibilità player
+                                    if (frUrl.includes('/proxy/stream/')) {
+                                        frUrl = frUrl.replace('/proxy/stream/', '/proxy/hls/');
+                                    }
+                                    
+                                    debugLog(`Freeshot (Proxy-Side) aggiunto per ${frName}: ${frUrl}`);
+                                }
+                            } else {
+                                // Fallback: risoluzione locale (funziona solo se Addon e Player sono sullo stesso IP)
+                                const fr = await resolveFreeshotForChannel({ id: (channel as any).id, name: (channel as any).name, epgChannelIds: (channel as any).epgChannelIds, extraTexts: providerTitlesExt }, clientIp || undefined);
+                                if (fr && fr.url && !fr.error) {
+                                    frUrl = fr.url;
+                                    frName = (fr as any).displayName || frName;
+                                    debugLog(`Freeshot (Local) aggiunto per ${frName}: ${frUrl}`);
+                                } else if (fr && fr.error) {
+                                    frError = fr.error;
+                                }
+                            }
+
+                            if (frUrl) {
                                 streams.push({
-                                    url: fr.url,
-                                    title: `[🏟 Free] ${freeName} [ITA]`
+                                    url: frUrl,
+                                    title: `[🏟 Free] ${frName} [ITA]`
                                 });
-                                debugLog(`Freeshot aggiunto per ${freeName}: ${fr.url}`);
-                            } else if (fr && fr.error) {
-                                debugLog(`Freeshot errore ${channel.name}: ${fr.error}`);
+                            } else if (frError) {
+                                debugLog(`Freeshot errore ${channel.name}: ${frError}`);
                             }
                         } catch (e) {
                             debugLog(`Freeshot import/fetch fallito: ${e}`);
@@ -3017,24 +3053,58 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                         // --- FREESHOT per canali statici ---
                         try {
-                            const { resolveFreeshotForChannel } = await import('./extractors/freeshotRuntime');
+                            const { resolveFreeshotForChannel, getFreeshotCode } = await import('./extractors/freeshotRuntime');
                             const reqObj: any = (global as any).lastExpressRequest;
                             const clientIp = getClientIpFromReq(reqObj);
-                            const fr = await resolveFreeshotForChannel({ 
-                                id: (channel as any).id, 
-                                name: (channel as any).name, 
-                                epgChannelIds: (channel as any).epgChannelIds, 
-                                extraTexts: [] // Canali statici non hanno providerTitlesExt
-                            }, clientIp || undefined);
-                            if (fr && fr.url && !fr.error) {
-                                const freeName = (fr as any).displayName || (channel as any).name || 'Canale';
-                                streams.push({
-                                    url: fr.url,
-                                    title: `[🏟 Free] ${freeName} [ITA]`
+                            
+                            let frUrl: string | undefined;
+                            let frName = (channel as any).name || 'Canale';
+                            let frError: string | undefined;
+
+                            // Proxy-Side Resolution (se MFP attivo)
+                            if (mfpUrl) {
+                                const match = getFreeshotCode({ 
+                                    id: (channel as any).id, 
+                                    name: (channel as any).name, 
+                                    epgChannelIds: (channel as any).epgChannelIds, 
+                                    extraTexts: [] 
                                 });
-                                debugLog(`Freeshot aggiunto per canale statico ${freeName}: ${fr.url}`);
-                            } else if (fr && fr.error) {
-                                debugLog(`Freeshot errore su canale statico ${channel.name}: ${fr.error}`);
+                                if (match) {
+                                    const { code } = match;
+                                    const popcdnUrl = `https://popcdn.day/go.php?stream=${encodeURIComponent(code)}`;
+                                    const popcdnUrlWithFilename = `${popcdnUrl}&filename=manifest.m3u8`;
+                                    frUrl = formatMediaFlowUrl(popcdnUrlWithFilename, mfpUrl, mfpPsw || '');
+                                    if (frUrl.includes('/proxy/stream/')) {
+                                        frUrl = frUrl.replace('/proxy/stream/', '/proxy/hls/');
+                                    }
+                                    debugLog(`Freeshot (Proxy-Side Static) aggiunto per ${frName}: ${frUrl}`);
+                                }
+                            }
+                            
+                            // Fallback Local Resolution (se MFP assente o getFreeshotCode fallito)
+                            if (!frUrl) {
+                                const fr = await resolveFreeshotForChannel({ 
+                                    id: (channel as any).id, 
+                                    name: (channel as any).name, 
+                                    epgChannelIds: (channel as any).epgChannelIds, 
+                                    extraTexts: [] 
+                                }, clientIp || undefined);
+                                
+                                if (fr && fr.url && !fr.error) {
+                                    frName = (fr as any).displayName || frName;
+                                    frUrl = fr.url;
+                                } else if (fr && fr.error) {
+                                    frError = fr.error;
+                                }
+                            }
+
+                            if (frUrl) {
+                                streams.push({
+                                    url: frUrl,
+                                    title: `[🏟 Free] ${frName} [ITA]`
+                                });
+                            } else if (frError) {
+                                debugLog(`Freeshot errore su canale statico ${channel.name}: ${frError}`);
                             }
                         } catch (e) {
                             debugLog('Freeshot import/fetch fallito per canale statico', (e as any)?.message || e);
