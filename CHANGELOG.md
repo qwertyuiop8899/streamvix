@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.38](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.37...v1.10.38) (2025-12-05)
+
+
+### Bug Fixes
+
+* toonita ([3b619c8](https://github.com/qwertyuiop8899/streamvix/commit/3b619c82dc0f0c78d0ec1b62a53628fbf4915b4e))
+
 ## [1.10.37](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.36...v1.10.37) (2025-12-05)
 
 
