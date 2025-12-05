@@ -2808,7 +2808,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         // === Freeshot (iniezione DOPO DLHD resolved, PRIMA dei leftover) ===
                         try {
                             const { resolveFreeshotForChannel } = await import('./extractors/freeshotRuntime');
-                            const fr = await resolveFreeshotForChannel({ id: (channel as any).id, name: (channel as any).name, epgChannelIds: (channel as any).epgChannelIds, extraTexts: providerTitlesExt });
+                            const reqObj: any = (global as any).lastExpressRequest;
+                            const clientIp = getClientIpFromReq(reqObj);
+                            const fr = await resolveFreeshotForChannel({ id: (channel as any).id, name: (channel as any).name, epgChannelIds: (channel as any).epgChannelIds, extraTexts: providerTitlesExt }, clientIp || undefined);
                             if (fr && fr.url && !fr.error) {
                                 const freeName = (fr as any).displayName || (channel as any).name || 'Canale';
                                 streams.push({
@@ -3267,12 +3269,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         // --- FREESHOT per canali statici ---
                         try {
                             const { resolveFreeshotForChannel } = await import('./extractors/freeshotRuntime');
+                            const reqObj: any = (global as any).lastExpressRequest;
+                            const clientIp = getClientIpFromReq(reqObj);
                             const fr = await resolveFreeshotForChannel({ 
                                 id: (channel as any).id, 
                                 name: (channel as any).name, 
                                 epgChannelIds: (channel as any).epgChannelIds, 
                                 extraTexts: [] // Canali statici non hanno providerTitlesExt
-                            });
+                            }, clientIp || undefined);
                             if (fr && fr.url && !fr.error) {
                                 const freeName = (fr as any).displayName || (channel as any).name || 'Canale';
                                 streams.push({
