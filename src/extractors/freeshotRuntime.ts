@@ -66,6 +66,9 @@ async function fetchFreeshot(code: string, clientIp?: string): Promise<FreeShotR
     };
     if (clientIp) {
         headers['X-Forwarded-For'] = clientIp;
+        headers['X-Real-IP'] = clientIp;
+        headers['Client-IP'] = clientIp;
+        headers['True-Client-IP'] = clientIp;
     }
     const html = await axios.get(urlAuth, {
       timeout: 15000,
@@ -96,7 +99,7 @@ async function fetchFreeshot(code: string, clientIp?: string): Promise<FreeShotR
   }
 }
 
-export async function resolveFreeshotForChannel(channel: { id?: string; name?: string; epgChannelIds?: string[]; extraTexts?: string[] }, clientIp?: string): Promise<FreeShotResolved | null> {
+export function getFreeshotCode(channel: { id?: string; name?: string; epgChannelIds?: string[]; extraTexts?: string[] }): { code: string, matchHint: string } | null {
   const idKey = normalizeKey(channel.id);
   const nameKey = normalizeKey(channel.name);
   let code: string | undefined;
@@ -145,7 +148,16 @@ export async function resolveFreeshotForChannel(channel: { id?: string; name?: s
       if (code) break;
     }
   }
+  
   if (!code) return null;
+  return { code, matchHint };
+}
+
+export async function resolveFreeshotForChannel(channel: { id?: string; name?: string; epgChannelIds?: string[]; extraTexts?: string[] }, clientIp?: string): Promise<FreeShotResolved | null> {
+  const match = getFreeshotCode(channel);
+  if (!match) return null;
+  
+  const { code, matchHint } = match;
 
   // Cache key must include clientIp to avoid sharing tokens between users
   const cacheKey = clientIp ? `${code}|${clientIp}` : code;
