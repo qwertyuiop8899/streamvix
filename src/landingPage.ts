@@ -454,9 +454,14 @@ function landingTemplate(manifest: any) {
 							var val = !!el.checked;
 							config[cfgKey] = invert ? !val : val;
 						} else {
-							config[key] = el.value;
+							config[key] = el.value.trim();
 						}
 					});
+					// If mediaflowMaster is disabled, ensure we don't send partial/stale MFP config
+					if (!config['mediaflowMaster']) {
+						delete config['mediaFlowProxyUrl'];
+						delete config['mediaFlowProxyPassword'];
+					}
 					// (addonBase input removed – server resolved; nothing to store)
 					// tmdbApiKey always kept (UI hidden)
 					return config;
@@ -599,11 +604,8 @@ function landingTemplate(manifest: any) {
 
 					if (mfpUrlEl) mfpUrlEl.style.display = on ? 'block':'none';
 					if (mfpPwdEl) mfpPwdEl.style.display = on ? 'block':'none';
-					// Clear MFP fields when toggle is OFF to avoid config inclusion
-					if (!on) {
-						if (mfpUrlInput) mfpUrlInput.value = '';
-						if (mfpPwdInput) mfpPwdInput.value = '';
-					}
+					// (Clearing logic removed: we now filter these out in buildConfigFromForm if master is OFF)
+					
 					if (animeUnityEl){
 						// AnimeUnity ora sempre disponibile come AnimeWorld (nessun gating MFP)
 						if (animeUnityRow) {
