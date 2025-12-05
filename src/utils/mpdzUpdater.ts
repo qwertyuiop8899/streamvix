@@ -259,9 +259,36 @@ function parseM3u(content: string): MpdzChannel[] {
 /**
  * Match canale MPDz con tv_channels.json
  */
-function matchChannel(tvChannels: TVChannel[], mpdzName: string): TVChannel | null {
+function matchChannel(tvChannels: TVChannel[], mpdzCh: MpdzChannel): TVChannel | null {
+    const mpdzName = mpdzCh.name;
     const normalizedMpdz = normalizeName(mpdzName);
     
+    // Extract ID from URL if possible
+    // URL format: .../channel(skycinemaaction)/...
+    const urlIdMatch = mpdzCh.url.match(/channel\(([^)]+)\)/);
+    const urlId = urlIdMatch ? urlIdMatch[1] : null;
+
+    if (urlId) {
+        // Try to match by ID first (very reliable)
+        const normalizedUrlId = urlId.toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        for (const channel of tvChannels) {
+            const chId = channel.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (chId === normalizedUrlId) return channel;
+            
+            // Flexible ID matching
+            if (chId.length > 3 && normalizedUrlId.includes(chId)) return channel;
+            if (normalizedUrlId.length > 3 && chId.includes(normalizedUrlId)) return channel;
+
+            // Check epgChannelIds
+            if (channel.epgChannelIds) {
+                for (const epgId of channel.epgChannelIds) {
+                     if (epgId.toLowerCase().includes(urlId.toLowerCase())) return channel;
+                }
+            }
+        }
+    }
+
     for (const channel of tvChannels) {
         // Match esatto su vavooNames
         if (channel.vavooNames) {
@@ -329,12 +356,14 @@ export async function updateMpdzChannels(): Promise<number> {
         const tvChannels: TVChannel[] = JSON.parse(tvChannelsData);
         
         let updates = 0;
+        let matches = 0;
         
         // Match e update
         for (const mpdzCh of mpdzChannels) {
-            const matchedChannel = matchChannel(tvChannels, mpdzCh.name);
+            const matchedChannel = matchChannel(tvChannels, mpdzCh);
             
             if (matchedChannel) {
+                matches++;
                 const urlBase64 = Buffer.from(mpdzCh.url).toString('base64');
                 // Aggiorna solo se il link è effettivamente cambiato
                 if (matchedChannel.staticUrlMpdz !== urlBase64) {
@@ -345,6 +374,8 @@ export async function updateMpdzChannels(): Promise<number> {
             }
         }
         
+        console.log(`[MPDz] 📊 Matched ${matches}/${mpdzChannels.length} channels`);
+
         if (updates > 0) {
             // Salva file aggiornato
             fs.writeFileSync(tvChannelsPath, JSON.stringify(tvChannels, null, 2), 'utf-8');
@@ -374,7 +405,7 @@ export async function updateMpdzChannels(): Promise<number> {
                 console.log('[MPDz] ⚠️  Errore trigger reload');
             }
         } else {
-            console.log('[MPDz] ⚠️  Nessun canale matchato');
+            console.log('[MPDz] ℹ️  Nessun canale aggiornato (tutti già aggiornati)');
         }
         
         return updates;
