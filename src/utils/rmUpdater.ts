@@ -151,9 +151,25 @@ function normalizeForMatching(name: string): string {
 
 /**
  * Match nome canale M3U con canale in tv_channels.json
- * Usa vavooNames per matching + NAME_MAPPING per nomi speciali
+ * Usa tvg-id (priorità) e vavooNames per matching + NAME_MAPPING per nomi speciali
  */
 function matchChannel(tvChannels: TVChannel[], rmChannel: RmChannel): TVChannel | null {
+    // 1. Match per TVG-ID (Priorità Alta)
+    if (rmChannel.tvg_id) {
+        const normalizedTvgId = rmChannel.tvg_id.toLowerCase().trim();
+        for (const channel of tvChannels) {
+            // Match esatto con ID canale
+            if (channel.id.toLowerCase() === normalizedTvgId) return channel;
+            
+            // Match con EPG IDs
+            if (channel.epgChannelIds) {
+                for (const epgId of channel.epgChannelIds) {
+                    if (epgId.toLowerCase() === normalizedTvgId) return channel;
+                }
+            }
+        }
+    }
+
     const normalizedRmName = normalizeForMatching(rmChannel.name);
     
     // Prima controlla mapping speciale
@@ -278,6 +294,7 @@ export async function updateRmChannels(): Promise<number> {
         const tvChannels: TVChannel[] = JSON.parse(tvChannelsData);
         
         let updates = 0;
+        let matches = 0;
         const matched: string[] = [];
         const unmatched: string[] = [];
         
@@ -286,6 +303,7 @@ export async function updateRmChannels(): Promise<number> {
             const matchedChannel = matchChannel(tvChannels, rmChannel);
             
             if (matchedChannel) {
+                matches++;
                 const urlBase64 = Buffer.from(rmChannel.url).toString('base64');
                 // Aggiorna solo se il link è effettivamente cambiato
                 if (matchedChannel.staticUrlMpd2 !== urlBase64) {
@@ -298,8 +316,10 @@ export async function updateRmChannels(): Promise<number> {
             }
         }
         
+        console.log(`[RM] 📊 Matched ${matches}/${skyChannels.length} channels`);
+
         // Log risultati
-        console.log(`[RM] ✅ Matched ${updates} canali:`);
+        console.log(`[RM] ✅ Updated ${updates} canali:`);
         for (const m of matched) {
             console.log(`[RM]   ✅ ${m}`);
         }
@@ -346,7 +366,7 @@ export async function updateRmChannels(): Promise<number> {
                 console.log('[RM] ⚠️  Errore trigger reload');
             }
         } else {
-            console.log('[RM] ⚠️  Nessun canale matchato');
+            console.log('[RM] ℹ️  Nessun canale aggiornato (tutti già aggiornati)');
         }
         
         return updates;
