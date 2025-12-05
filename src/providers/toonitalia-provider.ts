@@ -440,8 +440,8 @@ async function extractEpisodes(contentUrl: string, tmdbSeasonCount: number, pref
 async function getStreamFromVoe(voeUrl: string, config?: { mfpUrl?: string; mfpPsw?: string }): Promise<string | null> {
     try {
         const mfpConfig = getMediaFlowConfig(config);
-        if (!mfpConfig.url || !mfpConfig.password) {
-            console.error('[ToonItalia] MediaFlow proxy not configured');
+        if (!mfpConfig.url) {
+            console.error('[ToonItalia] MediaFlow proxy URL not configured');
             return null;
         }
         
