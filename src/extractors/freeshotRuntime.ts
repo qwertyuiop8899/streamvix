@@ -55,17 +55,21 @@ function normalizeKey(s?: string): string | null {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
-async function fetchFreeshot(code: string): Promise<FreeShotResolved> {
+async function fetchFreeshot(code: string, clientIp?: string): Promise<FreeShotResolved> {
   const ret: FreeShotResolved = { code, resolvedAt: Date.now() };
   try {
     const urlAuth = `https://popcdn.day/go.php?stream=${encodeURIComponent(code)}`;
-    const html = await axios.get(urlAuth, {
-      timeout: 15000,
-      headers: {
+    const headers: Record<string, string> = {
         'User-Agent': UA,
         'Referer': 'https://thisnot.business/',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      }
+    };
+    if (clientIp) {
+        headers['X-Forwarded-For'] = clientIp;
+    }
+    const html = await axios.get(urlAuth, {
+      timeout: 15000,
+      headers
     });
     const body = html.data as string;
     const iframeMatch = body.match(/frameborder="0"\s+src="([^"]+)"/i);
@@ -92,7 +96,7 @@ async function fetchFreeshot(code: string): Promise<FreeShotResolved> {
   }
 }
 
-export async function resolveFreeshotForChannel(channel: { id?: string; name?: string; epgChannelIds?: string[]; extraTexts?: string[] }): Promise<FreeShotResolved | null> {
+export async function resolveFreeshotForChannel(channel: { id?: string; name?: string; epgChannelIds?: string[]; extraTexts?: string[] }, clientIp?: string): Promise<FreeShotResolved | null> {
   const idKey = normalizeKey(channel.id);
   const nameKey = normalizeKey(channel.name);
   let code: string | undefined;
@@ -143,13 +147,14 @@ export async function resolveFreeshotForChannel(channel: { id?: string; name?: s
   }
   if (!code) return null;
 
-  const cacheKey = code;
+  // Cache key must include clientIp to avoid sharing tokens between users
+  const cacheKey = clientIp ? `${code}|${clientIp}` : code;
   const now = Date.now();
   const cached = cache.get(cacheKey);
   if (cached && (now - cached.resolvedAt) < TTL_MS && !cached.error) {
     return cached;
   }
-  const resolved = await fetchFreeshot(code);
+  const resolved = await fetchFreeshot(code, clientIp);
   if (resolved && !resolved.error) {
     resolved.matchHint = matchHint;
     const disp = FREESHOT_DISPLAY_NAME[resolved.code];
