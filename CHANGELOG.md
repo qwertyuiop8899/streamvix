@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.40](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.39...v1.10.40) (2025-12-05)
+
+
+### Bug Fixes
+
+* freeshot ([f435165](https://github.com/qwertyuiop8899/streamvix/commit/f4351658c701a9cd962b5c361c78a991006caa1e))
+
 ## [1.10.39](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.38...v1.10.39) (2025-12-05)
 
 
