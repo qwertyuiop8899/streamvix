@@ -23,5 +23,6 @@ export const formatMediaFlowUrl = (mp4Url: string, mfpUrl: string, mfpPassword: 
   }
   // Normalizza mfpUrl rimuovendo lo slash finale se presente
   const normalizedMfpUrl = mfpUrl.endsWith('/') ? mfpUrl.slice(0, -1) : mfpUrl;
-  return `${normalizedMfpUrl}/proxy/stream/${filename}?d=${encodedUrl}&api_password=${mfpPassword}`;
+  const passwordParam = mfpPassword ? `&api_password=${mfpPassword}` : '';
+  return `${normalizedMfpUrl}/proxy/stream/${filename}?d=${encodedUrl}${passwordParam}`;
 };
