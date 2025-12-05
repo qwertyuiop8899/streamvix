@@ -1,6 +1,6 @@
 /**
  * RM Channel Updater
- * Aggiorna automaticamente il campo staticUrlMpd2 in tv_channels.json con i link MPD
+ * Aggiorna automaticamente il campo staticUrlMpd2 in tv_channels.json con i link MPD 
  * Sorgente: env RM_SOURCE_URL
  */
 
