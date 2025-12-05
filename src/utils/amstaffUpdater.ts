@@ -174,10 +174,62 @@ async function getGithubCredentials(): Promise<{ password: string; deviceId: str
     }
 }
 
+interface AmstaffProcessedChannel {
+    name: string;
+    url: string; // Base64 encoded
+    decodedUrl: string; // Plain text URL for ID extraction
+}
+
+/**
+ * Match canale Amstaff con tv_channels.json
+ */
+function matchChannel(tvChannels: TVChannel[], amstaffCh: AmstaffProcessedChannel): TVChannel | null {
+    const amstaffName = amstaffCh.name;
+    const normalizedAmstaff = normalizeChannelName(amstaffName).toUpperCase();
+    
+    // Extract ID from URL if possible
+    // URL format: .../channel(skycinemaaction)/...
+    const urlIdMatch = amstaffCh.decodedUrl.match(/channel\(([^)]+)\)/);
+    const urlId = urlIdMatch ? urlIdMatch[1] : null;
+
+    if (urlId) {
+        // Try to match by ID first (very reliable)
+        const normalizedUrlId = urlId.toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        for (const channel of tvChannels) {
+            const chId = channel.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (chId === normalizedUrlId) return channel;
+            
+            // Flexible ID matching
+            if (chId.length > 3 && normalizedUrlId.includes(chId)) return channel;
+            if (normalizedUrlId.length > 3 && chId.includes(normalizedUrlId)) return channel;
+
+            // Check epgChannelIds
+            if (channel.epgChannelIds) {
+                for (const epgId of channel.epgChannelIds) {
+                     if (epgId.toLowerCase().includes(urlId.toLowerCase())) return channel;
+                }
+            }
+        }
+    }
+
+    // Fallback to Name Matching (using existing logic)
+    for (const channel of tvChannels) {
+        if (channel.vavooNames && Array.isArray(channel.vavooNames)) {
+            for (const vavooName of channel.vavooNames) {
+                // Cerca match case-insensitive
+                const normalizedVavooName = vavooName.toUpperCase();
+                if (normalizedAmstaff === normalizedVavooName) return channel;
+            }
+        }
+    }
+    return null;
+}
+
 /**
  * Scarica canali da Amstaff con autenticazione
  */
-async function fetchAmstaffChannels(): Promise<Record<string, string>> {
+async function fetchAmstaffChannels(): Promise<AmstaffProcessedChannel[]> {
     // aHR0cHM6Ly90ZXN0MzQzNDQuaGVyb2t1YXBwLmNvbS9maWx0ZXIucGhw
     const BASE_URL = Buffer.from('aHR0cHM6Ly90ZXN0MzQzNDQuaGVyb2t1YXBwLmNvbS9maWx0ZXIucGhw', 'base64').toString('utf-8');
     const VERSION = Buffer.from('Mi4wLjA=', 'base64').toString('utf-8'); // 2.0.0
@@ -205,26 +257,31 @@ async function fetchAmstaffChannels(): Promise<Record<string, string>> {
         
         const channels = extractChannelsFromJson(response.data);
         
-        const processedChannels: Record<string, string> = {};
+        const processedChannels: AmstaffProcessedChannel[] = [];
         
         for (const channel of channels) {
-            const decodedUrl = decodeAmstaffUrl(channel.encoded);
+            const decodedBuffer = decodeAmstaffUrl(channel.encoded);
             
-            if (decodedUrl) {
+            if (decodedBuffer) {
                 // Ricodifica in base64
-                const reencodedBase64 = decodedUrl.toString('base64');
+                const reencodedBase64 = decodedBuffer.toString('base64');
+                const decodedUrlString = decodedBuffer.toString('utf-8');
                 
                 // Normalizza nome canale
                 const normalizedName = normalizeChannelName(channel.title);
                 
-                processedChannels[normalizedName] = reencodedBase64;
+                processedChannels.push({
+                    name: normalizedName,
+                    url: reencodedBase64,
+                    decodedUrl: decodedUrlString
+                });
             }
         }
         
         return processedChannels;
     } catch (error) {
         console.error('[AMSTAFF] Errore download canali:', error);
-        return {};
+        return [];
     }
 }
 
@@ -237,7 +294,7 @@ export async function updateAmstaffChannels(): Promise<number> {
         
         // Scarica canali Amstaff
         const amstaffChannels = await fetchAmstaffChannels();
-        const amstaffCount = Object.keys(amstaffChannels).length;
+        const amstaffCount = amstaffChannels.length;
         
         if (amstaffCount === 0) {
             console.log('[AMSTAFF] ⚠️  Nessun canale scaricato');
@@ -254,30 +311,25 @@ export async function updateAmstaffChannels(): Promise<number> {
         const tvChannels: TVChannel[] = JSON.parse(tvChannelsData);
         
         let updates = 0;
+        let matches = 0;
         
         // Aggiorna canali
-        for (const channel of tvChannels) {
-            if (channel.vavooNames && Array.isArray(channel.vavooNames)) {
-                for (const vavooName of channel.vavooNames) {
-                    // Cerca match case-insensitive
-                    const normalizedVavooName = vavooName.toUpperCase();
-                    const matchingKey = Object.keys(amstaffChannels).find(
-                        key => key.toUpperCase() === normalizedVavooName
-                    );
-                    
-                    if (matchingKey) {
-                        const newUrl = amstaffChannels[matchingKey];
-                        // Aggiorna solo se il link è effettivamente cambiato
-                        if (channel.staticUrlMpd !== newUrl) {
-                            channel.staticUrlMpd = newUrl;
-                            updates++;
-                            console.log(`[AMSTAFF]   ✅ ${channel.name} (${vavooName} -> ${matchingKey}) (UPDATED)`);
-                        }
-                        break;
-                    }
+        for (const amstaffCh of amstaffChannels) {
+            const matchedChannel = matchChannel(tvChannels, amstaffCh);
+            
+            if (matchedChannel) {
+                matches++;
+                const newUrl = amstaffCh.url;
+                // Aggiorna solo se il link è effettivamente cambiato
+                if (matchedChannel.staticUrlMpd !== newUrl) {
+                    matchedChannel.staticUrlMpd = newUrl;
+                    updates++;
+                    console.log(`[AMSTAFF]   ✅ ${matchedChannel.name} <- ${amstaffCh.name} (UPDATED)`);
                 }
             }
         }
+        
+        console.log(`[AMSTAFF] 📊 Matched ${matches}/${amstaffChannels.length} channels`);
         
         if (updates > 0) {
             // Salva file aggiornato
@@ -317,7 +369,7 @@ export async function updateAmstaffChannels(): Promise<number> {
                 console.log('[AMSTAFF] ⚠️  Errore trigger reload:', err);
             }
         } else {
-            console.log('[AMSTAFF] ⚠️  Nessun canale aggiornato');
+            console.log('[AMSTAFF] ℹ️  Nessun canale aggiornato (tutti già aggiornati)');
         }
         
         return updates;
