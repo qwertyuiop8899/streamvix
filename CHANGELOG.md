@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.39](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.38...v1.10.39) (2025-12-05)
+
+
+### Bug Fixes
+
+* landing ([0e80304](https://github.com/qwertyuiop8899/streamvix/commit/0e8030424ac111fbab356806f894f1b2acccff2e))
+* rmUpdater.ts ([4eb8bc8](https://github.com/qwertyuiop8899/streamvix/commit/4eb8bc8bd70dcd7e65bc36d368126759f229673e))
+
 ## [1.10.38](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.37...v1.10.38) (2025-12-05)
 
 
