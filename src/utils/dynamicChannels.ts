@@ -55,7 +55,7 @@ const DISABLE_RUNTIME_FILTER: boolean = (() => {
 // Flag per mantenere anche gli eventi di IERI (utile se l'orario/UTC causa slittamenti di data)
 const KEEP_YESTERDAY: boolean = (() => {
   try {
-  const v = (process?.env?.DYNAMIC_KEEP_YESTERDAY ?? '0').toString().toLowerCase();
+    const v = (process?.env?.DYNAMIC_KEEP_YESTERDAY ?? '0').toString().toLowerCase();
     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
   } catch { return true; }
 })();
@@ -77,18 +77,18 @@ function resolveDynamicFile(): string {
     const envPath = (process?.env?.DYNAMIC_FILE || '').toString().trim();
     if (envPath) {
       if (fs.existsSync(envPath)) {
-        try { console.log('[DynamicChannels] Path da DYNAMIC_FILE:', envPath); } catch {}
+        try { console.log('[DynamicChannels] Path da DYNAMIC_FILE:', envPath); } catch { }
         return envPath;
       } else {
-        try { console.warn('[DynamicChannels] DYNAMIC_FILE settato ma non esiste:', envPath); } catch {}
+        try { console.warn('[DynamicChannels] DYNAMIC_FILE settato ma non esiste:', envPath); } catch { }
       }
     }
-  } catch {}
+  } catch { }
 
   // 2) Cerca in possibili posizioni (support legacy nested config/config)
   const candidates = [
-  // Preferred writable temp path in containers/hosts
-  '/tmp/dynamic_channels.json',
+    // Preferred writable temp path in containers/hosts
+    '/tmp/dynamic_channels.json',
     // Dev (ts-node src/...): __dirname ~ src/utils -> ../../config => root/config (OK)
     path.resolve(__dirname, '../../config/dynamic_channels.json'),
     // Dist (addon.js compilato in dist/, utils in dist/utils): usare ../../../config -> root/config
@@ -107,10 +107,10 @@ function resolveDynamicFile(): string {
     try {
       if (fs.existsSync(p)) {
         let size = 0;
-        try { size = fs.statSync(p).size || 0; } catch {}
+        try { size = fs.statSync(p).size || 0; } catch { }
         existing.push({ p, size, nested: /\/(^|.*\/)config\/config\//.test(p) || p.includes(path.sep + 'config' + path.sep + 'config' + path.sep), tiny: size < 10 });
       }
-    } catch {}
+    } catch { }
   }
   if (existing.length) {
     // Ordina: non-nested prima, non-tiny prima, poi size desc
@@ -120,10 +120,10 @@ function resolveDynamicFile(): string {
       return b.size - a.size;
     });
     const chosen = existing[0];
-    try { console.log('[DynamicChannels] Path selezionato:', chosen.p, 'size=', chosen.size, 'nested=', chosen.nested, 'tiny=', chosen.tiny); } catch {}
+    try { console.log('[DynamicChannels] Path selezionato:', chosen.p, 'size=', chosen.size, 'nested=', chosen.nested, 'tiny=', chosen.tiny); } catch { }
     return chosen.p;
   }
-  try { console.warn('[DynamicChannels] dynamic_channels.json non trovato in nessuno dei path candidati, uso primo fallback:', candidates[0]); } catch {}
+  try { console.warn('[DynamicChannels] dynamic_channels.json non trovato in nessuno dei path candidati, uso primo fallback:', candidates[0]); } catch { }
   return candidates[0]; // fallback
 }
 
@@ -156,7 +156,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
   try {
     const currentPath = resolveDynamicFile();
     if (currentPath !== DYNAMIC_FILE) {
-      try { console.log('[DynamicChannels] Cambio path file dinamico ->', currentPath); } catch {}
+      try { console.log('[DynamicChannels] Cambio path file dinamico ->', currentPath); } catch { }
       DYNAMIC_FILE = currentPath;
     }
     if (fs.existsSync(DYNAMIC_FILE)) {
@@ -166,7 +166,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
         lastKnownMtimeMs = st.mtimeMs;
       }
     }
-  } catch {}
+  } catch { }
   if (!force && dynamicCache && (now - lastLoad) < CACHE_TTL) return dynamicCache;
   try {
     // Carica dynamic_channels.json (Live.py, RM, Amstaff)
@@ -175,7 +175,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       const raw = fs.readFileSync(DYNAMIC_FILE, 'utf-8');
       // Se file vuoto o quasi sicuramente in stato "troncato" da write non atomica, tenta recovery senza azzerare la cache precedente
       if (raw.trim().length < 2) {
-        try { console.warn('[DynamicChannels] WARNING: file dinamico vuoto o troncato (<2 bytes), mantengo cache precedente se disponibile'); } catch {}
+        try { console.warn('[DynamicChannels] WARNING: file dinamico vuoto o troncato (<2 bytes), mantengo cache precedente se disponibile'); } catch { }
         if (dynamicCache) return dynamicCache; // mantieni precedente
         mainData = [];
       } else {
@@ -186,7 +186,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           // Retry una volta dopo breve sleep sincrono (busy wait minimo) in caso di race (writer ancora in corso)
           try {
             const start = Date.now();
-            while (Date.now() - start < 25) {/* piccolo delay */}
+            while (Date.now() - start < 25) {/* piccolo delay */ }
             const raw2 = fs.readFileSync(DYNAMIC_FILE, 'utf-8');
             if (raw2.trim().length >= 2) {
               data = JSON.parse(raw2);
@@ -194,7 +194,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
               throw perr;
             }
           } catch (retryErr) {
-            try { console.error('[DynamicChannels] Parse JSON fallita (anche dopo retry). Mantengo cache precedente.', (retryErr as any)?.message || retryErr); } catch {}
+            try { console.error('[DynamicChannels] Parse JSON fallita (anche dopo retry). Mantengo cache precedente.', (retryErr as any)?.message || retryErr); } catch { }
             if (dynamicCache) return dynamicCache;
             data = [];
           }
@@ -204,7 +204,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
         }
       }
     }
-    
+
     // Carica thisnot_channels.json (ThisNot separato)
     let thisnotData: any[] = [];
     const THISNOT_FILE = '/tmp/thisnot_channels.json';
@@ -215,11 +215,11 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           const thisnotParsed = JSON.parse(thisnotRaw);
           if (Array.isArray(thisnotParsed)) {
             thisnotData = thisnotParsed;
-            try { console.log(`[DynamicChannels] 🔗 Mergiati ${thisnotData.length} canali ThisNot da ${THISNOT_FILE}`); } catch {}
+            try { console.log(`[DynamicChannels] 🔗 Mergiati ${thisnotData.length} canali ThisNot da ${THISNOT_FILE}`); } catch { }
           }
         }
       } catch (thisnotErr) {
-        try { console.warn('[DynamicChannels] Errore caricamento ThisNot file, skip:', (thisnotErr as any)?.message); } catch {}
+        try { console.warn('[DynamicChannels] Errore caricamento ThisNot file, skip:', (thisnotErr as any)?.message); } catch { }
       }
     }
 
@@ -233,17 +233,35 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           const ppvParsed = JSON.parse(ppvRaw);
           if (Array.isArray(ppvParsed)) {
             ppvData = ppvParsed;
-            try { console.log(`[DynamicChannels] 🔗 Mergiati ${ppvData.length} canali PPV da ${PPV_FILE}`); } catch {}
+            try { console.log(`[DynamicChannels] 🔗 Mergiati ${ppvData.length} canali PPV da ${PPV_FILE}`); } catch { }
           }
         }
       } catch (ppvErr) {
-        try { console.warn('[DynamicChannels] Errore caricamento PPV file, skip:', (ppvErr as any)?.message); } catch {}
+        try { console.warn('[DynamicChannels] Errore caricamento PPV file, skip:', (ppvErr as any)?.message); } catch { }
       }
     }
-    
-    // Mergia i tre array
-    const data = [...mainData, ...thisnotData, ...ppvData];
-    
+
+    // Carica x_eventi.json (X-Eventi separato)
+    let xEventiData: any[] = [];
+    const XEVENTI_FILE = '/tmp/x_eventi.json';
+    if (fs.existsSync(XEVENTI_FILE)) {
+      try {
+        const xeRaw = fs.readFileSync(XEVENTI_FILE, 'utf-8');
+        if (xeRaw.trim().length >= 2) {
+          const xeParsed = JSON.parse(xeRaw);
+          if (Array.isArray(xeParsed)) {
+            xEventiData = xeParsed;
+            try { console.log(`[DynamicChannels] 🔗 Mergiati ${xEventiData.length} canali X-Eventi da ${XEVENTI_FILE}`); } catch { }
+          }
+        }
+      } catch (xeErr) {
+        try { console.warn('[DynamicChannels] Errore caricamento X-Eventi file, skip:', (xeErr as any)?.message); } catch { }
+      }
+    }
+
+    // Mergia i quattro array
+    const data = [...mainData, ...thisnotData, ...ppvData, ...xEventiData];
+
     if (data.length === 0) {
       dynamicCache = [];
       lastLoad = now;
@@ -257,7 +275,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
         catMapRaw[c] = (catMapRaw[c] || 0) + 1;
       }
       console.log(`[DynamicChannels] RAW count=${data.length} per categoria:`, catMapRaw);
-    } catch {}
+    } catch { }
     // Normalizza titoli stream
     const normStreamTitle = (t?: string): string | undefined => {
       if (!t || typeof t !== 'string') return t;
@@ -278,7 +296,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
         if (m) {
           try {
             ch.eventStart = new Date(Date.UTC(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]), 0, 0, 0)).toISOString();
-          } catch {}
+          } catch { }
         }
       }
     }
@@ -290,7 +308,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           catMapKept[c] = (catMapKept[c] || 0) + 1;
         }
         console.log(`[DynamicChannels] KEPT (no-filter) count=${data.length} per categoria:`, catMapKept);
-      } catch {}
+      } catch { }
       dynamicCache = data;
       lastLoad = now;
       return data;
@@ -330,7 +348,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
         if (category === 'thisnot') {
           return true; // Skip tutti i filtri temporali per ThisNot
         }
-        
+
         if (!ch.eventStart) return true; // keep if undated
         const chDate = datePartRome(ch.eventStart);
         if (!chDate) return true;
@@ -360,15 +378,15 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           catMapKept[c] = (catMapKept[c] || 0) + 1;
         }
         console.log(`[DynamicChannels] KEPT count=${filtered.length} per categoria:`, catMapKept);
-      } catch {}
+      } catch { }
       dynamicCache = filtered;
       lastLoad = now;
       if (removedPrevDay) {
         const hh = purgeHourValue.toString().padStart(2, '0');
-        try { console.log(`🧹 runtime filter: rimossi ${removedPrevDay} eventi del giorno precedente (dopo le ${hh}:00 Rome)`); } catch {}
+        try { console.log(`🧹 runtime filter: rimossi ${removedPrevDay} eventi del giorno precedente (dopo le ${hh}:00 Rome)`); } catch { }
       }
       if (removedExpiredAge && EVENT_MAX_AGE_HOURS > 0) {
-        try { console.log(`⏱️ runtime filter: rimossi ${removedExpiredAge} eventi oltre ${EVENT_MAX_AGE_HOURS}h dallo start`); } catch {}
+        try { console.log(`⏱️ runtime filter: rimossi ${removedExpiredAge} eventi oltre ${EVENT_MAX_AGE_HOURS}h dallo start`); } catch { }
       }
       return filtered;
     }
@@ -388,7 +406,7 @@ function atomicWrite(target: string, content: string) {
   try {
     fs.renameSync(tmp, target); // atomic su stessa FS
   } catch (e) {
-    try { fs.unlinkSync(tmp); } catch {}
+    try { fs.unlinkSync(tmp); } catch { }
     throw e;
   }
 }
@@ -432,30 +450,30 @@ export function purgeOldDynamicEvents(): { before: number; after: number; remove
         return fmt.format(d); // YYYY-MM-DD
       } catch { return null; }
     };
-  const todayRomeStr = (() => {
+    const todayRomeStr = (() => {
       try {
         const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' } as any);
         return fmt.format(new Date());
       } catch { return datePartRome(nowRome.toISOString()) || ''; }
     })();
-  const yRomeTmp2 = new Date(nowRome);
-  yRomeTmp2.setDate(yRomeTmp2.getDate() - 1);
-  const yesterdayRomeStr = datePartRome(yRomeTmp2.toISOString()) || '';
-  // Grace period: mantieni anche IERI fino alle 08:00 Rome, indipendentemente da KEEP_YESTERDAY
-  const isBeforeGrace = (() => { try { return nowRome.getHours() < 8; } catch { return false; } })();
+    const yRomeTmp2 = new Date(nowRome);
+    yRomeTmp2.setDate(yRomeTmp2.getDate() - 1);
+    const yesterdayRomeStr = datePartRome(yRomeTmp2.toISOString()) || '';
+    // Grace period: mantieni anche IERI fino alle 08:00 Rome, indipendentemente da KEEP_YESTERDAY
+    const isBeforeGrace = (() => { try { return nowRome.getHours() < 8; } catch { return false; } })();
     // Deriva eventStart se mancante (00:00 del giorno codificato nell'id)
     for (const ch of data) {
       if (!ch.eventStart && typeof ch.id === 'string') {
         const m = ch.id.match(/(20\d{2})(\d{2})(\d{2})$/);
         if (m) {
           const y = m[1]; const mm = m[2]; const dd = m[3];
-          try { ch.eventStart = new Date(Date.UTC(parseInt(y), parseInt(mm)-1, parseInt(dd), 0,0,0)).toISOString(); } catch { /* ignore */ }
+          try { ch.eventStart = new Date(Date.UTC(parseInt(y), parseInt(mm) - 1, parseInt(dd), 0, 0, 0)).toISOString(); } catch { /* ignore */ }
         }
       }
     }
     const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
     const nowMs = nowRome.getTime();
-  const filtered = data.filter((ch: DynamicChannel) => {
+    const filtered = data.filter((ch: DynamicChannel) => {
       if (!ch.eventStart) {
         // Usa createdAt per determinare età, se manca assegnalo ora e conserva (verrà valutato ai prossimi purge)
         if (!ch.createdAt) {
@@ -468,32 +486,32 @@ export function purgeOldDynamicEvents(): { before: number; after: number; remove
         if (age > TWO_DAYS_MS) return false; // elimina dopo 2 giorni
         return true;
       }
-  // Se impostata la max age, elimina se oltre soglia
-  if (maxAgeMs > 0) {
-    try {
-      const start = Date.parse(ch.eventStart);
-      if (!isNaN(start)) {
-        const age = nowMs - start;
-        if (age > maxAgeMs) return false;
+      // Se impostata la max age, elimina se oltre soglia
+      if (maxAgeMs > 0) {
+        try {
+          const start = Date.parse(ch.eventStart);
+          if (!isNaN(start)) {
+            const age = nowMs - start;
+            if (age > maxAgeMs) return false;
+          }
+        } catch { /* ignore */ }
       }
-    } catch { /* ignore */ }
-  }
-  const chDate = datePartRome(ch.eventStart);
-  if (!chDate) return true;
-  // Mantieni oggi; opzionalmente mantieni anche ieri
-  if (chDate >= todayRomeStr) return true;
-  // Effettivo mantenimento di IERI: fino alle 08:00 Rome sempre; dopo, solo se KEEP_YESTERDAY è attivo
-  if (chDate === yesterdayRomeStr) {
-    if (isBeforeGrace) return true;
-    if (KEEP_YESTERDAY) return true;
-  }
-  return false; // rimuove se < ieri (o < oggi se KEEP_YESTERDAY è off)
+      const chDate = datePartRome(ch.eventStart);
+      if (!chDate) return true;
+      // Mantieni oggi; opzionalmente mantieni anche ieri
+      if (chDate >= todayRomeStr) return true;
+      // Effettivo mantenimento di IERI: fino alle 08:00 Rome sempre; dopo, solo se KEEP_YESTERDAY è attivo
+      if (chDate === yesterdayRomeStr) {
+        if (isBeforeGrace) return true;
+        if (KEEP_YESTERDAY) return true;
+      }
+      return false; // rimuove se < ieri (o < oggi se KEEP_YESTERDAY è off)
     });
     try {
       atomicWrite(DYNAMIC_FILE, JSON.stringify(filtered, null, 2));
     } catch (wErr) {
       console.error('[DynamicChannels][PURGE] atomic write failed, fallback direct write', (wErr as any)?.message || wErr);
-      try { fs.writeFileSync(DYNAMIC_FILE, JSON.stringify(filtered, null, 2), 'utf-8'); } catch {/* ignore */}
+      try { fs.writeFileSync(DYNAMIC_FILE, JSON.stringify(filtered, null, 2), 'utf-8'); } catch {/* ignore */ }
     }
     // Invalida cache
     dynamicCache = null;
@@ -503,7 +521,7 @@ export function purgeOldDynamicEvents(): { before: number; after: number; remove
       const removed = before - after;
       const removedDetail = { before, after, removed, graceActive: isBeforeGrace, keepYesterdayFlag: KEEP_YESTERDAY, maxAgeHours: EVENT_MAX_AGE_HOURS };
       console.log('[DynamicChannels][PURGE] result', removedDetail);
-    } catch {}
+    } catch { }
     return { before, after, removed: before - after };
   } catch (e) {
     console.error('❌ purgeOldDynamicEvents error:', e);
@@ -521,7 +539,7 @@ export function mergeDynamic(staticList: any[]): any[] {
       perCat[c] = (perCat[c] || 0) + 1;
     }
     console.log('[DynamicChannels] merge: categorie dinamiche disponibili:', perCat);
-  } catch {}
+  } catch { }
   const existingIds = new Set(staticList.map(c => c.id));
   const merged = [...staticList];
   let added = 0;
@@ -534,18 +552,18 @@ export function mergeDynamic(staticList: any[]): any[] {
         logo: ch.logo,
         poster: ch.logo,
         description: ch.description || '',
-  eventStart: ch.eventStart || null,
-  category: ch.category || 'sport',
-  // store dynamic D stream urls (array) for handler
-  dynamicDUrls: ch.streams?.map(s => ({ url: s.url, title: s.title })) || [],
-  epgChannelIds: ch.epgChannelIds || [],
-  _dynamic: true
+        eventStart: ch.eventStart || null,
+        category: ch.category || 'sport',
+        // store dynamic D stream urls (array) for handler
+        dynamicDUrls: ch.streams?.map(s => ({ url: s.url, title: s.title })) || [],
+        epgChannelIds: ch.epgChannelIds || [],
+        _dynamic: true
       });
       added++;
     }
   }
   if (added) {
-    try { console.log(`🔄 mergeDynamic: aggiunti ${added} canali dinamici (totale catalogo provvisorio: ${merged.length})`); } catch {}
+    try { console.log(`🔄 mergeDynamic: aggiunti ${added} canali dinamici (totale catalogo provvisorio: ${merged.length})`); } catch { }
   }
   return merged;
 }
