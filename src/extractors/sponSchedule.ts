@@ -66,6 +66,8 @@ export async function fetchSponSchedule(force = false): Promise<SponRow[]> {
     // AGGIORNATO: dominio principale sportzonline.live (ottobre 2025)
     // Altri domini fanno redirect al principale
     const builtin = [
+      'https://sportzonline.top/prog.txt',
+      'https://sportsonline.cx/prog.txt',
       'https://sportzonline.live/prog.txt',
       'https://sportsonline.sn/prog.txt',
       'https://sportzonline.st/prog.txt'
@@ -75,7 +77,18 @@ export async function fetchSponSchedule(force = false): Promise<SponRow[]> {
     for (const u of extra) if (!urls.includes(u)) urls.push(u);
     for (const u of builtin) if (!urls.includes(u)) urls.push(u);
 
-    for (const url of urls) {
+    // Use a queue to support dynamic redirects (e.g. 404 with meta refresh)
+    const queue = [...urls];
+    const visited = new Set<string>();
+    let attemptsCount = 0;
+    const MAX_ATTEMPTS = 15;
+
+    while (queue.length > 0 && attemptsCount < MAX_ATTEMPTS) {
+      attemptsCount++;
+      const url = queue.shift()!;
+      if (visited.has(url)) continue;
+      visited.add(url);
+
       try {
         const res = await fetch(url, { 
           headers: { 
@@ -112,6 +125,26 @@ export async function fetchSponSchedule(force = false): Promise<SponRow[]> {
           }
           break;
         } else {
+          // Handle 404/403 with Meta Refresh (browser simulation)
+          if (status >= 400) {
+             try {
+               const body = await res.text();
+               // Look for <meta http-equiv="Refresh" content="0; url='...'">
+               const contentMatch = body.match(/content=["']\s*\d+\s*;\s*url=['"]?([^'"\s>]+)['"]?/i);
+               if (contentMatch) {
+                 let nextUrl = contentMatch[1];
+                 if (nextUrl && !nextUrl.startsWith('http')) {
+                    try { nextUrl = new URL(nextUrl, url).toString(); } catch {}
+                 }
+                 if (nextUrl && !visited.has(nextUrl)) {
+                   console.log(`[SPON] ↪️  Following Meta-Refresh: ${url} -> ${nextUrl}`);
+                   queue.unshift(nextUrl); // Try immediately
+                   attempts.push({ url, status, ok: false, err: `meta-refresh->${nextUrl}` });
+                   continue;
+                 }
+               }
+             } catch {}
+          }
           attempts.push({ url, status, ok: false });
         }
       } catch (e:any) {
