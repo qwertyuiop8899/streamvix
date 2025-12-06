@@ -78,7 +78,7 @@ export class SportsonlineExtractor implements HostExtractor {
   supports(url: string): boolean {
     // AGGIORNATO: dominio principale sportsonline.sn (redirect da .st e .live)
     // Supporta anche i vecchi domini per retrocompatibilità
-    return /sport(s)?online?\.(st|sn|live|si)/i.test(url);
+    return /sport(s)?online?\.(st|sn|live|si|cx|gl|top)/i.test(url);
   }
   async extract(pageUrl: string, ctx: ExtractorContext): Promise<ExtractResult> {
     // Step 1: main page
