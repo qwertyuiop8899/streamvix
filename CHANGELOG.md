@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.10.42](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.41...v1.10.42) (2025-12-06)
+
+
+### Bug Fixes
+
+* domains.json ([dd257ae](https://github.com/qwertyuiop8899/streamvix/commit/dd257ae939f86e9e3652bbc903b16f10f3af078e))
+* domains.jsonbk ([7f253d9](https://github.com/qwertyuiop8899/streamvix/commit/7f253d9bde45992e199dcaeb12d8be3335f1007e))
+* landingPage.ts ([7af082e](https://github.com/qwertyuiop8899/streamvix/commit/7af082e402fd09220bc29de59ad3cc1c16bfa34a))
+* remove sw ([4e55456](https://github.com/qwertyuiop8899/streamvix/commit/4e55456297b1f2afeaa02af3114d5f220adb28cf))
+* unifiedNames.ts ([e3a4858](https://github.com/qwertyuiop8899/streamvix/commit/e3a48582747a33a309f3a192b0d7397366393acb))
+* update_domains.py ([833c2f8](https://github.com/qwertyuiop8899/streamvix/commit/833c2f8981b81fc8193639df52dd717c91bab39e))
+
 ## [1.10.41](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.40...v1.10.41) (2025-12-06)
 
 
