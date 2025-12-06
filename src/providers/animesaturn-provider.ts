@@ -214,6 +214,10 @@ function normalizeTitleForSearch(title: string): string {
         "Link Click Season 2": "Link Click 2",
 
 
+        "K: SEVEN STORIES Lost Small World - Outside the Cage - ": "K: Seven Stories Movie 4 - Lost Small World - Ori no Mukou ni",
+
+
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
