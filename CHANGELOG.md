@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.41](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.40...v1.10.41) (2025-12-06)
+
+
+### Bug Fixes
+
+* sponSchedule.ts ([51498e2](https://github.com/qwertyuiop8899/streamvix/commit/51498e23a466d9210ea841e88ac20e14e520d0eb))
+
 ## [1.10.40](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.39...v1.10.40) (2025-12-05)
 
 
