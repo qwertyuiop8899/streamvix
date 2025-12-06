@@ -338,7 +338,6 @@ function landingTemplate(manifest: any) {
 						'loonexEnabled': { title: 'Loonex 🎬 - 🔓', invert: false },
 						'toonitaliaEnabled': { title: 'ToonItalia 🎨 - 🔒', invert: false },
 						'cb01Enabled': { title: 'CB01 🎞️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci Proxy URL per abilitare)</span>', invert: false },
-						'streamingwatchEnabled': { title: 'StreamingWatch 📼 - 🔓', invert: false },
 							// 'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false }, // NASCOSTO
 							'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
 							'mediaflowMaster': { title: 'EasyProxy o MediaFlowProxy ☂️', invert: false },
@@ -835,7 +834,6 @@ function landingTemplate(manifest: any) {
 						'disableVixsrc',         // VixSrc directly under Live TV block
 						'cb01Enabled',           // CB01
 						'guardahdEnabled',       // GuardaHD
-						'streamingwatchEnabled', // StreamingWatch
 						'guardaserieEnabled',    // GuardaSerie
 						'eurostreamingEnabled',  // Eurostreaming
 						'loonexEnabled',         // Loonex
