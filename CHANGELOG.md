@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.43](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.42...v1.10.43) (2025-12-06)
+
+
+### Bug Fixes
+
+* add xevent ([aab06b0](https://github.com/qwertyuiop8899/streamvix/commit/aab06b0a20d36b8ccedc16f69c23303b5dda9089))
+
 ## [1.10.42](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.41...v1.10.42) (2025-12-06)
 
 
