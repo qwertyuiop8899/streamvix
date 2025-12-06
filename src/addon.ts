@@ -671,7 +671,6 @@ const baseManifest: Manifest = {
     { key: "loonexEnabled", title: "Enable Loonex", type: "checkbox" },
     { key: "toonitaliaEnabled", title: "Enable ToonItalia", type: "checkbox" },
     { key: "cb01Enabled", title: "Enable CB01 Mixdrop", type: "checkbox" },
-    { key: "streamingwatchEnabled", title: "StreamingWatch 🔓", type: "checkbox" },
     // { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: true }, // TVTAP RIMOSSO
     { key: "vavooNoMfpEnabled", title: "Vavoo NO MFP 🔓", type: "checkbox", default: true },
     // UI helper toggles (not used directly server-side but drive dynamic form logic)
@@ -4146,9 +4145,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (config.guardaserieEnabled === true);
                 const guardaHdEnabled = envFlag('GUARDAHD_ENABLED') ?? (config.guardahdEnabled === true);
                 const cb01Enabled = envFlag('CB01_ENABLED') ?? (config as any).cb01Enabled === true;
-                // StreamingWatch: env DISABLE_STREAMINGWATCH=true disabilita globalmente (anche se utente ha abilitato)
-                const streamingWatchDisabledGlobally = process.env.DISABLE_STREAMINGWATCH === 'true';
-                const streamingWatchEnabled = streamingWatchDisabledGlobally ? false : (envFlag('STREAMINGWATCH_ENABLED') ?? (config as any).streamingwatchEnabled === true);
                 // Eurostreaming: default ON unless explicitly disabled (config false) or env sets true/false
                 const eurostreamingEnv = envFlag('EUROSTREAMING_ENABLED');
                 const eurostreamingEnabled = eurostreamingEnv !== undefined
@@ -4170,7 +4166,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 let vixsrcScheduled = false; // per evitare doppia esecuzione nel blocco sequenziale più sotto
 
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld + Loonex
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || streamingWatchEnabled || cb01Enabled || vixsrcEnabled)) {
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled)) {
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
                         mfpUrl: mfpUrl,
@@ -4221,7 +4217,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (l.includes('guardaserie')) return 'guardaserie';
                         if (l.includes('guardahd')) return 'guardahd';
                         if (l.includes('cb01')) return 'cb01';
-                        if (l.includes('streamingwatch')) return 'streamingwatch';
                         if (l.includes('eurostreaming')) return 'eurostreaming';
                         if (l.includes('loonex')) return 'loonex';
                         if (l.includes('toonitalia')) return 'toonitalia';
@@ -4375,7 +4370,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             // eurostreaming: eurostreaming-ita | eurostreaming-sub
                             // cb01: cb01-std
                             // guardahd: guardahd-std (tutti) | guardahd-prx (solo mixdrop)
-                            // streamingwatch: streamingwatch-std
                             // guardaserie: guardaserie-std
                             // Altri provider (fallback): providerKey-std
                             // Nota: determinazione lingua basata su isSub (SUB vs ITA)
@@ -4405,9 +4399,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         const isMix = /mixdrop/i.test(playerName || '') || /mixdrop/i.test(rawTitle);
                                         bingeGroup = isMix ? 'guardahd-prx' : 'guardahd-std';
                                         break; }
-                                    case 'streamingwatch':
-                                        bingeGroup = 'streamingwatch-std';
-                                        break;
                                     case 'guardaserie':
                                         bingeGroup = 'guardaserie-std';
                                         break;
@@ -4589,18 +4580,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }, providerLabel('cb01'), true, 30000));  // CB01: timeout 30s
                     }
 
-                    // StreamingWatch (nuovo provider) - supporta film e serie
-                    if (streamingWatchEnabled && id.startsWith('tt')) {
-                        providerPromises.push(runProvider('StreamingWatch', true, async () => {
-                            const { StreamingWatchProvider } = await import('./providers/streamingwatch-provider');
-                            const swProvider = new StreamingWatchProvider({
-                                enabled: true,
-                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
-                            });
-                            return swProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        }, providerLabel('streamingwatch'), false, 30000));  // StreamingWatch: timeout 30s
-                    }
-
                     // Eurostreaming
                     if (eurostreamingEnabled && id.startsWith('tt') && seasonNumber != null && episodeNumber != null) {
                         providerPromises.push(runProvider('Eurostreaming', true, async () => {
@@ -4760,7 +4739,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (l.includes('guardaserie')) return 4;
                         if (l.includes('guardahd')) return 5;
                         if (l.includes('cb01')) return 6;
-                        if (l.includes('streamingwatch')) return 7;
                         if (l.includes('eurostreaming')) return 8;
                         return 50;
                     };
