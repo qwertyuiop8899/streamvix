@@ -43,22 +43,22 @@ async function fetchJsFuckFromEdroid(): Promise<string | null> {
     try {
         const edroidUrl = _d(_EDROID_B64);
         console.log('[MPDz] Fetching e-droid page for JsFuck...');
-        
-        const response = await axios.get(edroidUrl, { 
+
+        const response = await axios.get(edroidUrl, {
             timeout: 60000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
         });
-        
+
         let html = response.data;
-        
+
         // Applica le sostituzioni
         html = html.replace(/@CCORCH@/g, ']').replace(/@MNQ@/g, '<');
-        
+
         // Estrai lo script JsFuck
         const scriptMatches = html.match(/<script>([\s\S]*?)<\/script>/g) || [];
-        
+
         for (const scriptTag of scriptMatches) {
             const script = scriptTag.replace(/<\/?script>/g, '').trim();
             if (script.length > 10000) {
@@ -76,7 +76,7 @@ async function fetchJsFuckFromEdroid(): Promise<string | null> {
                 }
             }
         }
-        
+
         return null;
     } catch (e) {
         console.error('[MPDz] Failed to fetch e-droid:', e);
@@ -89,11 +89,11 @@ async function fetchJsFuckFromEdroid(): Promise<string | null> {
  */
 function decodeJsFuck(jsfuckCode: string): string | null {
     console.log('[MPDz] Decoding JsFuck...');
-    
+
     const tmpDir = os.tmpdir();
     const jsfuckFile = path.join(tmpDir, `jsfuck_${Date.now()}.js`);
     const nodeScript = path.join(tmpDir, `decoder_${Date.now()}.js`);
-    
+
     const decoderCode = `
 const fs = require('fs');
 function jsfuckdecode(text) {
@@ -118,23 +118,23 @@ function jsfuckdecode(text) {
 }
 console.log(jsfuckdecode(fs.readFileSync(process.argv[2], 'utf8')));
 `;
-    
+
     try {
         fs.writeFileSync(jsfuckFile, jsfuckCode);
         fs.writeFileSync(nodeScript, decoderCode);
-        
+
         // Usa process.execPath per il percorso assoluto di Node.js (funziona in Docker/K8s)
         const nodeExec = process.execPath;
         const result = execSync(`"${nodeExec}" "${nodeScript}" "${jsfuckFile}"`, {
             timeout: 60000, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024
         });
-        
+
         if (result && !result.startsWith('error:')) return result;
     } catch (e) {
         console.error('[MPDz] JsFuck decode error:', e);
     } finally {
-        try { fs.unlinkSync(jsfuckFile); } catch {}
-        try { fs.unlinkSync(nodeScript); } catch {}
+        try { fs.unlinkSync(jsfuckFile); } catch { }
+        try { fs.unlinkSync(nodeScript); } catch { }
     }
     return null;
 }
@@ -226,14 +226,14 @@ function normalizeName(name: string): string {
 function parseM3u(content: string): MpdzChannel[] {
     const channels: MpdzChannel[] = [];
     const lines = content.split('\n').map(l => l.trim()).filter(l => l);
-    
+
     let currentName = '';
     let currentKeyId = '';
     let currentKey = '';
-    
+
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        
+
         if (line.startsWith('#EXTINF:')) {
             const nameMatch = line.match(/,([^,]+)$/);
             currentName = nameMatch ? removeEmojis(nameMatch[1].trim()) : '';
@@ -262,7 +262,7 @@ function parseM3u(content: string): MpdzChannel[] {
 function matchChannel(tvChannels: TVChannel[], mpdzCh: MpdzChannel): TVChannel | null {
     const mpdzName = mpdzCh.name;
     const normalizedMpdz = normalizeName(mpdzName);
-    
+
     // Extract ID from URL if possible
     // URL format: .../channel(skycinemaaction)/...
     const urlIdMatch = mpdzCh.url.match(/channel\(([^)]+)\)/);
@@ -271,11 +271,11 @@ function matchChannel(tvChannels: TVChannel[], mpdzCh: MpdzChannel): TVChannel |
     if (urlId) {
         // Try to match by ID first (very reliable)
         const normalizedUrlId = urlId.toLowerCase().replace(/[^a-z0-9]/g, '');
-        
+
         for (const channel of tvChannels) {
             const chId = channel.id.toLowerCase().replace(/[^a-z0-9]/g, '');
             if (chId === normalizedUrlId) return channel;
-            
+
             // Flexible ID matching
             if (chId.length > 3 && normalizedUrlId.includes(chId)) return channel;
             if (normalizedUrlId.length > 3 && chId.includes(normalizedUrlId)) return channel;
@@ -283,7 +283,7 @@ function matchChannel(tvChannels: TVChannel[], mpdzCh: MpdzChannel): TVChannel |
             // Check epgChannelIds
             if (channel.epgChannelIds) {
                 for (const epgId of channel.epgChannelIds) {
-                     if (epgId.toLowerCase().includes(urlId.toLowerCase())) return channel;
+                    if (epgId.toLowerCase().includes(urlId.toLowerCase())) return channel;
                 }
             }
         }
@@ -297,11 +297,11 @@ function matchChannel(tvChannels: TVChannel[], mpdzCh: MpdzChannel): TVChannel |
                 if (normalizedMpdz === normalizedVavoo) return channel;
             }
         }
-        
+
         // Match su name
         const normalizedName = normalizeName(channel.name);
         if (normalizedMpdz === normalizedName) return channel;
-        
+
         // Match parziale per canali numerati (es. SKY SPORT 251)
         const mpdzNumMatch = normalizedMpdz.match(/(\d{3})$/);
         const nameNumMatch = normalizedName.match(/(\d{3})$/);
@@ -310,7 +310,7 @@ function matchChannel(tvChannels: TVChannel[], mpdzCh: MpdzChannel): TVChannel |
             const namePrefix = normalizedName.replace(/\s*\d{3}$/, '').trim();
             if (mpdzPrefix === namePrefix) return channel;
         }
-        
+
         // Match "contains" per nomi parziali
         if (normalizedMpdz.length > 5 && normalizedName.includes(normalizedMpdz)) return channel;
         if (normalizedName.length > 5 && normalizedMpdz.includes(normalizedName)) return channel;
@@ -321,66 +321,66 @@ function matchChannel(tvChannels: TVChannel[], mpdzCh: MpdzChannel): TVChannel |
 /**
  * Scarica, decripta e aggiorna tv_channels.json con staticUrlMpdz
  */
-export async function updateMpdzChannels(): Promise<number> {
+export async function updateMpdzChannels(force: boolean = false): Promise<number> {
     try {
         console.log('[MPDz] 📥 Inizio aggiornamento canali MPDz...');
-        
+
         // Scarica e decripta
         const Url = _d(__B64);
-        const response = await axios.get(Url, { 
+        const response = await axios.get(Url, {
             timeout: 60000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
         });
-        
+
         const encrypted = response.data;
         console.log(`[MPDz] Downloaded ${encrypted.length} chars`);
-        
+
         const passphrase = await getPassphrase();
         const decrypted = decryptPayload(encrypted.trim(), passphrase);
         console.log(`[MPDz] Decrypted ${decrypted.length} chars`);
-        
+
         const mpdzChannels = parseM3u(decrypted);
         console.log(`[MPDz] ✅ Parsed ${mpdzChannels.length} channels`);
-        
+
         if (mpdzChannels.length === 0) {
             console.log('[MPDz] ⚠️  Nessun canale scaricato');
             return 0;
         }
-        
+
         // Legge tv_channels.json
         const tvChannelsPath = path.join(__dirname, '../../config/tv_channels.json');
         console.log(`[MPDz] 📁 Percorso file: ${tvChannelsPath}`);
         const tvChannelsData = fs.readFileSync(tvChannelsPath, 'utf-8');
         const tvChannels: TVChannel[] = JSON.parse(tvChannelsData);
-        
+
         let updates = 0;
         let matches = 0;
-        
+
         // Match e update
         for (const mpdzCh of mpdzChannels) {
             const matchedChannel = matchChannel(tvChannels, mpdzCh);
-            
+
             if (matchedChannel) {
                 matches++;
                 const urlBase64 = Buffer.from(mpdzCh.url).toString('base64');
-                // Aggiorna solo se il link è effettivamente cambiato
-                if (matchedChannel.staticUrlMpdz !== urlBase64) {
+                // Aggiorna solo se il link è effettivamente cambiato o se forzato
+                if (force || matchedChannel.staticUrlMpdz !== urlBase64) {
                     matchedChannel.staticUrlMpdz = urlBase64;
                     updates++;
                     console.log(`[MPDz]   ✅ ${matchedChannel.name} <- ${mpdzCh.name} (UPDATED)`);
                 }
             }
         }
-        
+
         console.log(`[MPDz] 📊 Matched ${matches}/${mpdzChannels.length} channels`);
 
         if (updates > 0) {
             // Salva file aggiornato
             fs.writeFileSync(tvChannelsPath, JSON.stringify(tvChannels, null, 2), 'utf-8');
             console.log(`[MPDz] ✅ Aggiornati ${updates} canali con staticUrlMpdz`);
-            
+
             // Trigger reload
             try {
                 await new Promise(resolve => setTimeout(resolve, 1000));
@@ -407,7 +407,7 @@ export async function updateMpdzChannels(): Promise<number> {
         } else {
             console.log('[MPDz] ℹ️  Nessun canale aggiornato (tutti già aggiornati)');
         }
-        
+
         return updates;
     } catch (error) {
         console.error('[MPDz] ❌ Errore aggiornamento:', error);
@@ -424,13 +424,13 @@ export function startMpdzScheduler(intervalMs = 1380000) {
         console.log('[MPDz] 🚀 Primo aggiornamento all\'avvio...');
         await updateMpdzChannels();
     }, 50000);
-    
+
     // Poi ogni 23 minuti
     setInterval(async () => {
         console.log('[MPDz] 🔄 Aggiornamento programmato (23min)...');
         await updateMpdzChannels();
     }, intervalMs);
-    
+
     console.log('[MPDz] 📅 Scheduler attivato: aggiornamenti ogni 23 minuti');
 }
 
