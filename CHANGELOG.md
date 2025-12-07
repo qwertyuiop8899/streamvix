@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.44](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.43...v1.10.44) (2025-12-07)
+
+
+### Bug Fixes
+
+* mpd2 and fupdate ([7fe1498](https://github.com/qwertyuiop8899/streamvix/commit/7fe1498f3e852e7a19daea27d6c89103d5cca98c))
+
 ## [1.10.43](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.42...v1.10.43) (2025-12-06)
 
 
