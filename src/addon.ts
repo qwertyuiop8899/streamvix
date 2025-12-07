@@ -36,7 +36,8 @@ import { startAmstaffScheduler, updateAmstaffChannels } from './utils/amstaffUpd
 import { startRmScheduler, updateRmChannels } from './utils/rmUpdater';
 
 // ThisNot updater
-import { startThisNotUpdater } from './utils/thisnotChannels';
+// ThisNot updater
+import { startThisNotUpdater, updateThisNotChannels } from './utils/thisnotChannels';
 import { startMpdzScheduler, updateMpdzChannels } from './utils/mpdzUpdater';
 import { startMpdxScheduler, updateMpdxChannels } from './utils/mpdxUpdater';
 
@@ -2396,6 +2397,41 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 }
                             }
                             return { streams: xStreams };
+                        }
+
+                        // === ThisNot EARLY RETURN: Proxy via MFP ===
+                        const isThisNot = channelCategory === 'THISNOT' || (channel as any).id?.startsWith('thisnot_');
+                        if (isThisNot) {
+                            // Canali ThisNot: dynamicDUrls contiene il link base64 (staticUrlMpd) in "url"
+                            // Dobbiamo costruire il link proxato: {mfpUrl}/proxy/stream?d={base64}&api_password={psw}...
+                            const tStreams: Stream[] = [];
+                            const dArr = Array.isArray((channel as any).dynamicDUrls) ? (channel as any).dynamicDUrls : [];
+
+                            if (mfpUrl) {
+                                const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                const headersParam = `&headers=${encodeURIComponent('{"User-Agent":"Mozilla/5.0"}')}`;
+
+                                for (const d of dArr) {
+                                    if (d.url) {
+                                        // d.url è già il base64 (MPD&key...), lo usiamo come parametro d
+                                        // Attenzione: se d.url contiene già parametri, ok, è stringa opaca per noi
+                                        const finalUrl = `${mfpUrl}/proxy/stream?d=${d.url}${passwordParam}${headersParam}`;
+
+                                        tStreams.push({
+                                            url: finalUrl,
+                                            name: '🔴 LIVE',
+                                            title: 'ThisNot'
+                                        } as any);
+                                    }
+                                }
+                                console.log(`[ThisNot] ✅ Canale ThisNot rilevato: ${channel.id} - restituisco ${tStreams.length} stream proxati`);
+                                return { streams: tStreams };
+                            } else {
+                                console.log(`[ThisNot] ⚠️ MFP URL mancante, impossibile proxare canali ThisNot`);
+                                // Fallback: restituisci diretto (non funzionerà per CORS/mixed content probabilmente, ma meglio di niente)
+                                // O forse meglio non restituire nulla se manca proxy?
+                                // Proviamo a restituire link diretto decodificato nel caso serva debug
+                            }
                         }
 
                         const dArr = Array.isArray((channel as any).dynamicDUrls) ? (channel as any).dynamicDUrls : [];
@@ -5668,6 +5704,15 @@ app.get('/static/fupdate', async (req: Request, res: Response) => {
             htmlLog.push(`<li>✅ <strong>MPDx</strong>: ${c} channels updated (FORCED)</li>`);
         } catch (e: any) {
             htmlLog.push(`<li>❌ <strong>MPDx</strong>: Error: ${e.message}</li>`);
+        }
+
+        // ThisNot
+        try {
+            const { updateThisNotChannels } = await import('./utils/thisnotChannels');
+            await updateThisNotChannels();
+            htmlLog.push(`<li>✅ <strong>ThisNot</strong>: Updated (FORCED)</li>`);
+        } catch (e: any) {
+            htmlLog.push(`<li>❌ <strong>ThisNot</strong>: Error: ${e.message}</li>`);
         }
 
         htmlLog.push('</ul>');
