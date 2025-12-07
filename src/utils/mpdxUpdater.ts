@@ -48,14 +48,14 @@ function removeEmojis(str: string): string {
 function parseM3u(content: string): MpdxChannel[] {
     const channels: MpdxChannel[] = [];
     const lines = content.split('\n').map(l => l.trim()).filter(l => l);
-    
+
     let currentName = '';
     let currentKeyId = '';
     let currentKey = '';
-    
+
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        
+
         if (line.startsWith('#EXTINF:')) {
             const nameMatch = line.match(/,([^,]+)$/);
             currentName = nameMatch ? nameMatch[1].trim() : '';
@@ -106,7 +106,7 @@ function matchChannel(tvChannels: TVChannel[], mpdxCh: MpdxChannel): TVChannel |
     const mpdxName = mpdxCh.name;
     const normalizedMpdx = normalizeName(mpdxName);
     const strictMpdx = normalizeStrict(mpdxName);
-    
+
     // Extract ID from URL if possible
     // URL format: .../channel(skycinemaaction)/...
     const urlIdMatch = mpdxCh.url.match(/channel\(([^)]+)\)/);
@@ -116,19 +116,19 @@ function matchChannel(tvChannels: TVChannel[], mpdxCh: MpdxChannel): TVChannel |
         // Try to match by ID first (very reliable)
         // Check against channel.id (normalized) or epgChannelIds
         const normalizedUrlId = urlId.toLowerCase().replace(/[^a-z0-9]/g, '');
-        
+
         for (const channel of tvChannels) {
             const chId = channel.id.toLowerCase().replace(/[^a-z0-9]/g, '');
             if (chId === normalizedUrlId) return channel;
-            
+
             // Flexible ID matching
             if (chId.length > 3 && normalizedUrlId.includes(chId)) return channel;
             if (normalizedUrlId.length > 3 && chId.includes(normalizedUrlId)) return channel;
-            
+
             // Check epgChannelIds
             if (channel.epgChannelIds) {
                 for (const epgId of channel.epgChannelIds) {
-                     if (epgId.toLowerCase().includes(urlId.toLowerCase())) return channel;
+                    if (epgId.toLowerCase().includes(urlId.toLowerCase())) return channel;
                 }
             }
         }
@@ -149,19 +149,19 @@ function matchChannel(tvChannels: TVChannel[], mpdxCh: MpdxChannel): TVChannel |
             for (const vn of channel.vavooNames) {
                 const normalizedVavoo = normalizeName(vn);
                 const strictVavoo = normalizeStrict(vn);
-                
+
                 if (normalizedMpdx === normalizedVavoo) return channel;
                 if (strictMpdx === strictVavoo) return channel;
             }
         }
-        
+
         // Match su name
         const normalizedName = normalizeName(channel.name);
         const strictName = normalizeStrict(channel.name);
-        
+
         if (normalizedMpdx === normalizedName) return channel;
         if (strictMpdx === strictName) return channel;
-        
+
         // Match parziale per canali numerati (es. SKY SPORT 251)
         const mpdxNumMatch = normalizedMpdx.match(/(\d{3})$/);
         const nameNumMatch = normalizedName.match(/(\d{3})$/);
@@ -170,12 +170,12 @@ function matchChannel(tvChannels: TVChannel[], mpdxCh: MpdxChannel): TVChannel |
             const namePrefix = normalizedName.replace(/\s*\d{3}$/, '').trim();
             if (mpdxPrefix === namePrefix) return channel;
         }
-        
+
         // Match "contains" per nomi parziali (es. "SPORT UNO" in "SKY SPORT UNO")
         if (normalizedMpdx.length > 5 && normalizedName.includes(normalizedMpdx)) return channel;
         if (normalizedName.length > 5 && normalizedMpdx.includes(normalizedName)) return channel;
     }
-    
+
     // if (mpdxName.toUpperCase().includes('CINEMA')) {
     //    console.log(`[DEBUG] Name match failed for '${mpdxName}' (Norm: '${normalizedMpdx}')`);
     //    console.log(`[DEBUG] Full URL: ${mpdxCh.url}`);
@@ -186,21 +186,21 @@ function matchChannel(tvChannels: TVChannel[], mpdxCh: MpdxChannel): TVChannel |
 /**
  * Scarica e aggiorna tv_channels.json con staticUrlMpdx
  */
-export async function updateMpdxChannels(): Promise<number> {
+export async function updateMpdxChannels(force: boolean = false): Promise<number> {
     try {
         console.log('[MPDx] 📥 Inizio aggiornamento canali MPDx...');
-        
+
         const url = _d(_MPDX_URL_B64);
-        const response = await axios.get(url, { 
+        const response = await axios.get(url, {
             timeout: 60000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
         });
-        
+
         const jsonData = response.data as Array<{ text: string; idx: number }>;
         console.log(`[MPDx] Downloaded ${jsonData.length} sections`);
-        
+
         // Combina tutti i testi M3U
         let mpdxChannels: MpdxChannel[] = [];
         for (const section of jsonData) {
@@ -209,7 +209,7 @@ export async function updateMpdxChannels(): Promise<number> {
                 mpdxChannels = mpdxChannels.concat(parseM3u(m3uContent));
             }
         }
-        
+
         // Rimuovi duplicati
         const seen = new Set<string>();
         mpdxChannels = mpdxChannels.filter(ch => {
@@ -218,51 +218,51 @@ export async function updateMpdxChannels(): Promise<number> {
             seen.add(key);
             return true;
         });
-        
+
         console.log(`[MPDx] ✅ Parsed ${mpdxChannels.length} unique channels`);
-        
+
         if (mpdxChannels.length === 0) {
             console.log('[MPDx] ⚠️  Nessun canale scaricato');
             return 0;
         }
-        
+
         // Legge tv_channels.json
         const tvChannelsPath = path.join(__dirname, '../../config/tv_channels.json');
         console.log(`[MPDx] 📁 Percorso file: ${tvChannelsPath}`);
         const tvChannelsData = fs.readFileSync(tvChannelsPath, 'utf-8');
         const tvChannels: TVChannel[] = JSON.parse(tvChannelsData);
-        
+
         let updates = 0;
         let matches = 0;
-        
+
         // Match e update
         for (const mpdxCh of mpdxChannels) {
             const matchedChannel = matchChannel(tvChannels, mpdxCh);
-            
+
             if (matchedChannel) {
                 matches++;
                 const urlBase64 = Buffer.from(mpdxCh.url).toString('base64');
-                // Aggiorna solo se il link è effettivamente cambiato
-                if (matchedChannel.staticUrlMpdx !== urlBase64) {
+                // Aggiorna solo se il link è effettivamente cambiato o se forzato
+                if (force || matchedChannel.staticUrlMpdx !== urlBase64) {
                     matchedChannel.staticUrlMpdx = urlBase64;
                     updates++;
                     console.log(`[MPDx]   ✅ ${matchedChannel.name} <- ${mpdxCh.name} (UPDATED)`);
                 } else {
-                     // Debug per verificare che il match avvenga
-                     // console.log(`[MPDx]   ℹ️  ${matchedChannel.name} matched (already up to date)`);
+                    // Debug per verificare che il match avvenga
+                    // console.log(`[MPDx]   ℹ️  ${matchedChannel.name} matched (already up to date)`);
                 }
             } else {
                 console.log(`[MPDx] ⚠️ Unmatched: '${mpdxCh.name}'`);
             }
         }
-        
+
         console.log(`[MPDx] 📊 Matched ${matches}/${mpdxChannels.length} channels`);
 
         if (updates > 0) {
             // Salva file aggiornato
             fs.writeFileSync(tvChannelsPath, JSON.stringify(tvChannels, null, 2), 'utf-8');
             console.log(`[MPDx] ✅ Aggiornati ${updates} canali con staticUrlMpdx`);
-            
+
             // Trigger reload
             try {
                 await new Promise(resolve => setTimeout(resolve, 1000));
@@ -289,7 +289,7 @@ export async function updateMpdxChannels(): Promise<number> {
         } else {
             console.log('[MPDx] ℹ️  Nessun canale aggiornato (tutti già aggiornati)');
         }
-        
+
         return updates;
     } catch (error) {
         console.error('[MPDx] ❌ Errore aggiornamento:', error);
@@ -306,13 +306,13 @@ export function startMpdxScheduler(intervalMs = 1380000) {
         console.log('[MPDx] 🚀 Primo aggiornamento all\'avvio...');
         await updateMpdxChannels();
     }, 55000);
-    
+
     // Poi ogni 23 minuti
     setInterval(async () => {
         console.log('[MPDx] 🔄 Aggiornamento programmato (23min)...');
         await updateMpdxChannels();
     }, intervalMs);
-    
+
     console.log('[MPDx] 📅 Scheduler attivato: aggiornamenti ogni 23 minuti');
 }
 
