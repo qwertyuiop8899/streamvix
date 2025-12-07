@@ -31,14 +31,14 @@ import { fetchPage } from './providers/flaresolverr';
 // Live gdplayer runtime resolver (for tagging)
 import { resolveGdplayerForChannel, inferGdplayerSlug } from './extractors/gdplayerRuntime';
 // Amstaff updater
-import { startAmstaffScheduler } from './utils/amstaffUpdater';
+import { startAmstaffScheduler, updateAmstaffChannels } from './utils/amstaffUpdater';
 // RM updater (MPD2)
-import { startRmScheduler } from './utils/rmUpdater';
+import { startRmScheduler, updateRmChannels } from './utils/rmUpdater';
 
 // ThisNot updater
 import { startThisNotUpdater } from './utils/thisnotChannels';
-import { startMpdzScheduler } from './utils/mpdzUpdater';
-import { startMpdxScheduler } from './utils/mpdxUpdater';
+import { startMpdzScheduler, updateMpdzChannels } from './utils/mpdzUpdater';
+import { startMpdxScheduler, updateMpdxChannels } from './utils/mpdxUpdater';
 
 // ================= TYPES & INTERFACES =================
 interface AddonConfig {
@@ -5627,6 +5627,58 @@ app.get('/mpdx/update', async (req: Request, res: Response) => {
 
 // ================= MANUAL PURGE ENDPOINT =====================
 // Esegue la stessa logica delle 02:00: rimuove dal file gli eventi del giorno precedente
+app.get('/static/fupdate', async (req: Request, res: Response) => {
+    try {
+        const htmlLog: string[] = [];
+        htmlLog.push('<html><body style="font-family: sans-serif;">');
+        htmlLog.push('<h1>🚀 Force Update All Channels</h1>');
+        htmlLog.push('<ul>');
+
+        // Amstaff
+        try {
+            const { updateAmstaffChannels } = await import('./utils/amstaffUpdater');
+            const c = await updateAmstaffChannels(true);
+            htmlLog.push(`<li>✅ <strong>Amstaff</strong>: ${c} channels updated (FORCED)</li>`);
+        } catch (e: any) {
+            htmlLog.push(`<li>❌ <strong>Amstaff</strong>: Error: ${e.message}</li>`);
+        }
+
+        // RM (MPD2)
+        try {
+            const { updateRmChannels } = await import('./utils/rmUpdater');
+            const c = await updateRmChannels(true);
+            htmlLog.push(`<li>✅ <strong>RM (MPD2)</strong>: ${c} channels updated (FORCED)</li>`);
+        } catch (e: any) {
+            htmlLog.push(`<li>❌ <strong>RM (MPD2)</strong>: Error: ${e.message}</li>`);
+        }
+
+        // MPDz
+        try {
+            const { updateMpdzChannels } = await import('./utils/mpdzUpdater');
+            const c = await updateMpdzChannels(true);
+            htmlLog.push(`<li>✅ <strong>MPDz</strong>: ${c} channels updated (FORCED)</li>`);
+        } catch (e: any) {
+            htmlLog.push(`<li>❌ <strong>MPDz</strong>: Error: ${e.message}</li>`);
+        }
+
+        // MPDx
+        try {
+            const { updateMpdxChannels } = await import('./utils/mpdxUpdater');
+            const c = await updateMpdxChannels(true);
+            htmlLog.push(`<li>✅ <strong>MPDx</strong>: ${c} channels updated (FORCED)</li>`);
+        } catch (e: any) {
+            htmlLog.push(`<li>❌ <strong>MPDx</strong>: Error: ${e.message}</li>`);
+        }
+
+        htmlLog.push('</ul>');
+        htmlLog.push('<p><em>Reload trigger initiated by individual updaters. Please wait a few seconds.</em></p>');
+        htmlLog.push('</body></html>');
+        res.send(htmlLog.join(''));
+    } catch (e: any) {
+        res.status(500).send(`Global Error: ${e.message}`);
+    }
+});
+
 app.get('/live/purge', (req: Request, res: Response) => {
     try {
         const result = purgeOldDynamicEvents();
