@@ -14,13 +14,10 @@ import axios from 'axios';
 // Helper per decodificare base64
 const _d = (s: string): string => Buffer.from(s, 'base64').toString('utf8');
 
-// URL della pagina con il JsFuck che contiene la chiave (offuscato in base64)
 const _EDROID_B64 = 'aHR0cHM6Ly9odG1sLmUtZHJvaWQubmV0L2h0bWwvZ2V0X2h0bWwucGhwP2lkYT0zNzI2MTI4Jmlkcz0zNjYyMzUwOSZmdW09MTc2MzcyNzQxNQ==';
 
-// URL del contenuto criptato (offuscato in base64)
 const __B64 = 'aHR0cHM6Ly9waXJ0dXMuYWx3YXlzZGF0YS5uZXQvYmx1ZWNsb3Vkcy5waHA=';
 
-// Chiave di fallback (offuscata in base64)
 const _FALLBACK_B64 = 'U3NLR1BSN2VnVVk3dXJhUjVENkVpcDJPVGVLYXNwQmdERnRmcUZobW56NXQyMlhMa0JlZTh3ZkxjdjNQZktiOEVXekh0QkZ5VU5iS2NW';
 
 interface MpdzChannel {
