@@ -33,7 +33,7 @@ export function providerLabel(provider: string, isFhd?: boolean): string {
     case 'guardaflix': return '🤌 Guardaflix 📼';
     case 'guardahd': return '🤌 GuardaHD 🎬';
     case 'cb01': return '🤌 CB01 🎞️';
-    case 'eurostreaming': return '🤌 Eurostreaming';
+    case 'eurostreaming': return '🤌 Eurostreaming 🇪🇺';
     case 'loonex': return '🤌 Loonex 🎬';
     case 'toonitalia': return '🤌 ToonItalia 🎨';
     default: return provider;
