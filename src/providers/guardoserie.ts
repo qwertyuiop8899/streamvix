@@ -1,10 +1,11 @@
-// thanks to UrloMythus for  https://github.com/UrloMythus/MammaMia/blob/main/Src/API/guardoserie.py
+
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { wrapper } from 'axios-cookiejar-support';
 import { CookieJar } from 'tough-cookie';
 import * as crypto from 'crypto';
 import { Stream } from 'stremio-addon-sdk';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import { buildUnifiedStreamName, providerLabel } from '../utils/unifiedNames';
 
 // Config constants
@@ -12,15 +13,56 @@ import { buildUnifiedStreamName, providerLabel } from '../utils/unifiedNames';
 const TARGET_DOMAIN = "https://guardoserie.me";
 
 const jar = new CookieJar();
-const client = wrapper(axios.create({
-    jar,
-    headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Origin': TARGET_DOMAIN,
-        'Referer': `${TARGET_DOMAIN}/`
-    }
-}));
 
+function createClient() {
+    const proxyUrl = process.env.PROXY;
+    const httpsAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
+
+    const config = {
+        jar,
+        httpsAgent,
+        proxy: false as false,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Origin': TARGET_DOMAIN,
+            'Referer': `${TARGET_DOMAIN}/`
+        }
+    };
+
+    const instance = axios.create(config);
+
+    if (httpsAgent) {
+        // Manual cookie handling because axios-cookiejar-support conflicts with httpsAgent
+        instance.interceptors.request.use(async (config) => {
+            const cookieString = await jar.getCookieString(config.url || '');
+            if (cookieString) {
+                config.headers.set('Cookie', cookieString);
+            }
+            return config;
+        });
+
+        instance.interceptors.response.use(async (response) => {
+            if (response.headers['set-cookie']) {
+                const cookies = response.headers['set-cookie'];
+                const url = response.config.url || '';
+                if (Array.isArray(cookies)) {
+                    for (const cookie of cookies) {
+                        try { await jar.setCookie(cookie, url); } catch { }
+                    }
+                } else {
+                    try { await jar.setCookie(cookies, url); } catch { }
+                }
+            }
+            return response;
+        });
+
+        return instance;
+    }
+
+    return wrapper(instance);
+}
+
+const client = createClient();
 
 // --- LOADM EXTRACTOR ---
 const KEY = Buffer.from('kiemtienmua911ca', 'utf-8');
