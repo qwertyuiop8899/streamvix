@@ -14,11 +14,15 @@ import axios from 'axios';
 // Helper per decodificare base64
 const _d = (s: string): string => Buffer.from(s, 'base64').toString('utf8');
 
-const _EDROID_B64 = 'aHR0cHM6Ly9odG1sLmUtZHJvaWQubmV0L2h0bWwvZ2V0X2h0bWwucGhwP2lkYT0zNzI2MTI4Jmlkcz0zNjYyMzUwOSZmdW09MTc2MzcyNzQxNQ==';
+// URL della pagina con il JsFuck che contiene la chiave (offuscato in base64)
+// URL della pagina con il JsFuck che contiene la chiave (offuscato in base64)
+const _EDROID_B64 = process.env.EDR_URL_B64 || '';
 
-const __B64 = 'aHR0cHM6Ly9waXJ0dXMuYWx3YXlzZGF0YS5uZXQvYmx1ZWNsb3Vkcy5waHA=';
+// URL del contenuto criptato (offuscato in base64)
+const __B64 = process.env.URL_B64 || '';
 
-const _FALLBACK_B64 = 'U3NLR1BSN2VnVVk3dXJhUjVENkVpcDJPVGVLYXNwQmdERnRmcUZobW56NXQyMlhMa0JlZTh3ZkxjdjNQZktiOEVXekh0QkZ5VU5iS2NW';
+// Chiave di fallback (offuscata in base64)
+const _FALLBACK_B64 = process.env.KEY_B64 || '';
 
 interface MpdzChannel {
     name: string;
@@ -172,7 +176,8 @@ async function getPassphrase(): Promise<string> {
     } catch (e) {
         console.error('[MPDz] Auto key extraction failed:', e);
     }
-    console.log('[MPDz] Using fallback key');
+    // Return fallback as fail-safe if dynamic fails, though caller tries strict fallback first.
+    // Ideally caller compares: if dynamic == fallback, no new key found.
     return _d(_FALLBACK_B64);
 }
 
@@ -334,8 +339,34 @@ export async function updateMpdzChannels(force: boolean = false): Promise<number
         const encrypted = response.data;
         console.log(`[MPDz] Downloaded ${encrypted.length} chars`);
 
-        const passphrase = await getPassphrase();
-        const decrypted = decryptPayload(encrypted.trim(), passphrase);
+        // 1. Try Fallback Key First
+        let decrypted: string | null = null;
+        try {
+            console.log('[MPDz] Trying Fallback Key...');
+            const fallbackKey = _d(_FALLBACK_B64);
+            decrypted = decryptPayload(encrypted.trim(), fallbackKey);
+        } catch (e) {
+            console.log('[MPDz] Fallback key failed (decryption error)');
+        }
+
+        // 2. If Fallback fails, try Dynamic Key
+        if (!decrypted) { // Check if decryption failed or returned empty/garbage
+            try {
+                console.log('[MPDz] Fallback failed, trying Dynamic Key...');
+                const dynamicKey = await getPassphrase();
+                if (dynamicKey !== _d(_FALLBACK_B64)) { // Only try if different
+                    decrypted = decryptPayload(encrypted.trim(), dynamicKey);
+                }
+            } catch (e) {
+                console.log('[MPDz] Dynamic key failed');
+            }
+        }
+
+        if (!decrypted) {
+            console.error('[MPDz] ❌ Decryption failed with all keys');
+            return 0;
+        }
+
         console.log(`[MPDz] Decrypted ${decrypted.length} chars`);
 
         const mpdzChannels = parseM3u(decrypted);
