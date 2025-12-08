@@ -8,7 +8,7 @@ import * as path from 'path';
 import axios from 'axios';
 
 // URL base64-encoded
-const _MPDX_URL_B64 = 'aHR0cHM6Ly9zcG9ydC5hbGVtYWdubzE5OTRhbGV4LndvcmtlcnMuZGV2Lw==';
+const _MPDX_URL_B64 = process.env.MPDX_URL_B64 || '';
 
 const _d = (s: string): string => Buffer.from(s, 'base64').toString('utf8');
 
