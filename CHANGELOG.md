@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.46](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.45...v1.10.46) (2025-12-08)
+
+
+### Bug Fixes
+
+* add guardoerie e guardaflix ([fe8dd31](https://github.com/qwertyuiop8899/streamvix/commit/fe8dd31d9d71af51ca8f1df44666d6f940cfda9e))
+* credits ([c62a279](https://github.com/qwertyuiop8899/streamvix/commit/c62a279d3473b91c68c6657b16803aec948fcafa))
+
 ## [1.10.45](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.44...v1.10.45) (2025-12-07)
 
 
