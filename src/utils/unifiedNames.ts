@@ -10,11 +10,12 @@ export interface UnifiedNameOptions {
   proxyOn: boolean; // Whether the delivered stream goes through proxy
   provider: string; // Provider key (vixsrc, animeunity, etc.)
   isFhdOrDual?: boolean; // Tag provider with HD marker (VixSrc dual/FHD etc.)
+  hideProviderInTitle?: boolean; // If true, do not include provider label in the title/desc
 }
 
 export function formatBytesHuman(b?: number): string {
   if (!b || b <= 0) return '';
-  const units = ['B','KB','MB','GB','TB'];
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let i = 0; let v = b;
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
   const num = v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
@@ -24,10 +25,12 @@ export function formatBytesHuman(b?: number): string {
 export function providerLabel(provider: string, isFhd?: boolean): string {
   switch (provider) {
     case 'vixsrc': return `🤌 VixSrc 🍿${isFhd ? ' 🅵🅷🅳' : ''}`;
-  case 'animeunity': return `🤌 Anime Unity ⛩️${isFhd ? ' 🅵🅷🅳' : ''}`; // Added dynamic FHD marker
+    case 'animeunity': return `🤌 Anime Unity ⛩️${isFhd ? ' 🅵🅷🅳' : ''}`; // Added dynamic FHD marker
     case 'animesaturn': return '🤌 Anime Saturn 🪐';
     case 'animeworld': return '🤌 Anime World 🌍';
     case 'guardaserie': return '🤌 GuardaSerie 🎥';
+    case 'guardoserie': return '🤌 Guardoserie 📼';
+    case 'guardaflix': return '🤌 Guardaflix 📼';
     case 'guardahd': return '🤌 GuardaHD 🎬';
     case 'cb01': return '🤌 CB01 🎞️';
     case 'eurostreaming': return '🤌 Eurostreaming';
@@ -47,7 +50,9 @@ export function buildUnifiedStreamName(opts: UnifiedNameOptions): string {
   }
   if (opts.playerName) lines.push(`▶️ ${opts.playerName}`);
   lines.push(`🌐 Proxy (${opts.proxyOn ? 'ON' : 'OFF'})`);
-  lines.push(providerLabel(opts.provider, opts.isFhdOrDual));
+  if (!opts.hideProviderInTitle) {
+    lines.push(providerLabel(opts.provider, opts.isFhdOrDual));
+  }
   return lines.join('\n');
 }
 
