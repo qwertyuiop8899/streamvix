@@ -2143,34 +2143,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                 const allStreams: Stream[] = [];
 
-                // === GUARDOSERIE PROVIDER (Movie/Series) ===
-                // Check if enabled and correct type
-                if (((config as any).guardoserieEnabled) && ((type as string) === 'movie' || (type as string) === 'series')) {
-                    console.log(`[Guardoserie] Checking ${type} ${id} (Enabled: true)`);
-                    try {
-                        const gsStreams = await getGuardoserieStreams(type, id, (config as any).tmdbApiKey, mfpUrl, mfpPsw);
-                        if (gsStreams && gsStreams.length > 0) {
-                            console.log(`✅ [Guardoserie] Found ${gsStreams.length} streams for ${id}`);
-                            return { streams: gsStreams };
-                        }
-                    } catch (e) {
-                        console.error(`❌ [Guardoserie] Error processing ${id}:`, e);
-                    }
-                }
 
-                // === GUARDAFLIX PROVIDER (Movie Only) ===
-                if (((config as any).guardaflixEnabled) && ((type as string) === 'movie')) {
-                    console.log(`[Guardaflix] Checking ${type} ${id} (Enabled: true)`);
-                    try {
-                        const gfStreams = await getGuardaflixStreams(type, id, (config as any).tmdbApiKey, mfpUrl, mfpPsw);
-                        if (gfStreams && gfStreams.length > 0) {
-                            console.log(`✅ [Guardaflix] Found ${gfStreams.length} streams for ${id}`);
-                            return { streams: gfStreams };
-                        }
-                    } catch (e) {
-                        console.error(`❌ [Guardaflix] Error processing ${id}:`, e);
-                    }
-                }
 
                 // === LOGICA TV ===
                 if (type === "tv") {
@@ -4317,6 +4290,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (l.includes('eurostreaming')) return 'eurostreaming';
                         if (l.includes('loonex')) return 'loonex';
                         if (l.includes('toonitalia')) return 'toonitalia';
+                        if (l.includes('guardaflix')) return 'guardaflix';
+                        if (l.includes('guardoserie')) return 'guardoserie';
                         return 'generic';
                     };
                     const unifyStreams = (original: Stream[], providerLabelName: string): Stream[] => {
@@ -4347,7 +4322,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                         }
                         const hostMap: Record<string, string> = {
-                            'mixdrop': 'Mixdrop', 'dropload': 'Dropload', 'streamtape': 'Streamtape', 'supervideo': 'SuperVideo', 'doodstream': 'Doodstream', 'deltabit': 'Deltabit', 'delta bit': 'Deltabit'
+                            'mixdrop': 'Mixdrop', 'dropload': 'Dropload', 'streamtape': 'Streamtape', 'supervideo': 'SuperVideo', 'doodstream': 'Doodstream', 'deltabit': 'Deltabit', 'delta bit': 'Deltabit', 'loadm': 'LoadM'
                         };
                         return original.map(st => {
                             const url = (st as any).url || '';
@@ -4408,6 +4383,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const lowerAll = rawTitle.toLowerCase();
                                 for (const k of Object.keys(hostMap)) {
                                     if (lowerAll.includes(k)) { playerName = hostMap[k]; break; }
+                                }
+                                // Try to preserve existing player name line if not found
+                                if (!playerName) {
+                                    for (const l of lines) {
+                                        if (l.includes('▶️')) {
+                                            playerName = l.replace('▶️', '').trim();
+                                            break;
+                                        }
+                                    }
                                 }
                                 // Try to parse existing size/res lines produced by extractors (line starting with 💾)
                                 // Patterns we expect from extractors: "💾 <SIZE> • <RES>", "💾 <SIZE>", "💾 <SIZE> • <somethingp>", or combined tokens separated by spaces or bullets.
@@ -4595,6 +4579,39 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                             return { streams };
                         }, providerLabel('vixsrc'), false, 30000));  // VixSrc: timeout 30s
+                    }
+
+
+                    // === GUARDOSERIE PROVIDER (Movie/Series) ===
+                    if (((config as any).guardoserieEnabled) && ((type as string) === 'movie' || (type as string) === 'series')) {
+                        providerPromises.push(runProvider('Guardoserie', true, async () => {
+                            try {
+                                const gsStreams = await getGuardoserieStreams(type, id, (config as any).tmdbApiKey, mfpUrl, mfpPsw);
+                                if (gsStreams && gsStreams.length > 0) {
+                                    console.log(`✅ [Guardoserie] Found ${gsStreams.length} streams for ${id}`);
+                                    return { streams: gsStreams };
+                                }
+                            } catch (e) {
+                                console.error(`❌ [Guardoserie] Error processing ${id}:`, e);
+                            }
+                            return { streams: [] };
+                        }, providerLabel('guardoserie'), false, 30000));
+                    }
+
+                    // === GUARDAFLIX PROVIDER (Movie Only) ===
+                    if (((config as any).guardaflixEnabled) && ((type as string) === 'movie')) {
+                        providerPromises.push(runProvider('Guardaflix', true, async () => {
+                            try {
+                                const gfStreams = await getGuardaflixStreams(type, id, (config as any).tmdbApiKey, mfpUrl, mfpPsw);
+                                if (gfStreams && gfStreams.length > 0) {
+                                    console.log(`✅ [Guardaflix] Found ${gfStreams.length} streams for ${id}`);
+                                    return { streams: gfStreams };
+                                }
+                            } catch (e) {
+                                console.error(`❌ [Guardaflix] Error processing ${id}:`, e);
+                            }
+                            return { streams: [] };
+                        }, providerLabel('guardaflix'), false, 30000));
                     }
 
                     // AnimeUnity
