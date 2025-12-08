@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.51](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.50...v1.10.51) (2025-12-08)
+
+
+### Bug Fixes
+
+* env mpdxUpdater.ts ([1053ecd](https://github.com/qwertyuiop8899/streamvix/commit/1053ecdf7bcf873b8c5731d5f1e85ba15597801a))
+
 ## [1.10.50](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.49...v1.10.50) (2025-12-08)
 
 
