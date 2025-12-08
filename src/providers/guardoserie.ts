@@ -1,4 +1,4 @@
-
+// thanks to UrloMythus for  https://github.com/UrloMythus/MammaMia/blob/main/Src/API/guardoserie.py
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { wrapper } from 'axios-cookiejar-support';
