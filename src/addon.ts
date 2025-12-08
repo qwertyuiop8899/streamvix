@@ -622,7 +622,23 @@ const baseManifest: Manifest = {
                         "News",
                         "Generali",
                         "Bambini",
-                        "Pluto",
+                        "Pluto"
+                    ]
+                },
+                { name: "genre", isRequired: false },
+                { name: "search", isRequired: false }
+            ]
+        },
+        {
+            id: "streamvix_live",
+            type: "tv",
+            name: "StreamViX Live",
+            extra: [
+                {
+                    name: "genre",
+                    options: [
+                        "X-Eventi",
+                        "THISNOT",
                         "Serie A",
                         "Serie B",
                         "Serie C",
@@ -643,9 +659,7 @@ const baseManifest: Manifest = {
                         "Darts",
                         "Baseball",
                         "NFL",
-                        "THISNOT",
-                        "PPV",
-                        "X-Eventi"
+                        "PPV"
                     ]
                 },
                 { name: "genre", isRequired: false },
@@ -1533,6 +1547,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }
             }
             let filteredChannels = tvChannels;
+
+            // === NUOVO: Filtro per ID catalogo (Static vs Live/Dynamic) ===
+            if (id === 'streamvix_tv') {
+                // Solo canali statici (non hanno _dynamic: true)
+                filteredChannels = filteredChannels.filter((c: any) => !c._dynamic);
+                // console.log(`[CATALOG] streamvix_tv -> filtered static count=${filteredChannels.length}`);
+            } else if (id === 'streamvix_live') {
+                // Solo canali live/dinamici (hanno _dynamic: true)
+                filteredChannels = filteredChannels.filter((c: any) => c._dynamic);
+                // console.log(`[CATALOG] streamvix_live -> filtered dynamic count=${filteredChannels.length}`);
+            }
+
             let requestedSlug: string | null = null;
             let isPlaceholder = false;
 
