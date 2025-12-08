@@ -40,6 +40,8 @@ import { startRmScheduler, updateRmChannels } from './utils/rmUpdater';
 import { startThisNotUpdater, updateThisNotChannels } from './utils/thisnotChannels';
 import { startMpdzScheduler, updateMpdzChannels } from './utils/mpdzUpdater';
 import { startMpdxScheduler, updateMpdxChannels } from './utils/mpdxUpdater';
+import { getGuardoserieStreams } from './providers/guardoserie';
+import { getGuardaflixStreams } from './providers/guardaflix';
 
 // ================= TYPES & INTERFACES =================
 interface AddonConfig {
@@ -51,6 +53,8 @@ interface AddonConfig {
     animesaturnEnabled?: boolean;
     animeworldEnabled?: boolean;
     guardaserieEnabled?: boolean;
+    guardoserieEnabled?: boolean;
+    guardaflixEnabled?: boolean;
     guardahdEnabled?: boolean;
     eurostreamingEnabled?: boolean;
     loonexEnabled?: boolean;
@@ -668,6 +672,8 @@ const baseManifest: Manifest = {
         { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
         { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
         { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
+        { key: "guardoserieEnabled", title: "Enable Guardoserie", type: "checkbox" },
+        { key: "guardaflixEnabled", title: "Enable Guardaflix", type: "checkbox" },
         { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
         { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox" },
         { key: "loonexEnabled", title: "Enable Loonex", type: "checkbox" },
@@ -2137,6 +2143,35 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                 const allStreams: Stream[] = [];
 
+                // === GUARDOSERIE PROVIDER (Movie/Series) ===
+                // Check if enabled and correct type
+                if (((config as any).guardoserieEnabled) && ((type as string) === 'movie' || (type as string) === 'series')) {
+                    console.log(`[Guardoserie] Checking ${type} ${id} (Enabled: true)`);
+                    try {
+                        const gsStreams = await getGuardoserieStreams(type, id, (config as any).tmdbApiKey, mfpUrl, mfpPsw);
+                        if (gsStreams && gsStreams.length > 0) {
+                            console.log(`✅ [Guardoserie] Found ${gsStreams.length} streams for ${id}`);
+                            return { streams: gsStreams };
+                        }
+                    } catch (e) {
+                        console.error(`❌ [Guardoserie] Error processing ${id}:`, e);
+                    }
+                }
+
+                // === GUARDAFLIX PROVIDER (Movie Only) ===
+                if (((config as any).guardaflixEnabled) && ((type as string) === 'movie')) {
+                    console.log(`[Guardaflix] Checking ${type} ${id} (Enabled: true)`);
+                    try {
+                        const gfStreams = await getGuardaflixStreams(type, id, (config as any).tmdbApiKey, mfpUrl, mfpPsw);
+                        if (gfStreams && gfStreams.length > 0) {
+                            console.log(`✅ [Guardaflix] Found ${gfStreams.length} streams for ${id}`);
+                            return { streams: gfStreams };
+                        }
+                    } catch (e) {
+                        console.error(`❌ [Guardaflix] Error processing ${id}:`, e);
+                    }
+                }
+
                 // === LOGICA TV ===
                 if (type === "tv") {
                     // Improved channel ID parsing to handle different formats from Stremio
@@ -2244,6 +2279,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
 
                     debugLog(`Looking for channel with ID: ${cleanId} (original ID: ${id})`);
+
+
+
                     const channel = tvChannels.find((c: any) => c.id === cleanId);
 
                     if (!channel) {
