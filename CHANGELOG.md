@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.48](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.47...v1.10.48) (2025-12-08)
+
+
+### Bug Fixes
+
+* guarda ([bbf4796](https://github.com/qwertyuiop8899/streamvix/commit/bbf47963a0aa24712abed1ad9de6ed17cc5c2540))
+
 ## [1.10.47](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.46...v1.10.47) (2025-12-08)
 
 
