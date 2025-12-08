@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.49](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.48...v1.10.49) (2025-12-08)
+
+
+### Bug Fixes
+
+* categorie live ([792da92](https://github.com/qwertyuiop8899/streamvix/commit/792da928da121bb40127ddb43b8a5688582016d8))
+
 ## [1.10.48](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.47...v1.10.48) (2025-12-08)
 
 
