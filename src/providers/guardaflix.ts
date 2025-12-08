@@ -9,8 +9,8 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import { buildUnifiedStreamName, providerLabel } from '../utils/unifiedNames';
 
 // Config constants
-// const GS_DOMAIN = "https://guardoserie.wtf"; 
-const TARGET_DOMAIN = "https://guardoserie.me";
+const TARGET_DOMAIN = "https://guardaflix.me";
+const NONCE = "20115729b4";
 
 const jar = new CookieJar();
 
@@ -32,7 +32,6 @@ function createClient() {
     const instance = axios.create(config);
 
     if (httpsAgent) {
-        // Manual cookie handling because axios-cookiejar-support conflicts with httpsAgent
         instance.interceptors.request.use(async (config) => {
             const cookieString = await jar.getCookieString(config.url || '');
             if (cookieString) {
@@ -64,7 +63,7 @@ function createClient() {
 
 const client = createClient();
 
-// --- LOADM EXTRACTOR ---
+// --- LOADM EXTRACTOR (Duplicated from Guardoserie as requested) ---
 const KEY = Buffer.from('kiemtienmua911ca', 'utf-8');
 const IV = Buffer.from('1234567890oiuytr', 'utf-8');
 
@@ -119,12 +118,12 @@ async function extractLoadM(playerUrl: string, referer: string, mfpUrl?: string,
             }
 
             return {
-                name: providerLabel('guardoserie'),
+                name: providerLabel('guardaflix'),
                 title: buildUnifiedStreamName({
                     baseTitle: title,
                     isSub: false,
                     proxyOn: !!mfpUrl,
-                    provider: 'guardoserie',
+                    provider: 'guardaflix',
                     playerName: 'LoadM',
                     hideProviderInTitle: true
                 }),
@@ -142,29 +141,28 @@ async function extractLoadM(playerUrl: string, referer: string, mfpUrl?: string,
             };
         }
     } catch (e) {
-        console.error(`[Guardoserie] LoadM extraction failed: ${e}`);
+        console.error(`[Guardaflix] LoadM extraction failed: ${e}`);
     }
     return null;
 }
 
 // --- SEARCH & SCRAPE ---
 
-async function searchGuardoserie(query: string, year: string): Promise<string | null> {
+async function searchGuardaflix(query: string, year: string): Promise<string | null> {
     try {
         const searchUrl = `${TARGET_DOMAIN}/wp-admin/admin-ajax.php`;
         const params = new URLSearchParams();
-        params.append('s', query);
-        params.append('action', 'searchwp_live_search');
-        params.append('swpengine', 'default');
-        params.append('swpquery', query);
+        params.append('action', 'action_tr_search_suggest');
+        params.append('nonce', NONCE);
+        params.append('term', query);
 
         const res = await client.post(searchUrl, params.toString(), {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }
         });
 
-        // Response is HTML snippet
         const $ = cheerio.load(res.data);
-        const links = $('a.ss-title');
+        // HTML: <li class="fa-play-circle"><a href="...">...</a></li>
+        const links = $('li a'); // Select all links in lists
 
         for (const link of links) {
             const href = $(link).attr('href');
@@ -172,37 +170,22 @@ async function searchGuardoserie(query: string, year: string): Promise<string | 
 
             const pageRes = await client.get(href);
             const pageHtml = pageRes.data;
+            const $page = cheerio.load(pageHtml);
 
-            // Primitive year check
-            if (year && pageHtml.includes(`>${year}<`)) {
+            // Year check
+            // MammaMia: soup.find('span',class_='year fa-calendar far').text
+            // In Cheerio: span.year.fa-calendar.far
+            const pageYear = $page('span.year.fa-calendar.far').text().trim();
+
+            // Allow loose match or check if year is contained
+            if (year && (pageYear === year || pageYear.includes(year) || pageHtml.includes(`>${year}<`))) {
                 return href;
             } else if (!year) {
-                return href; // Return first match if no year
+                return href;
             }
         }
     } catch (e) {
-        console.error(`[Guardoserie] Search failed: ${e}`);
-    }
-    return null;
-}
-
-async function getEpisodeLink(seriesUrl: string, season: number, episode: number): Promise<string | null> {
-    try {
-        const res = await client.get(seriesUrl);
-        const $ = cheerio.load(res.data);
-
-        // MammaMia logic: div.les-content (one per season) -> a tags (episodes)
-        const seasons = $('div.les-content');
-        if (seasons.length < season) return null;
-
-        const seasonDiv = seasons.eq(season - 1);
-        const episodeLinks = seasonDiv.find('a');
-        if (episodeLinks.length < episode) return null;
-
-        const epLink = episodeLinks.eq(episode - 1).attr('href');
-        return epLink || null;
-    } catch (e) {
-        console.error(`[Guardoserie] Get episode failed: ${e}`);
+        console.error(`[Guardaflix] Search failed: ${e}`);
     }
     return null;
 }
@@ -214,6 +197,7 @@ async function resolvePageStream(pageUrl: string, mfpUrl?: string, mfpPsw?: stri
         const $ = cheerio.load(res.data);
 
         // Look for iframes
+        // Look for iframes
         const iframes = $('iframe');
 
         for (const iframe of iframes) {
@@ -222,13 +206,35 @@ async function resolvePageStream(pageUrl: string, mfpUrl?: string, mfpPsw?: stri
 
             if (src.startsWith('//')) src = 'https:' + src;
 
+            // Direct LoadM
             if (src.includes('loadm.cam') || src.includes('loadm')) {
                 const stream = await extractLoadM(src, pageUrl, mfpUrl, mfpPsw);
                 if (stream) streams.push(stream);
             }
+            // Recursive Embed (trembed)
+            else if (src.includes('trembed=')) {
+                console.log(`[Guardaflix] Inspecting embed: ${src}`);
+                try {
+                    const embedRes = await client.get(src, { headers: { 'Referer': pageUrl } });
+                    const $embed = cheerio.load(embedRes.data);
+                    const nestedIframes = $embed('iframe');
+                    for (const nested of nestedIframes) {
+                        let nSrc = $(nested).attr('data-src') || $(nested).attr('src');
+                        if (nSrc) {
+                            if (nSrc.startsWith('//')) nSrc = 'https:' + nSrc;
+                            if (nSrc.includes('loadm.cam') || nSrc.includes('loadm')) {
+                                const stream = await extractLoadM(nSrc, pageUrl, mfpUrl, mfpPsw);
+                                if (stream) streams.push(stream);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error(`[Guardaflix] Failed to inspect embed: ${e}`);
+                }
+            }
         }
     } catch (e) {
-        console.error(`[Guardoserie] Resolve page failed: ${e}`);
+        console.error(`[Guardaflix] Resolve page failed: ${e}`);
     }
     return streams;
 }
@@ -240,16 +246,14 @@ async function getTmdbTitle(type: string, paramId: string, tmdbApiKey?: string):
         const imdbId = paramId.split(':')[0];
 
         let url: string;
-        // Check if paramId is tmdb:... but usually it is imdb (tt...)
         if (paramId.startsWith('tmdb:')) {
             const tmdbId = paramId.replace('tmdb:', '');
             url = `https://api.themoviedb.org/3/${type === 'series' ? 'tv' : 'movie'}/${tmdbId}?api_key=${apiKey}&language=it-IT`;
         } else {
-            // Find by IMDB ID
             url = `https://api.themoviedb.org/3/find/${imdbId}?api_key=${apiKey}&external_source=imdb_id&language=it-IT`;
         }
 
-        console.log(`[Guardoserie] Fetching TMDB info from: ${url}`);
+        console.log(`[Guardaflix] Fetching TMDB info from: ${url}`);
         const res = await axios.get(url, { timeout: 5000 });
 
         if (paramId.startsWith('tmdb:')) {
@@ -259,7 +263,6 @@ async function getTmdbTitle(type: string, paramId: string, tmdbApiKey?: string):
             const year = date.split('-')[0];
             return { name, year };
         } else {
-            // Find results
             const results = type === 'series' ? res.data.tv_results : res.data.movie_results;
             if (results && results.length > 0) {
                 const data = results[0];
@@ -271,17 +274,16 @@ async function getTmdbTitle(type: string, paramId: string, tmdbApiKey?: string):
         }
 
     } catch (e) {
-        console.error(`[Guardoserie] TMDB fetch failed: ${e}`);
+        console.error(`[Guardaflix] TMDB fetch failed: ${e}`);
     }
     return null;
 }
 
-// --- HELPER: CINEMETA (Fallback) ---
 async function getCinemetaMeta(type: string, paramId: string): Promise<{ name: string, year: string } | null> {
     const imdbId = paramId.split(':')[0]; // tt12345
     try {
         const url = `https://v3-cinemeta.strem.io/meta/${type}/${imdbId}.json`;
-        console.log(`[Guardoserie] Fetching Cinemeta from: ${url}`);
+        console.log(`[Guardaflix] Fetching Cinemeta from: ${url}`);
         const res = await axios.get(url);
         if (res.data && res.data.meta) {
             return {
@@ -290,84 +292,54 @@ async function getCinemetaMeta(type: string, paramId: string): Promise<{ name: s
             };
         }
     } catch (e) {
-        console.error(`[Guardoserie] Cinemeta fetch failed: ${e}`);
+        console.error(`[Guardaflix] Cinemeta fetch failed: ${e}`);
     }
     return null;
 }
 
 // --- PUBLIC INTERFACE ---
 
-export async function getGuardoserieStreams(type: string, id: string, tmdbApiKey?: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
-    if (type !== 'series' && type !== 'movie') return [];
+export async function getGuardaflixStreams(type: string, id: string, tmdbApiKey?: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
+    // Only Movies supported for now (matching MammaMia logic?)
+    if (type !== 'movie') return [];
 
-    console.log(`[Guardoserie] Requesting: ${id} (${type})`);
+    console.log(`[Guardaflix] Requesting: ${id} (${type})`);
 
     let imdbId = id;
-    let season = 1;
-    let episode = 1;
-
     if (id.includes(':')) {
-        const p = id.split(':');
-        imdbId = p[0];
-        season = parseInt(p[1]);
-        episode = parseInt(p[2]);
+        imdbId = id.split(':')[0];
     }
 
-    // Fetch Metadata (TMDB Priority for Italian Title)
-    let name = '';
-    let year = '';
-
+    // Fetch Metadata (TMDB)
     const tmdbMeta = await getTmdbTitle(type, imdbId, tmdbApiKey);
-    if (tmdbMeta) {
-        name = tmdbMeta.name;
-        year = tmdbMeta.year;
-        console.log(`[Guardoserie] TMDB (IT) found: ${name} (${year})`);
-    } else {
-        // Fallback to Cinemeta
-        const meta = await getCinemetaMeta(type, imdbId);
-        if (meta) {
-            name = meta.name;
-            year = meta.year ? (String(meta.year).match(/\d{4}/)?.[0] || '') : '';
-            console.log(`[Guardoserie] Cinemeta (Fallback) found: ${name} (${year})`);
-        }
-    }
-
-    if (!name) {
-        console.log(`[Guardoserie] Meta not found for ${imdbId}, skipping.`);
+    if (!tmdbMeta) {
+        console.log(`[Guardaflix] Meta not found for ${imdbId}, skipping.`);
         return [];
     }
 
-    const seriesUrl = await searchGuardoserie(name, year);
-    if (!seriesUrl) {
-        console.log(`[Guardoserie] Not found on site (IT): ${name}`);
+    const { name, year } = tmdbMeta;
+    console.log(`[Guardaflix] TMDB (IT) found: ${name} (${year})`);
+
+    const pageUrl = await searchGuardaflix(name, year);
+    if (!pageUrl) {
+        console.log(`[Guardaflix] Not found on site (IT): ${name}`);
 
         // Fallback: Try English title if we used TMDB (IT)
         if (tmdbMeta) {
             const engMeta = await getCinemetaMeta(type, imdbId);
             if (engMeta && engMeta.name !== name) {
-                console.log(`[Guardoserie] Trying fallback with English title: ${engMeta.name}`);
-                const engUrl = await searchGuardoserie(engMeta.name, year);
+                console.log(`[Guardaflix] Trying fallback with English title: ${engMeta.name}`);
+                const engUrl = await searchGuardaflix(engMeta.name, year);
                 if (engUrl) {
-                    console.log(`✅ [Guardoserie] Found with English title!`);
-                    const targetUrl = type === 'series'
-                        ? (await getEpisodeLink(engUrl, season, episode)) || engUrl
-                        : engUrl;
-                    return await resolvePageStream(targetUrl, mfpUrl, mfpPsw);
+                    console.log(`✅ [Guardaflix] Found with English title!`);
+                    return await resolvePageStream(engUrl, mfpUrl, mfpPsw);
                 }
             }
         }
         return [];
     }
 
-    let targetUrl = seriesUrl;
-    if (type === 'series') {
-        const epLink = await getEpisodeLink(seriesUrl, season, episode);
-        if (!epLink) {
-            console.log(`[Guardoserie] Episode not found: S${season}E${episode}`);
-            return [];
-        }
-        targetUrl = epLink;
-    }
-
-    return await resolvePageStream(targetUrl, mfpUrl, mfpPsw);
+    return await resolvePageStream(pageUrl, mfpUrl, mfpPsw);
 }
+
+// End of file
