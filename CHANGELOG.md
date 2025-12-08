@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.47](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.46...v1.10.47) (2025-12-08)
+
+
+### Bug Fixes
+
+* proxy ([3fea713](https://github.com/qwertyuiop8899/streamvix/commit/3fea713295cef804ebf89a1bedf9c62e36cbd69b))
+* proxy guardoserie.ts ([6c2b348](https://github.com/qwertyuiop8899/streamvix/commit/6c2b3480d48e0eaa5cfa86237ad00d457c8721a7))
+
 ## [1.10.46](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.45...v1.10.46) (2025-12-08)
 
 
