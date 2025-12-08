@@ -119,12 +119,6 @@ def process_channels(raw_channels):
             }]
         }
         
-        # Pass KODIPROPS in description or streams if supported?
-        # Stremio addon SDK generally expects standard HTTP streams or specific protocol handlers.
-        # If inputstream.adaptive is needed, it might be tricky in standard players.
-        # However, the user provided a link that seems to be a proxy/worker:
-        # https://corsproxy.io/?https://italia-xrom-eventi.xrtv-friends-only.workers.dev/sports.mpd
-        # The user said "similare a ppv", so likely just passing the URL is enough if the proxy handles it or if it is a standard stream.
         
         processed.append(channel_obj)
         
