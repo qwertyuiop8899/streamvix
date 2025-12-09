@@ -179,6 +179,12 @@ const exactMap: Record<string, string> = {
 
 
 
+      "Dan Da Dan Season 2": "Dan Da Dan 2",
+
+
+
+
+
   // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
