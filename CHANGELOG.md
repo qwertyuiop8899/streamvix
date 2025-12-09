@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.52](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.51...v1.10.52) (2025-12-09)
+
+
+### Bug Fixes
+
+* gs ga gf ([668b2ab](https://github.com/qwertyuiop8899/streamvix/commit/668b2abf5a4c3493c8b56bb20e6de58bea1f0514))
+
 ## [1.10.51](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.50...v1.10.51) (2025-12-08)
 
 
