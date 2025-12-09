@@ -218,6 +218,11 @@ function normalizeTitleForSearch(title: string): string {
 
 
 
+        "Dan Da Dan Season 2": "Dan Da Dan 2",
+
+
+
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
