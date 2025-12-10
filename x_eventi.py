@@ -104,6 +104,21 @@ def process_channels(raw_channels):
         # Generate stable ID
         id_hash = hashlib.md5(ch["url"].encode('utf-8')).hexdigest()[:12]
         
+        # Gestione chiavi DRM (license_key)
+        # Se key_id NON è tutto 0, aggiungi &key_id=X&key=Y all'URL
+        final_url = ch["url"]
+        kodiprops = ch.get("kodiprops", {})
+        license_key = kodiprops.get("inputstream.adaptive.license_key", "")
+        
+        if license_key and ":" in license_key:
+            key_id, key = license_key.split(":", 1)
+            # Controlla se le chiavi sono tutte 0 (32 caratteri '0')
+            all_zeros = "00000000000000000000000000000000"
+            if key_id.strip() != all_zeros and key.strip() != all_zeros:
+                # Chiavi reali, appendile all'URL
+                final_url = f"{ch['url']}&key_id={key_id.strip()}&key={key.strip()}"
+                print(f"[X-Eventi] DRM key aggiunto per: {name_raw[:40]}...")
+        
         channel_obj = {
             "id": f"xeventi_{id_hash}",
             "name": final_name,
@@ -114,7 +129,7 @@ def process_channels(raw_channels):
             "type": "tv",
             "category": "X-Eventi",
             "streams": [{
-                "url": ch["url"],
+                "url": final_url,
                 "title": "🔴 LIVE" 
             }]
         }
