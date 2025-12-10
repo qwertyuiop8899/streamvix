@@ -362,10 +362,10 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       let removedPrevDay = 0;
       let removedExpiredAge = 0;
       const filtered: DynamicChannel[] = data.filter(ch => {
-        // THISNOT: mantieni SEMPRE tutti i canali ThisNot senza filtri temporali
+        // THISNOT, X-EVENTI, Z-EVENTI: mantieni SEMPRE senza filtri temporali
         const category = (ch.category || '').toString().toLowerCase();
-        if (category === 'thisnot') {
-          return true; // Skip tutti i filtri temporali per ThisNot
+        if (category === 'thisnot' || category === 'x-eventi' || category === 'z-eventi') {
+          return true; // Skip tutti i filtri temporali per queste categorie
         }
 
         if (!ch.eventStart) return true; // keep if undated
@@ -493,6 +493,12 @@ export function purgeOldDynamicEvents(): { before: number; after: number; remove
     const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
     const nowMs = nowRome.getTime();
     const filtered = data.filter((ch: DynamicChannel) => {
+      // THISNOT, X-EVENTI, Z-EVENTI: mantieni SEMPRE senza filtri temporali
+      const category = (ch.category || '').toString().toLowerCase();
+      if (category === 'thisnot' || category === 'x-eventi' || category === 'z-eventi') {
+        return true; // Skip tutti i filtri temporali per queste categorie
+      }
+
       if (!ch.eventStart) {
         // Usa createdAt per determinare età, se manca assegnalo ora e conserva (verrà valutato ai prossimi purge)
         if (!ch.createdAt) {
