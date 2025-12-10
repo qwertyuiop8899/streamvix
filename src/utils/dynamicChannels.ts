@@ -259,8 +259,27 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       }
     }
 
-    // Mergia i quattro array
-    const data = [...mainData, ...thisnotData, ...ppvData, ...xEventiData];
+    // Carica z_eventi.json (Z-Eventi separato)
+    let zEventiData: any[] = [];
+    const ZEVENTI_FILE = '/tmp/z_eventi.json';
+    if (fs.existsSync(ZEVENTI_FILE)) {
+      try {
+        const zeRaw = fs.readFileSync(ZEVENTI_FILE, 'utf-8');
+        if (zeRaw.trim().length >= 2) {
+          const zeParsed = JSON.parse(zeRaw);
+          if (Array.isArray(zeParsed)) {
+            zEventiData = zeParsed;
+            try { console.log(`[DynamicChannels] 🔗 Mergiati ${zEventiData.length} canali Z-Eventi da ${ZEVENTI_FILE}`); } catch { }
+          }
+        }
+      } catch (zeErr) {
+        try { console.warn('[DynamicChannels] Errore caricamento Z-Eventi file, skip:', (zeErr as any)?.message); } catch { }
+      }
+    }
+
+    // Mergia i cinque array
+    const data = [...mainData, ...thisnotData, ...ppvData, ...xEventiData, ...zEventiData];
+
 
     if (data.length === 0) {
       dynamicCache = [];
