@@ -323,7 +323,7 @@ function matchChannel(tvChannels: TVChannel[], mpdzCh: MpdzChannel): TVChannel |
 /**
  * Scarica, decripta e aggiorna tv_channels.json con staticUrlMpdz
  */
-export async function updateMpdzChannels(force: boolean = false): Promise<number> {
+export async function updateMpdzChannels(force: boolean = false, skipReload: boolean = false): Promise<number> {
     try {
         console.log('[MPDz] 📥 Inizio aggiornamento canali MPDz...');
 
@@ -409,28 +409,30 @@ export async function updateMpdzChannels(force: boolean = false): Promise<number
             fs.writeFileSync(tvChannelsPath, JSON.stringify(tvChannels, null, 2), 'utf-8');
             console.log(`[MPDz] ✅ Aggiornati ${updates} canali con staticUrlMpdz`);
 
-            // Trigger reload
-            try {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                const http = require('http');
-                const options = {
-                    hostname: 'localhost',
-                    port: process.env.PORT || 7000,
-                    path: '/static/reload',
-                    method: 'GET',
-                    timeout: 3000
-                };
-                const req = http.request(options, (res: any) => {
-                    let data = '';
-                    res.on('data', (chunk: any) => { data += chunk; });
-                    res.on('end', () => {
-                        console.log('[MPDz] 🔄 Reload triggerato', data ? JSON.parse(data) : 'ok');
+            // Trigger reload (se non skipReload)
+            if (!skipReload) {
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    const http = require('http');
+                    const options = {
+                        hostname: 'localhost',
+                        port: process.env.PORT || 7000,
+                        path: '/static/reload',
+                        method: 'GET',
+                        timeout: 3000
+                    };
+                    const req = http.request(options, (res: any) => {
+                        let data = '';
+                        res.on('data', (chunk: any) => { data += chunk; });
+                        res.on('end', () => {
+                            console.log('[MPDz] 🔄 Reload triggerato', data ? JSON.parse(data) : 'ok');
+                        });
                     });
-                });
-                req.on('error', () => { console.log('[MPDz] ℹ️  Reload non disponibile'); });
-                req.end();
-            } catch (err) {
-                console.log('[MPDz] ⚠️  Errore trigger reload');
+                    req.on('error', () => { console.log('[MPDz] ℹ️  Reload non disponibile'); });
+                    req.end();
+                } catch (err) {
+                    console.log('[MPDz] ⚠️  Errore trigger reload');
+                }
             }
         } else {
             console.log('[MPDz] ℹ️  Nessun canale aggiornato (tutti già aggiornati)');
