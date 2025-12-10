@@ -288,7 +288,7 @@ async function fetchAmstaffChannels(): Promise<AmstaffProcessedChannel[]> {
 /**
  * Aggiorna tv_channels.json con i link Amstaff
  */
-export async function updateAmstaffChannels(force: boolean = false): Promise<number> {
+export async function updateAmstaffChannels(force: boolean = false, skipReload: boolean = false): Promise<number> {
     try {
         console.log('[AMSTAFF] 📥 Inizio aggiornamento canali...');
 
@@ -336,37 +336,39 @@ export async function updateAmstaffChannels(force: boolean = false): Promise<num
             fs.writeFileSync(tvChannelsPath, JSON.stringify(tvChannels, null, 2), 'utf-8');
             console.log(`[AMSTAFF] ✅ Aggiornati ${updates} canali in tv_channels.json`);
 
-            // Forza il reload dell'addon chiamando l'endpoint interno
-            try {
-                // Aspetta 1 secondo per assicurarsi che il file sia scritto
-                await new Promise(resolve => setTimeout(resolve, 1000));
+            // Forza il reload dell'addon chiamando l'endpoint interno (se non skipReload)
+            if (!skipReload) {
+                try {
+                    // Aspetta 1 secondo per assicurarsi che il file sia scritto
+                    await new Promise(resolve => setTimeout(resolve, 1000));
 
-                // Triggera il reload via HTTP locale (se l'addon è in esecuzione)
-                const http = require('http');
-                const options = {
-                    hostname: 'localhost',
-                    port: process.env.PORT || 7000,
-                    path: '/static/reload',
-                    method: 'GET',
-                    timeout: 3000
-                };
+                    // Triggera il reload via HTTP locale (se l'addon è in esecuzione)
+                    const http = require('http');
+                    const options = {
+                        hostname: 'localhost',
+                        port: process.env.PORT || 7000,
+                        path: '/static/reload',
+                        method: 'GET',
+                        timeout: 3000
+                    };
 
-                const req = http.request(options, (res: any) => {
-                    let data = '';
-                    res.on('data', (chunk: any) => { data += chunk; });
-                    res.on('end', () => {
-                        console.log('[AMSTAFF] 🔄 Reload triggerat', data ? JSON.parse(data) : 'ok');
+                    const req = http.request(options, (res: any) => {
+                        let data = '';
+                        res.on('data', (chunk: any) => { data += chunk; });
+                        res.on('end', () => {
+                            console.log('[AMSTAFF] 🔄 Reload triggerat', data ? JSON.parse(data) : 'ok');
+                        });
                     });
-                });
 
-                req.on('error', (err: any) => {
-                    // Silently ignore - addon might not be running yet
-                    console.log('[AMSTAFF] ℹ️  Reload non disponibile (addon non ancora avviato?)');
-                });
+                    req.on('error', (err: any) => {
+                        // Silently ignore - addon might not be running yet
+                        console.log('[AMSTAFF] ℹ️  Reload non disponibile (addon non ancora avviato?)');
+                    });
 
-                req.end();
-            } catch (err) {
-                console.log('[AMSTAFF] ⚠️  Errore trigger reload:', err);
+                    req.end();
+                } catch (err) {
+                    console.log('[AMSTAFF] ⚠️  Errore trigger reload:', err);
+                }
             }
         } else {
             console.log('[AMSTAFF] ℹ️  Nessun canale aggiornato (tutti già aggiornati)');
