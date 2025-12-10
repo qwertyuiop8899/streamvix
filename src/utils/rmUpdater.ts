@@ -271,7 +271,7 @@ async function fetchRmChannels(): Promise<RmChannel[]> {
 /**
  * Aggiorna tv_channels.json con campo staticUrlMpd2
  */
-export async function updateRmChannels(force: boolean = false): Promise<number> {
+export async function updateRmChannels(force: boolean = false, skipReload: boolean = false): Promise<number> {
     try {
         console.log('[RM] 📥 Inizio aggiornamento canali MPD2...');
 
@@ -339,34 +339,36 @@ export async function updateRmChannels(force: boolean = false): Promise<number> 
             fs.writeFileSync(tvChannelsPath, JSON.stringify(tvChannels, null, 2), 'utf-8');
             console.log(`[RM] ✅ Aggiornati ${updates} canali con staticUrlMpd2`);
 
-            // Trigger reload
-            try {
-                await new Promise(resolve => setTimeout(resolve, 1000));
+            // Trigger reload (se non skipReload)
+            if (!skipReload) {
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
 
-                const http = require('http');
-                const options = {
-                    hostname: 'localhost',
-                    port: process.env.PORT || 7000,
-                    path: '/static/reload',
-                    method: 'GET',
-                    timeout: 3000
-                };
+                    const http = require('http');
+                    const options = {
+                        hostname: 'localhost',
+                        port: process.env.PORT || 7000,
+                        path: '/static/reload',
+                        method: 'GET',
+                        timeout: 3000
+                    };
 
-                const req = http.request(options, (res: any) => {
-                    let data = '';
-                    res.on('data', (chunk: any) => { data += chunk; });
-                    res.on('end', () => {
-                        console.log('[RM] 🔄 Reload triggerato', data ? JSON.parse(data) : 'ok');
+                    const req = http.request(options, (res: any) => {
+                        let data = '';
+                        res.on('data', (chunk: any) => { data += chunk; });
+                        res.on('end', () => {
+                            console.log('[RM] 🔄 Reload triggerato', data ? JSON.parse(data) : 'ok');
+                        });
                     });
-                });
 
-                req.on('error', () => {
-                    console.log('[RM] ℹ️  Reload non disponibile');
-                });
+                    req.on('error', () => {
+                        console.log('[RM] ℹ️  Reload non disponibile');
+                    });
 
-                req.end();
-            } catch (err) {
-                console.log('[RM] ⚠️  Errore trigger reload');
+                    req.end();
+                } catch (err) {
+                    console.log('[RM] ⚠️  Errore trigger reload');
+                }
             }
         } else {
             console.log('[RM] ℹ️  Nessun canale aggiornato (tutti già aggiornati)');
