@@ -40,6 +40,7 @@ import { startRmScheduler, updateRmChannels } from './utils/rmUpdater';
 import { startThisNotUpdater, updateThisNotChannels } from './utils/thisnotChannels';
 import { startMpdzScheduler, updateMpdzChannels } from './utils/mpdzUpdater';
 import { startMpdxScheduler, updateMpdxChannels } from './utils/mpdxUpdater';
+import { startZEventiScheduler, updateZEventiChannels } from './utils/zEventiUpdater';
 import { getGuardoserieStreams } from './providers/guardoserie';
 import { getGuardaflixStreams } from './providers/guardaflix';
 
@@ -638,6 +639,7 @@ const baseManifest: Manifest = {
                     name: "genre",
                     options: [
                         "X-Eventi",
+                        "Z-Eventi",
                         "THISNOT",
                         "Serie A",
                         "Serie B",
@@ -2468,6 +2470,45 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 // Fallback: restituisci diretto (non funzionerà per CORS/mixed content probabilmente, ma meglio di niente)
                                 // O forse meglio non restituire nulla se manca proxy?
                                 // Proviamo a restituire link diretto decodificato nel caso serva debug
+                            }
+                        }
+
+                        // === Z-Eventi EARLY RETURN: MPD con chiavi - costruisce URL proxy usando config utente ===
+                        const isZEventi = channelCategory === 'Z-EVENTI' || (channel as any).id?.startsWith('zeventi_');
+                        if (isZEventi) {
+                            const zStreams: Stream[] = [];
+                            const dArr = Array.isArray((channel as any).dynamicDUrls) ? (channel as any).dynamicDUrls : [];
+
+                            if (mfpUrl) {
+                                const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+
+                                for (const d of dArr) {
+                                    if (d.url) {
+                                        // d.url è nel formato: mpdUrl&key_id=kids&key=keys
+                                        // Dobbiamo costruire: {mfpUrl}/proxy/mpd/manifest.m3u8?{passwordParam}d={encodedMpdUrl}&key_id=...&key=...
+                                        const urlParts = d.url.split('&');
+                                        const baseUrl = urlParts[0];
+                                        const additionalParams = urlParts.slice(1);
+
+                                        let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
+
+                                        for (const param of additionalParams) {
+                                            if (param) {
+                                                proxyUrl += `&${param}`;
+                                            }
+                                        }
+
+                                        zStreams.push({
+                                            url: proxyUrl,
+                                            name: '🔴 LIVE',
+                                            title: d.title || 'Z-Eventi'
+                                        } as any);
+                                    }
+                                }
+                                console.log(`[Z-Eventi] ✅ Canale Z-Eventi rilevato: ${channel.id} - restituisco ${zStreams.length} stream proxati`);
+                                return { streams: zStreams };
+                            } else {
+                                console.log(`[Z-Eventi] ⚠️ MFP URL mancante, impossibile proxare canali Z-Eventi`);
                             }
                         }
 
@@ -5745,6 +5786,29 @@ app.get('/mpdx/update', async (req: Request, res: Response) => {
 });
 // =============================================================
 
+// ================= MANUAL ZEVENTI UPDATE ENDPOINT ==============
+// GET /zeventi/update - Forza aggiornamento canali Z-Eventi (serieaz + coppez)
+app.get('/zeventi/update', async (req: Request, res: Response) => {
+    try {
+        console.log('[Z-Eventi][API] Manual update triggered via /zeventi/update');
+        const { updateZEventiChannels } = await import('./utils/zEventiUpdater');
+        const count = await updateZEventiChannels();
+
+        // Force reload dynamic channels
+        loadDynamicChannels(true);
+
+        return res.json({
+            ok: true,
+            count,
+            message: `Updated ${count} Z-Eventi channels`
+        });
+    } catch (e: any) {
+        console.error('[Z-Eventi][API] Error:', e);
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
 // ================= MANUAL PURGE ENDPOINT =====================
 // Esegue la stessa logica delle 02:00: rimuove dal file gli eventi del giorno precedente
 app.get('/static/fupdate', async (req: Request, res: Response) => {
@@ -5803,6 +5867,15 @@ app.get('/static/fupdate', async (req: Request, res: Response) => {
             htmlLog.push(`<li>✅ <strong>ThisNot</strong>: Updated (FORCED)</li>`);
         } catch (e: any) {
             htmlLog.push(`<li>❌ <strong>ThisNot</strong>: Error: ${e.message}</li>`);
+        }
+
+        // Z-Eventi (scrive su /tmp/z_eventi.json)
+        try {
+            const { updateZEventiChannels } = await import('./utils/zEventiUpdater');
+            const c = await updateZEventiChannels();
+            htmlLog.push(`<li>✅ <strong>Z-Eventi</strong>: ${c} channels updated (FORCED)</li>`);
+        } catch (e: any) {
+            htmlLog.push(`<li>❌ <strong>Z-Eventi</strong>: Error: ${e.message}</li>`);
         }
 
         htmlLog.push('</ul>');
@@ -6215,6 +6288,16 @@ try {
     console.log('✅ MPDx auto-updater attivato (ogni 23 min)');
 } catch (e) {
     console.error('❌ Errore avvio MPDx updater:', e);
+}
+// ====================================================================
+
+// =============== ZEVENTI AUTO-UPDATER ==============================
+// Avvia aggiornamento automatico canali Z-Eventi (serieaz + coppez) ogni 25 minuti
+try {
+    startZEventiScheduler(1500000);
+    console.log('✅ Z-Eventi auto-updater attivato (ogni 25 min)');
+} catch (e) {
+    console.error('❌ Errore avvio Z-Eventi updater:', e);
 }
 // ====================================================================
 
