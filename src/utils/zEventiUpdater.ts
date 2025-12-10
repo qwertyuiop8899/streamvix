@@ -35,6 +35,7 @@ interface ClearKeyLicense {
 }
 
 const ZEVENTI_FILE = '/tmp/z_eventi.json';
+const ZEVENTI_LOGO = 'https://github.com/qwertyuiop8899/logo/blob/main/zeventi.png?raw=true';
 
 // Source URLs from environment
 function getSources(): { url: string; name: string }[] {
@@ -114,6 +115,7 @@ function parseKodiM3u(content: string): ZEventiChannel[] {
                     channels.push({
                         id,
                         name: channelName,
+                        logo: ZEVENTI_LOGO,
                         category: 'Z-EVENTI',
                         streams: [{ url: rawUrl, title: groupTitle }],
                         createdAt: new Date().toISOString()
