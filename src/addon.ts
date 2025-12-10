@@ -5754,10 +5754,13 @@ app.get('/static/fupdate', async (req: Request, res: Response) => {
         htmlLog.push('<h1>🚀 Force Update All Channels</h1>');
         htmlLog.push('<ul>');
 
-        // Amstaff
+        let totalUpdates = 0;
+
+        // Amstaff (skipReload=true per evitare reload multipli)
         try {
             const { updateAmstaffChannels } = await import('./utils/amstaffUpdater');
-            const c = await updateAmstaffChannels(true);
+            const c = await updateAmstaffChannels(true, true); // force=true, skipReload=true
+            totalUpdates += c;
             htmlLog.push(`<li>✅ <strong>Amstaff</strong>: ${c} channels updated (FORCED)</li>`);
         } catch (e: any) {
             htmlLog.push(`<li>❌ <strong>Amstaff</strong>: Error: ${e.message}</li>`);
@@ -5766,7 +5769,8 @@ app.get('/static/fupdate', async (req: Request, res: Response) => {
         // RM (MPD2)
         try {
             const { updateRmChannels } = await import('./utils/rmUpdater');
-            const c = await updateRmChannels(true);
+            const c = await updateRmChannels(true, true); // force=true, skipReload=true
+            totalUpdates += c;
             htmlLog.push(`<li>✅ <strong>RM (MPD2)</strong>: ${c} channels updated (FORCED)</li>`);
         } catch (e: any) {
             htmlLog.push(`<li>❌ <strong>RM (MPD2)</strong>: Error: ${e.message}</li>`);
@@ -5775,7 +5779,8 @@ app.get('/static/fupdate', async (req: Request, res: Response) => {
         // MPDz
         try {
             const { updateMpdzChannels } = await import('./utils/mpdzUpdater');
-            const c = await updateMpdzChannels(true);
+            const c = await updateMpdzChannels(true, true); // force=true, skipReload=true
+            totalUpdates += c;
             htmlLog.push(`<li>✅ <strong>MPDz</strong>: ${c} channels updated (FORCED)</li>`);
         } catch (e: any) {
             htmlLog.push(`<li>❌ <strong>MPDz</strong>: Error: ${e.message}</li>`);
@@ -5784,13 +5789,14 @@ app.get('/static/fupdate', async (req: Request, res: Response) => {
         // MPDx
         try {
             const { updateMpdxChannels } = await import('./utils/mpdxUpdater');
-            const c = await updateMpdxChannels(true);
+            const c = await updateMpdxChannels(true, true); // force=true, skipReload=true
+            totalUpdates += c;
             htmlLog.push(`<li>✅ <strong>MPDx</strong>: ${c} channels updated (FORCED)</li>`);
         } catch (e: any) {
             htmlLog.push(`<li>❌ <strong>MPDx</strong>: Error: ${e.message}</li>`);
         }
 
-        // ThisNot
+        // ThisNot (non scrive su tv_channels.json, scrive su /tmp/thisnot_channels.json)
         try {
             const { updateThisNotChannels } = await import('./utils/thisnotChannels');
             await updateThisNotChannels();
@@ -5800,7 +5806,36 @@ app.get('/static/fupdate', async (req: Request, res: Response) => {
         }
 
         htmlLog.push('</ul>');
-        htmlLog.push('<p><em>Reload trigger initiated by individual updaters. Please wait a few seconds.</em></p>');
+
+        // === UNICO RELOAD FINALE ===
+        htmlLog.push('<h2>🔄 Final Reload</h2>');
+        try {
+            // Forza reload dei canali statici in memoria
+            _loadStaticChannelsIfChanged(true);
+
+            // Conta canali con vari campi MPD
+            let mpdCount = 0, mpd2Count = 0, mpdzCount = 0, mpdxCount = 0;
+            for (const c of staticBaseChannels) {
+                if (c && (c as any).staticUrlMpd) mpdCount++;
+                if (c && (c as any).staticUrlMpd2) mpd2Count++;
+                if (c && (c as any).staticUrlMpdz) mpdzCount++;
+                if (c && (c as any).staticUrlMpdx) mpdxCount++;
+            }
+
+            htmlLog.push(`<p>✅ <strong>Reload completato!</strong></p>`);
+            htmlLog.push(`<ul>`);
+            htmlLog.push(`<li>Total channels in memory: <strong>${staticBaseChannels.length}</strong></li>`);
+            htmlLog.push(`<li>staticUrlMpd (Amstaff): <strong>${mpdCount}</strong></li>`);
+            htmlLog.push(`<li>staticUrlMpd2 (RM): <strong>${mpd2Count}</strong></li>`);
+            htmlLog.push(`<li>staticUrlMpdz: <strong>${mpdzCount}</strong></li>`);
+            htmlLog.push(`<li>staticUrlMpdx: <strong>${mpdxCount}</strong></li>`);
+            htmlLog.push(`</ul>`);
+            htmlLog.push(`<p>Total updates this run: <strong>${totalUpdates}</strong></p>`);
+        } catch (e: any) {
+            htmlLog.push(`<p>❌ Reload error: ${e.message}</p>`);
+        }
+
+        htmlLog.push('<p><em>All updaters completed and channels reloaded in memory.</em></p>');
         htmlLog.push('</body></html>');
         res.send(htmlLog.join(''));
     } catch (e: any) {
