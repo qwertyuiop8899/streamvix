@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.55](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.54...v1.10.55) (2025-12-10)
+
+
+### Bug Fixes
+
+* bump version ([6195641](https://github.com/qwertyuiop8899/streamvix/commit/619564109ba6fcbcfcaa11db13cf5c5b7607b94b))
+* update ([2dd21c9](https://github.com/qwertyuiop8899/streamvix/commit/2dd21c96b534eefed3943d4128b5518b8f72564a))
+
 ## [1.10.54](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.53...v1.10.54) (2025-12-10)
 
 
