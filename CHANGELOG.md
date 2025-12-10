@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.54](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.53...v1.10.54) (2025-12-10)
+
+
+### Bug Fixes
+
+* zeventi ([ad0ec1e](https://github.com/qwertyuiop8899/streamvix/commit/ad0ec1e4a2fc39d97eb3eb87904012075845385f))
+* zeventi ([5572008](https://github.com/qwertyuiop8899/streamvix/commit/55720086545266153b51549dd7caa8285824be96))
+
 ## [1.10.53](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.52...v1.10.53) (2025-12-10)
 
 
