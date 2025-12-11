@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.58](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.57...v1.10.58) (2025-12-11)
+
+
+### Bug Fixes
+
+* xevent with prx ([3e50545](https://github.com/qwertyuiop8899/streamvix/commit/3e505453ca9f359bbd1f266992350323090d1776))
+
 ## [1.10.57](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.56...v1.10.57) (2025-12-11)
 
 
