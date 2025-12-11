@@ -598,7 +598,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "9.5.23",
+    version: "9.4.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con VixSRC, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -2420,23 +2420,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             return { streams: ppvStreams };
                         }
 
-                        // === X-Eventi EARLY RETURN: solo stream originali, niente extra ===
-                        const isXEventi = channelCategory === 'X-EVENTI' || (channel as any).id?.startsWith('xeventi_');
-                        if (isXEventi) {
-                            console.log(`[X-Events] ✅ Canale X-Eventi rilevato: ${channel.id} - restituisco solo stream originali`);
-                            const xStreams: Stream[] = [];
-                            const dArr = Array.isArray((channel as any).dynamicDUrls) ? (channel as any).dynamicDUrls : [];
-                            for (const d of dArr) {
-                                if (d.url) {
-                                    xStreams.push({
-                                        url: d.url,
-                                        name: '🔴 LIVE',
-                                        title: 'X-Eventi'
-                                    } as any);
-                                }
-                            }
-                            return { streams: xStreams };
-                        }
+
 
                         // === ThisNot EARLY RETURN: Proxy via MFP ===
                         const isThisNot = channelCategory === 'THISNOT' || (channel as any).id?.startsWith('thisnot_');
@@ -2473,11 +2457,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                         }
 
-                        // === Z-Eventi EARLY RETURN: MPD con chiavi - costruisce URL proxy usando config utente ===
+                        // === Z-Eventi & X-Eventi EARLY RETURN: MPD con chiavi - costruisce URL proxy usando config utente ===
                         const isZEventi = channelCategory === 'Z-EVENTI' || (channel as any).id?.startsWith('zeventi_');
-                        if (isZEventi) {
+                        const isXEventi = channelCategory === 'X-Eventi' || channelCategory === 'X-EVENTI' || (channel as any).id?.startsWith('xeventi_');
+
+                        if (isZEventi || isXEventi) {
                             const zStreams: Stream[] = [];
-                            const dArr = Array.isArray((channel as any).dynamicDUrls) ? (channel as any).dynamicDUrls : [];
+                            const dArr = [
+                                ...(Array.isArray((channel as any).streams) ? (channel as any).streams : []),
+                                ...(Array.isArray((channel as any).dynamicDUrls) ? (channel as any).dynamicDUrls : [])
+                            ];
+                            const groupTitle = isZEventi ? 'Z-Eventi' : 'X-Eventi';
+                            const logPrefix = isZEventi ? '[Z-Eventi]' : '[X-Eventi]';
 
                             if (mfpUrl) {
                                 const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
@@ -2486,29 +2477,68 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     if (d.url) {
                                         // d.url è nel formato: mpdUrl&key_id=kids&key=keys
                                         // Dobbiamo costruire: {mfpUrl}/proxy/mpd/manifest.m3u8?{passwordParam}d={encodedMpdUrl}&key_id=...&key=...
-                                        const urlParts = d.url.split('&');
-                                        const baseUrl = urlParts[0];
-                                        const additionalParams = urlParts.slice(1);
+                                        // Verifica se ci sono chiavi:
+                                        if (d.url.includes('key_id=') && d.url.includes('key=')) {
+                                            // HA CHIAVI -> PROXY
+                                            const urlParts = d.url.split('&');
+                                            const baseUrl = urlParts[0];
+                                            const additionalParams = urlParts.slice(1);
 
-                                        let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
+                                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
 
-                                        for (const param of additionalParams) {
-                                            if (param) {
-                                                proxyUrl += `&${param}`;
+                                            for (const param of additionalParams) {
+                                                if (param) {
+                                                    proxyUrl += `&${param}`;
+                                                }
                                             }
-                                        }
 
-                                        zStreams.push({
-                                            url: proxyUrl,
-                                            name: '🔴 LIVE',
-                                            title: d.title || 'Z-Eventi'
-                                        } as any);
+                                            zStreams.push({
+                                                url: proxyUrl,
+                                                name: '🌐 🔴 LIVE',
+                                                title: (channel as any).name || groupTitle
+                                            } as any);
+                                        } else {
+                                            // NON HA CHIAVI -> DIRETTO (Clean)
+                                            // Anche se c'è MFP, se il link è clean non serve proxarlo (risparmia banda proxy)
+                                            zStreams.push({
+                                                url: d.url,
+                                                name: '🔴 LIVE',
+                                                title: (channel as any).name || groupTitle
+                                            } as any);
+                                        }
                                     }
                                 }
-                                console.log(`[Z-Eventi] ✅ Canale Z-Eventi rilevato: ${channel.id} - restituisco ${zStreams.length} stream proxati`);
+                                console.log(`${logPrefix} ✅ Canale rilevato: ${channel.id} - restituisco ${zStreams.length} stream (mix proxy/direct)`);
                                 return { streams: zStreams };
                             } else {
-                                console.log(`[Z-Eventi] ⚠️ MFP URL mancante, impossibile proxare canali Z-Eventi`);
+                                console.log(`${logPrefix} ⚠️ MFP URL mancante. Verifico se i link richiedono proxy.`);
+                                const errorStreams: Stream[] = [];
+                                const dArrError = [
+                                    ...(Array.isArray((channel as any).streams) ? (channel as any).streams : []),
+                                    ...(Array.isArray((channel as any).dynamicDUrls) ? (channel as any).dynamicDUrls : [])
+                                ];
+
+                                for (const d of dArrError) {
+                                    if (d.url) {
+                                        // Se l'URL ha chiavi (key_id), ALLORA serve per forza il proxy -> Errore se manca MFP
+                                        if (d.url.includes('key_id=') && d.url.includes('key=')) {
+                                            errorStreams.push({
+                                                url: d.url,
+                                                name: '❌ [Missing Proxy]',
+                                                title: 'Serve MFP Config'
+                                            } as any);
+                                        } else {
+                                            // Se NON ha chiavi, proviamo a darlo diretto (comportamento originale)
+                                            // Questo rispetta "se link senza proxy allora lascia come funziona ora"
+                                            errorStreams.push({
+                                                url: d.url,
+                                                name: '🔴 LIVE', // Titolo standard
+                                                title: (channel as any).name || groupTitle
+                                            } as any);
+                                        }
+                                    }
+                                }
+                                return { streams: errorStreams };
                             }
                         }
 
