@@ -179,6 +179,12 @@ const exactMap: Record<string, string> = {
 
 
 
+      "Nichijou - My Ordinary Life": "Nichijou",
+
+
+
+
+
   // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
