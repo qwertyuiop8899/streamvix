@@ -218,6 +218,11 @@ function normalizeTitleForSearch(title: string): string {
 
 
 
+        "Nichijou - My Ordinary Life": "Nichijou",
+
+
+
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
