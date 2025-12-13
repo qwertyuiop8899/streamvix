@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.11.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.58...v1.11.0) (2025-12-13)
+
+
+### Features
+
+* **normalize-au:** add "Nichijou - My Ordinary Life" ([4613893](https://github.com/qwertyuiop8899/streamvix/commit/4613893f17b73fd8ef1df54e18ef163a0e12aeaf))
+* **normalize-aw:** add "Nichijou - My Ordinary Life" ([ceca4ba](https://github.com/qwertyuiop8899/streamvix/commit/ceca4bac2fc5918679bd95467988b1aff69506c0))
+* **normalize:** add "Nichijou - My Ordinary Life" ([de176e1](https://github.com/qwertyuiop8899/streamvix/commit/de176e1b759fa1e23da0d05c6516996ca68aff26))
+
+
+### Bug Fixes
+
+* domains update ([ab7d416](https://github.com/qwertyuiop8899/streamvix/commit/ab7d41610f130f43bfb9c9d685e42074038935f6))
+
 ## [1.10.58](https://github.com/qwertyuiop8899/streamvix/compare/v1.10.57...v1.10.58) (2025-12-11)
 
 
