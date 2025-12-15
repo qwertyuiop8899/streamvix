@@ -62,6 +62,8 @@ http://urladdon/tn/reload       avvia arricchimento TN
 
 http://urladdon/static/fupdate       avvia arricchimento mpd FORCED, senza check su esistenza
 
+http://urladdon/tv/update       avvia arricchimento ALL
+
 ## 🔧 Configurazione Semplificata
 
 StreamViX utilizza un **sistema di proxy unificato** che semplifica la configurazione:
