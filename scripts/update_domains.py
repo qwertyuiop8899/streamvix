@@ -111,7 +111,8 @@ def main():
         lines = [ln.strip() for ln in paste_txt.splitlines() if ln.strip()]
         if len(lines) >= 4:
             line4 = lines[3]
-            m = re.search(r'https?://(www\.)?(eurostreaming\.[a-z]{2,})', line4, re.I)
+            # Match "euro" + qualsiasi cosa (eurostreaming, eurostreamings, eurostream, etc.)
+            m = re.search(r'https?://(www\.)?(euro[a-z]*\.[a-z]{2,})', line4, re.I)
             if m:
                 euro_host = m.group(2).lower()
                 old_host = updated.get('eurostreaming')
