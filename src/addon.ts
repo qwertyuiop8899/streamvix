@@ -1478,7 +1478,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             if (initialConfig && (initialConfig as any).disableLiveTv) {
                 const filtered = { ...manifest } as Manifest;
                 const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
-                filtered.catalogs = cats.filter((c: any) => !(c && (c as any).id === 'streamvix_tv'));
+                // Rimuovi ENTRAMBI i cataloghi TV (streamvix_tv + streamvix_live) quando disabilitato
+                filtered.catalogs = cats.filter((c: any) =>
+                    !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live'))
+                );
                 return filtered;
             }
         } catch { }
@@ -5088,7 +5091,10 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
         if (!Array.isArray((filtered as any).catalogs)) (filtered as any).catalogs = [];
         if (effectiveDisable) {
             const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
-            filtered.catalogs = cats.filter((c: any) => !(c && (c as any).id === 'streamvix_tv'));
+            // Rimuovi ENTRAMBI i cataloghi TV (streamvix_tv + streamvix_live) quando disabilitato
+            filtered.catalogs = cats.filter((c: any) =>
+                !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live'))
+            );
         }
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Access-Control-Allow-Origin', '*');
