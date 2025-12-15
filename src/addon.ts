@@ -598,7 +598,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "9.4.23",
+    version: "9.5.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con VixSRC, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -5847,7 +5847,8 @@ app.get('/zeventi/update', async (req: Request, res: Response) => {
 
 // ================= MANUAL PURGE ENDPOINT =====================
 // Esegue la stessa logica delle 02:00: rimuove dal file gli eventi del giorno precedente
-app.get('/static/fupdate', async (req: Request, res: Response) => {
+// Alias: /tv/update per comodità
+app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) => {
     try {
         const htmlLog: string[] = [];
         htmlLog.push('<html><body style="font-family: sans-serif;">');
@@ -5912,6 +5913,35 @@ app.get('/static/fupdate', async (req: Request, res: Response) => {
             htmlLog.push(`<li>✅ <strong>Z-Eventi</strong>: ${c} channels updated (FORCED)</li>`);
         } catch (e: any) {
             htmlLog.push(`<li>❌ <strong>Z-Eventi</strong>: Error: ${e.message}</li>`);
+        }
+
+        // X-Eventi (runs Python script x_eventi.py -> writes to /tmp/x_eventi.json)
+        try {
+            const pythonBin = process.env.PYTHON_BIN || 'python3';
+            const scriptPath = path.join(__dirname, '..', 'x_eventi.py');
+            if (fs.existsSync(scriptPath)) {
+                const { execSync } = await import('child_process');
+                execSync(`${pythonBin} ${scriptPath}`, { timeout: 60000 });
+                htmlLog.push(`<li>✅ <strong>X-Eventi</strong>: Script executed (FORCED)</li>`);
+            } else {
+                htmlLog.push(`<li>⚠️ <strong>X-Eventi</strong>: Script not found (skipped)</li>`);
+            }
+        } catch (e: any) {
+            htmlLog.push(`<li>❌ <strong>X-Eventi</strong>: Error: ${e.message}</li>`);
+        }
+
+        // Live/Update (runs Live.py -> dynamic events)
+        try {
+            // executeLiveScript is already defined in the addon
+            const execRes = await (async () => { try { return await (executeLiveScript as any)(); } catch { return undefined; } })();
+            const liveOk = execRes?.code === 0 || (execRes?.stdout && !execRes?.code);
+            if (liveOk) {
+                htmlLog.push(`<li>✅ <strong>Live (Dynamic Events)</strong>: Script executed (FORCED)</li>`);
+            } else {
+                htmlLog.push(`<li>⚠️ <strong>Live (Dynamic Events)</strong>: ${execRes?.stderr || 'Unknown result'}</li>`);
+            }
+        } catch (e: any) {
+            htmlLog.push(`<li>❌ <strong>Live (Dynamic Events)</strong>: Error: ${e.message}</li>`);
         }
 
         htmlLog.push('</ul>');
