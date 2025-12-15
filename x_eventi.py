@@ -96,6 +96,11 @@ def process_channels(raw_channels):
         
         name_raw = ch["name_raw"]
         
+        # Rimuovi varianti di "xrom" dalla descrizione (xrom, XROM, x-rom, x rom, etc.)
+        name_cleaned = re.sub(r'\bx[-\s]?rom\b', '', name_raw, flags=re.IGNORECASE).strip()
+        # Pulisci eventuali spazi doppi rimasti
+        name_cleaned = re.sub(r'\s{2,}', ' ', name_cleaned).strip()
+        
         # Determine live status or just use name
         # User example: "Sassuolo vs Fiorentina Oggi 15h00"
         # We can try to keep it as is.
@@ -122,7 +127,7 @@ def process_channels(raw_channels):
         channel_obj = {
             "id": f"xeventi_{id_hash}",
             "name": final_name,
-            "description": f"{name_raw} - {group}",
+            "description": f"{name_cleaned} - {group}",
             "logo": ch["logo"] or "https://i.imgur.com/ngOzxVP.png", # Default logo if missing
             "poster": ch["logo"],
             "background": ch["logo"],
