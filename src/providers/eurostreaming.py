@@ -405,9 +405,8 @@ def convert_numbers(base64_data):
 
 async def get_numbers(safego_url, client):
     log('safego:get_numbers', safego_url)
-    headers = random_headers.generate()
-    headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64; rv:138.0) Gecko/20100101 Firefox/138.0'
-    response = await client.get(ForwardProxy + safego_url, headers=headers, proxies=proxies)
+    # Don't override User-Agent - let impersonate handle headers for Cloudflare bypass
+    response = await client.get(ForwardProxy + safego_url, proxies=proxies)
     cookies = (response.cookies.get_dict())
     soup = BeautifulSoup(response.text, _PARSER, parse_only=SoupStrainer('img'))
     img = soup.img if soup else None
@@ -422,17 +421,16 @@ async def real_page(safego_url, client):
         current_directory = os.path.dirname(os.path.abspath(__file__))
         file_path = os.path.join(current_directory, 'cookie.txt')
         log('safego: real_page', safego_url, 'cookie_file=', file_path)
-        headers = random_headers.generate()
-        headers['Origin'] = 'https://safego.cc'
-        headers['Referer'] = safego_url
-        headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64; rv:138.0) Gecko/20100101 Firefox/138.0'
+        # Only set Origin/Referer, let impersonate handle User-Agent for Cloudflare
+        headers = {'Origin': 'https://safego.cc', 'Referer': safego_url}
         cookies = {}
         if os.path.exists(file_path):
             with open(file_path, 'r') as file:
                 cookies_raw = file.read().strip()
                 if cookies_raw:
                     cookies = json.loads(cookies_raw.replace("'", '"'))
-        response = await client.post(ForwardProxy + safego_url, headers=headers, cookies=cookies, proxies=proxies)
+        # Initial GET to load the page (captcha form)
+        response = await client.get(ForwardProxy + safego_url, headers=headers, cookies=cookies, proxies=proxies)
         soup = BeautifulSoup(response.text, _PARSER, parse_only=SoupStrainer('a'))
         if soup and len(soup) >= 1 and soup.a and soup.a.get('href'):
             log('safego: proceed href (cached cookies)')
@@ -443,7 +441,7 @@ async def real_page(safego_url, client):
             numbers, cookies = await get_numbers(safego_url, client)
             numbers = convert_numbers(numbers)
             log('safego: ocr ->', numbers)
-            data = {'captch4': numbers}
+            data = {'captch5': numbers}
             response = await client.post(ForwardProxy + safego_url, headers=headers, data=data, cookies=cookies, proxies=proxies)
             cap4 = response.headers.get('set-cookie', '')
             if cap4:
@@ -1159,7 +1157,7 @@ async def test_euro():
     if AsyncSession is None:
         print("curl_cffi not available")
         return
-    async with AsyncSession() as client:
+    async with AsyncSession(impersonate="chrome") as client:
         results = await eurostreaming("tt6156584:4:5", client, 0)
         print(results)
 
@@ -1167,7 +1165,7 @@ async def test_deltabit():
     if AsyncSession is None:
         print("curl_cffi not available")
         return
-    async with AsyncSession() as client:
+    async with AsyncSession(impersonate="chrome") as client:
         results = await deltabit("https://deltabit.co/fgeki2456ab1", client)
         print(results)
 
@@ -1232,7 +1230,7 @@ if __name__ == "__main__":
             # IMDb IDs start with 'tt' or 'tmdb'; if already 3 segments, assume season/ep present
             if len(parts) < 3:
                 idv = f"{idv}:{args.season}:{args.episode}"
-        async with AsyncSession() as client:
+        async with AsyncSession(impersonate="chrome") as client:
             try:
                 res = await eurostreaming(idv, client, args.mfp)
             except Exception as e:  # broad catch to always output JSON
