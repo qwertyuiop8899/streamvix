@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.2...v1.11.3) (2025-12-15)
+
+
+### Bug Fixes
+
+* endpoint ([0cf038d](https://github.com/qwertyuiop8899/streamvix/commit/0cf038d40a003b33566e4c115b336a20f77b342b))
+
 ## [1.11.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.1...v1.11.2) (2025-12-15)
 
 
