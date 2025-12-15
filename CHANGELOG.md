@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.1...v1.11.2) (2025-12-15)
+
+
+### Bug Fixes
+
+* domains update ([32e255e](https://github.com/qwertyuiop8899/streamvix/commit/32e255e182294c12b2f14eafda5c1f7b47fd9810))
+* eurostreaming.py ([e2677c6](https://github.com/qwertyuiop8899/streamvix/commit/e2677c65afb6e4901b769eeb48cda7db9a41e955))
+
 ## [1.11.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.0...v1.11.1) (2025-12-15)
 
 
