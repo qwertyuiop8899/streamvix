@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.7...v1.11.8) (2025-12-16)
+
+
+### Bug Fixes
+
+* guardoserie guardaflix domain script ([9cd02a1](https://github.com/qwertyuiop8899/streamvix/commit/9cd02a12c6cddcecd97d4258342c793e7aa0d406))
+
 ## [1.11.7](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.6...v1.11.7) (2025-12-16)
 
 
