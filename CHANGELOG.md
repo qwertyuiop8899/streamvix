@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.4...v1.11.5) (2025-12-16)
+
+
+### Bug Fixes
+
+* trailer yt ([81db2c3](https://github.com/qwertyuiop8899/streamvix/commit/81db2c3b32046047875e09d1552166e3f7b84b88))
+* yt trailer ([a8ba962](https://github.com/qwertyuiop8899/streamvix/commit/a8ba9622cbe8ae661b92f130d48c72568cb71f4d))
+
 ## [1.11.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.3...v1.11.4) (2025-12-16)
 
 
