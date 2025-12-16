@@ -7,15 +7,15 @@ import * as crypto from 'crypto';
 import { Stream } from 'stremio-addon-sdk';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { buildUnifiedStreamName, providerLabel } from '../utils/unifiedNames';
+import { getDomain } from '../utils/domains';
 
-// Config constants
-// const GS_DOMAIN = "https://guardoserie.wtf"; 
-const TARGET_DOMAIN = "https://guardoserie.me";
+// Config constants - dynamic domain from domains.json
+const getTargetDomain = () => `https://${getDomain('guardoserie') || 'guardoserie.bar'}`;
 
 const jar = new CookieJar();
 
-function createClient() {
-    const proxyUrl = process.env.PROXY;
+function createClient(useProxy: boolean) {
+    const proxyUrl = useProxy ? process.env.PROXY : undefined;
     const httpsAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
 
     const config = {
@@ -24,8 +24,8 @@ function createClient() {
         proxy: false as false,
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Origin': TARGET_DOMAIN,
-            'Referer': `${TARGET_DOMAIN}/`
+            'Origin': getTargetDomain(),
+            'Referer': `${getTargetDomain()}/`
         }
     };
 
@@ -62,20 +62,28 @@ function createClient() {
     return wrapper(instance);
 }
 
-const client = createClient();
+// Two clients: no-proxy first, proxy fallback
+const clientNoProxy = createClient(false);
+const clientWithProxy = process.env.PROXY ? createClient(true) : null;
+let useProxyFallback = false; // Switch to proxy after first failure
+
+function getClient() {
+    return useProxyFallback && clientWithProxy ? clientWithProxy : clientNoProxy;
+}
+
 
 // --- LOADM EXTRACTOR ---
 const KEY = Buffer.from('kiemtienmua911ca', 'utf-8');
 const IV = Buffer.from('1234567890oiuytr', 'utf-8');
 
-async function extractLoadM(playerUrl: string, referer: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream | null> {
+async function extractLoadM(playerUrl: string, referer: string, mfpUrl?: string, mfpPsw?: string, isSub: boolean = false): Promise<Stream | null> {
     try {
         const parts = playerUrl.split('#');
         const id = parts[1];
         const playerDomain = new URL(playerUrl).origin;
         const apiUrl = `${playerDomain}/api/v1/video`;
 
-        const response = await client.get(apiUrl, {
+        const response = await getClient().get(apiUrl, {
             headers: { 'Referer': playerUrl },
             params: { id, w: '2560', h: '1440', r: referer },
             responseType: 'text'
@@ -122,7 +130,7 @@ async function extractLoadM(playerUrl: string, referer: string, mfpUrl?: string,
                 name: providerLabel('guardoserie'),
                 title: buildUnifiedStreamName({
                     baseTitle: title,
-                    isSub: false,
+                    isSub: isSub,
                     proxyOn: !!mfpUrl,
                     provider: 'guardoserie',
                     playerName: 'LoadM',
@@ -149,37 +157,77 @@ async function extractLoadM(playerUrl: string, referer: string, mfpUrl?: string,
 
 // --- SEARCH & SCRAPE ---
 
+async function getDynamicNonce(): Promise<string | null> {
+    try {
+        console.log('[Guardoserie] Fetching homepage for nonce...');
+        const res = await getClient().get(getTargetDomain());
+        const html = res.data;
+        const match = html.match(/"nonce":"([a-z0-9]+)"/i) || html.match(/nonce["']\s*:\s*["']([a-z0-9]+)["']/i);
+        if (match) {
+            console.log('[Guardoserie] Found nonce:', match[1]);
+            return match[1];
+        }
+        return null;
+    } catch (e) {
+        console.error(`[Guardoserie] Failed to fetch nonce: ${e}`);
+        return null;
+    }
+}
+
 async function searchGuardoserie(query: string, year: string): Promise<string | null> {
     try {
-        const searchUrl = `${TARGET_DOMAIN}/wp-admin/admin-ajax.php`;
-        const params = new URLSearchParams();
-        params.append('s', query);
-        params.append('action', 'searchwp_live_search');
-        params.append('swpengine', 'default');
-        params.append('swpquery', query);
+        // Usa ricerca diretta /?s= invece di admin-ajax.php che restituisce 400
+        const searchUrl = `${getTargetDomain()}/?s=${encodeURIComponent(query)}`;
+        console.log('[Guardoserie] Direct search:', searchUrl);
 
-        const res = await client.post(searchUrl, params.toString(), {
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }
+        const res = await getClient().get(searchUrl);
+        console.log('[GS][Direct] search html length', res.data.length);
+
+        const $ = cheerio.load(res.data);
+
+        // Normalizza query per matching
+        const queryLower = query.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        // Cerca tutti i link che potrebbero essere risultati
+        const allLinks: { href: string, text: string }[] = [];
+        $('a[href*="/serie/"]').each((_, el) => {
+            const href = $(el).attr('href');
+            if (!href || href === '#') return;
+            // Filtra link generici (es. /serie/ senza slug)
+            if (/\/serie\/?$/.test(href)) return;
+            // Deve avere uno slug dopo /serie/
+            if (!/\/serie\/[a-z0-9-]+/i.test(href)) return;
+
+            const text = $(el).text().trim();
+            allLinks.push({ href, text });
         });
 
-        // Response is HTML snippet
-        const $ = cheerio.load(res.data);
-        const links = $('a.ss-title');
+        console.log('[Guardoserie] Found', allLinks.length, 'candidate links');
 
-        for (const link of links) {
-            const href = $(link).attr('href');
-            if (!href) continue;
+        // Prima cerca match esatto con query nel titolo o URL
+        for (const { href, text } of allLinks) {
+            const textLower = text.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const hrefLower = href.toLowerCase();
 
-            const pageRes = await client.get(href);
-            const pageHtml = pageRes.data;
-
-            // Primitive year check
-            if (year && pageHtml.includes(`>${year}<`)) {
-                return href;
-            } else if (!year) {
-                return href; // Return first match if no year
+            if (textLower.includes(queryLower) || hrefLower.includes(queryLower)) {
+                // Se abbiamo anno, controlla che corrisponda
+                if (year && (text.includes(year) || href.includes(year))) {
+                    console.log('[Guardoserie] Found with year match:', href);
+                    return href;
+                } else if (!year) {
+                    console.log('[Guardoserie] Found query match:', href);
+                    return href;
+                }
             }
         }
+
+        // Se nessun match con query, ritorna il primo link valido
+        if (allLinks.length > 0) {
+            console.log('[Guardoserie] Returning first valid link:', allLinks[0].href);
+            return allLinks[0].href;
+        }
+
+        console.log('[Guardoserie] No results found in search page');
     } catch (e) {
         console.error(`[Guardoserie] Search failed: ${e}`);
     }
@@ -188,7 +236,7 @@ async function searchGuardoserie(query: string, year: string): Promise<string | 
 
 async function getEpisodeLink(seriesUrl: string, season: number, episode: number): Promise<string | null> {
     try {
-        const res = await client.get(seriesUrl);
+        const res = await getClient().get(seriesUrl);
         const $ = cheerio.load(res.data);
 
         // MammaMia logic: div.les-content (one per season) -> a tags (episodes)
@@ -210,21 +258,58 @@ async function getEpisodeLink(seriesUrl: string, season: number, episode: number
 async function resolvePageStream(pageUrl: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
     const streams: Stream[] = [];
     try {
-        const res = await client.get(pageUrl);
+        const res = await getClient().get(pageUrl);
         const $ = cheerio.load(res.data);
 
-        // Look for iframes
-        const iframes = $('iframe');
+        // Build tab-to-language mapping from .idTabs
+        // e.g., href="#tab1" -> "Server ITA" or "Server Sub-ITA"
+        const tabLangMap: Record<string, 'ITA' | 'SUB'> = {};
+        $('.idTabs .les-content a, .player_nav .les-content a').each((_, el) => {
+            const href = $(el).attr('href');
+            const text = $(el).text().toLowerCase();
+            if (href && href.startsWith('#tab')) {
+                const tabId = href.substring(1); // Remove #
+                if (text.includes('sub')) {
+                    tabLangMap[tabId] = 'SUB';
+                } else if (text.includes('ita')) {
+                    tabLangMap[tabId] = 'ITA';
+                }
+            }
+        });
+        console.log('[Guardoserie] Tab language mapping:', tabLangMap);
 
-        for (const iframe of iframes) {
-            let src = $(iframe).attr('data-src') || $(iframe).attr('src');
-            if (!src) continue;
+        // Iterate over tabs and their iframes
+        const tabDivs = $('#player2 > div[id^="tab"]');
+        for (const tabDiv of tabDivs) {
+            const tabId = $(tabDiv).attr('id') || '';
+            const lang = tabLangMap[tabId] || 'ITA'; // Default to ITA if not found
+            const isSub = lang === 'SUB';
 
-            if (src.startsWith('//')) src = 'https:' + src;
+            const iframes = $(tabDiv).find('iframe');
+            for (const iframe of iframes) {
+                let src = $(iframe).attr('data-src') || $(iframe).attr('src');
+                if (!src) continue;
 
-            if (src.includes('loadm.cam') || src.includes('loadm')) {
-                const stream = await extractLoadM(src, pageUrl, mfpUrl, mfpPsw);
-                if (stream) streams.push(stream);
+                if (src.startsWith('//')) src = 'https:' + src;
+
+                if (src.includes('loadm.cam') || src.includes('loadm')) {
+                    const stream = await extractLoadM(src, pageUrl, mfpUrl, mfpPsw, isSub);
+                    if (stream) streams.push(stream);
+                }
+            }
+        }
+
+        // Fallback: if no tabs found, try all iframes directly (legacy behavior)
+        if (streams.length === 0) {
+            const iframes = $('iframe');
+            for (const iframe of iframes) {
+                let src = $(iframe).attr('data-src') || $(iframe).attr('src');
+                if (!src) continue;
+                if (src.startsWith('//')) src = 'https:' + src;
+                if (src.includes('loadm.cam') || src.includes('loadm')) {
+                    const stream = await extractLoadM(src, pageUrl, mfpUrl, mfpPsw, false);
+                    if (stream) streams.push(stream);
+                }
             }
         }
     } catch (e) {
@@ -298,9 +383,33 @@ async function getCinemetaMeta(type: string, paramId: string): Promise<{ name: s
 // --- PUBLIC INTERFACE ---
 
 export async function getGuardoserieStreams(type: string, id: string, tmdbApiKey?: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
+    // First attempt: without proxy
+    useProxyFallback = false;
+    try {
+        const result = await getGuardoserieStreamsCore(type, id, tmdbApiKey, mfpUrl, mfpPsw);
+        if (result.length > 0) return result;
+    } catch (e) {
+        console.log(`[Guardoserie] First attempt failed: ${e}`);
+    }
+
+    // Fallback: with proxy (if available)
+    if (clientWithProxy) {
+        console.log('[Guardoserie] Retrying with proxy...');
+        useProxyFallback = true;
+        try {
+            return await getGuardoserieStreamsCore(type, id, tmdbApiKey, mfpUrl, mfpPsw);
+        } catch (e) {
+            console.log(`[Guardoserie] Proxy attempt also failed: ${e}`);
+        }
+    }
+
+    return [];
+}
+
+async function getGuardoserieStreamsCore(type: string, id: string, tmdbApiKey?: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
     if (type !== 'series' && type !== 'movie') return [];
 
-    console.log(`[Guardoserie] Requesting: ${id} (${type})`);
+    console.log(`[Guardoserie] Requesting: ${id} (${type}) [proxy=${useProxyFallback}]`);
 
     let imdbId = id;
     let season = 1;
@@ -371,3 +480,4 @@ export async function getGuardoserieStreams(type: string, id: string, tmdbApiKey
 
     return await resolvePageStream(targetUrl, mfpUrl, mfpPsw);
 }
+
