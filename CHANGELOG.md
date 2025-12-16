@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.5...v1.11.6) (2025-12-16)
+
+
+### Bug Fixes
+
+* proxy cache ([16a2a35](https://github.com/qwertyuiop8899/streamvix/commit/16a2a35c84bcb6f96772f8c3fb456198c66ab6ff))
+
 ## [1.11.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.4...v1.11.5) (2025-12-16)
 
 
