@@ -4975,12 +4975,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const trailerEnabled = (config as any).trailerEnabled !== false;
                 if (type !== 'tv' && trailerEnabled && isTrailerProviderAvailable()) {
                     try {
-                        // Estrai imdbId e season dall'id (formato: tt123456:season:episode)
+                        // Estrai imdbId, season, episode dall'id (formato: tt123456:season:episode)
                         const idParts = id.split(':');
                         const imdbId = idParts[0];
                         const season = idParts.length > 1 ? parseInt(idParts[1], 10) : undefined;
+                        const episode = idParts.length > 2 ? parseInt(idParts[2], 10) : undefined;
 
-                        if (imdbId.startsWith('tt')) {
+                        // Per le serie: mostra trailer SOLO per episodi 1 e 2 di ogni stagione
+                        if (type === 'series' && episode !== undefined && episode > 2) {
+                            // Skip trailer for episodes 3+
+                        } else if (imdbId.startsWith('tt')) {
                             const contentType = type === 'series' ? 'series' : 'movie';
                             // Pass undefined for contentName (fallback format), season for series-specific trailer
                             const trailerStreams = await getTrailerStreams(contentType, imdbId, undefined, season);
