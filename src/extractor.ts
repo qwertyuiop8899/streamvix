@@ -49,20 +49,20 @@ try {
 function getStaticTmdbMapping(imdbId: string, season: number): string | null {
   const entry = IMDB_TO_TMDB_MAP[imdbId];
   if (!entry) return null;
-  
+
   // Entry semplice: solo tmdb_id diretto (senza array mappings)
   if ((entry as any).tmdb_id && !entry.mappings) {
     console.log(`[IMDB→TMDB] Mapping statico semplice trovato: ${imdbId} → TMDB ${(entry as any).tmdb_id} (${entry.title})`);
     return (entry as any).tmdb_id;
   }
-  
+
   // Entry con mappings per stagione
   const mapping = entry.mappings?.find(m => m.imdbSeason === season);
   if (mapping) {
     console.log(`[IMDB→TMDB] Mapping statico trovato: ${imdbId} S${season} → TMDB ${mapping.tmdb_id} (${entry.title})`);
     return mapping.tmdb_id;
   }
-  
+
   return null;
 }
 
@@ -177,7 +177,7 @@ export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string, p
     console.log(`[IMDB→TMDB] Mapping statico semplice usato: ${imdbId} → TMDB ${(entry as any).tmdb_id} (${entry.title})`);
     return (entry as any).tmdb_id;
   }
-  
+
   if (!tmdbApiKey) {
     console.error("TMDB_API_KEY is not configured.");
     return null;
@@ -190,11 +190,11 @@ export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string, p
       return null;
     }
     const data = await response.json();
-    
+
     // Priorità intelligente: se preferredType è specificato, cerca prima quel tipo
     const movieResults = data.movie_results || [];
     const tvResults = data.tv_results || [];
-    
+
     if (preferredType === 'tv' && tvResults.length > 0) {
       console.log(`[IMDB→TMDB] Preferred TV: ${imdbId} → TMDB ${tvResults[0].id} (${tvResults[0].name})`);
       return tvResults[0].id.toString();
@@ -202,7 +202,7 @@ export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string, p
       console.log(`[IMDB→TMDB] Preferred Movie: ${imdbId} → TMDB ${movieResults[0].id} (${movieResults[0].title})`);
       return movieResults[0].id.toString();
     }
-    
+
     // Fallback: se preferredType non trova nulla, prova l'altro tipo
     if (movieResults.length > 0) {
       console.log(`[IMDB→TMDB] Fallback Movie: ${imdbId} → TMDB ${movieResults[0].id} (${movieResults[0].title})`);
@@ -211,7 +211,7 @@ export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string, p
       console.log(`[IMDB→TMDB] Fallback TV: ${imdbId} → TMDB ${tvResults[0].id} (${tvResults[0].name})`);
       return tvResults[0].id.toString();
     }
-    
+
     console.warn(`No TMDB movie or TV results found for IMDb ID: ${imdbId}`);
     return null;
   } catch (error) {
@@ -227,12 +227,13 @@ async function checkTmdbIdOnVixSrc(tmdbId: string, type: ContentType): Promise<b
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const env: any = (global as any)?.process?.env || (typeof process !== 'undefined' ? (process as any).env : {});
       const v = String(env.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase();
-      return ['1','true','on','yes','y'].includes(v);
+      return ['1', 'true', 'on', 'yes', 'y'].includes(v);
     } catch { return false; }
   })();
-  const vixSrcApiType = type === 'movie' ? 'movie' : 'tv'; // VixSrc usa 'tv' per le serie
+  // Handle both 'movie' and 'film' types (API may send either)
+  const vixSrcApiType = (type === 'movie' || type === 'film' as any) ? 'movie' : 'tv'; // VixSrc usa 'tv' per le serie
   const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}`;
-//   const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}?lang=it`;
+  //   const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}?lang=it`;
 
   try {
     console.log(`VIX_CHECK: Checking TMDB ID ${tmdbId} of type ${vixSrcApiType} against VixSrc list: ${listUrl}`);
@@ -263,7 +264,7 @@ async function checkTmdbIdOnVixSrc(tmdbId: string, type: ContentType): Promise<b
     }
     // Retry una volta se non skip
     try {
-      await new Promise(r=>setTimeout(r,400));
+      await new Promise(r => setTimeout(r, 400));
       console.log('VIX_CHECK: retry fetch list');
       const response2 = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect Retry)', 'Accept': 'application/json' } });
       if (response2.ok) {
@@ -274,7 +275,7 @@ async function checkTmdbIdOnVixSrc(tmdbId: string, type: ContentType): Promise<b
           return ex2;
         }
       }
-    } catch {/* ignore secondary */}
+    } catch {/* ignore secondary */ }
     return false; // fallback finale
   }
 }
@@ -286,11 +287,11 @@ async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: num
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const env: any = (global as any)?.process?.env || (typeof process !== 'undefined' ? (process as any).env : {});
       const v = String(env.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase();
-      return ['1','true','on','yes','y'].includes(v);
+      return ['1', 'true', 'on', 'yes', 'y'].includes(v);
     } catch { return false; }
   })();
   const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/`;
-//const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
+  //const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
   try {
     console.log(`VIX_EP_CHECK: Checking TMDB ID ${tmdbId} S${season}E${episode} against VixSrc episode list: ${listUrl}`);
     const response = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect)', 'Accept': 'application/json' } });
@@ -315,7 +316,7 @@ async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: num
     if (skipFlag) { console.warn('VIX_EP_CHECK: errore ma skip -> true'); return true; }
     // retry una volta
     try {
-      await new Promise(r=>setTimeout(r,400));
+      await new Promise(r => setTimeout(r, 400));
       console.log('VIX_EP_CHECK: retry fetch episode list');
       const r2 = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect Retry)', 'Accept': 'application/json' } });
       if (r2.ok) {
@@ -326,7 +327,7 @@ async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: num
           return ex2;
         }
       }
-    } catch {/* ignore */}
+    } catch {/* ignore */ }
     return false;
   }
 }
@@ -334,7 +335,8 @@ async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: num
 // 2. Modifica la funzione getUrl per rimuovere ?lang=it e aggiungere la verifica
 export async function getUrl(id: string, type: ContentType, config: ExtractorConfig): Promise<string | null> {
   // Support direct TMDB id format for movies: tmdb:<tmdbId>
-  if (type === 'movie') {
+  // Handle both 'movie' and 'film' types (API may send either)
+  if (type === 'movie' || type === 'film' as any) {
     let tmdbId: string | null = null;
     if (id.startsWith('tmdb:')) {
       // direct TMDB format
@@ -347,7 +349,7 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
     if (!tmdbId) return null;
     const existsOnVixSrc = await checkTmdbIdOnVixSrc(tmdbId, type);
     if (!existsOnVixSrc) {
-      const skip = ['1','true','on','yes','y'].includes(String((global as any)?.process?.env?.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase());
+      const skip = ['1', 'true', 'on', 'yes', 'y'].includes(String((global as any)?.process?.env?.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase());
       if (!skip) {
         console.log(`TMDB ID ${tmdbId} for movie not found in VixSrc list. Skipping.`);
         return null;
@@ -363,7 +365,7 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
   let seasonStr: string | undefined;
   let episodeStr: string | undefined;
   let imdbIdForMapping: string | null = null; // Per mapping statico
-  
+
   if (rawParts[0] === 'tmdb') {
     tmdbSeriesId = rawParts[1] || null;
     seasonStr = rawParts[2];
@@ -373,7 +375,7 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
     imdbIdForMapping = obj.id; // Salva IMDB ID per mapping statico
     seasonStr = obj.season;
     episodeStr = obj.episode;
-    
+
     // Prima controlla se c'è un mapping statico per questa serie+stagione
     const seasonNum = Number(seasonStr);
     if (!isNaN(seasonNum) && imdbIdForMapping) {
@@ -386,7 +388,7 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
         console.log(`[IMDB→TMDB] Usato mapping statico: ${imdbIdForMapping} S${seasonNum} → TMDB ${staticTmdbId} S1 (serie TMDB separata)`);
       }
     }
-    
+
     // Se non trovato mapping statico, usa API TMDB classica
     if (!tmdbSeriesId) {
       tmdbSeriesId = await getTmdbIdFromImdbId(obj.id, config.tmdbApiKey, 'tv');
@@ -400,7 +402,7 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
     return null;
   }
   const existsOnVixSrc = await checkTmdbIdOnVixSrc(tmdbSeriesId, type);
-  const skipSeries = ['1','true','on','yes','y'].includes(String((global as any)?.process?.env?.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase());
+  const skipSeries = ['1', 'true', 'on', 'yes', 'y'].includes(String((global as any)?.process?.env?.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase());
   if (!existsOnVixSrc && !skipSeries) {
     console.log(`TMDB ID ${tmdbSeriesId} for series not found in VixSrc list. Skipping.`);
     return null;
@@ -465,7 +467,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     }
     if (config.vixDual !== true) {
       const dualFlag = String(env.VIX_DUAL || env.VIXSRC_DUAL || env.STREAMVIX_DUAL || '').toLowerCase();
-      if (['1','true','on','yes','y'].includes(dualFlag)) {
+      if (['1', 'true', 'on', 'yes', 'y'].includes(dualFlag)) {
         config.vixDual = true;
         console.log('[VixSrc][Debug] vixDual abilitato via ENV');
       }
@@ -556,13 +558,13 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       return null;
     }
 
-  const cleanedMfpUrl = mfpUrl.endsWith('/') ? mfpUrl.slice(0, -1) : mfpUrl;
-  // Prima richiesta: redirect_stream=false per ottenere JSON completo
-  const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
-  const baseApi = `${cleanedMfpUrl}/extractor/video?host=VixCloud&redirect_stream=false${passwordParam}&d=${encodeURIComponent(url)}`;
-  console.log(`[VixSrc][Proxy] FETCH JSON: ${baseApi}`);
+    const cleanedMfpUrl = mfpUrl.endsWith('/') ? mfpUrl.slice(0, -1) : mfpUrl;
+    // Prima richiesta: redirect_stream=false per ottenere JSON completo
+    const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+    const baseApi = `${cleanedMfpUrl}/extractor/video?host=VixCloud&redirect_stream=false${passwordParam}&d=${encodeURIComponent(url)}`;
+    console.log(`[VixSrc][Proxy] FETCH JSON: ${baseApi}`);
 
-  // Nuova funzione asincrona per ottenere l'URL m3u8 finale
+    // Nuova funzione asincrona per ottenere l'URL m3u8 finale
     async function getActualStreamUrl(proxyUrl: string): Promise<string> {
       try {
         // In modalità "debug" non seguiamo i reindirizzamenti e otteniamo l'URL m3u8 dalla risposta JSON
@@ -668,7 +670,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
 
     // Ottieni l'URL m3u8 finale
     // Usa la funzione per comporre a partire dalla risposta debug
-    let finalStreamUrl = await getActualStreamUrl(baseApi.replace('redirect_stream=false','redirect_stream=false'));
+    let finalStreamUrl = await getActualStreamUrl(baseApi.replace('redirect_stream=false', 'redirect_stream=false'));
     console.log(`[VixSrc][Proxy] Final m3u8 URL ricostruito: ${finalStreamUrl}`);
 
     // Prova ad estrarre la dimensione (bytes) dalla pagina VixSrc
@@ -682,9 +684,9 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         canPlayFHD = html.includes('window.canPlayFHD = true');
         const sizeMatch = html.match(/\"size\":(\d+)/);
         if (sizeMatch) {
-      // Nel codice originale la size è in kB -> converti in bytes (kB * 1024)
-      const kB = parseInt(sizeMatch[1] as string, 10);
-      if (!isNaN(kB) && kB >= 0) sizeBytes = kB * 1024;
+          // Nel codice originale la size è in kB -> converti in bytes (kB * 1024)
+          const kB = parseInt(sizeMatch[1] as string, 10);
+          if (!isNaN(kB) && kB >= 0) sizeBytes = kB * 1024;
         }
       }
     } catch (e) {
@@ -766,21 +768,21 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         throw new Error("Failed to extract token, expires, or server URL from script.");
       }
 
-  const token = tokenMatch[1];
-  const expires = expiresMatch[1];
-  let serverUrl = serverUrlMatch[1];
-  let finalStreamUrl: string;
+      const token = tokenMatch[1];
+      const expires = expiresMatch[1];
+      let serverUrl = serverUrlMatch[1];
+      let finalStreamUrl: string;
 
       // Costruzione URL finale stile webstreamr:
       // 1. Normalizza /playlist/<id> aggiungendo .m3u8 se manca
       // 2. Se l'URL originale conteneva già b=1 lo manteniamo.
       // 3. Se NON conteneva b=1 lo aggiungeremo solo se poi rileviamo FHD (h=1) disponibile.
-  let hadBOriginally = false; // verrà deciso dopo aver rilevato canPlayFHD
+      let hadBOriginally = false; // verrà deciso dopo aver rilevato canPlayFHD
       try {
         serverUrl = ensurePlaylistM3u8(serverUrl);
         const urlObj = new URL(serverUrl);
         const hadB = urlObj.searchParams.get('b') === '1';
-  hadBOriginally = hadB;
+        hadBOriginally = hadB;
         // Costruiamo intanto base senza token/expires (li aggiungiamo dopo per mantenere ordine desiderato: b, token, expires, h)
         urlObj.search = '';
         finalStreamUrl = urlObj.toString();
@@ -788,8 +790,8 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       } catch (e) {
         console.warn('[VixSrc][Direct] Fallback parsing serverUrl prima di token/expire:', (e as any)?.message || e);
         finalStreamUrl = ensurePlaylistM3u8(serverUrl);
-  // hadBOriginally già valorizzato
-  hadBOriginally = /([?&])b=1(?!\d)/.test(serverUrl);
+        // hadBOriginally già valorizzato
+        hadBOriginally = /([?&])b=1(?!\d)/.test(serverUrl);
       }
 
       // Detect FHD (canPlayFHD)
@@ -798,16 +800,16 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       // Ora componiamo la query mantenendo ordine: (b=1 se applicabile), token, expires, (h=1 se FHD)
       try {
         const assembled = new URL(finalStreamUrl);
-        if (hadBOriginally) assembled.searchParams.set('b','1');
+        if (hadBOriginally) assembled.searchParams.set('b', '1');
         assembled.searchParams.set('token', token);
         assembled.searchParams.set('expires', expires);
-        if (fhd) assembled.searchParams.set('h','1');
+        if (fhd) assembled.searchParams.set('h', '1');
         finalStreamUrl = assembled.toString();
-  console.log('[VixSrc][Direct] FHD', fhd, 'hadBOriginally', hadBOriginally);
+        console.log('[VixSrc][Direct] FHD', fhd, 'hadBOriginally', hadBOriginally);
       } catch (e) {
         console.warn('[VixSrc][Direct] Fallback composizione finale query:', (e as any)?.message || e);
         const parts: string[] = [];
-  if (hadBOriginally) parts.push('b=1');
+        if (hadBOriginally) parts.push('b=1');
         parts.push(`token=${token}`);
         parts.push(`expires=${expires}`);
         if (fhd) parts.push('h=1');
@@ -934,7 +936,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     console.log('[VixSrc][EarlyDirect] Tentativo parse diretto iniziale');
     directResult = await getDirectStream(targetUrl, id, type, config);
     if (directResult) {
-      if (!/🔓/.test(directResult.name)) directResult.name = directResult.name.replace(/\s*🔓?$/,'') + ' 🔓';
+      if (!/🔓/.test(directResult.name)) directResult.name = directResult.name.replace(/\s*🔓?$/, '') + ' 🔓';
       // Pulizia parametri superflui (difensivo)
       try {
         if (directResult.streamUrl.includes('/playlist/')) {
@@ -954,13 +956,13 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
             directResult.streamUrl = cleaned;
           }
         }
-      } catch {/* ignore */}
+      } catch {/* ignore */ }
       try {
         if (directResult.streamUrl.includes('/playlist/')) {
           const uTest = new URL(directResult.streamUrl);
           if (uTest.searchParams.get('b') === '1') directHadB = true;
         }
-      } catch {/* ignore */}
+      } catch {/* ignore */ }
       streams.push(directResult);
     } else {
       console.log('[VixSrc][EarlyDirect] Nessun direct (null)');
@@ -976,7 +978,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       console.log('[VixSrc][ProxyStage] Invoco getProxyStream per costruire versione proxy');
       proxyResult = await getProxyStream(targetUrl, id, type, config);
       if (proxyResult) {
-        if (!/🔒/.test(proxyResult.name)) proxyResult.name = proxyResult.name.replace(/\s*🔓?$/,'') + ' 🔒';
+        if (!/🔒/.test(proxyResult.name)) proxyResult.name = proxyResult.name.replace(/\s*🔓?$/, '') + ' 🔒';
         // Normalizza inner d param se contiene master playlist
         try {
           const urlObj = new URL(proxyResult.streamUrl);
@@ -984,28 +986,28 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           if (dParam && /\/playlist\//.test(dParam)) {
             try {
               const inner = new URL(dParam);
-              if (directHadB && inner.searchParams.get('b') !== '1') inner.searchParams.set('b','1');
+              if (directHadB && inner.searchParams.get('b') !== '1') inner.searchParams.set('b', '1');
               const token = inner.searchParams.get('token');
               const expires = inner.searchParams.get('expires');
               const h = inner.searchParams.get('h');
-              inner.search='';
-              if (directHadB) inner.searchParams.set('b','1');
+              inner.search = '';
+              if (directHadB) inner.searchParams.set('b', '1');
               if (token) inner.searchParams.set('token', token);
               if (expires) inner.searchParams.set('expires', expires);
               if (h) inner.searchParams.set('h', h);
               const cleanedInner = inner.toString();
               if (cleanedInner !== dParam) { urlObj.searchParams.set('d', cleanedInner); proxyResult.streamUrl = urlObj.toString(); }
-            } catch {/* ignore */}
+            } catch {/* ignore */ }
           }
           // Se non c'è parametro d ma l'URL proxy stesso è playlist e manca b=1, aggiungilo
           if (directHadB && !dParam && /\/playlist\//.test(proxyResult.streamUrl)) {
             try {
               const pu = new URL(proxyResult.streamUrl);
-              if (pu.searchParams.get('b') !== '1') pu.searchParams.set('b','1');
+              if (pu.searchParams.get('b') !== '1') pu.searchParams.set('b', '1');
               proxyResult.streamUrl = pu.toString();
-            } catch {/* ignore */}
+            } catch {/* ignore */ }
           }
-        } catch {/* ignore */}
+        } catch {/* ignore */ }
         streams.push(proxyResult);
       }
     } catch (e) {
@@ -1019,12 +1021,12 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   }
 
   // Ordinamento stabile: direct prima di proxy
-  streams.sort((a,b)=> a.source === b.source ? 0 : (a.source==='direct'? -1:1));
+  streams.sort((a, b) => a.source === b.source ? 0 : (a.source === 'direct' ? -1 : 1));
 
   // Synthetic helpers (solo se addonBase valido e scenario richiede)
   // Costruzione usableAddonBase con rilevamento automatico prioritario (come DLHD)
   let usableAddonBase = '';
-  
+
   // Tentativo 1: Rilevamento automatico dalla richiesta corrente (PRIORITÀ MASSIMA)
   try {
     const lastReq: any = (global as any).lastExpressRequest;
@@ -1041,7 +1043,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   } catch (e) {
     console.log(`[VixSrc] Errore rilevamento automatico addonBase:`, e);
   }
-  
+
   // Fallback 2: Variabile ambiente ADDON_BASE_URL
   if (!usableAddonBase) {
     const envBase = (process && process.env && process.env.ADDON_BASE_URL) ? String(process.env.ADDON_BASE_URL).trim() : '';
@@ -1052,7 +1054,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       console.log(`[VixSrc] ADDON_BASE_URL è dominio VixSrc stesso, skip per evitare loop`);
     }
   }
-  
+
   // Fallback 3: config.addonBase (runtime / landing page)
   if (!usableAddonBase) {
     if (config.addonBase && !config.addonBase.includes(domains.vixsrc)) {
@@ -1062,13 +1064,13 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       console.log(`[VixSrc] config.addonBase è dominio VixSrc stesso, skip per evitare loop`);
     }
   }
-  
+
   if (!usableAddonBase) {
     console.log(`[VixSrc] Nessun usableAddonBase disponibile: synthetic FHD disabilitato`);
   }
-  
-  const haveMfp = !!(config.mfpUrl && config.mfpPsw && streams.some(s=>s.source==='proxy'));
-  const haveDirect = streams.some(s=>s.source==='direct');
+
+  const haveMfp = !!(config.mfpUrl && config.mfpPsw && streams.some(s => s.source === 'proxy'));
+  const haveDirect = streams.some(s => s.source === 'direct');
 
   function buildSyntheticBase(masterUrl: string, referer: string): VixCloudStreamInfo | null {
     if (!usableAddonBase || !config.vixDual) return null;
@@ -1079,22 +1081,22 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       const expires = mu.searchParams.get('expires');
       const h = mu.searchParams.get('h');
       const b = mu.searchParams.get('b');
-      mu.search='';
-      if (directHadB || b === '1') mu.searchParams.set('b','1');
+      mu.search = '';
+      if (directHadB || b === '1') mu.searchParams.set('b', '1');
       if (token) mu.searchParams.set('token', token);
       if (expires) mu.searchParams.set('expires', expires);
       if (h) mu.searchParams.set('h', h);
       masterUrl = mu.toString();
-    } catch {/* ignore */}
-  // Aggiunto suffisso .m3u8 per compatibilità con player HLS che richiedono estensione
-  const syntheticUrl = `${usableAddonBase.replace(/\/$/,'')}/vixsynthetic.m3u8?src=${encodeURIComponent(masterUrl)}&lang=it&max=1&multi=1`;
-    const directRef = streams.find(s=>s.source==='direct');
+    } catch {/* ignore */ }
+    // Aggiunto suffisso .m3u8 per compatibilità con player HLS che richiedono estensione
+    const syntheticUrl = `${usableAddonBase.replace(/\/$/, '')}/vixsynthetic.m3u8?src=${encodeURIComponent(masterUrl)}&lang=it&max=1&multi=1`;
+    const directRef = streams.find(s => s.source === 'direct');
     if (haveDirect && directRef && masterUrl === directRef.streamUrl) {
-      return { name: directRef.name.replace(/\s*🔓FHD?$/,'').replace(/\s*🔓$/,'') + ' 🔓FHD', streamUrl: syntheticUrl, referer, source: 'direct', isSyntheticFhd: true, originalName: directRef.name };
+      return { name: directRef.name.replace(/\s*🔓FHD?$/, '').replace(/\s*🔓$/, '') + ' 🔓FHD', streamUrl: syntheticUrl, referer, source: 'direct', isSyntheticFhd: true, originalName: directRef.name };
     }
-    const proxyRef = streams.find(s=>s.source==='proxy');
+    const proxyRef = streams.find(s => s.source === 'proxy');
     if (!haveDirect && proxyRef) {
-      const baseName = proxyRef.name.replace(/\s*🔒FHD$/,'').replace(/\s*🔒$/,'').replace(/\s*🔓FHD?$/,'').replace(/\s*🔓$/,'').trim();
+      const baseName = proxyRef.name.replace(/\s*🔒FHD$/, '').replace(/\s*🔒$/, '').replace(/\s*🔓FHD?$/, '').replace(/\s*🔓$/, '').trim();
       return { name: baseName + ' 🔓FHD', streamUrl: syntheticUrl, referer, source: 'direct', isSyntheticFhd: true, originalName: baseName };
     }
     return { name: 'Synthetic 🔓FHD', streamUrl: syntheticUrl, referer, source: 'direct', isSyntheticFhd: true };
@@ -1102,24 +1104,24 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
 
   function buildSyntheticProxyWrapper(innerSynthetic: string, referer: string): VixCloudStreamInfo | null {
     if (!haveMfp || !config.vixDual || !config.mfpUrl) return null;
-    const cleaned = config.mfpUrl.endsWith('/') ? config.mfpUrl.slice(0,-1) : config.mfpUrl;
+    const cleaned = config.mfpUrl.endsWith('/') ? config.mfpUrl.slice(0, -1) : config.mfpUrl;
     let syntheticTarget = innerSynthetic;
     try {
       if (directHadB) {
         const su = new URL(syntheticTarget);
-        if (su.searchParams.get('b') !== '1') su.searchParams.set('b','1');
+        if (su.searchParams.get('b') !== '1') su.searchParams.set('b', '1');
         syntheticTarget = su.toString();
       }
-    } catch {/* ignore */}
+    } catch {/* ignore */ }
     const passwordParam = config.mfpPsw ? `&api_password=${encodeURIComponent(config.mfpPsw)}` : '';
     const wrapper = `${cleaned}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(syntheticTarget)}${passwordParam}`;
-    const proxyOrig = streams.find(s=>s.source==='proxy');
-    const baseName = proxyOrig ? proxyOrig.name.replace(/\s*🔒FHD$/,'').replace(/\s*🔒$/,'') : 'Proxy';
+    const proxyOrig = streams.find(s => s.source === 'proxy');
+    const baseName = proxyOrig ? proxyOrig.name.replace(/\s*🔒FHD$/, '').replace(/\s*🔒$/, '') : 'Proxy';
     return { name: baseName + ' 🔒 FHD', streamUrl: wrapper, referer, source: 'proxy', isSyntheticFhd: true, originalName: baseName };
   }
 
-  const directStream = streams.find(s=>s.source==='direct') || null;
-  const proxyStream = streams.find(s=>s.source==='proxy') || null;
+  const directStream = streams.find(s => s.source === 'direct') || null;
+  const proxyStream = streams.find(s => s.source === 'proxy') || null;
 
   console.log('[VixSrc][Scenario] local=', !!config.vixLocal, 'dual=', !!config.vixDual, 'haveDirect=', !!directStream, 'haveProxy=', !!proxyStream, 'usableAddonBase=', !!usableAddonBase, 'haveMfp=', haveMfp);
   console.log('[VixSrc][VariantForce] DISABLED: utilizzo sempre master playlist pulita (token,expires,h).');
@@ -1127,7 +1129,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   let baseList: VixCloudStreamInfo[] | null = null;
   try {
     if (config.vixLocal && !config.vixDual) {
-      baseList = [ ...(directStream ? [directStream] : []), ...(proxyStream ? [proxyStream] : []) ]; // Scenario 1
+      baseList = [...(directStream ? [directStream] : []), ...(proxyStream ? [proxyStream] : [])]; // Scenario 1
     } else if (config.vixLocal && config.vixDual) { // Scenario 2
       const result: VixCloudStreamInfo[] = [];
       if (directStream) result.push(directStream);
@@ -1135,10 +1137,10 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       let masterForSynthetic: string | null = null;
       if (directStream && /\/playlist\//.test(directStream.streamUrl)) masterForSynthetic = directStream.streamUrl;
       if (!masterForSynthetic && proxyStream) {
-        try { const u = new URL(proxyStream.streamUrl); const d = u.searchParams.get('d'); if (d && /\/playlist\//.test(d)) masterForSynthetic = d; } catch {/* ignore */}
+        try { const u = new URL(proxyStream.streamUrl); const d = u.searchParams.get('d'); if (d && /\/playlist\//.test(d)) masterForSynthetic = d; } catch {/* ignore */ }
       }
       if (masterForSynthetic) {
-        const syn = buildSyntheticBase(masterForSynthetic, directStream ? directStream.referer : (proxyStream? proxyStream.referer : ''));
+        const syn = buildSyntheticBase(masterForSynthetic, directStream ? directStream.referer : (proxyStream ? proxyStream.referer : ''));
         if (syn) result.push(syn);
         if (syn) { const synProxy = buildSyntheticProxyWrapper(syn.streamUrl, proxyStream ? proxyStream.referer : syn.referer); if (synProxy) result.push(synProxy); }
       }
@@ -1148,10 +1150,10 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       let masterForSynthetic: string | null = null;
       if (directStream && /\/playlist\//.test(directStream.streamUrl)) masterForSynthetic = directStream.streamUrl;
       if (!masterForSynthetic && proxyStream) {
-        try { const u = new URL(proxyStream.streamUrl); const d = u.searchParams.get('d'); if (d && /\/playlist\//.test(d)) masterForSynthetic = d; } catch {/* ignore */}
+        try { const u = new URL(proxyStream.streamUrl); const d = u.searchParams.get('d'); if (d && /\/playlist\//.test(d)) masterForSynthetic = d; } catch {/* ignore */ }
       }
       if (masterForSynthetic) {
-        const syn = buildSyntheticBase(masterForSynthetic, directStream ? directStream.referer : (proxyStream? proxyStream.referer : ''));
+        const syn = buildSyntheticBase(masterForSynthetic, directStream ? directStream.referer : (proxyStream ? proxyStream.referer : ''));
         if (syn) result.push(syn);
         if (syn) { const synProxy = buildSyntheticProxyWrapper(syn.streamUrl, proxyStream ? proxyStream.referer : syn.referer); if (synProxy) result.push(synProxy); }
       }
@@ -1173,16 +1175,16 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       try {
         const isFhd = /[?&]h=1/.test(s.streamUrl) || /FHD/.test(s.name) || !!config.vixDual;
         const baseTitle = s.name
-          .replace(/\s*🔓FHD?$/,'')
-          .replace(/\s*🔒FHD?$/,'')
-          .replace(/\s*🔓$/,'')
-          .replace(/\s*🔒$/,'')
-          .replace(/\s*\[ITA\].*$/,'')
-          .replace(/\s*\[SUB\].*$/,'')
+          .replace(/\s*🔓FHD?$/, '')
+          .replace(/\s*🔒FHD?$/, '')
+          .replace(/\s*🔓$/, '')
+          .replace(/\s*🔒$/, '')
+          .replace(/\s*\[ITA\].*$/, '')
+          .replace(/\s*\[SUB\].*$/, '')
           .trim();
         const isSub = /\bSUB\b/i.test(s.name);
         const proxyOn = s.source === 'proxy' || /mediaflow|proxy/i.test(s.streamUrl);
-        const sizeBytes = (s as any).sizeBytes as number|undefined;
+        const sizeBytes = (s as any).sizeBytes as number | undefined;
         const unified = buildUnifiedStreamName({
           baseTitle: baseTitle || 'Titolo',
           isSub,
@@ -1205,7 +1207,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
               }
               return { ...s, name: lines.join('\n') };
             }
-          } catch {/* ignore injection errors */}
+          } catch {/* ignore injection errors */ }
         }
         return { ...s, name: unified };
       } catch { return s; }
@@ -1222,15 +1224,15 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     };
     const none = !f.direct && !f.directFhd && !f.proxy && !f.proxyFhd;
     const variants = {
-      baseDirect: list.find(s => s.source==='direct' && !( (s as any).isSyntheticFhd || /FHD/.test(s.name) )),
-      directFhd: list.find(s => s.source==='direct' && ( (s as any).isSyntheticFhd || /FHD/.test(s.name) )),
-      baseProxy: list.find(s => s.source==='proxy' && !( (s as any).isSyntheticFhd || /FHD/.test(s.name) )),
-      proxyFhd: list.find(s => s.source==='proxy' && ( (s as any).isSyntheticFhd || /FHD/.test(s.name) ))
+      baseDirect: list.find(s => s.source === 'direct' && !((s as any).isSyntheticFhd || /FHD/.test(s.name))),
+      directFhd: list.find(s => s.source === 'direct' && ((s as any).isSyntheticFhd || /FHD/.test(s.name))),
+      baseProxy: list.find(s => s.source === 'proxy' && !((s as any).isSyntheticFhd || /FHD/.test(s.name))),
+      proxyFhd: list.find(s => s.source === 'proxy' && ((s as any).isSyntheticFhd || /FHD/.test(s.name)))
     };
-    const available = Object.entries(variants).filter(([_,v])=>!!v).map(([k])=>k);
+    const available = Object.entries(variants).filter(([_, v]) => !!v).map(([k]) => k);
     const mfpPresent = !!(config.mfpUrl && config.mfpPsw);
     console.log('[VixSrc][Filter] Flags', f, 'MFP', mfpPresent, 'Available', available);
-    const out: VixCloudStreamInfo[] = []; const add=(v:VixCloudStreamInfo|undefined|null)=>{ if(v && !out.includes(v)) out.push(v); };
+    const out: VixCloudStreamInfo[] = []; const add = (v: VixCloudStreamInfo | undefined | null) => { if (v && !out.includes(v)) out.push(v); };
 
     // -------------------------------------------------------------
     // EARLY SHORTCUT: nessuna credenziale MFP => vietato mostrare
@@ -1247,20 +1249,20 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       // Caso auto (nessuna selezione): preferisci baseDirect altrimenti directFhd
       if (none) {
         add(variants.baseDirect || variants.directFhd);
-        const fin = finalize(out); console.log('[VixSrc][Filter][Chosen][EarlyNoMFP]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+        const fin = finalize(out); console.log('[VixSrc][Filter][Chosen][EarlyNoMFP]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
       }
       // Se l'utente ha chiesto direct e/o directFhd, rispetta ordine
       if (f.direct || f.directFhd) {
         if (f.direct) add(variants.baseDirect || variants.directFhd);
         if (f.directFhd) add(variants.directFhd || variants.baseDirect);
-        const fin = finalize(out); console.log('[VixSrc][Filter][Chosen][EarlyNoMFP]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+        const fin = finalize(out); console.log('[VixSrc][Filter][Chosen][EarlyNoMFP]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
       }
       // Solo proxy flags selezionate -> degrada a direct fallback
       if (f.proxy || f.proxyFhd) {
         add(variants.baseDirect || variants.directFhd);
         // Se l'utente aveva richiesto proxyFHD e abbiamo anche una directFhd distinta, aggiungila come miglior fallback
         if (f.proxyFhd && variants.directFhd && variants.directFhd !== variants.baseDirect) add(variants.directFhd);
-        const fin = finalize(out); console.log('[VixSrc][Filter][Chosen][EarlyNoMFP]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+        const fin = finalize(out); console.log('[VixSrc][Filter][Chosen][EarlyNoMFP]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
       }
     }
 
@@ -1273,63 +1275,63 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         add(variants.baseDirect || variants.directFhd);
       }
       const fin = finalize(out);
-      console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':'')));
+      console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : '')));
       return fin;
     }
     // Solo Direct
     if (f.direct && !f.directFhd && !f.proxy && !f.proxyFhd) {
       if (mfpPresent) add(variants.baseDirect || variants.directFhd || variants.baseProxy || variants.proxyFhd);
       else add(variants.baseDirect || variants.directFhd); // no proxy leak
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
     }
     // Solo Direct FHD
     if (!f.direct && f.directFhd && !f.proxy && !f.proxyFhd) {
       if (mfpPresent) add(variants.directFhd || variants.baseDirect || variants.proxyFhd || variants.baseProxy);
       else add(variants.directFhd || variants.baseDirect); // strict
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
     }
     // Solo Proxy
     if (!f.direct && !f.directFhd && f.proxy && !f.proxyFhd) {
       if (mfpPresent) add(variants.baseProxy || variants.proxyFhd || variants.baseDirect || variants.directFhd);
       else add(variants.baseDirect || variants.directFhd); // degrade to direct only
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
     }
     // Solo Proxy FHD
     if (!f.direct && !f.directFhd && !f.proxy && f.proxyFhd) {
       if (mfpPresent) add(variants.proxyFhd || variants.baseProxy || variants.directFhd || variants.baseDirect);
       else add(variants.directFhd || variants.baseDirect); // strict
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
     }
     // Direct + Proxy
     if (f.direct && !f.directFhd && f.proxy && !f.proxyFhd) {
       if (mfpPresent) { add(variants.baseDirect || variants.directFhd); add(variants.baseProxy || variants.proxyFhd); }
       else { add(variants.baseDirect || variants.directFhd); } // block proxy
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
     }
     // Direct + Direct FHD (solo) -> mai proxy
     if (f.direct && f.directFhd && !f.proxy && !f.proxyFhd) {
       if (variants.baseDirect) add(variants.baseDirect);
       if (variants.directFhd && variants.directFhd !== variants.baseDirect) add(variants.directFhd);
       if (!variants.baseDirect && !variants.directFhd && mfpPresent) add(variants.baseProxy || variants.proxyFhd); // only if truly nothing
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
     }
     // Direct FHD + Proxy FHD
     if (!f.direct && f.directFhd && !f.proxy && f.proxyFhd) {
       if (mfpPresent) { add(variants.directFhd || variants.baseDirect); add(variants.proxyFhd || variants.baseProxy); }
       else { add(variants.directFhd || variants.baseDirect); }
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
     }
     // Direct FHD + Proxy (senza Direct base, senza Proxy FHD)
     if (!f.direct && f.directFhd && f.proxy && !f.proxyFhd) {
       if (mfpPresent) { add(variants.directFhd || variants.baseDirect); add(variants.baseProxy || variants.proxyFhd); }
       else { add(variants.directFhd || variants.baseDirect); }
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
     }
     // Tutte e 4
     if (f.direct && f.directFhd && f.proxy && f.proxyFhd) {
       if (mfpPresent) { add(variants.baseDirect || variants.directFhd); add(variants.directFhd); add(variants.baseProxy || variants.proxyFhd); add(variants.proxyFhd); }
       else { add(variants.baseDirect || variants.directFhd); add(variants.directFhd); }
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
     }
     // Direct + Direct FHD + Proxy (senza Proxy FHD)
     if (f.direct && f.directFhd && f.proxy && !f.proxyFhd) {
@@ -1341,13 +1343,13 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         add(variants.baseDirect || variants.directFhd);
         add(variants.directFhd || variants.baseDirect);
       }
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
     }
     // Direct + Proxy FHD
     if (f.direct && !f.directFhd && !f.proxy && f.proxyFhd) {
       if (mfpPresent) { add(variants.baseDirect || variants.directFhd); add(variants.proxyFhd || variants.baseProxy); }
       else { add(variants.baseDirect || variants.directFhd); } // remove second add (no implicit FHD if not requested)
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
     }
     // Proxy + Proxy FHD (senza direct)
     if (!f.direct && !f.directFhd && f.proxy && f.proxyFhd) {
@@ -1355,10 +1357,10 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         add(variants.baseProxy || variants.proxyFhd);
         add(variants.proxyFhd);
         const onlyProxy = out.filter(v => v.source === 'proxy');
-        const fin = finalize(onlyProxy.length ? onlyProxy : out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+        const fin = finalize(onlyProxy.length ? onlyProxy : out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
       } else {
         add(variants.directFhd || variants.baseDirect); // strict fallback
-        const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+        const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
       }
     }
     // Direct FHD + Proxy + Proxy FHD (senza Direct base)
@@ -1370,7 +1372,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       } else {
         add(variants.directFhd || variants.baseDirect);
       }
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s=>s.source + (s.isSyntheticFhd? 'FHD':''))); return fin;
+      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
     }
     console.log('[VixSrc][Filter] Combinazione non riconosciuta, ritorno lista intera');
     return finalize(list);
