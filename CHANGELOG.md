@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.7](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.6...v1.11.7) (2025-12-16)
+
+
+### Bug Fixes
+
+* gh endpoint ([16beb4e](https://github.com/qwertyuiop8899/streamvix/commit/16beb4e24b7714950d82e54259426dc4fe52e85f))
+* tmdb gh ([2e15679](https://github.com/qwertyuiop8899/streamvix/commit/2e15679be1461322e89d38f0d661296a8582e342))
+
 ## [1.11.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.5...v1.11.6) (2025-12-16)
 
 
