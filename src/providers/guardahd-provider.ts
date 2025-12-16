@@ -144,7 +144,30 @@ export class GuardaHdProvider {
         return { streams };
     }
 
-    async handleTmdbRequest(tmdbId: string, _season: number | null, _episode: number | null, isMovie = false): Promise<{ streams: StreamForStremio[] }> {
+    async handleTmdbRequest(tmdbId: string, season: number | null, episode: number | null, isMovie = false): Promise<{ streams: StreamForStremio[] }> {
+        // Supporto nativo TMDB: converti in IMDB e delega a handleImdbRequest
+        if (!this.config.enabled || !isMovie) return { streams: [] };
+
+        let imdbId: string | null = null;
+        // Se abbiamo una chiave API, usiamo l'endpoint /external_ids o /movie/{id} per trovare l'IMDB ID
+        if (this.config.tmdbApiKey) {
+            try {
+                const resp = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${this.config.tmdbApiKey}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.imdb_id) imdbId = data.imdb_id;
+                }
+            } catch (e) {
+                console.log('[GH][TMDB] resolution failed for', tmdbId, e);
+            }
+        }
+
+        if (imdbId) {
+            console.log('[GH][TMDB] resolved', tmdbId, '->', imdbId);
+            return this.handleImdbRequest(imdbId, season, episode, isMovie);
+        }
+
+        console.log('[GH][TMDB] could not resolve IMDB ID for', tmdbId);
         return { streams: [] };
     }
 
