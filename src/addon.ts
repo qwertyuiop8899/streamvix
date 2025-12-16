@@ -4372,13 +4372,29 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     if (id.startsWith('tt') || id.startsWith('tmdb:')) {
                         // Esempio: tt1234567:1:2 oppure tmdb:12345:1:2
                         const parts = id.split(':');
-                        if (parts.length === 1) {
-                            isMovie = true;
-                        } else if (parts.length === 2) {
-                            episodeNumber = parseInt(parts[1]);
-                        } else if (parts.length === 3) {
-                            seasonNumber = parseInt(parts[1]);
-                            episodeNumber = parseInt(parts[2]);
+                        // IMDB: tt12345 (1 part) = movie, tt12345:S:E (3 parts) = series
+                        // TMDB: tmdb:12345 (2 parts) = movie, tmdb:12345:S:E (4 parts) = series
+                        if (id.startsWith('tt')) {
+                            if (parts.length === 1) {
+                                isMovie = true;
+                            } else if (parts.length === 2) {
+                                episodeNumber = parseInt(parts[1]);
+                            } else if (parts.length === 3) {
+                                seasonNumber = parseInt(parts[1]);
+                                episodeNumber = parseInt(parts[2]);
+                            }
+                        } else if (id.startsWith('tmdb:')) {
+                            if (parts.length === 2) {
+                                // tmdb:12345 = movie
+                                isMovie = true;
+                            } else if (parts.length === 3) {
+                                // tmdb:12345:E
+                                episodeNumber = parseInt(parts[2]);
+                            } else if (parts.length === 4) {
+                                // tmdb:12345:S:E
+                                seasonNumber = parseInt(parts[2]);
+                                episodeNumber = parseInt(parts[3]);
+                            }
                         }
                     }
                     const providerPromises: Promise<void>[] = [];
