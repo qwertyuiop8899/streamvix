@@ -43,6 +43,7 @@ import { startMpdxScheduler, updateMpdxChannels } from './utils/mpdxUpdater';
 import { startZEventiScheduler, updateZEventiChannels } from './utils/zEventiUpdater';
 import { getGuardoserieStreams } from './providers/guardoserie';
 import { getGuardaflixStreams } from './providers/guardaflix';
+import { getTrailerStreams, isTrailerProviderAvailable } from './providers/trailerProvider';
 
 // ================= TYPES & INTERFACES =================
 interface AddonConfig {
@@ -61,6 +62,7 @@ interface AddonConfig {
     loonexEnabled?: boolean;
     toonitaliaEnabled?: boolean;
     disableLiveTv?: boolean;
+    trailerEnabled?: boolean;
     disableVixsrc?: boolean;
     tvtapProxyEnabled?: boolean;
     vavooNoMfpEnabled?: boolean;
@@ -598,7 +600,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "9.5.23",
+    version: "9.4.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con VixSRC, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -682,6 +684,7 @@ const baseManifest: Manifest = {
         { key: "vixProxy", title: "VixSrc Proxy mode", type: "checkbox" },
         { key: "vixProxyFhd", title: "VixSrc Proxy FHD mode", type: "checkbox" },
         { key: "disableLiveTv", title: "Live TV 📺 [Molti canali hanno bisogno di MFP]", type: "checkbox", default: false },
+        { key: "trailerEnabled", title: "🎬▶️ Trailer", type: "checkbox", default: true },
         { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
         { key: "animeunityAuto", title: "AnimeUnity AUTO mode", type: "checkbox" },
         { key: "animeunityFhd", title: "AnimeUnity FHD mode", type: "checkbox" },
@@ -4965,6 +4968,33 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         allStreams.sort((a, b) => rank((a.name || a.title || '').toString()) - rank((b.name || b.title || '').toString()));
                     }
                 } catch { }
+
+                // === TRAILER ITALIANO (TMDB) - Prima posizione ===
+                // Aggiungi trailer SOLO per movie/series (non TV live) se abilitato
+                // trailerEnabled default: true (se undefined, è abilitato)
+                const trailerEnabled = (config as any).trailerEnabled !== false;
+                if (type !== 'tv' && trailerEnabled && isTrailerProviderAvailable()) {
+                    try {
+                        // Estrai imdbId e season dall'id (formato: tt123456:season:episode)
+                        const idParts = id.split(':');
+                        const imdbId = idParts[0];
+                        const season = idParts.length > 1 ? parseInt(idParts[1], 10) : undefined;
+
+                        if (imdbId.startsWith('tt')) {
+                            const contentType = type === 'series' ? 'series' : 'movie';
+                            // Pass undefined for contentName (fallback format), season for series-specific trailer
+                            const trailerStreams = await getTrailerStreams(contentType, imdbId, undefined, season);
+                            if (trailerStreams && trailerStreams.length > 0) {
+                                // Prependi trailer come primo stream
+                                allStreams.unshift(...trailerStreams as any);
+                                console.log(`🎬 Added ${trailerStreams.length} trailer(s) for ${imdbId}${season ? ` S${season}` : ''}`);
+                            }
+                        }
+                    } catch (trailerErr) {
+                        console.warn('[Trailer] Error fetching trailer:', (trailerErr as any)?.message || trailerErr);
+                    }
+                }
+
                 console.log(`✅ Total streams returned: ${allStreams.length}`);
                 return { streams: allStreams };
             } catch (error) {
