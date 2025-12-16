@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.3...v1.11.4) (2025-12-16)
+
+
+### Bug Fixes
+
+* trailer ([6f8e8ad](https://github.com/qwertyuiop8899/streamvix/commit/6f8e8ad2936be225db698865c83a860490b21dcb))
+* trailer ([86989cb](https://github.com/qwertyuiop8899/streamvix/commit/86989cba97b860a21800b0e45e0b9c8c1f593878))
+
 ## [1.11.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.2...v1.11.3) (2025-12-15)
 
 
