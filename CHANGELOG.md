@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.8...v1.11.9) (2025-12-16)
+
+
+### Bug Fixes
+
+* only trailer and endpoint ([08bf680](https://github.com/qwertyuiop8899/streamvix/commit/08bf68032a8826d3133e45c14ab1693cfd317157))
+* vix tmdb ([b984040](https://github.com/qwertyuiop8899/streamvix/commit/b98404057332b2fe4c242eb464b19e3590ae46fd))
+
 ## [1.11.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.7...v1.11.8) (2025-12-16)
 
 
