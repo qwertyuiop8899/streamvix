@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.10](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.9...v1.11.10) (2025-12-18)
+
+
+### Bug Fixes
+
+* addon version ([096dd4a](https://github.com/qwertyuiop8899/streamvix/commit/096dd4ace562af6bb74e8f30f8acd1d9b3e78caf))
+
 ## [1.11.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.8...v1.11.9) (2025-12-16)
 
 
