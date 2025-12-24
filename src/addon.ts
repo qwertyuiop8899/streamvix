@@ -723,6 +723,7 @@ function loadCustomConfig(): Manifest {
                 version: customConfig.addonVersion || baseManifest.version,
                 logo: customConfig.addonLogo || baseManifest.logo,
                 icon: customConfig.addonLogo || baseManifest.icon,
+                favicon: customConfig.addonFavicon || customConfig.addonLogo || baseManifest.logo,
                 background: baseManifest.background
             };
         }
