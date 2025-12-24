@@ -284,6 +284,7 @@ button:active {
 function landingTemplate(manifest: any) {
 	const background = manifest.background || 'https://dl.strem.io/addon-background.jpg'
 	const logo = manifest.logo || 'https://dl.strem.io/addon-logo.png'
+	const favicon = manifest.favicon || logo
 	const contactHTML = manifest.contactEmail ?
 		`<div class="contact">
 			<p>Contact ${manifest.name} creator:</p>
@@ -969,7 +970,7 @@ function landingTemplate(manifest: any) {
 		<meta http-equiv="Expires" content="0" />
 		<title>${manifest.name} - Stremio Addon</title>
 		<style>${STYLESHEET}</style>
-		<link rel="shortcut icon" href="${logo}" type="image/x-icon">
+		<link rel="shortcut icon" href="${favicon}" type="image/x-icon">
 		<link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,700&display=swap" rel="stylesheet">
 		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@2.1.0/build/pure-min.css" integrity="sha384-yHIFVG6ClnONEA5yB5DJXfW2/KC173DIQrYoZMEtBvGzmf0PKiGyNEqe9N6BNDBH" crossorigin="anonymous">
 	</head>
