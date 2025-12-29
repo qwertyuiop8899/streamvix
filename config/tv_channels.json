@@ -809,9 +809,9 @@
   {
     "id": "skycinemadue",
     "type": "tv",
-    "name": "Sky Cinema Due",
-    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-due-it.png",
-    "description": "Sky Cinema Due - Sky",
+    "name": "Sky Cinema Stories",
+    "poster": "https://pixel.disco.nowtv.it/logo/skychb_564_lightnow/LOGO_CHANNEL_DARK/4000?language=it-IT&proposition=NOWOTT",
+    "description": "Sky Cinema Stories - Sky",
     "staticUrlD": "https://dlhd.dad/watch.php?id=866",
     "vavooNames": [
       "SKY CINEMA DUE"
@@ -982,6 +982,20 @@
     ],
     "category": "sky",
     "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDA3X2Z+MF9nfjFfc35kMDljOTcwNS0zNjM0LTQyNjMtOTFlMy0yOTJmMWVmNmRiYTlfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTJfeH41N2I5OGRhMDYxYzQ0MDQxNDQzNzBhY2JiM2EzNDBlYy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5dW5vKS9tYXN0ZXJfMmhyLWFhYy5tcGQ/a2V5X2lkPTExMTU3Y2Q1Yjk0OWYxNWZlZDYzYTI3ZWRhZWFkOGU1JmtleT1mMzA3Y2M5MjBlMDc2MzY1MzAwNWU0YTg2MzBiZDhmYw=="
+  },
+  {
+    "id": "skyunoplus",
+    "type": "tv",
+    "name": "Sky Uno+",
+    "poster": "https://pixel.disco.nowtv.it/logo/skychb_432_darknow/LOGO_CHANNEL_LIGHT/4000?language=it-IT&proposition=NOWOTT",
+    "description": "Sky Uno+ - Sky",
+    "vavooNames": [
+      "SKY UNO PLUS"
+    ],
+    "epgChannelIds": [
+      "sky.uno.plus.it"
+    ],
+    "category": "sky"
   },
   {
     "id": "skyserie",
