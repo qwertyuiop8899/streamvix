@@ -1,6 +1,6 @@
 /**
  * Amstaff Channel Updater
- * Aggiorna automaticamente i link staticUrlMpd in tv_channels.json con i link freschi da Amstaff
+ * Aggiorna automaticamente i link staticUrlMpd  in tv_channels.json con i link freschi da Amstaff
  */
 
 import * as fs from 'fs';
