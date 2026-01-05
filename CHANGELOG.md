@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.15](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.14...v1.11.15) (2026-01-05)
+
+
+### Bug Fixes
+
+* mpd ([479dbc3](https://github.com/qwertyuiop8899/streamvix/commit/479dbc3370122fa0c765b27f0a3b7f2fb44e6fbd))
+
 ## [1.11.14](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.13...v1.11.14) (2026-01-03)
 
 
