@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.16](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.15...v1.11.16) (2026-01-06)
+
+
+### Bug Fixes
+
+* sc ([efc2d20](https://github.com/qwertyuiop8899/streamvix/commit/efc2d2051b7f982ef2d1ecd49ce9a54817185bb9))
+
 ## [1.11.15](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.14...v1.11.15) (2026-01-05)
 
 
