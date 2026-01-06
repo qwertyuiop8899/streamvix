@@ -602,7 +602,7 @@ const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
     version: "9.6.23",
     name: "StreamViX | Elfhosted",
-    description: "StreamViX addon con VixSRC, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
+    description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
     types: ["movie", "series", "tv", "anime"],
     idPrefixes: ["tt", "kitsu", "tv", "mal", "tmdb"],
@@ -678,11 +678,11 @@ const baseManifest: Manifest = {
         { key: "mediaFlowProxyUrl", title: "☂️ Proxy URL", type: "text" },
         { key: "mediaFlowProxyPassword", title: "Proxy Password (opzionale)", type: "text" },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
-        { key: "disableVixsrc", title: "Disable VixSrc", type: "checkbox" },
-        { key: "vixDirect", title: "VixSrc Direct mode", type: "checkbox" },
-        { key: "vixDirectFhd", title: "VixSrc Direct FHD mode", type: "checkbox" },
-        { key: "vixProxy", title: "VixSrc Proxy mode", type: "checkbox" },
-        { key: "vixProxyFhd", title: "VixSrc Proxy FHD mode", type: "checkbox" },
+        { key: "disableVixsrc", title: "Disable StreamingCommunity", type: "checkbox" },
+        { key: "vixDirect", title: "StreamingCommunity Direct mode", type: "checkbox" },
+        { key: "vixDirectFhd", title: "StreamingCommunity Direct FHD mode", type: "checkbox" },
+        { key: "vixProxy", title: "StreamingCommunity Proxy mode", type: "checkbox" },
+        { key: "vixProxyFhd", title: "StreamingCommunity Proxy FHD mode", type: "checkbox" },
         { key: "disableLiveTv", title: "Live TV 📺 [Molti canali hanno bisogno di MFP]", type: "checkbox", default: false },
         { key: "trailerEnabled", title: "🎬▶️ Trailer", type: "checkbox", default: true },
         { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
@@ -4434,7 +4434,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // Map legacy streamName label (used for ordering) to internal provider key
                     const reverseProviderKey = (label: string): string => {
                         const l = label.toLowerCase();
-                        if (l.includes('vixsrc')) return 'vixsrc';
+                        if (l.includes('vixsrc') || l.includes('streamingcommunity')) return 'vixsrc';
                         if (l.includes('anime unity')) return 'animeunity';
                         if (l.includes('anime saturn')) return 'animesaturn';
                         if (l.includes('anime world')) return 'animeworld';
