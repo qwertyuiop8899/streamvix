@@ -121,9 +121,12 @@ function matchChannel(tvChannels: TVChannel[], mpdxCh: MpdxChannel): TVChannel |
             const chId = channel.id.toLowerCase().replace(/[^a-z0-9]/g, '');
             if (chId === normalizedUrlId) return channel;
 
-            // Flexible ID matching
-            if (chId.length > 3 && normalizedUrlId.includes(chId)) return channel;
-            if (normalizedUrlId.length > 3 && chId.includes(normalizedUrlId)) return channel;
+            // Flexible ID matching - require similar length to avoid skyunoplus matching skyuno
+            const lenDiff = Math.abs(chId.length - normalizedUrlId.length);
+            if (lenDiff <= 2) {  // Only allow flexible match if lengths are similar
+                if (chId.length > 3 && normalizedUrlId.includes(chId)) return channel;
+                if (normalizedUrlId.length > 3 && chId.includes(normalizedUrlId)) return channel;
+            }
 
             // Check epgChannelIds
             if (channel.epgChannelIds) {
