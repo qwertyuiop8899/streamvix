@@ -328,7 +328,7 @@ function landingTemplate(manifest: any) {
 				}
 				// Custom pretty toggle for known keys
 				const toggleMap: any = {
-					'disableVixsrc': { title: 'VixSrc 🍿', invert: true },
+					'disableVixsrc': { title: 'StreamingCommunity 🍿', invert: true },
 					'disableLiveTv': { title: 'Live TV 📺 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Molti canali hanno bisogno di MFP)</span>', invert: true },
 					'trailerEnabled': { title: '🎬▶️ Trailer TMDB', invert: false },
 					'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
@@ -691,7 +691,7 @@ function landingTemplate(manifest: any) {
 							sub.style.borderRadius = '10px';
 							sub.style.background = 'rgba(20,15,35,0.55)';
 							sub.innerHTML = ''
-							+ '<div style="text-align:center; font-size:0.95rem; letter-spacing:0.05em; margin:0 0 10px 0; color:#c9b3ff; font-weight:700;">Modalità VixSrc</div>'
+							+ '<div style="text-align:center; font-size:0.95rem; letter-spacing:0.05em; margin:0 0 10px 0; color:#c9b3ff; font-weight:700;">Modalità StreamingCommunity</div>'
 							+ '<div id="vixsrcDefaultMsg" style="text-align:center; font-size:0.85rem; margin:0 0 14px 0; opacity:0.85; line-height:1.3;">Nessuna selezione = Default</div>'
 							+ '<div style="display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap;">'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
@@ -983,7 +983,7 @@ function landingTemplate(manifest: any) {
 			</div>
 			<h1 class="name">${manifest.name}</h1>
 			<h2 class="version">v${manifest.version || '0.0.0'}</h2>
-			<h2 class="description">StreamViX addon con Vixsrc, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, TV ed Eventi Live</h2>
+			<h2 class="description">StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, TV ed Eventi Live</h2>
 
 			<!-- Sezione informativa ElfHosted (sotto la descrizione) -->
 			<div id="elfhostedInfoSection" class="full-width" style="background: linear-gradient(135deg, rgba(40, 20, 80, 0.95), rgba(10, 30, 60, 0.95)); border-radius: 0.6rem; padding: 1rem; margin: 1rem 0px; border: 1px solid rgba(140, 82, 255, 0.95); animation: 2s ease 0s infinite normal none running pulse; display: block;">
