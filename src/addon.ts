@@ -5003,7 +5003,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 try {
                     const rank = (n: string): number => {
                         const l = n.toLowerCase();
-                        if (l.includes('vixsrc')) return 0;
+                        if (l.includes('vixsrc') || l.includes('streamingcommunity')) return 0;
                         if (l.includes('anime unity')) return 1;
                         if (l.includes('anime saturn')) return 2;
                         if (l.includes('anime world')) return 3;
