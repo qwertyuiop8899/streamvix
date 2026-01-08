@@ -45,6 +45,8 @@ import { getGuardoserieStreams } from './providers/guardoserie';
 import { getGuardaflixStreams } from './providers/guardaflix';
 import { getTrailerStreams, isTrailerProviderAvailable } from './providers/trailerProvider';
 
+import { raceWithPriority } from './utils/speedUp';
+
 // ================= TYPES & INTERFACES =================
 interface AddonConfig {
     tmdbApiKey?: string;
@@ -66,6 +68,8 @@ interface AddonConfig {
     disableVixsrc?: boolean;
     tvtapProxyEnabled?: boolean;
     vavooNoMfpEnabled?: boolean;
+    speedUpEnabled?: boolean;
+    priorityAu?: boolean;
 }
 
 function debugLog(...args: any[]) { try { console.log('[DEBUG]', ...args); } catch { } }
@@ -600,7 +604,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "9.6.23",
+    version: "9.7.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -703,6 +707,8 @@ const baseManifest: Manifest = {
         // UI helper toggles (not used directly server-side but drive dynamic form logic)
         { key: "personalTmdbKey", title: "TMDB API KEY Personale", type: "checkbox" },
         { key: "mediaflowMaster", title: "MediaflowProxy", type: "checkbox", default: false },
+        { key: "speedUpEnabled", title: "Speed Up", type: "checkbox", default: false },
+        { key: "priorityAu", title: "Priorità AnimeUnity", type: "checkbox", default: false },
 
     ]
 };
@@ -4519,7 +4525,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 .replace(/\s+$/, '')
                                 .trim();
                             // Language detection (from whole raw title)
-                            const isSub = /\bsub\b|\[sub\]/i.test(rawTitle);
+                            // Language detection (from whole raw title)
+                            // Match: "sub", "[sub]", "sub ita", "vost", "▪ SUB ▪"
+                            const isSub = /\b(sub|vost|sub\s*ita)\b|\[sub\]|▪\s*SUB\s*▪/i.test(rawTitle);
+                            if (providerKey.includes('anime')) {
+                                console.log(`[DEBUG-LANG] Provider: ${providerKey} | RawTitle: "${rawTitle}" | isSub: ${isSub}`);
+                            }
                             // Proxy detection (broadened):
                             //  - /proxy/ path segment
                             //  - presence of api_password= (MediaFlow proxy wrapper)
@@ -4608,45 +4619,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             // guardaserie: guardaserie-std
                             // Altri provider (fallback): providerKey-std
                             // Nota: determinazione lingua basata su isSub (SUB vs ITA)
+                            // ---------------- BINGE GROUP LOGIC (SIMPLIFIED & STABLE) ----------------
+                            // Logica Semplificata per garantire STABILITÀ nel Binge Watching.
+                            // VixSrc, GuardaHD, Guardaserie, ecc. usano un gruppo UNICO per provider.
+                            // Anime & Eurostreaming mantengono la distinzione ITA/SUB.
+
                             let bingeGroup: string;
-                            if (providerKey === 'vixsrc') {
-                                // Manteniamo la logica esistente per le 4 varianti
-                                let variant = 'base';
-                                const isFhdVariant = isSynthetic || /FHD/i.test(rawTitle) || /1080p/i.test(rawTitle);
-                                if (isFhdVariant) variant = proxyOn ? 'proxyFHD' : 'directFHD';
-                                else variant = proxyOn ? 'proxy' : 'direct';
-                                bingeGroup = `${providerKey}-${variant}`;
+                            if (providerKey === 'animeunity' || providerKey === 'animeworld' || providerKey === 'animesaturn' || providerKey === 'eurostreaming') {
+                                // Solo questi mantengono la distinzione lingua
+                                bingeGroup = `${providerKey}-${isSub ? 'sub' : 'ita'}`;
                             } else {
-                                switch (providerKey) {
-                                    case 'animeunity':
-                                    case 'animeworld':
-                                    case 'animesaturn':
-                                        bingeGroup = `${providerKey}-std-${isSub ? 'sub' : 'ita'}`;
-                                        break;
-                                    case 'eurostreaming':
-                                        bingeGroup = `eurostreaming-${isSub ? 'sub' : 'ita'}`;
-                                        break;
-                                    case 'cb01':
-                                        bingeGroup = 'cb01-std';
-                                        break;
-                                    case 'guardahd': {
-                                        // Identifica mixdrop (playerName o rawTitle)
-                                        const isMix = /mixdrop/i.test(playerName || '') || /mixdrop/i.test(rawTitle);
-                                        bingeGroup = isMix ? 'guardahd-prx' : 'guardahd-std';
-                                        break;
-                                    }
-                                    case 'guardaserie':
-                                        bingeGroup = 'guardaserie-std';
-                                        break;
-                                    case 'loonex':
-                                        bingeGroup = 'loonex-std';
-                                        break;
-                                    case 'toonitalia':
-                                        bingeGroup = 'toonitalia-std';
-                                        break;
-                                    default:
-                                        bingeGroup = `${providerKey}-std`;
-                                }
+                                // Tutti gli altri (VixSrc, GuardaHD, Guardaserie, CB01, ecc.) -> Gruppo UNICO
+                                // Questo garantisce che se cambia la variante (es. FHD -> SD o Mixdrop -> SuperVideo)
+                                // lo stream successivo venga comunque trovato e riprodotto.
+                                bingeGroup = providerKey;
                             }
                             const existingHints = (st as any).behaviorHints || {};
                             const mergedHints = { ...existingHints, bingeGroup };
@@ -4912,7 +4898,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
 
 
-                    await Promise.all(providerPromises);
+                    // Wait for all providers (Parallel) OR First Good Match (Speed Up)
+                    // OLD: await Promise.all(providerPromises);
+                    await raceWithPriority(providerPromises, allStreams, {
+                        enabled: (config as any)?.speedUpEnabled,
+                        auPriority: (config as any)?.priorityAu,
+                        type: type as 'movie' | 'series' | 'anime' // 'anime' type maps correctly if passed
+                    });
 
                     // Post-process AnimeUnity streams to apply FHD badge similarly to VixSrc
                     try {
