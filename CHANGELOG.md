@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.19](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.18...v1.11.19) (2026-01-08)
+
+
+### Bug Fixes
+
+* speedup ([12d802f](https://github.com/qwertyuiop8899/streamvix/commit/12d802fadfff35d6061c4a6a4f61cd83c2493be2))
+
 ## [1.11.18](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.17...v1.11.18) (2026-01-06)
 
 
