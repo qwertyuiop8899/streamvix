@@ -246,6 +246,13 @@ const exactMap: Record<string,string> = {
 
 
 
+        "Case Closed Movie 01: The Time Bombed Skyscraper": "Detective Conan Movie 1: Fino alla fine del tempo",
+
+
+
+
+
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
