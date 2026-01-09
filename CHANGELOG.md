@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.12.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.12.1...v1.12.2) (2026-01-09)
+
+
+### Bug Fixes
+
+* b64 express ([deb38ba](https://github.com/qwertyuiop8899/streamvix/commit/deb38baa294e0d1032dfc00b5d3a782c4c462c15))
+* xpress b64 ([48d236c](https://github.com/qwertyuiop8899/streamvix/commit/48d236ce9981d6b63afebe932c86dc1eb14f327b))
+
 ## [1.12.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.12.0...v1.12.1) (2026-01-09)
 
 
