@@ -477,7 +477,18 @@ function landingTemplate(manifest: any) {
 					try { window.buildConfigFromForm = buildConfigFromForm; } catch(e){}
 				var updateLink = function() {
 					var config = buildConfigFromForm();
-					installLink.setAttribute('href', 'stremio://' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json');
+					var configStr = JSON.stringify(config);
+					// Use Base64 encoding if config contains slashes (to avoid %2F blocking by Hayd.uk)
+					var encodedConfig;
+					if (configStr.includes('/')) {
+						// Base64 encode to avoid %2F in URL
+						encodedConfig = btoa(configStr);
+					} else {
+						// Use URL encoding for shorter URLs when no slashes present
+						encodedConfig = encodeURIComponent(configStr);
+					}
+					installLink.setAttribute('href', 'stremio://' + window.location.host + '/' + encodedConfig + '/manifest.json');
+
 				};
 					(mainForm).onchange = updateLink;
 					// initialize toggle visual ON/OFF state classes
@@ -915,7 +926,15 @@ function landingTemplate(manifest: any) {
 				var mainForm = document.getElementById('mainForm');
 				if (mainForm) {
 					var config = window.buildConfigFromForm ? window.buildConfigFromForm() : {};
-					manifestUrl = window.location.protocol + '//' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json';
+					var configStr = JSON.stringify(config);
+					// Use Base64 encoding if config contains slashes (to avoid %2F blocking by Hayd.uk)
+					var encodedConfig;
+					if (configStr.includes('/')) {
+						encodedConfig = btoa(configStr);
+					} else {
+						encodedConfig = encodeURIComponent(configStr);
+					}
+					manifestUrl = window.location.protocol + '//' + window.location.host + '/' + encodedConfig + '/manifest.json';
 				} else {
 					manifestUrl = window.location.protocol + '//' + window.location.host + '/manifest.json';
 				}
