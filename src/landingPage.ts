@@ -250,56 +250,17 @@ button:active {
 }
 
 /* Actions row: install + copy side by side */
-    .actions-row {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
-        flex-wrap: wrap;
-    }
-    .actions-row .install-link button,
-    .actions-row #copyManifestLink {
-        margin: 0; /* override global button margin */
-        padding: 1vh 2.5vh; /* slightly smaller padding for inline buttons */
-        min-width: 140px;
-    }
-    .actions-row #copyManifestLink {
-        background: #8A5AAB; /* same purple as install button */
-        font-size: clamp(14px, 2.2vh, 24px);
-    }
-    /* Speed Up Button specific */
-    #speedUpRow {
-        margin-top: 1rem;
-        text-align: center;
-        width: 100%;
-        display: flex;
-        justify-content: center;
-    }
-    .speed-up-btn {
-        background: transparent;
-        border: 2px solid #ff3b3b;
-        color: #ff3b3b;
-        border-radius: 12px;
-        padding: 0.8rem 1.2rem;
-        font-size: 1rem;
-        font-weight: 700;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.6rem;
-        transition: all 0.2s ease;
-        opacity: 0.8;
-    }
-    .speed-up-btn:hover {
-        opacity: 1;
-        background: rgba(255, 59, 59, 0.1);
-    }
-    .speed-up-btn.active {
-        background: #ff3b3b;
-        color: white;
-        box-shadow: 0 0 15px rgba(255, 59, 59, 0.5);
-        opacity: 1;
-    }
+.actions-row {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	flex-wrap: wrap;
+}
+.actions-row .install-link button,
+.actions-row #copyManifestLink {
+	margin: 0; /* override global button margin */
+}
 
 @keyframes pulse {
 	0% { box-shadow: 0 0 0 0 rgba(140, 82, 255, 0.3); }
@@ -359,7 +320,7 @@ function landingTemplate(manifest: any) {
 				// Skip only personalTmdbKey (custom placement); mediaflowMaster & localMode will be moved later
 				if (key === 'personalTmdbKey') return; // removed from UI
 				// Sub-menu items: create hidden inputs to store their values from manifest
-				if (['animeunityAuto', 'animeunityFhd', 'vixDirect', 'vixDirectFhd', 'vixProxy', 'vixProxyFhd', 'speedUpEnabled', 'priorityAu'].includes(key)) {
+				if (['animeunityAuto', 'animeunityFhd', 'vixDirect', 'vixDirectFhd', 'vixProxy', 'vixProxyFhd'].includes(key)) {
 					const isChecked = (typeof (elem as any).default === 'boolean') && ((elem as any).default as boolean);
 					const checkedAttr = isChecked ? ' checked' : '';
 					options += `<input type="checkbox" id="hidden_${key}" data-config-key="${key}" style="display:none;"${checkedAttr} />`;
@@ -467,8 +428,8 @@ function landingTemplate(manifest: any) {
 				<div id="liveTvSubToggles" style="display:none; margin:0.5rem 0 1rem 0; padding:0.6rem 0.8rem; border:1px dashed rgba(140,82,255,0.6); border-radius:8px;">
 					<p style="margin:0 0 0.5rem 0; font-size:0.95rem; color:#c9b3ff; font-weight:600; text-align:center;">Opzioni Live TV</p>
 					<!-- TvTap & Vavoo toggles will already be present in form; this container just groups them visually -->
-                    <p style="margin:0.5rem 0 0 0; font-size:0.7rem; color:#f59e0b; font-weight:500; text-align:center; line-height:1.4;">⚠️ NB. Utilizzare VLC come player esterno nel caso in cui i flussi MPD non fossero riproducibili con il player di Stremio</p>
-                </div>
+					<p style="margin:0.5rem 0 0 0; font-size:0.7rem; color:#f59e0b; font-weight:500; text-align:center; line-height:1.4;">⚠️ NB. Utilizzare VLC come player esterno nel caso in cui i flussi MPD non fossero riproducibili con il player di Stremio</p>
+				</div>
 				${manifest.__resolvedAddonBase ? (() => {
 					const _raw = manifest.__resolvedAddonBase; const _host = _raw.replace(/^https?:\/\//, ''); const _isFallback = /streamvix\.hayd\.uk/.test(_raw); return `<div id="svxAddonBaseBadge" style="text-align:center; margin:-0.25rem 0 1.1rem 0;">
 					<span style=\"display:inline-block; padding:0.35rem 0.75rem; background:rgba(0,0,0,0.45); border:1px solid rgba(140,82,255,0.65); border-radius:14px; font-size:0.70rem; letter-spacing:0.05em; font-weight:600; color:#c9b3ff;\" title=\"Addon Base URL risolta all'avvio\">Addon Base URL per Vix FHD: <span style='color:#00c16e;'>${_host}</span><a href=\"https://github.com/qwertyuiop8899/StreamViX/blob/main/README.md\" target=\"_blank\" style=\"text-decoration:none; margin-left:6px; color:#8c52ff;\">📖 README</a></span>
@@ -516,17 +477,7 @@ function landingTemplate(manifest: any) {
 					try { window.buildConfigFromForm = buildConfigFromForm; } catch(e){}
 				var updateLink = function() {
 					var config = buildConfigFromForm();
-					var configStr = JSON.stringify(config);
-					// Use Base64 encoding if config contains slashes (to avoid %2F blocking by Hayd.uk)
-					var encodedConfig;
-					if (configStr.includes('/')) {
-						// Base64 encode to avoid %2F in URL
-						encodedConfig = btoa(configStr);
-					} else {
-						// Use URL encoding for shorter URLs when no slashes present
-						encodedConfig = encodeURIComponent(configStr);
-					}
-					installLink.setAttribute('href', 'stremio://' + window.location.host + '/' + encodedConfig + '/manifest.json');
+					installLink.setAttribute('href', 'stremio://' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json');
 				};
 					(mainForm).onchange = updateLink;
 					// initialize toggle visual ON/OFF state classes
@@ -585,14 +536,10 @@ function landingTemplate(manifest: any) {
 									+ '<span>AUTO</span>'
 								+ '</label>'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
-                                    + '<input type="checkbox" id="animeunityFhdToggle" data-config-key="animeunityFhd" style="transform:scale(1.1);" />'
-                                    + '<span>FHD</span>'
-                                + '</label>'
-                                + '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
-                                    + '<input type="checkbox" id="auPriorityToggle" data-config-key="priorityAu" style="transform:scale(1.1);" />'
-                                    + '<span>Priorità AU</span>'
-                                + '</label>'
-                            + '</div>';
+									+ '<input type="checkbox" id="animeunityFhdToggle" data-config-key="animeunityFhd" style="transform:scale(1.1);" />'
+									+ '<span>FHD</span>'
+								+ '</label>'
+							+ '</div>';
 							auWrap.parentNode.insertBefore(auSub, auWrap.nextSibling);
 							var auAuto = document.getElementById('animeunityAutoToggle');
 							var auFhd = document.getElementById('animeunityFhdToggle');
@@ -611,32 +558,17 @@ function landingTemplate(manifest: any) {
 								if (auFhd && auFhd.checked) active.push('FHD');
 								if (active.length === 0) info.textContent = 'Nessuna selezione = SOLO AUTO'; else info.textContent = 'Modalità: ' + active.join(', ');
 							}
-                            [auAuto, auFhd].forEach(function(el){ 
-                                if (el) el.addEventListener('change', function(){ 
-                                    updateAuVisual(); 
-                                    // Sync hidden inputs for config persistence
-                                    var hiddenAuto = document.getElementById('hidden_animeunityAuto');
-                                    var hiddenFhd = document.getElementById('hidden_animeunityFhd');
-                                    var hiddenPrio = document.getElementById('hidden_priorityAu');
-                                    var auPrio = document.getElementById('auPriorityToggle');
-                                    if (hiddenAuto && auAuto) hiddenAuto.checked = auAuto.checked;
-                                    if (hiddenFhd && auFhd) hiddenFhd.checked = auFhd.checked;
-                                    if (hiddenPrio && auPrio) hiddenPrio.checked = auPrio.checked; // Sync new toggle
-                                    if (typeof window.updateLink==='function') window.updateLink(); 
-                                }); 
-                            });
-                            // Init Priority Toggle Listener specifically
-                            var auPrio = document.getElementById('auPriorityToggle');
-                            if (auPrio) auPrio.addEventListener('change', function(){
-                                var hiddenPrio = document.getElementById('hidden_priorityAu');
-                                if (hiddenPrio) hiddenPrio.checked = auPrio.checked;
-                                if (typeof window.updateLink==='function') window.updateLink(); 
-                            });
-                            // Restore Priority Toggle State
-                             try {
-                                var hiddenPrio = document.getElementById('hidden_priorityAu');
-                                if (auPrio && hiddenPrio && hiddenPrio.type === 'checkbox') auPrio.checked = hiddenPrio.checked;
-                            } catch(e) {}
+							[auAuto, auFhd].forEach(function(el){ 
+								if (el) el.addEventListener('change', function(){ 
+									updateAuVisual(); 
+									// Sync hidden inputs for config persistence
+									var hiddenAuto = document.getElementById('hidden_animeunityAuto');
+									var hiddenFhd = document.getElementById('hidden_animeunityFhd');
+									if (hiddenAuto && auAuto) hiddenAuto.checked = auAuto.checked;
+									if (hiddenFhd && auFhd) hiddenFhd.checked = auFhd.checked;
+									if (typeof window.updateLink==='function') window.updateLink(); 
+								}); 
+							});
 							updateAuVisual();
 						}
 					}
@@ -866,36 +798,10 @@ function landingTemplate(manifest: any) {
 							var vixWrap = vixInput.closest('.form-element');
 							var liveWrap = liveInput.closest('.form-element');
 							if (vixWrap && liveWrap && vixWrap.previousElementSibling !== liveWrap) {
-                            liveWrap.parentNode.insertBefore(liveWrap, vixWrap);
-                        }
-					}
-				} catch(e) { console.warn('Live TV reorder failed', e); }
-			// Speed Up Button Initialization Logic
-				try {
-					var speedUpBtn = document.getElementById('speedUpBtn');
-					var hiddenSpeedUp = document.getElementById('hidden_speedUpEnabled');
-					var speedUpDesc = document.getElementById('speedUpDesc');
-					var auPrio = document.getElementById('auPriorityToggle');
-					if (speedUpBtn && hiddenSpeedUp) {
-						var isActive = hiddenSpeedUp.checked;
-						console.log('[SpeedUp] Init state:', isActive);
-						if (isActive) {
-							speedUpBtn.classList.add('active');
-							speedUpBtn.style.background = 'linear-gradient(135deg, #00c16e 0%, #00a060 100%)';
-							speedUpBtn.style.boxShadow = '0 0 15px rgba(0, 193, 110, 0.6)';
-							speedUpBtn.style.borderColor = '#00c16e';
-							if(speedUpDesc) speedUpDesc.style.display = 'block';
-							if(auPrio) { auPrio.disabled = false; var lbl = auPrio.closest('label'); if(lbl) { lbl.style.opacity='1'; lbl.style.cursor='pointer'; } }
-						} else {
-							speedUpBtn.classList.remove('active');
-							speedUpBtn.style.background = 'linear-gradient(135deg, #ff5555 0%, #cc4444 100%)';
-							speedUpBtn.style.boxShadow = '0 0 15px rgba(255, 85, 85, 0.4)';
-							speedUpBtn.style.borderColor = '#ff5555';
-							if(speedUpDesc) speedUpDesc.style.display = 'none';
-							if(auPrio) { auPrio.disabled = true; auPrio.checked = false; var lbl = auPrio.closest('label'); if(lbl) { lbl.style.opacity='0.4'; lbl.style.cursor='not-allowed'; } }
+								vixWrap.parentNode.insertBefore(liveWrap, vixWrap);
+							}
 						}
-					}
-				} catch(e) { console.warn('Speed Up init failed', e); }
+					} catch(e) { console.warn(e); }
 				// Place liveSub immediately after Live TV toggle container
 				if (liveTvToggle && liveSub){
 					var liveWrapper = liveTvToggle.closest('.form-element');
@@ -1009,15 +915,7 @@ function landingTemplate(manifest: any) {
 				var mainForm = document.getElementById('mainForm');
 				if (mainForm) {
 					var config = window.buildConfigFromForm ? window.buildConfigFromForm() : {};
-					var configStr = JSON.stringify(config);
-					// Use Base64 encoding if config contains slashes (to avoid %2F blocking by Hayd.uk)
-					var encodedConfig;
-					if (configStr.includes('/')) {
-						encodedConfig = btoa(configStr);
-					} else {
-						encodedConfig = encodeURIComponent(configStr);
-					}
-					manifestUrl = window.location.protocol + '//' + window.location.host + '/' + encodedConfig + '/manifest.json';
+					manifestUrl = window.location.protocol + '//' + window.location.host + '/' + encodeURIComponent(JSON.stringify(config)) + '/manifest.json';
 				} else {
 					manifestUrl = window.location.protocol + '//' + window.location.host + '/manifest.json';
 				}
@@ -1159,63 +1057,15 @@ function landingTemplate(manifest: any) {
 				</a>
 				<button id="copyManifestLink">COPIA MANIFEST URL</button>
 			</div>
-			<!-- Speed Up Button (BELOW Install/Copy) -->
-		<div id="speedUpRow" style="margin-top: 1rem; text-align: center;">
-			<button type="button" id="speedUpBtn" class="speed-up-btn" style="background: linear-gradient(135deg, #ff5555 0%, #cc4444 100%); color: white; border-color: #ff5555;" onclick="(function(btn){
-				var h = document.getElementById('hidden_speedUpEnabled');
-				var desc = document.getElementById('speedUpDesc');
-				var auPrio = document.getElementById('auPriorityToggle');
-				var hiddenPrio = document.getElementById('hidden_priorityAu');
-				if(!h) { console.log('hidden_speedUpEnabled not found'); return; }
-				h.checked = !h.checked;
-				console.log('Speed Up toggled:', h.checked);
-				if(h.checked){
-					btn.classList.add('active');
-					btn.style.background = 'linear-gradient(135deg, #00c16e 0%, #00a060 100%)';
-					btn.style.boxShadow = '0 0 15px rgba(0, 193, 110, 0.6)';
-					btn.style.borderColor = '#00c16e';
-					if(desc) desc.style.display = 'block';
-					if(auPrio) { auPrio.disabled = false; var lbl = auPrio.closest('label'); if(lbl) { lbl.style.opacity='1'; lbl.style.cursor='pointer'; } }
-				} else {
-					btn.classList.remove('active');
-					btn.style.background = 'linear-gradient(135deg, #ff5555 0%, #cc4444 100%)';
-					btn.style.boxShadow = '0 0 15px rgba(255, 85, 85, 0.4)';
-					btn.style.borderColor = '#ff5555';
-					if(desc) desc.style.display = 'none';
-					if(auPrio) { auPrio.disabled = true; auPrio.checked = false; var lbl = auPrio.closest('label'); if(lbl) { lbl.style.opacity='0.4'; lbl.style.cursor='not-allowed'; } }
-					if(hiddenPrio) hiddenPrio.checked = false;
-				}
-				if(typeof window.updateLink === 'function') window.updateLink();
-			})(this);">
-				<span>🚀 SPEED UP 🚀</span>
-			</button>
-		</div>
-		<div id="speedUpDesc" style="text-align:center; font-size:0.75rem; color:#00c16e; margin-top:0.4rem; opacity:0.9; display:none;">
-			⚡ Prioritizza i provider veloci per una risposta rapida (alcuni provider potrebbero non apparire)
-		</div>
 			<div class="kofi-support" style="margin:1.2rem 0 0; text-align:center;">
 				<a href='https://ko-fi.com/G2G41MG3ZN' target='_blank' rel='noopener noreferrer' title='Supporta lo sviluppo su Ko-fi' style='display:inline-block;'>
-					<img height='41' style='border:0;height:41px;vertical-align:middle;' src='https://storage.ko-fi.com/cdn/kofi4.png?v=6' alt='Buy Me a Coffee at ko-fi.com' />
+					<img height='36' style='border:0;height:36px;vertical-align:middle;' src='https://storage.ko-fi.com/cdn/kofi4.png?v=6' alt='Buy Me a Coffee at ko-fi.com' />
 				</a>
 			</div>
 			${contactHTML}
 		</div>
 		<script>
 			${script}
-			// Final Failsafe: Ensure UI state is consistent
-			setTimeout(function(){
-				try {
-					var h = document.getElementById('hidden_speedUpEnabled');
-					var auPrio = document.getElementById('auPriorityToggle');
-					if(h && auPrio && !h.checked) {
-						console.log('[Failsafe] SpeedUp OFF -> Disabling AU Prio');
-						auPrio.disabled = true;
-						auPrio.checked = false;
-						var lbl = auPrio.closest('label');
-						if(lbl) { lbl.style.opacity='0.4'; lbl.style.cursor='not-allowed'; }
-					}
-				} catch(e){}
-			}, 100);
 			// (Floating AddonBase toast removed – inline badge only)
 			try {
 				if (typeof window.updateLink === 'function') {
