@@ -600,7 +600,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "9.6.23",
+    version: "9.7.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -6063,10 +6063,9 @@ app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) =
             htmlLog.push(`<p>✅ <strong>Reload completato!</strong></p>`);
             htmlLog.push(`<ul>`);
             htmlLog.push(`<li>Total channels in memory: <strong>${staticBaseChannels.length}</strong></li>`);
-            htmlLog.push(`<li>staticUrlMpd (Amstaff): <strong>${mpdCount}</strong></li>`);
-            htmlLog.push(`<li>staticUrlMpd2 (RM): <strong>${mpd2Count}</strong></li>`);
-            htmlLog.push(`<li>staticUrlMpdz: <strong>${mpdzCount}</strong></li>`);
-            htmlLog.push(`<li>staticUrlMpdx: <strong>${mpdxCount}</strong></li>`);
+            htmlLog.push(`<li>staticUrlMpd (RM/MPD): <strong>${mpdCount}</strong></li>`);
+            // htmlLog.push(`<li>staticUrlMpd2 (DEPRECATED): <strong>${mpd2Count}</strong></li>`);
+            htmlLog.push(`<li>staticUrlMpdx (MPDx): <strong>${mpdxCount}</strong></li>`);
             htmlLog.push(`</ul>`);
             htmlLog.push(`<p>Total updates this run: <strong>${totalUpdates}</strong></p>`);
         } catch (e: any) {
