@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.12.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.19...v1.12.0) (2026-01-09)
+
+
+### Features
+
+* **normalize-au:** add "Case Closed Movie 01: The Time Bombed Skyscraper" ([ed859f1](https://github.com/qwertyuiop8899/streamvix/commit/ed859f1c48343a5746f630cd8c05e0cb51ff3293))
+
+
+### Bug Fixes
+
+* landing ([60e1243](https://github.com/qwertyuiop8899/streamvix/commit/60e124325ab1310230ed90cf5d20583b70946219))
+
 ## [1.11.19](https://github.com/qwertyuiop8899/streamvix/compare/v1.11.18...v1.11.19) (2026-01-08)
 
 
