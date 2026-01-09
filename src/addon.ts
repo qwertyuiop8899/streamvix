@@ -2176,6 +2176,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 if (requestConfig && Object.keys(requestConfig).length > 0) {
                     config = { ...requestConfig };
                 }
+                // NOTE: Il middleware ora converte Base64→JSON prima che l'SDK processi la request,
+                // quindi requestConfig dovrebbe sempre contenere la config utente correttamente.
 
                 // MFP: prima dalla config utente, poi da env vars (per installazioni locali)
                 // NORMALIZZA: rimuovi trailing slash per evitare doppi slash in URL tipo /proxy/...
@@ -5412,7 +5414,21 @@ app.use((req: Request, res: Response, next: NextFunction) => {
         if (Object.keys(parsedConfig).length > 0) {
             debugLog('🔧 Found valid config in URL (NOT updating global cache - user-specific)');
             // NON FARE PIÙ: Object.assign(configCache, parsedConfig);
-            // La config dell'utente viene passata tramite requestConfig nell'SDK
+
+            // ✅ FIX: Se la config era Base64, riscrivi l'URL con JSON per l'SDK Stremio
+            // L'SDK Stremio fa JSON.parse() diretto sul segmento, quindi dobbiamo dargli JSON valido
+            if (!configString.startsWith('{') && !configString.startsWith('%7B')) {
+                // Era Base64, riscrivi URL con JSON
+                const jsonConfig = JSON.stringify(parsedConfig);
+                const encodedJsonConfig = encodeURIComponent(jsonConfig);
+                const oldPath = req.path;
+                const newPath = oldPath.replace('/' + configString, '/' + encodedJsonConfig);
+                req.url = req.url.replace(oldPath, newPath);
+                // NOTE: req.path è read-only, ma il router Stremio SDK usa req.url, quindi basta riscrivere quello
+                // Invalida la cache interna di Express per forzare il re-parsing
+                (req as any)._parsedUrl = undefined;
+                debugLog(`🔄 [Base64→JSON] Rewritten URL for SDK: ${configString.substring(0, 30)}... → ${encodedJsonConfig.substring(0, 50)}...`);
+            }
         }
     }
 
