@@ -15,9 +15,18 @@ const RM_SOURCE = process.env.RM_SOURCE_URL || '';
 const NAME_MAPPING: Record<string, string> = {
     'SKY MTV': 'MTV',
     'SKY HISTORY': 'HISTORY CHANNEL',
+    'HISTORYCHANNEL': 'HISTORY CHANNEL',
     'SKY SPORT BASKET': 'SKY SPORT NBA',
     'SKY TG 24': 'SKY TG24',
+    'TG 24': 'SKY TG24',
     'SKY COMEDY CENTRAL': 'COMEDY CENTRAL',
+    'COMEDYCENTRAL': 'COMEDY CENTRAL',
+    'CARTOON NETWORK': 'CARTOON NETWORK',
+    'NICK JUNIOR': 'NICK JR',
+    'NICKELODEON': 'NICKELODEON',
+    'DEAKIDS': 'DEAKIDS',
+    'BOOMERANG': 'BOOMERANG',
+    'SKY SPORT F 1': 'SKY SPORT F1',
     'SKY SPORT GOLF': 'SKY SPORT GOLF'
 };
 
@@ -48,8 +57,24 @@ function parseM3U(m3uText: string): RmChannel[] {
     const channels: RmChannel[] = [];
     const lines = m3uText.split('\n');
 
+    let pendingKeyId: string | undefined;
+    let pendingKey: string | undefined;
+
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
+
+        if (!line) continue;
+
+        // Gestione KODIPROP (se appare PRIMA di EXTINF)
+        if (line.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
+            const licenseKey = line.substring('#KODIPROP:inputstream.adaptive.license_key='.length);
+            const [extractedKeyId, extractedKey] = licenseKey.split(':');
+            if (extractedKeyId && extractedKey && extractedKeyId !== '0000') {
+                pendingKeyId = extractedKeyId.trim();
+                pendingKey = extractedKey.trim();
+            }
+            continue;
+        }
 
         if (line.startsWith('#EXTINF:')) {
             // Estrae metadata dalla riga EXTINF
@@ -57,62 +82,42 @@ function parseM3U(m3uText: string): RmChannel[] {
             const tvgLogoMatch = line.match(/tvg-logo="([^"]+)"/);
             const groupMatch = line.match(/group-title="([^"]+)"/);
 
-            // Nome canale dopo l'ultima virgola (include emoji)
+            // Nome canale dopo l'ultima virgola
             const commaIndex = line.lastIndexOf(',');
             const rawName = commaIndex >= 0 ? line.substring(commaIndex + 1).trim() : '';
-
-            // Rimuovi (MPD) suffix dal nome
             const name = rawName.replace(/\s*\(MPD\)\s*/g, '').trim();
 
-            // Cerca #KODIPROP license_key e URL nelle righe successive
-            // IMPORTANTE: continua a leggere TUTTE le righe del blocco per prendere sia URL che key
+            // Cerca URL nelle righe SUCCESSIVE
             let url = '';
-            let keyId = '';
-            let key = '';
+
+            // Salviamo le chiavi correnti perché il loop sotto potrebbe incontrare le chiavi del PROSSIMO canale
+            const currentKeyId = pendingKeyId;
+            const currentKey = pendingKey;
+
+            // Resetta pending keys per evitare che si propaghino se il prossimo canale non ne ha
+            pendingKeyId = undefined;
+            pendingKey = undefined;
 
             for (let j = i + 1; j < lines.length; j++) {
                 const nextLine = lines[j].trim();
-
-                // Skip righe vuote
                 if (!nextLine) continue;
 
-                // Nuova EXTINF = fine blocco corrente
-                if (nextLine.startsWith('#EXTINF:')) {
+                // Stop se troviamo un altro tag di inizio blocco
+                if (nextLine.startsWith('#EXTINF:') || nextLine.startsWith('#KODIPROP:')) {
                     break;
                 }
 
-                // Estrae key_id:key da #KODIPROP (può apparire PRIMA o DOPO l'URL)
-                if (nextLine.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
-                    const licenseKey = nextLine.substring('#KODIPROP:inputstream.adaptive.license_key='.length);
-                    const [extractedKeyId, extractedKey] = licenseKey.split(':');
-                    if (extractedKeyId && extractedKey && extractedKeyId !== '0000') {
-                        keyId = extractedKeyId.trim();
-                        key = extractedKey.trim();
-                    }
-                    continue;
-                }
-
-                // Skip altre righe #KODIPROP e #EXTVLCOPT
-                if (nextLine.startsWith('#')) {
-                    continue;
-                }
-
-                // URL è la prima riga non-commento con http/https
-                if ((nextLine.startsWith('http://') || nextLine.startsWith('https://')) && !url) {
+                // Trovato URL
+                if (nextLine.startsWith('http://') || nextLine.startsWith('https://')) {
                     url = nextLine;
-                    // NON fare break qui! Continua a cercare la license_key
+                    break; // Trovato URL, fine ricerca per questo canale
                 }
             }
 
-            // Aggiungi solo se ha URL valido (non vuoto)
             if (url && name) {
-                // Se abbiamo key_id e key, aggiungili all'URL come query params
-                if (keyId && key) {
-                    // FORCE & as separator to ensure addon.ts splits it correctly
-                    // Even if URL has no '?', we append &key_id=...
-                    // addon.ts splits by '&', taking part[0] as baseUrl and rest as params to append to proxy.
-                    // This results in valid Proxy URL: ...?d=url&key_id=...
-                    url += `&key_id=${keyId}&key=${key}`;
+                // Aggiungi chiavi all'URL se presenti
+                if (currentKeyId && currentKey) {
+                    url += `&key_id=${currentKeyId}&key=${currentKey}`;
                 }
 
                 channels.push({
@@ -121,8 +126,8 @@ function parseM3U(m3uText: string): RmChannel[] {
                     group: groupMatch ? groupMatch[1] : '',
                     logo: tvgLogoMatch ? tvgLogoMatch[1] : '',
                     url: url,
-                    keyId: keyId || undefined,
-                    key: key || undefined
+                    keyId: currentKeyId,
+                    key: currentKey
                 });
             }
         }
@@ -137,6 +142,8 @@ function parseM3U(m3uText: string): RmChannel[] {
  */
 function normalizeForMatching(name: string): string {
     return name
+        // RIMUOVI suffisso tra parentesi alla fine (es. "Canale (Sky2)", "Canale (FHD)")
+        .replace(/\s*\([^)]+\)\s*$/g, '')
         // PRIMA rimuovi sequenze complete digit+variation+keycap (0️⃣-9️⃣)
         .replace(/[0-9]\uFE0F?\u20E3/g, '')
         // POI rimuovi altri emoji e simboli
@@ -175,8 +182,8 @@ function matchChannel(tvChannels: TVChannel[], rmChannel: RmChannel): TVChannel 
 
     const normalizedRmName = normalizeForMatching(rmChannel.name);
 
-    // Prima controlla mapping speciale
-    const mappedName = NAME_MAPPING[rmChannel.name.toUpperCase()];
+    // Prima controlla mapping speciale (USA NOME NORMALIZZATO per ignorare (Sky2) ecc.)
+    const mappedName = NAME_MAPPING[normalizedRmName];
     if (mappedName) {
         const normalizedMapped = normalizeForMatching(mappedName);
         for (const channel of tvChannels) {
@@ -283,12 +290,13 @@ export async function updateRmChannels(force: boolean = false, skipReload: boole
             return 0;
         }
 
-        // Filtra solo canali Sky (per questo updater)
-        const skyChannels = rmChannels.filter(ch =>
-            ch.name.toUpperCase().includes('SKY') ||
-            ch.tvg_id.toLowerCase().includes('sky')
-        );
-        console.log(`[RM] 🎯 Canali Sky trovati: ${skyChannels.length}`);
+        // Filtra solo canali Sky (RIMOSSO: ora prendiamo TUTTO da RM)
+        // const skyChannels = rmChannels.filter(ch =>
+        //     ch.name.toUpperCase().includes('SKY') ||
+        //     ch.tvg_id.toLowerCase().includes('sky')
+        // );
+        const sourceChannels = rmChannels;
+        console.log(`[RM] 🎯 Canali trovati nel M3U: ${sourceChannels.length}`);
 
         // Legge tv_channels.json
         const tvChannelsPath = path.join(__dirname, '../../config/tv_channels.json');
@@ -302,15 +310,18 @@ export async function updateRmChannels(force: boolean = false, skipReload: boole
         const unmatched: string[] = [];
 
         // Match e update
-        for (const rmChannel of skyChannels) {
+        for (const rmChannel of sourceChannels) {
             const matchedChannel = matchChannel(tvChannels, rmChannel);
 
             if (matchedChannel) {
                 matches++;
                 const urlBase64 = Buffer.from(rmChannel.url).toString('base64');
+
+                // Sovrascrivi SEMPRE staticUrlMpd (nuovo standard)
                 if (force || matchedChannel.staticUrlMpd !== urlBase64) {
                     matchedChannel.staticUrlMpd = urlBase64;
-                    // Rimuovi vecchio campo MPD2 se presente per evitare duplicati
+
+                    // Rimuovi vecchio campo MPD2 se presente per pulizia
                     if (matchedChannel.staticUrlMpd2) {
                         delete matchedChannel.staticUrlMpd2;
                     }
@@ -329,7 +340,7 @@ export async function updateRmChannels(force: boolean = false, skipReload: boole
             }
         }
 
-        console.log(`[RM] 📊 Matched ${matches}/${skyChannels.length} channels`);
+        console.log(`[RM] 📊 Matched ${matches}/${sourceChannels.length} channels`);
 
         // Log risultati
         console.log(`[RM] ✅ Updated ${updates} canali:`);
