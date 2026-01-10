@@ -223,6 +223,12 @@ function normalizeTitleForSearch(title: string): string {
 
 
 
+        "My Hero Academia Final Season": "Boku no Hero Academia: Final Season",
+
+
+
+
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
