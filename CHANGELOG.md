@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.13.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.12.3...v1.13.0) (2026-01-13)
+
+
+### Features
+
+* **normalize-au:** add "Jujutsu Kaisen: The Culling Game Part 1" ([f95d415](https://github.com/qwertyuiop8899/streamvix/commit/f95d4152a0e37bc9332cafcd719c33827819b1f9))
+* **normalize-au:** add "My Hero Academia Final Season" ([19144e5](https://github.com/qwertyuiop8899/streamvix/commit/19144e5d6d1bced84c9ace1439747ca553090dd5))
+* **normalize-aw:** add "Case Closed Movie 01: The Time Bombed Skyscraper" ([a29a7b2](https://github.com/qwertyuiop8899/streamvix/commit/a29a7b22cbd62c9d88075a3c10fa5bee8792503c))
+* **normalize-aw:** add "Jujutsu Kaisen: The Culling Game Part 1" ([9791609](https://github.com/qwertyuiop8899/streamvix/commit/9791609dcf712978f54ecab2af8a4f7c812d231b))
+* **normalize-aw:** add "My Hero Academia Final Season" ([08033cd](https://github.com/qwertyuiop8899/streamvix/commit/08033cdc0178b5a5d18ec5fd13d3bbe53b4cf80a))
+* **normalize:** add "Case Closed Movie 01: The Time Bombed Skyscraper" ([d3ffb91](https://github.com/qwertyuiop8899/streamvix/commit/d3ffb91773d18885a00f3407d9cb5847da270af7))
+* **normalize:** add "Jujutsu Kaisen: The Culling Game Part 1" ([4c34b2b](https://github.com/qwertyuiop8899/streamvix/commit/4c34b2b15c4482a8d2d0b8009684d95d8fbd4aa6))
+* **normalize:** add "My Hero Academia Final Season" ([df3a36f](https://github.com/qwertyuiop8899/streamvix/commit/df3a36f5d03891229d06ac4224d59bde03e54097))
+
+
+### Bug Fixes
+
+* toonvoe ([6220243](https://github.com/qwertyuiop8899/streamvix/commit/62202436725d65d2163ca5843041d8cc4fe8a098))
+
 ## [1.12.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.12.2...v1.12.3) (2026-01-09)
 
 
