@@ -185,6 +185,13 @@ const exactMap: Record<string, string> = {
 
 
 
+      "My Hero Academia Final Season": "Boku no Hero Academia: Final Season",
+
+
+
+
+
+
   // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====

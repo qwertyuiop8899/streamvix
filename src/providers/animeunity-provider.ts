@@ -249,11 +249,10 @@ const exactMap: Record<string,string> = {
         "Case Closed Movie 01: The Time Bombed Skyscraper": "Detective Conan Movie 1: Fino alla fine del tempo",
 
 
-
-
-
-
         "Jujutsu Kaisen: The Culling Game Part 1": "Jujutsu Kaisen 3: The Culling Game Part 1",
+
+        "My Hero Academia Final Season": "My Hero Academia Final Season",
+
 
 
 
