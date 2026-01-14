@@ -221,67 +221,119 @@ export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string, p
 }
 
 // 1. Aggiungi la funzione di verifica dei TMDB ID
-async function checkTmdbIdOnVixSrc(tmdbId: string, type: ContentType): Promise<boolean> {
-  const skipFlag = (() => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const env: any = (global as any)?.process?.env || (typeof process !== 'undefined' ? (process as any).env : {});
-      const v = String(env.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase();
-      return ['1', 'true', 'on', 'yes', 'y'].includes(v);
-    } catch { return false; }
-  })();
-  // Handle both 'movie' and 'film' types (API may send either)
-  const vixSrcApiType = (type === 'movie' || type === 'film' as any) ? 'movie' : 'tv'; // VixSrc usa 'tv' per le serie
-  const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}`;
-  //   const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}?lang=it`;
+// async function checkTmdbIdOnVixSrc(tmdbId: string, type: ContentType): Promise<boolean> {
+//   const skipFlag = (() => {
+//     try {
+//       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+//       const env: any = (global as any)?.process?.env || (typeof process !== 'undefined' ? (process as any).env : {});
+//       const v = String(env.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase();
+//       return ['1', 'true', 'on', 'yes', 'y'].includes(v);
+//     } catch { return false; }
+//   })();
+//   // Handle both 'movie' and 'film' types (API may send either)
+//   const vixSrcApiType = (type === 'movie' || type === 'film' as any) ? 'movie' : 'tv'; // VixSrc usa 'tv' per le serie
+//   const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}`;
+//   //   const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/${vixSrcApiType}?lang=it`;
 
-  try {
-    console.log(`VIX_CHECK: Checking TMDB ID ${tmdbId} of type ${vixSrcApiType} against VixSrc list: ${listUrl}`);
-    const response = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect)', 'Accept': 'application/json' } });
-    if (!response.ok) {
-      console.error(`VIX_CHECK: Failed to fetch VixSrc list for type ${vixSrcApiType}, status: ${response.status}`);
-      if (skipFlag) {
-        console.warn('VIX_CHECK: Skip flag attivo -> continuo nonostante status non OK');
-        return true;
-      }
-      return false;
-    }
-    const data = await response.json();
-    // L'API restituisce un array di oggetti, ognuno con una proprietà 'id' che è l'ID TMDB
-    if (data && Array.isArray(data)) {
-      const exists = data.some((item: any) => item.tmdb_id && item.tmdb_id.toString() === tmdbId.toString());
-      console.log(`VIX_CHECK: TMDB ID ${tmdbId} ${exists ? 'found' : 'NOT found'} in VixSrc list.`);
-      return exists;
-    } else {
-      console.error(`VIX_CHECK: VixSrc list for type ${vixSrcApiType} is not in the expected format.`);
-      return skipFlag ? (console.warn('VIX_CHECK: formato inatteso ma skip attivo -> true'), true) : false;
-    }
-  } catch (error) {
-    console.error(`VIX_CHECK: Error checking TMDB ID ${tmdbId} on VixSrc:`, error);
-    if (skipFlag) {
-      console.warn('VIX_CHECK: errore ma skip attivo -> continuo');
-      return true;
-    }
-    // Retry una volta se non skip
-    try {
-      await new Promise(r => setTimeout(r, 400));
-      console.log('VIX_CHECK: retry fetch list');
-      const response2 = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect Retry)', 'Accept': 'application/json' } });
-      if (response2.ok) {
-        const d2 = await response2.json();
-        if (Array.isArray(d2)) {
-          const ex2 = d2.some((item: any) => item.tmdb_id && item.tmdb_id.toString() === tmdbId.toString());
-          console.log(`VIX_CHECK: Retry result -> ${ex2}`);
-          return ex2;
-        }
-      }
-    } catch {/* ignore secondary */ }
-    return false; // fallback finale
-  }
-}
+//   try {
+//     console.log(`VIX_CHECK: Checking TMDB ID ${tmdbId} of type ${vixSrcApiType} against VixSrc list: ${listUrl}`);
+//     const response = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect)', 'Accept': 'application/json' } });
+//     if (!response.ok) {
+//       console.error(`VIX_CHECK: Failed to fetch VixSrc list for type ${vixSrcApiType}, status: ${response.status}`);
+//       if (skipFlag) {
+//         console.warn('VIX_CHECK: Skip flag attivo -> continuo nonostante status non OK');
+//         return true;
+//       }
+//       return false;
+//     }
+//     const data = await response.json();
+//     // L'API restituisce un array di oggetti, ognuno con una proprietà 'id' che è l'ID TMDB
+//     if (data && Array.isArray(data)) {
+//       const exists = data.some((item: any) => item.tmdb_id && item.tmdb_id.toString() === tmdbId.toString());
+//       console.log(`VIX_CHECK: TMDB ID ${tmdbId} ${exists ? 'found' : 'NOT found'} in VixSrc list.`);
+//       return exists;
+//     } else {
+//       console.error(`VIX_CHECK: VixSrc list for type ${vixSrcApiType} is not in the expected format.`);
+//       return skipFlag ? (console.warn('VIX_CHECK: formato inatteso ma skip attivo -> true'), true) : false;
+//     }
+//   } catch (error) {
+//     console.error(`VIX_CHECK: Error checking TMDB ID ${tmdbId} on VixSrc:`, error);
+//     if (skipFlag) {
+//       console.warn('VIX_CHECK: errore ma skip attivo -> continuo');
+//       return true;
+//     }
+//     // Retry una volta se non skip
+//     try {
+//       await new Promise(r => setTimeout(r, 400));
+//       console.log('VIX_CHECK: retry fetch list');
+//       const response2 = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect Retry)', 'Accept': 'application/json' } });
+//       if (response2.ok) {
+//         const d2 = await response2.json();
+//         if (Array.isArray(d2)) {
+//           const ex2 = d2.some((item: any) => item.tmdb_id && item.tmdb_id.toString() === tmdbId.toString());
+//           console.log(`VIX_CHECK: Retry result -> ${ex2}`);
+//           return ex2;
+//         }
+//       }
+//     } catch {/* ignore secondary */ }
+//     return false; // fallback finale
+//   }
+// }
 
 // Verifica se uno specifico episodio (S/E) esiste su VixSrc
-async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: number): Promise<boolean> {
+// async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: number): Promise<boolean> {
+//   const skipFlag = (() => {
+//     try {
+//       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+//       const env: any = (global as any)?.process?.env || (typeof process !== 'undefined' ? (process as any).env : {});
+//       const v = String(env.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase();
+//       return ['1', 'true', 'on', 'yes', 'y'].includes(v);
+//     } catch { return false; }
+//   })();
+//   const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/`;
+//   //const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
+//   try {
+//     console.log(`VIX_EP_CHECK: Checking TMDB ID ${tmdbId} S${season}E${episode} against VixSrc episode list: ${listUrl}`);
+//     const response = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect)', 'Accept': 'application/json' } });
+//     if (!response.ok) {
+//       console.error(`VIX_EP_CHECK: Failed to fetch VixSrc episode list, status: ${response.status}`);
+//       if (skipFlag) { console.warn('VIX_EP_CHECK: Skip attivo -> continuo'); return true; }
+//       return false;
+//     }
+//     const data = await response.json();
+//     if (data && Array.isArray(data)) {
+//       const exists = data.some((item: any) =>
+//         item && item.tmdb_id?.toString() === tmdbId.toString() &&
+//         Number(item.s) === Number(season) && Number(item.e) === Number(episode)
+//       );
+//       console.log(`VIX_EP_CHECK: Episode TMDB ${tmdbId} S${season}E${episode} ${exists ? 'found' : 'NOT found'} in VixSrc episode list.`);
+//       return exists;
+//     }
+//     console.error('VIX_EP_CHECK: Episode list format not as expected');
+//     return skipFlag ? (console.warn('VIX_EP_CHECK: formato inatteso ma skip -> true'), true) : false;
+//   } catch (error) {
+//     console.error(`VIX_EP_CHECK: Error checking episode on VixSrc for TMDB ${tmdbId} S${season}E${episode}:`, error);
+//     if (skipFlag) { console.warn('VIX_EP_CHECK: errore ma skip -> true'); return true; }
+//     // retry una volta
+//     try {
+//       await new Promise(r => setTimeout(r, 400));
+//       console.log('VIX_EP_CHECK: retry fetch episode list');
+//       const r2 = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect Retry)', 'Accept': 'application/json' } });
+//       if (r2.ok) {
+//         const d2 = await r2.json();
+//         if (Array.isArray(d2)) {
+//           const ex2 = d2.some((item: any) => item && item.tmdb_id?.toString() === tmdbId.toString() && Number(item.s) === Number(season) && Number(item.e) === Number(episode));
+//           console.log(`VIX_EP_CHECK: Retry result -> ${ex2}`);
+//           return ex2;
+//         }
+//       }
+//     } catch {/* ignore */ }
+//     return false;
+//   }
+// }
+
+// Helper per verificare se un URL esiste via HEAD request (più veloce e sicuro della lista parziale)
+async function checkUrlExists(url: string): Promise<boolean> {
   const skipFlag = (() => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -290,50 +342,45 @@ async function checkEpisodeOnVixSrc(tmdbId: string, season: number, episode: num
       return ['1', 'true', 'on', 'yes', 'y'].includes(v);
     } catch { return false; }
   })();
-  const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/`;
-  //const listUrl = `${VIXCLOUD_SITE_ORIGIN}/api/list/episode/?lang=it`;
+
+  if (skipFlag) {
+    console.warn(`VIX_CHECK: Skip flag attivo -> assumo esistente: ${url}`);
+    return true;
+  }
+
   try {
-    console.log(`VIX_EP_CHECK: Checking TMDB ID ${tmdbId} S${season}E${episode} against VixSrc episode list: ${listUrl}`);
-    const response = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect)', 'Accept': 'application/json' } });
-    if (!response.ok) {
-      console.error(`VIX_EP_CHECK: Failed to fetch VixSrc episode list, status: ${response.status}`);
-      if (skipFlag) { console.warn('VIX_EP_CHECK: Skip attivo -> continuo'); return true; }
+    console.log(`VIX_CHECK: Checking existence via HEAD: ${url}`);
+    // Importante: User-Agent specifico per evitare blocchi
+    const response = await fetch(url, {
+      method: 'HEAD',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    });
+
+    // 200 OK -> Esiste
+    // 301/302 -> Redirect (spesso a trailing slash o altra pagina valida) -> Esiste
+    // 404 -> Non esiste
+    if (response.ok) {
+      console.log(`VIX_CHECK: OK (${response.status}) -> ${url}`);
+      return true;
+    } else {
+      console.log(`VIX_CHECK: Fail (${response.status}) -> ${url}`);
       return false;
     }
-    const data = await response.json();
-    if (data && Array.isArray(data)) {
-      const exists = data.some((item: any) =>
-        item && item.tmdb_id?.toString() === tmdbId.toString() &&
-        Number(item.s) === Number(season) && Number(item.e) === Number(episode)
-      );
-      console.log(`VIX_EP_CHECK: Episode TMDB ${tmdbId} S${season}E${episode} ${exists ? 'found' : 'NOT found'} in VixSrc episode list.`);
-      return exists;
-    }
-    console.error('VIX_EP_CHECK: Episode list format not as expected');
-    return skipFlag ? (console.warn('VIX_EP_CHECK: formato inatteso ma skip -> true'), true) : false;
   } catch (error) {
-    console.error(`VIX_EP_CHECK: Error checking episode on VixSrc for TMDB ${tmdbId} S${season}E${episode}:`, error);
-    if (skipFlag) { console.warn('VIX_EP_CHECK: errore ma skip -> true'); return true; }
-    // retry una volta
-    try {
-      await new Promise(r => setTimeout(r, 400));
-      console.log('VIX_EP_CHECK: retry fetch episode list');
-      const r2 = await fetch(listUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect Retry)', 'Accept': 'application/json' } });
-      if (r2.ok) {
-        const d2 = await r2.json();
-        if (Array.isArray(d2)) {
-          const ex2 = d2.some((item: any) => item && item.tmdb_id?.toString() === tmdbId.toString() && Number(item.s) === Number(season) && Number(item.e) === Number(episode));
-          console.log(`VIX_EP_CHECK: Retry result -> ${ex2}`);
-          return ex2;
-        }
-      }
-    } catch {/* ignore */ }
-    return false;
+    console.error(`VIX_CHECK: Error checking URL ${url}:`, error);
+    // In caso di errore di rete (non 404), assumiamo TRUE per non bloccare falsi negativi
+    // a meno che non siamo sicuri sia un errore fatale.
+    return true;
   }
 }
 
-// 2. Modifica la funzione getUrl per rimuovere ?lang=it e aggiungere la verifica
+// 2. Modifica la funzione getUrl per rimuovere ?lang=it e aggiungere la verifica HEAD
 export async function getUrl(id: string, type: ContentType, config: ExtractorConfig): Promise<string | null> {
+  let targetUrl: string | null = null;
+
   // Support direct TMDB id format for movies: tmdb:<tmdbId>
   // Handle both 'movie' and 'film' types (API may send either)
   if (type === 'movie' || type === 'film' as any) {
@@ -344,79 +391,101 @@ export async function getUrl(id: string, type: ContentType, config: ExtractorCon
     } else {
       const imdbIdForMovie = id; // legacy imdb id
       tmdbId = await getTmdbIdFromImdbId(imdbIdForMovie, config.tmdbApiKey, 'movie');
-      if (!tmdbId) return null;
     }
+
     if (!tmdbId) return null;
-    const existsOnVixSrc = await checkTmdbIdOnVixSrc(tmdbId, type);
-    if (!existsOnVixSrc) {
-      const skip = ['1', 'true', 'on', 'yes', 'y'].includes(String((global as any)?.process?.env?.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase());
-      if (!skip) {
-        console.log(`TMDB ID ${tmdbId} for movie not found in VixSrc list. Skipping.`);
-        return null;
-      } else {
-        console.warn(`TMDB ID ${tmdbId} non trovato ma skip attivo -> continuo`);
-      }
-    }
-    return `${VIXCLOUD_SITE_ORIGIN}/movie/${tmdbId}/`;
-  }
-  // Series: support tmdb:tmdbId:season:episode or legacy imdbId:season:episode
-  const rawParts = id.split(':');
-  let tmdbSeriesId: string | null = null;
-  let seasonStr: string | undefined;
-  let episodeStr: string | undefined;
-  let imdbIdForMapping: string | null = null; // Per mapping statico
+    // --- OLD LOGIC COMMENTED OUT ---
+    // const existsOnVixSrc = await checkTmdbIdOnVixSrc(tmdbId, type);
+    // if (!existsOnVixSrc) {
+    //   const skip = ['1', 'true', 'on', 'yes', 'y'].includes(String((global as any)?.process?.env?.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase());
+    //   if (!skip) {
+    //     console.log(`TMDB ID ${tmdbId} for movie not found in VixSrc list. Skipping.`);
+    //     return null;
+    //   } else {
+    //     console.warn(`TMDB ID ${tmdbId} non trovato ma skip attivo -> continuo`);
+    //   }
+    // }
+    // return `${VIXCLOUD_SITE_ORIGIN}/movie/${tmdbId}/`;
 
-  if (rawParts[0] === 'tmdb') {
-    tmdbSeriesId = rawParts[1] || null;
-    seasonStr = rawParts[2];
-    episodeStr = rawParts[3];
+    targetUrl = `${VIXCLOUD_SITE_ORIGIN}/movie/${tmdbId}/`;
   } else {
-    const obj = getObject(id); // interprets legacy imdb format
-    imdbIdForMapping = obj.id; // Salva IMDB ID per mapping statico
-    seasonStr = obj.season;
-    episodeStr = obj.episode;
+    // Series: support tmdb:tmdbId:season:episode or legacy imdbId:season:episode
+    const rawParts = id.split(':');
+    let tmdbSeriesId: string | null = null;
+    let seasonStr: string | undefined;
+    let episodeStr: string | undefined;
+    let imdbIdForMapping: string | null = null; // Per mapping statico
 
-    // Prima controlla se c'è un mapping statico per questa serie+stagione
-    const seasonNum = Number(seasonStr);
-    if (!isNaN(seasonNum) && imdbIdForMapping) {
-      const staticTmdbId = getStaticTmdbMapping(imdbIdForMapping, seasonNum);
-      if (staticTmdbId) {
-        tmdbSeriesId = staticTmdbId;
-        // IMPORTANTE: Quando usiamo mapping statico, la serie TMDB separata
-        // ricomincia sempre da stagione 1! (es. Monster S2 su IMDB = S1 su TMDB 225634)
-        seasonStr = "1";
-        console.log(`[IMDB→TMDB] Usato mapping statico: ${imdbIdForMapping} S${seasonNum} → TMDB ${staticTmdbId} S1 (serie TMDB separata)`);
+    if (rawParts[0] === 'tmdb') {
+      tmdbSeriesId = rawParts[1] || null;
+      seasonStr = rawParts[2];
+      episodeStr = rawParts[3];
+    } else {
+      const obj = getObject(id); // interprets legacy imdb format
+      imdbIdForMapping = obj.id; // Salva IMDB ID per mapping statico
+      seasonStr = obj.season;
+      episodeStr = obj.episode;
+
+      // Prima controlla se c'è un mapping statico per questa serie+stagione
+      const seasonNum = Number(seasonStr);
+      if (!isNaN(seasonNum) && imdbIdForMapping) {
+        const staticTmdbId = getStaticTmdbMapping(imdbIdForMapping, seasonNum);
+        if (staticTmdbId) {
+          tmdbSeriesId = staticTmdbId;
+          // IMPORTANTE: Quando usiamo mapping statico, la serie TMDB separata
+          // ricomincia sempre da stagione 1! (es. Monster S2 su IMDB = S1 su TMDB 225634)
+          seasonStr = "1";
+          console.log(`[IMDB→TMDB] Usato mapping statico: ${imdbIdForMapping} S${seasonNum} → TMDB ${staticTmdbId} S1 (serie TMDB separata)`);
+        }
+      }
+
+      // Se non trovato mapping statico, usa API TMDB classica
+      if (!tmdbSeriesId) {
+        tmdbSeriesId = await getTmdbIdFromImdbId(obj.id, config.tmdbApiKey, 'tv');
       }
     }
 
-    // Se non trovato mapping statico, usa API TMDB classica
-    if (!tmdbSeriesId) {
-      tmdbSeriesId = await getTmdbIdFromImdbId(obj.id, config.tmdbApiKey, 'tv');
+    if (!tmdbSeriesId) return null;
+    const seasonNum = Number(seasonStr);
+    const episodeNum = Number(episodeStr);
+
+    if (isNaN(seasonNum) || isNaN(episodeNum)) {
+      console.warn(`Invalid season/episode in id ${id}`);
+      return null;
     }
+
+    // --- OLD LOGIC COMMENTED OUT ---
+    // const existsOnVixSrc = await checkTmdbIdOnVixSrc(tmdbSeriesId, type);
+    // const skipSeries = ['1', 'true', 'on', 'yes', 'y'].includes(String((global as any)?.process?.env?.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase());
+    // if (!existsOnVixSrc && !skipSeries) {
+    //   console.log(`TMDB ID ${tmdbSeriesId} for series not found in VixSrc list. Skipping.`);
+    //   return null;
+    // } else if (!existsOnVixSrc && skipSeries) {
+    //   console.warn(`TMDB ID ${tmdbSeriesId} series non trovato ma skip attivo -> continuo`);
+    // }
+    // const epExists = await checkEpisodeOnVixSrc(tmdbSeriesId, seasonNum, episodeNum);
+    // if (!epExists && !skipSeries) {
+    //   console.log(`VIX_EP_CHECK: Episode not found on VixSrc for TMDB ${tmdbSeriesId} S${seasonNum}E${episodeNum}. Skipping.`);
+    //   return null;
+    // } else if (!epExists && skipSeries) {
+    //   console.warn(`VIX_EP_CHECK: episodio non trovato ma skip attivo -> continuo`);
+    // }
+    // return `${VIXCLOUD_SITE_ORIGIN}/tv/${tmdbSeriesId}/${seasonNum}/${episodeNum}/`;
+
+    targetUrl = `${VIXCLOUD_SITE_ORIGIN}/tv/${tmdbSeriesId}/${seasonNum}/${episodeNum}/`;
   }
-  if (!tmdbSeriesId) return null;
-  const seasonNum = Number(seasonStr);
-  const episodeNum = Number(episodeStr);
-  if (isNaN(seasonNum) || isNaN(episodeNum)) {
-    console.warn(`Invalid season/episode in id ${id}`);
-    return null;
+
+  // Ora verifichiamo se l'URL generato esiste davvero
+  if (targetUrl) {
+    const exists = await checkUrlExists(targetUrl);
+    if (!exists) {
+      console.log(`VixSrc content check failed for: ${targetUrl}`);
+      return null;
+    }
+    return targetUrl;
   }
-  const existsOnVixSrc = await checkTmdbIdOnVixSrc(tmdbSeriesId, type);
-  const skipSeries = ['1', 'true', 'on', 'yes', 'y'].includes(String((global as any)?.process?.env?.VIXSRC_SKIP_LIST_CHECK || '').toLowerCase());
-  if (!existsOnVixSrc && !skipSeries) {
-    console.log(`TMDB ID ${tmdbSeriesId} for series not found in VixSrc list. Skipping.`);
-    return null;
-  } else if (!existsOnVixSrc && skipSeries) {
-    console.warn(`TMDB ID ${tmdbSeriesId} series non trovato ma skip attivo -> continuo`);
-  }
-  const epExists = await checkEpisodeOnVixSrc(tmdbSeriesId, seasonNum, episodeNum);
-  if (!epExists && !skipSeries) {
-    console.log(`VIX_EP_CHECK: Episode not found on VixSrc for TMDB ${tmdbSeriesId} S${seasonNum}E${episodeNum}. Skipping.`);
-    return null;
-  } else if (!epExists && skipSeries) {
-    console.warn(`VIX_EP_CHECK: episodio non trovato ma skip attivo -> continuo`);
-  }
-  return `${VIXCLOUD_SITE_ORIGIN}/tv/${tmdbSeriesId}/${seasonNum}/${episodeNum}/`;
+
+  return null;
 }
 
 export async function getStreamContent(id: string, type: ContentType, config: ExtractorConfig): Promise<VixCloudStreamInfo[] | null> {
