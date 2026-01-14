@@ -230,6 +230,13 @@ function normalizeTitleForSearch(title: string): string {
 
 
 
+        "Hell's Paradise": "Hell's Paradise",
+
+
+
+
+
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
