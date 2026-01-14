@@ -95,8 +95,6 @@ export function buildRecordUrl(
     channelName: string,
     options?: {
         duration?: number;  // Duration in seconds (default: 8 hours)
-        format?: 'mp4' | 'mkv' | 'ts';  // Output format (default: mp4)
-        host?: string;  // Force extractor (vavoo, dlhd, etc.)
     }
 ): string {
     const params = new URLSearchParams();
@@ -106,14 +104,23 @@ export function buildRecordUrl(
     if (options?.duration) {
         params.set('duration', String(options.duration));
     }
-    if (options?.format) {
-        params.set('format', options.format);
-    }
-    if (options?.host) {
-        params.set('host', options.host);
-    }
     if (config.apiPassword) {
         params.set('api_password', config.apiPassword);
+    }
+
+    // Extract key_id and key from sourceUrl if present (for DRM-protected streams)
+    try {
+        const url = new URL(sourceUrl);
+        const keyId = url.searchParams.get('key_id');
+        const key = url.searchParams.get('key');
+        if (keyId) {
+            params.set('key_id', keyId);
+        }
+        if (key) {
+            params.set('key', key);
+        }
+    } catch {
+        // Invalid URL, skip key extraction
     }
 
     return `${config.easyProxyUrl}/record?${params.toString()}`;
@@ -233,17 +240,6 @@ export function buildRecordingStreamUrl(config: DvrConfig, recordingId: string):
 }
 
 /**
- * Build a download URL for a recording
- */
-export function buildRecordingDownloadUrl(config: DvrConfig, recordingId: string): string {
-    const params = new URLSearchParams();
-    if (config.apiPassword) {
-        params.set('api_password', config.apiPassword);
-    }
-    return `${config.easyProxyUrl}/api/recordings/${recordingId}/download?${params.toString()}`;
-}
-
-/**
  * Build a delete URL for a recording (GET-based for Stremio compatibility)
  */
 export function buildRecordingDeleteUrl(config: DvrConfig, recordingId: string): string {
@@ -327,7 +323,6 @@ export function buildDvrRecordEntry(
     streamTitle: string,
     channelName: string,
     options?: {
-        host?: string;
         duration?: number;
         addonConfig?: { mediaFlowProxyUrl?: string; mediaFlowProxyPassword?: string; dvrEnabled?: boolean };
     }
@@ -343,11 +338,7 @@ export function buildDvrRecordEntry(
     // Use stream title as recording name (avoid repetition with channel name)
     const recordingName = streamTitle.substring(0, 100);
 
-    const recordUrl = buildRecordUrl(config, streamUrl, recordingName, {
-        duration,
-        format: 'mp4',
-        host: options?.host
-    });
+    const recordUrl = buildRecordUrl(config, streamUrl, recordingName, { duration });
 
     return {
         url: recordUrl,
@@ -368,7 +359,6 @@ export async function getDvrStreamsForChannel(
     channelName: string,
     sourceUrl: string,
     options?: {
-        host?: string;
         defaultDuration?: number;
         isDynamicEvent?: boolean;
         eventStart?: string;

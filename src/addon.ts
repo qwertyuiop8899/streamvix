@@ -1678,27 +1678,33 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     // Convert to Stremio meta format
                     const metas = [...activeRecordings, ...validRecordings].map((rec: any) => {
+                        const isActive = rec.is_active || rec.status === 'recording' || rec.status === 'starting';
+                        const elapsed = rec.elapsed_seconds ? formatDuration(rec.elapsed_seconds) : '';
                         const duration = rec.duration_seconds ? formatDuration(rec.duration_seconds) : '';
                         const size = rec.file_size_bytes ? formatFileSize(rec.file_size_bytes) : '';
                         const date = rec.started_at ? new Date(rec.started_at).toLocaleDateString() : '';
-                        const isActive = rec.is_active;
+                        const time = rec.started_at ? new Date(rec.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
-                        // Build display name
-                        let displayName = rec.name || 'Recording';
-                        if (duration) {
-                            // Replace first [TAG] with duration or prepend it
-                            const tagPattern = /^\[([^\]]+)\]\s*/;
-                            if (tagPattern.test(displayName)) {
-                                displayName = displayName.replace(tagPattern, `[${duration}] `);
-                            } else {
-                                displayName = `[${duration}] ${displayName}`;
-                            }
+                        // Build display name - strip source tags like [FREE], [MPD2] etc
+                        let displayName = (rec.name || 'Recording').replace(/^\[([^\]]+)\]\s*/, '');
+
+                        // For active recordings, show elapsed time
+                        // For completed recordings, show duration
+                        const timeInfo = isActive ? elapsed : duration;
+                        if (timeInfo) {
+                            displayName = `[${timeInfo}] ${displayName}`;
                         }
 
                         const statusPrefix = isActive ? '🔴 ' : '📹 ';
-                        const details = isActive
-                            ? `Recording...`
-                            : [size, date].filter(Boolean).join(' | ');
+
+                        // Build description with more details
+                        let details: string;
+                        if (isActive) {
+                            const startedInfo = time ? `Started ${time}` : '';
+                            details = [startedInfo, elapsed ? `${elapsed} elapsed` : 'Starting...'].filter(Boolean).join(' • ');
+                        } else {
+                            details = [duration, size, date].filter(Boolean).join(' • ');
+                        }
 
                         return {
                             id: `dvr:${rec.id}`,
@@ -4492,25 +4498,25 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     if (!stream.url || stream.url.includes('nostream')) continue;
 
                                     // Extract the source URL from proxied stream if applicable
+                                    // Also preserve key_id and key parameters for DRM-protected streams
                                     let recordUrl = stream.url;
                                     const dMatch = stream.url.match(/[?&]d=([^&]+)/);
                                     if (dMatch) {
                                         recordUrl = decodeURIComponent(dMatch[1]);
-                                    }
-
-                                    // Determine host hint
-                                    let hostHint: string | undefined;
-                                    if (recordUrl.includes('vavoo.to') || /vavoo/i.test(stream.title || '')) {
-                                        hostHint = 'vavoo';
-                                    } else if (recordUrl.includes('dlhd.dad') || /daddy|dlhd/i.test(stream.title || '')) {
-                                        hostHint = 'dlhd';
+                                        // Extract and append key_id and key if present
+                                        const keyIdMatch = stream.url.match(/[?&]key_id=([^&]+)/);
+                                        const keyMatch = stream.url.match(/[?&]key=([^&]+)/);
+                                        if (keyIdMatch && keyMatch) {
+                                            const separator = recordUrl.includes('?') ? '&' : '?';
+                                            recordUrl += `${separator}key_id=${keyIdMatch[1]}&key=${keyMatch[1]}`;
+                                        }
                                     }
 
                                     const dvrEntry = buildDvrRecordEntry(
                                         recordUrl,
                                         stream.title || 'Stream',
                                         channel.name || cleanId,
-                                        { host: hostHint, addonConfig: config as any }
+                                        { addonConfig: config as any }
                                     );
 
                                     if (dvrEntry) {
@@ -4528,7 +4534,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 if (firstStream) {
                                     let recordUrl = firstStream.url;
                                     const dMatch = firstStream.url.match(/[?&]d=([^&]+)/);
-                                    if (dMatch) recordUrl = decodeURIComponent(dMatch[1]);
+                                    if (dMatch) {
+                                        recordUrl = decodeURIComponent(dMatch[1]);
+                                        // Extract and append key_id and key if present
+                                        const keyIdMatch = firstStream.url.match(/[?&]key_id=([^&]+)/);
+                                        const keyMatch = firstStream.url.match(/[?&]key=([^&]+)/);
+                                        if (keyIdMatch && keyMatch) {
+                                            const separator = recordUrl.includes('?') ? '&' : '?';
+                                            recordUrl += `${separator}key_id=${keyIdMatch[1]}&key=${keyMatch[1]}`;
+                                        }
+                                    }
 
                                     const dvrStreams = await getDvrStreamsForChannel(
                                         channel.name || cleanId,
@@ -4714,25 +4729,25 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 if (!stream.url || stream.url.includes('nostream')) continue;
 
                                 // Extract the source URL from proxied stream if applicable
+                                // Also preserve key_id and key parameters for DRM-protected streams
                                 let recordUrl = stream.url;
                                 const dMatch = stream.url.match(/[?&]d=([^&]+)/);
                                 if (dMatch) {
                                     recordUrl = decodeURIComponent(dMatch[1]);
-                                }
-
-                                // Determine host hint
-                                let hostHint: string | undefined;
-                                if (recordUrl.includes('vavoo.to') || /vavoo/i.test(stream.title || '')) {
-                                    hostHint = 'vavoo';
-                                } else if (recordUrl.includes('dlhd.dad') || /daddy|dlhd/i.test(stream.title || '')) {
-                                    hostHint = 'dlhd';
+                                    // Extract and append key_id and key if present
+                                    const keyIdMatch = stream.url.match(/[?&]key_id=([^&]+)/);
+                                    const keyMatch = stream.url.match(/[?&]key=([^&]+)/);
+                                    if (keyIdMatch && keyMatch) {
+                                        const separator = recordUrl.includes('?') ? '&' : '?';
+                                        recordUrl += `${separator}key_id=${keyIdMatch[1]}&key=${keyMatch[1]}`;
+                                    }
                                 }
 
                                 const dvrEntry = buildDvrRecordEntry(
                                     recordUrl,
                                     stream.title || 'Stream',
                                     channel.name || cleanId,
-                                    { host: hostHint, addonConfig: config as any }
+                                    { addonConfig: config as any }
                                 );
 
                                 if (dvrEntry) {
@@ -4750,7 +4765,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (firstStream) {
                                 let recordUrl = firstStream.url;
                                 const dMatch = firstStream.url.match(/[?&]d=([^&]+)/);
-                                if (dMatch) recordUrl = decodeURIComponent(dMatch[1]);
+                                if (dMatch) {
+                                    recordUrl = decodeURIComponent(dMatch[1]);
+                                    // Extract and append key_id and key if present
+                                    const keyIdMatch = firstStream.url.match(/[?&]key_id=([^&]+)/);
+                                    const keyMatch = firstStream.url.match(/[?&]key=([^&]+)/);
+                                    if (keyIdMatch && keyMatch) {
+                                        const separator = recordUrl.includes('?') ? '&' : '?';
+                                        recordUrl += `${separator}key_id=${keyIdMatch[1]}&key=${keyMatch[1]}`;
+                                    }
+                                }
 
                                 const dvrStreams = await getDvrStreamsForChannel(
                                     channel.name || cleanId,
