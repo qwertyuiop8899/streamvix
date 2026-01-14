@@ -196,6 +196,14 @@ const exactMap: Record<string, string> = {
 
 
 
+      "Hell's Paradise": "Hell's Paradise",
+
+
+
+
+
+
+
   // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
