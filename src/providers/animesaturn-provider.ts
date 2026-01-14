@@ -230,6 +230,13 @@ function normalizeTitleForSearch(title: string): string {
 
 
 
+        "Hell's Paradise": "Jigokuraku",
+
+
+
+
+
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
