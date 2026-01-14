@@ -227,10 +227,8 @@ function normalizeTitleForSearch(title: string): string {
         "Jujutsu Kaisen: The Culling Game Part 1": "Jujutsu Kaisen 3: The Culling Game Part 1",
 
 
-
-
-
         "Hell's Paradise Season 2": "Hell's Paradise 2",
+
 
 
 
