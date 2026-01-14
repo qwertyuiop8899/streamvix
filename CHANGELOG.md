@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.14.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.13.0...v1.14.0) (2026-01-14)
+
+
+### Features
+
+* **normalize-aw:** add "Hell's Paradise Season 2" ([c0bd65a](https://github.com/qwertyuiop8899/streamvix/commit/c0bd65ac9e1c5c7209ad372dbfa6ae6e986a6af4))
+* **normalize:** add "Hell's Paradise Season 2" ([80fa29f](https://github.com/qwertyuiop8899/streamvix/commit/80fa29f0865176977b21ce9276a09f5d28e4fa71))
+
+
+### Bug Fixes
+
+* vix ([f77fbc6](https://github.com/qwertyuiop8899/streamvix/commit/f77fbc6f265e8c78caf4286728e9a2d8d0107383))
+
 ## [1.13.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.12.3...v1.13.0) (2026-01-13)
 
 
