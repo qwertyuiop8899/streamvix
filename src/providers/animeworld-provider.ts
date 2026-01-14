@@ -196,6 +196,14 @@ const exactMap: Record<string, string> = {
 
 
 
+      "Hell's Paradise Season 2": "Hell's Paradise 2",
+
+
+
+
+
+
+
   // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
