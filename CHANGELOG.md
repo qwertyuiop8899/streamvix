@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.1...v1.14.2) (2026-01-16)
+
+
+### Bug Fixes
+
+* dvr ([26a4737](https://github.com/qwertyuiop8899/streamvix/commit/26a4737fb6c11da8a2ac234c025d0acc2bdeeb52))
+
 ## [1.14.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.0...v1.14.1) (2026-01-16)
 
 
