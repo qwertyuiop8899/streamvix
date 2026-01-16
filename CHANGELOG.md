@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.4...v1.14.5) (2026-01-16)
+
+
+### Bug Fixes
+
+* time sportzx ([63ac89c](https://github.com/qwertyuiop8899/streamvix/commit/63ac89c5e59898d22a46e5043adc01eee4c3022f))
+
 ## [1.14.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.3...v1.14.4) (2026-01-16)
 
 
