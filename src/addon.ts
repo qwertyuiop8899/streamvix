@@ -38,6 +38,7 @@ import { startRmScheduler, updateRmChannels } from './utils/rmUpdater';
 // ThisNot updater
 // ThisNot updater
 import { startThisNotUpdater, updateThisNotChannels } from './utils/thisnotChannels';
+import { startSportzxScheduler, getSportzxChannels } from './utils/sportzxUpdater';
 // import { startMpdzScheduler, updateMpdzChannels } from './utils/mpdzUpdater';
 import { startMpdxScheduler, updateMpdxChannels } from './utils/mpdxUpdater';
 // import { startZEventiScheduler, updateZEventiChannels } from './utils/zEventiUpdater';
@@ -677,6 +678,7 @@ const baseManifest: Manifest = {
                         "X-Eventi",
                         "Z-Eventi",
                         "THISNOT",
+                        "SportzX",
                         "Serie A",
                         "Serie B",
                         "Serie C",
@@ -1612,6 +1614,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             } else if (id === 'streamvix_live') {
                 // Solo canali live/dinamici (hanno _dynamic: true)
                 filteredChannels = filteredChannels.filter((c: any) => c._dynamic);
+                // INTEGRATION: Add SportZX channels to Live catalog
+                const sportzx = getSportzxChannels();
+                if (sportzx.length > 0) {
+                    // Add them to the list
+                    filteredChannels = [...filteredChannels, ...sportzx];
+                }
                 // console.log(`[CATALOG] streamvix_live -> filtered dynamic count=${filteredChannels.length}`);
             } else if (id === 'streamvix_dvr') {
                 // DVR catalog - fetch recordings from EasyProxy
@@ -1771,7 +1779,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     return false;
                 };
 
-                filteredChannels = tvChannels.filter((c: any) => {
+                filteredChannels = filteredChannels.filter((c: any) => {
                     const categories = getChannelCategories(c); // include category slugs
                     const categoryStr = categories.join(' ');
                     const hayRaw = `${c.name || ''} ${(c.description || '')} ${categoryStr}`.toLowerCase();
@@ -1852,13 +1860,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     genreMap['bundesliga'] = 'bundesliga';
                     genreMap['ligue 1'] = 'ligue1';
                     genreMap['thisnot'] = 'thisnot';
+                    genreMap['ligue 1'] = 'ligue1';
+                    genreMap['thisnot'] = 'thisnot';
                     genreMap['ppv'] = 'ppv';
+                    genreMap['sportzx'] = 'sportzx'; // lowercase to match getChannelCategories() output
                     const target = genreMap[norm] || norm;
                     requestedSlug = target;
 
                     // DEBUG: Log primi 5 canali ThisNot PRIMA del filtro
                     if (target === 'thisnot') {
-                        const thisnotChannels = tvChannels.filter((ch: any) => {
+                        const thisnotChannels = filteredChannels.filter((ch: any) => {
                             const catRaw = ch.category;
                             return catRaw === 'thisnot' || catRaw === 'THISNOT' || (Array.isArray(catRaw) && catRaw.includes('thisnot'));
                         }).slice(0, 5);
@@ -1868,7 +1879,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         });
                     }
 
-                    filteredChannels = tvChannels.filter(ch => getChannelCategories(ch).includes(target));
+                    filteredChannels = filteredChannels.filter(ch => getChannelCategories(ch).includes(target));
                     console.log(`🔍 Genre='${norm}' -> slug='${target}' results=${filteredChannels.length}`);
                 } else {
                     console.log(`📺 No genre filter, showing all ${tvChannels.length} channels`);
@@ -2180,6 +2191,28 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }
             }
 
+            // === SPORTZX META HANDLER ===
+            if (cleanId.startsWith('sportzx_')) {
+                const { getSportzxChannels } = await import('./utils/sportzxUpdater');
+                const sportzxChannel = getSportzxChannels().find((c: any) => c.id === cleanId);
+                if (sportzxChannel) {
+                    console.log(`✅ Found SportzX channel for meta: ${sportzxChannel.name}`);
+                    return {
+                        meta: {
+                            id: `tv:${sportzxChannel.id}`,
+                            type: 'tv',
+                            name: sportzxChannel.name,
+                            poster: sportzxChannel.logo,
+                            posterShape: 'square',
+                            background: sportzxChannel.logo,
+                            description: sportzxChannel.description || 'SportzX Live Stream',
+                            genres: ['SportzX', 'Live', 'Sport'],
+                            releaseInfo: 'Live Event'
+                        }
+                    };
+                }
+            }
+
             // === THISNOT META HANDLER ===
             // Prima controlla se è un canale ThisNot
             const allChannels = loadDynamicChannels(false);
@@ -2411,6 +2444,58 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                 console.log(`🔍 Stream request: ${normalizedType}/${id}`);
 
+                // === SPORTZX STREAM HANDLER ===
+                const cleanIdForSportzx = id.startsWith('tv:') ? id.replace('tv:', '') : id;
+                if (cleanIdForSportzx.startsWith('sportzx_')) {
+                    const { getSportzxChannels } = await import('./utils/sportzxUpdater');
+                    const sportzxChannel = getSportzxChannels().find((c: any) => c.id === cleanIdForSportzx);
+                    if (sportzxChannel && sportzxChannel._sportzx) {
+                        const match = sportzxChannel._sportzx;
+                        console.log(`✅ Found SportzX stream for: ${sportzxChannel.name}`);
+
+                        let finalUrl = match.stream_url;
+                        let title = '🔴 LIVE (Direct)';
+
+                        // Get MFP config
+                        const mfpUrlRaw = requestConfig?.mediaFlowProxyUrl || configCache?.mediaFlowProxyUrl || process.env.MFP_URL;
+                        const mfpUrl = mfpUrlRaw ? mfpUrlRaw.replace(/\/+$/, '') : ''; // Remove trailing slash
+                        const mfpPsw = requestConfig?.mediaFlowProxyPassword || configCache?.mediaFlowProxyPassword || process.env.MFP_PSW;
+
+                        // 1. MPD with Keys -> Proxy
+                        if (match.keyid && match.key && mfpUrl) {
+                            const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                            const encodedUrl = encodeURIComponent(match.stream_url);
+                            finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?d=${encodedUrl}${passwordParam}&key_id=${match.keyid}&key=${match.key}`;
+                            title = '🌐 🔴 LIVE (Proxy MPD)';
+                        }
+                        // 2. M3U with Headers -> Proxy
+                        else if (match.headers && match.headers.trim() && mfpUrl) {
+                            const headersObj: any = {};
+                            (match.headers as string).split('&').forEach((pair: string) => {
+                                const [k, v] = pair.split('=');
+                                if (k && v) headersObj[k] = decodeURIComponent(v);
+                            });
+                            const headersJson = encodeURIComponent(JSON.stringify(headersObj));
+                            const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                            const encodedUrl = encodeURIComponent(match.stream_url);
+                            finalUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodedUrl}${passwordParam}&headers=${headersJson}`;
+                            title = '🌐 🔴 LIVE (Proxy HLS)';
+                        }
+                        // 3. Plain -> Direct
+
+                        return {
+                            streams: [{
+                                url: finalUrl,
+                                title: title,
+                                name: 'SportzX',
+                                behaviorHints: {
+                                    notWebReady: true
+                                }
+                            }]
+                        };
+                    }
+                }
+
                 // FIX DEFINITIVO: L'MFP viene preso dalla config dell'utente (requestConfig)
                 // Se l'utente non ha MFP configurato, usa env vars come fallback (per installazioni locali)
                 // MAI dalla configCache globale (che era il bug - veniva contaminata da altri utenti)
@@ -2418,6 +2503,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 if (requestConfig && Object.keys(requestConfig).length > 0) {
                     config = { ...requestConfig };
                 }
+                // === SPORTZX DEBUG ENDPOINT ===
+
+
                 // NOTE: Il middleware ora converte Base64→JSON prima che l'SDK processi la request,
                 // quindi requestConfig dovrebbe sempre contenere la config utente correttamente.
 
@@ -6536,6 +6624,16 @@ app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) =
             htmlLog.push(`<li>❌ <strong>Live (Dynamic Events)</strong>: Error: ${e.message}</li>`);
         }
 
+        // SportZX (in-memory cache)
+        try {
+            const { updateSportzxChannels, getSportzxChannels } = await import('./utils/sportzxUpdater');
+            await updateSportzxChannels();
+            const count = getSportzxChannels().length;
+            htmlLog.push(`<li>✅ <strong>SportzX</strong>: ${count} channels updated (FORCED)</li>`);
+        } catch (e: any) {
+            htmlLog.push(`<li>❌ <strong>SportzX</strong>: Error: ${e.message}</li>`);
+        }
+
         htmlLog.push('</ul>');
 
         // === UNICO RELOAD FINALE ===
@@ -6900,8 +6998,11 @@ setTimeout(() => scheduleDailyReload(), 9000);
 // =============== AMSTAFF AUTO-UPDATER ================================
 // Avvia aggiornamento automatico canali Amstaff ogni ora
 // try {
-//     startAmstaffScheduler();
-//     console.log('✅ Amstaff auto-updater attivato');
+//     startSportzxScheduler(); // SportZX
+
+
+
+console.log(`✅ Addon active on port ${process.env.PORT || 7000}`);
 // } catch (e) {
 //     console.error('❌ Errore avvio Amstaff updater:', e);
 // }
@@ -6925,6 +7026,16 @@ try {
     console.log('✅ ThisNot auto-updater attivato (ogni 2 ore)');
 } catch (e) {
     console.error('❌ Errore avvio ThisNot updater:', e);
+}
+// ====================================================================
+
+// =============== SPORTZX AUTO-UPDATER ==============================
+// Avvia aggiornamento automatico canali SportzX ogni 15 minuti
+try {
+    startSportzxScheduler();
+    console.log('✅ SportzX auto-updater attivato (ogni 15 min)');
+} catch (e) {
+    console.error('❌ Errore avvio SportzX updater:', e);
 }
 // ====================================================================
 
