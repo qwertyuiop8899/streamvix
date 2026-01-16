@@ -39,6 +39,7 @@ import { startRmScheduler, updateRmChannels } from './utils/rmUpdater';
 // ThisNot updater
 import { startThisNotUpdater, updateThisNotChannels } from './utils/thisnotChannels';
 import { startSportzxScheduler, getSportzxChannels } from './utils/sportzxUpdater';
+import { startSports99Scheduler, getSports99Channels } from './utils/sports99Updater';
 // import { startMpdzScheduler, updateMpdzChannels } from './utils/mpdzUpdater';
 import { startMpdxScheduler, updateMpdxChannels } from './utils/mpdxUpdater';
 // import { startZEventiScheduler, updateZEventiChannels } from './utils/zEventiUpdater';
@@ -679,6 +680,7 @@ const baseManifest: Manifest = {
                         "Z-Eventi",
                         "THISNOT",
                         "SportzX",
+                        "Sports99",
                         "Serie A",
                         "Serie B",
                         "Serie C",
@@ -1626,8 +1628,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // INTEGRATION: Add SportZX channels to Live catalog
                 const sportzx = getSportzxChannels();
                 if (sportzx.length > 0) {
-                    // Add them to the list
                     filteredChannels = [...filteredChannels, ...sportzx];
+                }
+                // INTEGRATION: Add Sports99 channels to Live catalog
+                const sports99 = getSports99Channels();
+                if (sports99.length > 0) {
+                    filteredChannels = [...filteredChannels, ...sports99];
                 }
                 // console.log(`[CATALOG] streamvix_live -> filtered dynamic count=${filteredChannels.length}`);
             } else if (id === 'streamvix_dvr') {
@@ -1873,6 +1879,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     genreMap['thisnot'] = 'thisnot';
                     genreMap['ppv'] = 'ppv';
                     genreMap['sportzx'] = 'sportzx'; // lowercase to match getChannelCategories() output
+                    genreMap['sports99'] = 'sports99'; // Sports99 channels
                     const target = genreMap[norm] || norm;
                     requestedSlug = target;
 
@@ -2222,6 +2229,28 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }
             }
 
+            // === SPORTS99 META HANDLER ===
+            if (cleanId.startsWith('sports99_')) {
+                const { getSports99Channels } = await import('./utils/sports99Updater');
+                const sports99Channel = getSports99Channels().find((c: any) => c.id === cleanId);
+                if (sports99Channel) {
+                    console.log(`✅ Found Sports99 channel for meta: ${sports99Channel.name}`);
+                    return {
+                        meta: {
+                            id: `tv:${sports99Channel.id}`,
+                            type: 'tv',
+                            name: sports99Channel.name,
+                            poster: sports99Channel.logo,
+                            posterShape: 'square',
+                            background: sports99Channel.logo,
+                            description: sports99Channel.description || 'Sports99 Live Stream',
+                            genres: ['Sports99', 'Live', 'Sport'],
+                            releaseInfo: 'Live Event'
+                        }
+                    };
+                }
+            }
+
             // === THISNOT META HANDLER ===
             // Prima controlla se è un canale ThisNot
             const allChannels = loadDynamicChannels(false);
@@ -2502,6 +2531,37 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 }
                             }]
                         };
+                    }
+                }
+
+                // === SPORTS99 STREAM HANDLER ===
+                if (cleanIdForSportzx.startsWith('sports99_')) {
+                    const { getSports99Channels } = await import('./utils/sports99Updater');
+                    const { Sports99Client } = await import('./extractors/sports99');
+                    const sports99Channel = getSports99Channels().find((c: any) => c.id === cleanIdForSportzx);
+                    if (sports99Channel && sports99Channel._sports99) {
+                        const match = sports99Channel._sports99;
+                        console.log(`✅ Found Sports99 stream for: ${sports99Channel.name}`);
+
+                        // Resolve the player URL to get M3U8
+                        const client = new Sports99Client();
+                        const streamUrl = await client.resolveStreamUrl(match.player_url);
+
+                        if (streamUrl) {
+                            return {
+                                streams: [{
+                                    url: streamUrl,
+                                    title: '🔴 LIVE',
+                                    name: match.channel_name || 'Sports99',
+                                    behaviorHints: {
+                                        notWebReady: true
+                                    }
+                                }]
+                            };
+                        } else {
+                            console.warn(`[Sports99] Could not resolve stream for ${sports99Channel.name}`);
+                            return { streams: [] };
+                        }
                     }
                 }
 
@@ -7055,6 +7115,15 @@ try {
     console.error('❌ Errore avvio SportzX updater:', e);
 }
 // ====================================================================
+
+// =============== SPORTS99 AUTO-UPDATER ==============================
+// Avvia aggiornamento automatico canali Sports99 ogni 15 minuti
+try {
+    startSports99Scheduler();
+    console.log('✅ Sports99 auto-updater attivato (ogni 15 min)');
+} catch (e) {
+    console.error('❌ Errore avvio Sports99 updater:', e);
+}
 
 // =============== MPDZ AUTO-UPDATER ==============================
 // Avvia aggiornamento automatico canali MPDz () ogni 23 minuti
