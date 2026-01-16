@@ -344,6 +344,7 @@ function landingTemplate(manifest: any) {
 					'cb01Enabled': { title: 'CB01 🎞️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci Proxy URL per abilitare)</span>', invert: false },
 					// 'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false }, // NASCOSTO
 					'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
+					'dvrEnabled': { title: 'DVR (EasyProxy only) 📹', invert: false },
 					'mediaflowMaster': { title: 'EasyProxy o MediaFlowProxy ☂️', invert: false },
 				}
 				if (toggleMap[key]) {
@@ -608,9 +609,12 @@ function landingTemplate(manifest: any) {
 				var cb01Row = cb01El ? cb01El.closest('[data-toggle-row]') : null;
 				var toonitaliaEl = document.getElementById('toonitaliaEnabled');
 				var toonitaliaRow = toonitaliaEl ? toonitaliaEl.closest('[data-toggle-row]') : null;
+				var dvrEl = document.getElementById('dvrEnabled');
+				var dvrRow = dvrEl ? dvrEl.closest('[data-toggle-row]') : null;
 				var storedVixsrcState = null; // remember previous user choice
 				var storedCb01State = null; // remember previous cb01 state
 				var storedToonitaliaState = null; // remember previous toonitalia state
+				var storedDvrState = null; // remember previous dvr state
 				function syncMfp(){
 					var on = mfpMaster ? mfpMaster.checked : false; // default OFF
 					var inputsFilled = mfpUrlInput && mfpPwdInput && mfpUrlInput.value.trim() !== '' && mfpPwdInput.value.trim() !== '';
@@ -682,6 +686,25 @@ function landingTemplate(manifest: any) {
 							}
 						}
 						if (toonitaliaRow) setRowState(toonitaliaRow);
+					}
+					// DVR toggle gating (richiede MFP attivo e configurato)
+					if (dvrEl){
+						if (!on) { // Master OFF
+							if (storedDvrState === null) storedDvrState = dvrEl.checked;
+							dvrEl.checked = false;
+							dvrEl.disabled = true;
+							if (dvrRow) dvrRow.classList.add('dimmed');
+						} else { // Master ON
+							if (dvrRow) dvrRow.classList.remove('dimmed');
+							dvrEl.disabled = !canEnableWithUrl;
+							if (canEnableWithUrl) {
+								if (storedDvrState !== null) { dvrEl.checked = storedDvrState; storedDvrState = null; }
+							} else {
+								if (storedDvrState === null) storedDvrState = dvrEl.checked;
+								dvrEl.checked = false;
+							}
+						}
+						if (dvrRow) setRowState(dvrRow);
 					}
 				}
 				if (mfpMaster){ mfpMaster.addEventListener('change', function(){ syncMfp(); updateLink(); }); syncMfp(); }
