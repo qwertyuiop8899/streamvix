@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.0...v1.14.1) (2026-01-16)
+
+
+### Bug Fixes
+
+* proxy ([6b868b9](https://github.com/qwertyuiop8899/streamvix/commit/6b868b9a6c277cd48b37caf10b2a3c239014c186))
+
 ## [1.14.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.13.0...v1.14.0) (2026-01-14)
 
 
