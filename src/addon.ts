@@ -724,7 +724,7 @@ const baseManifest: Manifest = {
         { key: "tmdbApiKey", title: "TMDB API Key", type: "text" },
         { key: "mediaFlowProxyUrl", title: "☂️ Proxy URL", type: "text" },
         { key: "mediaFlowProxyPassword", title: "Proxy Password (opzionale)", type: "text" },
-        { key: "dvrEnabled", title: "📹 DVR (EasyProxy only)", type: "checkbox", default: false },
+        { key: "dvrEnabled", title: "DVR (EasyProxy only) 📹", type: "checkbox", default: false },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
         { key: "disableVixsrc", title: "Disable StreamingCommunity", type: "checkbox" },
         { key: "vixDirect", title: "StreamingCommunity Direct mode", type: "checkbox" },
