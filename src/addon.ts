@@ -44,6 +44,8 @@ import { startMpdxScheduler, updateMpdxChannels } from './utils/mpdxUpdater';
 import { getGuardoserieStreams } from './providers/guardoserie';
 import { getGuardaflixStreams } from './providers/guardaflix';
 import { getTrailerStreams, isTrailerProviderAvailable } from './providers/trailerProvider';
+// EasyProxy DVR integration
+import { getDvrStreamsForChannel, getDvrConfig, buildDvrRecordEntry } from './utils/easyproxyDvr';
 
 // ================= TYPES & INTERFACES =================
 interface AddonConfig {
@@ -66,6 +68,8 @@ interface AddonConfig {
     disableVixsrc?: boolean;
     tvtapProxyEnabled?: boolean;
     vavooNoMfpEnabled?: boolean;
+    // DVR setting (uses mediaFlowProxyUrl for EasyProxy)
+    dvrEnabled?: boolean;
 }
 
 function debugLog(...args: any[]) { try { console.log('[DEBUG]', ...args); } catch { } }
@@ -528,11 +532,41 @@ function sortStreamsByPriority(streams: { url?: string; title?: string }[]): voi
     streams.sort((a, b) => {
         const streamA = { url: a.url || '', title: a.title || '' };
         const streamB = { url: b.url || '', title: b.title || '' };
-        const prioA = getStreamPriority(streamA);
-        const prioB = getStreamPriority(streamB);
+
+        // DVR category: -2 = active recording, -1 = completed, 0 = live, 1 = record entry
+        const getDvrCategory = (title: string): number => {
+            if (title.includes('Recording...') || title.includes('Stop & Watch')) return -2;
+            if (title.includes('[DVR]') && !title.includes('REC')) return -1;
+            if (title.startsWith('🔴 REC')) return 1;
+            return 0; // Live stream
+        };
+
+        const catA = getDvrCategory(streamA.title);
+        const catB = getDvrCategory(streamB.title);
+
+        // Different categories - sort by category
+        if (catA !== catB) {
+            return catA - catB;
+        }
+
+        // Same category - use stream priority
+        // For DVR "REC" entries, extract the stream title and use that for priority
+        let prioStreamA = streamA;
+        let prioStreamB = streamB;
+
+        if (catA === 1) {
+            // Extract stream info from "🔴 REC (4h) <stream_title>"
+            const extractTitle = (t: string) => t.replace(/^🔴 REC \(\d+h\) /, '');
+            prioStreamA = { url: streamA.url, title: extractTitle(streamA.title) };
+            prioStreamB = { url: streamB.url, title: extractTitle(streamB.title) };
+        }
+
+        const prioA = getStreamPriority(prioStreamA);
+        const prioB = getStreamPriority(prioStreamB);
         if (prioA !== prioB) return prioA - prioB;
-        // Se stessa priorità, ordina alfabeticamente per titolo
-        return streamA.title.localeCompare(streamB.title);
+
+        // Same priority - alphabetical
+        return prioStreamA.title.localeCompare(prioStreamB.title);
     });
 }
 
@@ -605,7 +639,7 @@ const baseManifest: Manifest = {
     description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
     types: ["movie", "series", "tv", "anime"],
-    idPrefixes: ["tt", "kitsu", "tv", "mal", "tmdb"],
+    idPrefixes: ["tt", "kitsu", "tv", "mal", "tmdb", "dvr"],
     catalogs: [
         {
             id: "streamvix_tv",
@@ -669,6 +703,19 @@ const baseManifest: Manifest = {
                 { name: "genre", isRequired: false },
                 { name: "search", isRequired: false }
             ]
+        },
+        {
+            id: "streamvix_dvr",
+            type: "tv",
+            name: "StreamViX DVR",
+            extra: [
+                {
+                    name: "genre",
+                    isRequired: false,
+                    options: ["All Recordings"]
+                },
+                { name: "search", isRequired: false }
+            ]
         }
     ],
     resources: ["stream", "catalog", "meta"],
@@ -677,6 +724,7 @@ const baseManifest: Manifest = {
         { key: "tmdbApiKey", title: "TMDB API Key", type: "text" },
         { key: "mediaFlowProxyUrl", title: "☂️ Proxy URL", type: "text" },
         { key: "mediaFlowProxyPassword", title: "Proxy Password (opzionale)", type: "text" },
+        { key: "dvrEnabled", title: "📹 DVR (EasyProxy only)", type: "checkbox", default: false },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
         { key: "disableVixsrc", title: "Disable StreamingCommunity", type: "checkbox" },
         { key: "vixDirect", title: "StreamingCommunity Direct mode", type: "checkbox" },
@@ -703,7 +751,6 @@ const baseManifest: Manifest = {
         // UI helper toggles (not used directly server-side but drive dynamic form logic)
         { key: "personalTmdbKey", title: "TMDB API KEY Personale", type: "checkbox" },
         { key: "mediaflowMaster", title: "MediaflowProxy", type: "checkbox", default: false },
-
     ]
 };
 
@@ -1499,7 +1546,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     const builder = new addonBuilder(effectiveManifest);
 
     // === TV CATALOG HANDLER ONLY ===
-    builder.defineCatalogHandler(async ({ type, id, extra }: { type: string; id: string; extra?: any }) => {
+    builder.defineCatalogHandler(async ({ type, id, extra, config: requestConfig }: { type: string; id: string; extra?: any; config?: any }) => {
         if (type === "tv") {
             // Simple runtime toggle: hide TV when disabled
             try {
@@ -1566,6 +1613,119 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // Solo canali live/dinamici (hanno _dynamic: true)
                 filteredChannels = filteredChannels.filter((c: any) => c._dynamic);
                 // console.log(`[CATALOG] streamvix_live -> filtered dynamic count=${filteredChannels.length}`);
+            } else if (id === 'streamvix_dvr') {
+                // DVR catalog - fetch recordings from EasyProxy
+                try {
+                    const { getDvrConfig, formatDuration, formatFileSize } = await import('./utils/easyproxyDvr');
+                    // Use request config (user's config from URL) with fallback to configCache
+                    const cfg = requestConfig && Object.keys(requestConfig).length > 0
+                        ? { ...requestConfig }
+                        : { ...configCache };
+                    console.log(`📹 DVR catalog: Using config dvrEnabled=${cfg.dvrEnabled}, mediaFlowProxyUrl=${cfg.mediaFlowProxyUrl?.substring(0, 30)}...`);
+                    const dvrConfig = getDvrConfig(cfg);
+
+                    if (!dvrConfig) {
+                        console.log('📹 DVR catalog: DVR not configured');
+                        return { metas: [], cacheMaxAge: 60 };
+                    }
+
+                    // Fetch all recordings from EasyProxy
+                    const params = new URLSearchParams();
+                    if (dvrConfig.apiPassword) {
+                        params.set('api_password', dvrConfig.apiPassword);
+                    }
+                    const url = `${dvrConfig.easyProxyUrl}/api/recordings?${params.toString()}`;
+
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 10000);
+
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            ...(dvrConfig.apiPassword ? { 'x-api-password': dvrConfig.apiPassword } : {})
+                        },
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeout);
+
+                    if (!response.ok) {
+                        console.warn(`📹 DVR catalog: Failed to fetch recordings: ${response.status}`);
+                        return { metas: [], cacheMaxAge: 60 };
+                    }
+
+                    const data = await response.json();
+                    const recordings = data.recordings || [];
+
+                    console.log(`📹 DVR catalog: API returned ${recordings.length} recordings`);
+                    if (recordings.length > 0) {
+                        console.log(`📹 DVR catalog: First recording:`, JSON.stringify(recordings[0], null, 2));
+                    }
+
+                    // Filter to only completed/stopped recordings with files
+                    const validRecordings = recordings.filter((rec: any) => {
+                        const hasValidFile = rec.file_size_bytes && rec.file_size_bytes > 0;
+                        const isFinished = ['completed', 'stopped', 'failed'].includes(rec.status);
+                        return isFinished && hasValidFile && !rec.is_active;
+                    });
+
+                    // Also include active recordings (check is_active OR status)
+                    const activeRecordings = recordings.filter((rec: any) =>
+                        rec.is_active || rec.status === 'recording' || rec.status === 'starting'
+                    );
+
+                    console.log(`📹 DVR catalog: ${activeRecordings.length} active, ${validRecordings.length} completed`);
+
+                    // Convert to Stremio meta format
+                    const metas = [...activeRecordings, ...validRecordings].map((rec: any) => {
+                        const isActive = rec.is_active || rec.status === 'recording' || rec.status === 'starting';
+                        const elapsed = rec.elapsed_seconds ? formatDuration(rec.elapsed_seconds) : '';
+                        const duration = rec.duration_seconds ? formatDuration(rec.duration_seconds) : '';
+                        const size = rec.file_size_bytes ? formatFileSize(rec.file_size_bytes) : '';
+                        const date = rec.started_at ? new Date(rec.started_at).toLocaleDateString() : '';
+                        const time = rec.started_at ? new Date(rec.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+                        // Build display name - strip source tags like [FREE], [MPD2] etc
+                        let displayName = (rec.name || 'Recording').replace(/^\[([^\]]+)\]\s*/, '');
+
+                        // For active recordings, show elapsed time
+                        // For completed recordings, show duration
+                        const timeInfo = isActive ? elapsed : duration;
+                        if (timeInfo) {
+                            displayName = `[${timeInfo}] ${displayName}`;
+                        }
+
+                        const statusPrefix = isActive ? '🔴 ' : '📹 ';
+
+                        // Build description with more details
+                        let details: string;
+                        if (isActive) {
+                            const startedInfo = time ? `Started ${time}` : '';
+                            details = [startedInfo, elapsed ? `${elapsed} elapsed` : 'Starting...'].filter(Boolean).join(' • ');
+                        } else {
+                            details = [duration, size, date].filter(Boolean).join(' • ');
+                        }
+
+                        return {
+                            id: `dvr:${rec.id}`,
+                            type: 'tv',
+                            name: `${statusPrefix}${displayName}`,
+                            poster: 'https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/logo.png',
+                            posterShape: 'landscape',
+                            description: details,
+                            genres: ['DVR'],
+                            // Store recording data for stream handler
+                            _dvrRecording: rec
+                        };
+                    });
+
+                    console.log(`📹 DVR catalog: Returning ${metas.length} recordings`);
+                    return { metas, cacheMaxAge: 30 }; // Short cache for DVR
+
+                } catch (error) {
+                    console.error('📹 DVR catalog error:', error);
+                    return { metas: [], cacheMaxAge: 60 };
+                }
             }
 
             let requestedSlug: string | null = null;
@@ -1921,7 +2081,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     });
 
     // === HANDLER META ===
-    builder.defineMetaHandler(async ({ type, id }: { type: string; id: string }) => {
+    builder.defineMetaHandler(async ({ type, id, config: requestConfig }: { type: string; id: string; config?: any }) => {
         console.log(`📺 META REQUEST: type=${type}, id=${id}`);
         if (type === "tv") {
             // Gestisci tutti i possibili formati di ID che Stremio può inviare
@@ -1935,6 +2095,88 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 cleanId = decodeURIComponent(id);
                 if (cleanId.startsWith('tv:')) {
                     cleanId = cleanId.replace('tv:', '');
+                }
+            }
+
+            // === DVR META HANDLER ===
+            // Handle DVR recording meta requests (IDs starting with dvr:)
+            if (id.startsWith('dvr:') || id.startsWith('dvr%3A') || cleanId.startsWith('dvr:')) {
+                // Extract recording ID - handle both encoded (dvr%3A) and unencoded (dvr:) formats
+                const recordingId = id.replace(/^dvr%3A/i, '').replace(/^dvr:/i, '');
+                console.log(`📹 DVR meta request for recording: ${recordingId} (original id: ${id})`);
+
+                try {
+                    const { getDvrConfig, formatDuration, formatFileSize } = await import('./utils/easyproxyDvr');
+                    // Use request config with fallback to configCache
+                    const cfg = requestConfig && Object.keys(requestConfig).length > 0
+                        ? { ...requestConfig }
+                        : { ...configCache };
+                    console.log(`📹 DVR meta: Using config dvrEnabled=${cfg.dvrEnabled}, mediaFlowProxyUrl=${cfg.mediaFlowProxyUrl?.substring(0, 30)}...`);
+                    const dvrConfig = getDvrConfig(cfg);
+
+                    if (!dvrConfig) {
+                        console.warn('📹 DVR meta: DVR not configured');
+                        return { meta: null };
+                    }
+
+                    // Fetch recording details
+                    const params = new URLSearchParams();
+                    if (dvrConfig.apiPassword) {
+                        params.set('api_password', dvrConfig.apiPassword);
+                    }
+                    const apiUrl = `${dvrConfig.easyProxyUrl}/api/recordings/${recordingId}?${params.toString()}`;
+
+                    const response = await fetch(apiUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            ...(dvrConfig.apiPassword ? { 'x-api-password': dvrConfig.apiPassword } : {})
+                        }
+                    });
+
+                    if (!response.ok) {
+                        console.warn(`📹 DVR meta: Recording not found: ${response.status}`);
+                        return { meta: null };
+                    }
+
+                    const recording = await response.json();
+                    const duration = recording.duration_seconds ? formatDuration(recording.duration_seconds) : '';
+                    const size = recording.file_size_bytes ? formatFileSize(recording.file_size_bytes) : '';
+                    const date = recording.started_at ? new Date(recording.started_at).toLocaleDateString() : '';
+                    const isActive = recording.is_active;
+
+                    let displayName = recording.name || 'Recording';
+                    if (duration) {
+                        const tagPattern = /^\[([^\]]+)\]\s*/;
+                        if (tagPattern.test(displayName)) {
+                            displayName = displayName.replace(tagPattern, `[${duration}] `);
+                        } else {
+                            displayName = `[${duration}] ${displayName}`;
+                        }
+                    }
+
+                    const statusPrefix = isActive ? '🔴 ' : '📹 ';
+                    const details = isActive
+                        ? `Recording in progress...`
+                        : [size, date].filter(Boolean).join(' | ');
+
+                    console.log(`📹 DVR meta: Returning meta for ${recordingId}`);
+                    return {
+                        meta: {
+                            id: `dvr:${recordingId}`,
+                            type: 'tv',
+                            name: `${statusPrefix}${displayName}`,
+                            poster: 'https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/logo.png',
+                            posterShape: 'landscape',
+                            background: 'https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/logo.png',
+                            description: details,
+                            genres: ['DVR']
+                        }
+                    };
+
+                } catch (error) {
+                    console.error('📹 DVR meta error:', error);
+                    return { meta: null };
                 }
             }
 
@@ -2187,7 +2429,82 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                 const allStreams: Stream[] = [];
 
+                // === DVR STREAM HANDLER ===
+                // Handle DVR recording playback (IDs starting with dvr:)
+                if (id.startsWith('dvr:') || id.startsWith('dvr%3A')) {
+                    // Extract recording ID - handle both encoded (dvr%3A) and unencoded (dvr:) formats
+                    const recordingId = id.replace(/^dvr%3A/i, '').replace(/^dvr:/i, '');
+                    console.log(`📹 DVR stream request for recording: ${recordingId} (original id: ${id})`);
 
+                    try {
+                        const { getDvrConfig, buildRecordingStreamUrl, buildStopAndStreamUrl, buildRecordingDeleteUrl } = await import('./utils/easyproxyDvr');
+                        const dvrConfig = getDvrConfig(config);
+
+                        if (!dvrConfig) {
+                            console.warn('📹 DVR stream: DVR not configured');
+                            return { streams: [] };
+                        }
+
+                        // Fetch recording details to check if active
+                        const params = new URLSearchParams();
+                        if (dvrConfig.apiPassword) {
+                            params.set('api_password', dvrConfig.apiPassword);
+                        }
+                        const apiUrl = `${dvrConfig.easyProxyUrl}/api/recordings/${recordingId}?${params.toString()}`;
+
+                        const response = await fetch(apiUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json',
+                                ...(dvrConfig.apiPassword ? { 'x-api-password': dvrConfig.apiPassword } : {})
+                            }
+                        });
+
+                        if (!response.ok) {
+                            console.warn(`📹 DVR stream: Recording not found: ${response.status}`);
+                            return { streams: [] };
+                        }
+
+                        const recording = await response.json();
+                        const streams: Stream[] = [];
+
+                        const isActive = recording.is_active || recording.status === 'recording' || recording.status === 'starting';
+                        console.log(`📹 DVR stream: recording status=${recording.status}, is_active=${recording.is_active}, isActive=${isActive}`);
+
+                        if (isActive) {
+                            // Active recording - offer stop & watch
+                            const stopStreamUrl = buildStopAndStreamUrl(dvrConfig, recordingId);
+                            streams.push({
+                                url: stopStreamUrl,
+                                title: '🔴 Stop Recording & Watch',
+                                behaviorHints: { notWebReady: false }
+                            });
+                        } else {
+                            // Completed recording - stream directly
+                            const streamUrl = buildRecordingStreamUrl(dvrConfig, recordingId);
+                            streams.push({
+                                url: streamUrl,
+                                title: `📹 Play Recording`,
+                                behaviorHints: { notWebReady: false }
+                            });
+                        }
+
+                        // Add delete option for all recordings
+                        const deleteUrl = buildRecordingDeleteUrl(dvrConfig, recordingId);
+                        streams.push({
+                            url: deleteUrl,
+                            title: `🗑️ DELETE Recording`,
+                            behaviorHints: { notWebReady: true }
+                        });
+
+                        console.log(`📹 DVR stream: Returning ${streams.length} streams for ${recordingId}`);
+                        return { streams };
+
+                    } catch (error) {
+                        console.error('📹 DVR stream error:', error);
+                        return { streams: [] };
+                    }
+                }
 
                 // === LOGICA TV ===
                 if (type === "tv") {
@@ -4168,6 +4485,94 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         } catch (sortErr) {
                             debugLog(`[DynamicEvents] Errore ordinamento:`, String((sortErr as any)?.message || sortErr));
                         }
+
+                        // === DVR INTEGRATION FOR DYNAMIC EVENTS ===
+                        const dynDvrConfig = getDvrConfig(config as any);
+                        const dynDvrEnabled = dynDvrConfig && ((config as any).dvrEnabled !== false);
+                        if (dynDvrEnabled && allStreams.length > 0) {
+                            try {
+                                const dvrRecordStreams: typeof allStreams = [];
+
+                                // Add a DVR record entry for each valid stream
+                                for (const stream of allStreams) {
+                                    if (!stream.url || stream.url.includes('nostream')) continue;
+
+                                    // Extract the source URL from proxied stream if applicable
+                                    // Also preserve key_id and key parameters for DRM-protected streams
+                                    let recordUrl = stream.url;
+                                    const dMatch = stream.url.match(/[?&]d=([^&]+)/);
+                                    if (dMatch) {
+                                        recordUrl = decodeURIComponent(dMatch[1]);
+                                        // Extract and append key_id and key if present
+                                        const keyIdMatch = stream.url.match(/[?&]key_id=([^&]+)/);
+                                        const keyMatch = stream.url.match(/[?&]key=([^&]+)/);
+                                        if (keyIdMatch && keyMatch) {
+                                            const separator = recordUrl.includes('?') ? '&' : '?';
+                                            recordUrl += `${separator}key_id=${keyIdMatch[1]}&key=${keyMatch[1]}`;
+                                        }
+                                    }
+
+                                    const dvrEntry = buildDvrRecordEntry(
+                                        recordUrl,
+                                        stream.title || 'Stream',
+                                        channel.name || cleanId,
+                                        { addonConfig: config as any }
+                                    );
+
+                                    if (dvrEntry) {
+                                        dvrRecordStreams.push({
+                                            name: 'DVR',
+                                            title: dvrEntry.title,
+                                            url: dvrEntry.url,
+                                            behaviorHints: { notWebReady: false } as any
+                                        });
+                                    }
+                                }
+
+                                // Also add active/completed recordings
+                                const firstStream = allStreams.find(s => s.url && !s.url.includes('nostream'));
+                                if (firstStream) {
+                                    let recordUrl = firstStream.url;
+                                    const dMatch = firstStream.url.match(/[?&]d=([^&]+)/);
+                                    if (dMatch) {
+                                        recordUrl = decodeURIComponent(dMatch[1]);
+                                        // Extract and append key_id and key if present
+                                        const keyIdMatch = firstStream.url.match(/[?&]key_id=([^&]+)/);
+                                        const keyMatch = firstStream.url.match(/[?&]key=([^&]+)/);
+                                        if (keyIdMatch && keyMatch) {
+                                            const separator = recordUrl.includes('?') ? '&' : '?';
+                                            recordUrl += `${separator}key_id=${keyIdMatch[1]}&key=${keyMatch[1]}`;
+                                        }
+                                    }
+
+                                    const dvrStreams = await getDvrStreamsForChannel(
+                                        channel.name || cleanId,
+                                        recordUrl,
+                                        { addonConfig: config as any }
+                                    );
+                                    for (const dvrStream of dvrStreams) {
+                                        dvrRecordStreams.push({
+                                            name: 'DVR',
+                                            title: dvrStream.title,
+                                            url: dvrStream.url,
+                                            behaviorHints: { notWebReady: false } as any
+                                        });
+                                    }
+                                }
+
+                                // Add all DVR streams
+                                for (const dvrStream of dvrRecordStreams) {
+                                    allStreams.push(dvrStream);
+                                }
+
+                                if (dvrRecordStreams.length > 0) {
+                                    console.log(`[DVR] Added ${dvrRecordStreams.length} DVR stream(s) for dynamic event ${channel.name}`);
+                                }
+                            } catch (dvrErr) {
+                                console.warn('[DVR] Error adding DVR streams to dynamic event:', (dvrErr as any)?.message || dvrErr);
+                            }
+                        }
+
                         console.log(`✅ Returning ${allStreams.length} dynamic event streams`);
                         return { streams: allStreams };
                     }
@@ -4310,6 +4715,94 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // 5. AGGIUNGI STREAM ALTERNATIVI/FALLBACK per canali specifici
                     // RIMOSSO: Blocco che aggiunge fallback stream alternativi per canali Sky (skyFallbackUrls) se finalStreams.length < 3
                     // return { streams: finalStreamsWithRealUrls };
+
+                    // === DVR INTEGRATION ===
+                    // Add DVR streams (Record option for each stream + active/completed recordings)
+                    const dvrConfig = getDvrConfig(config as any);
+                    const dvrEnabled = dvrConfig && ((config as any).dvrEnabled !== false);
+                    if (dvrEnabled && allStreams.length > 0) {
+                        try {
+                            const dvrRecordStreams: typeof allStreams = [];
+
+                            // Add a DVR record entry for each valid stream
+                            for (const stream of allStreams) {
+                                if (!stream.url || stream.url.includes('nostream')) continue;
+
+                                // Extract the source URL from proxied stream if applicable
+                                // Also preserve key_id and key parameters for DRM-protected streams
+                                let recordUrl = stream.url;
+                                const dMatch = stream.url.match(/[?&]d=([^&]+)/);
+                                if (dMatch) {
+                                    recordUrl = decodeURIComponent(dMatch[1]);
+                                    // Extract and append key_id and key if present
+                                    const keyIdMatch = stream.url.match(/[?&]key_id=([^&]+)/);
+                                    const keyMatch = stream.url.match(/[?&]key=([^&]+)/);
+                                    if (keyIdMatch && keyMatch) {
+                                        const separator = recordUrl.includes('?') ? '&' : '?';
+                                        recordUrl += `${separator}key_id=${keyIdMatch[1]}&key=${keyMatch[1]}`;
+                                    }
+                                }
+
+                                const dvrEntry = buildDvrRecordEntry(
+                                    recordUrl,
+                                    stream.title || 'Stream',
+                                    channel.name || cleanId,
+                                    { addonConfig: config as any }
+                                );
+
+                                if (dvrEntry) {
+                                    dvrRecordStreams.push({
+                                        name: 'DVR',
+                                        title: dvrEntry.title,
+                                        url: dvrEntry.url,
+                                        behaviorHints: { notWebReady: false } as any
+                                    });
+                                }
+                            }
+
+                            // Also add active/completed recordings
+                            const firstStream = allStreams.find(s => s.url && !s.url.includes('nostream'));
+                            if (firstStream) {
+                                let recordUrl = firstStream.url;
+                                const dMatch = firstStream.url.match(/[?&]d=([^&]+)/);
+                                if (dMatch) {
+                                    recordUrl = decodeURIComponent(dMatch[1]);
+                                    // Extract and append key_id and key if present
+                                    const keyIdMatch = firstStream.url.match(/[?&]key_id=([^&]+)/);
+                                    const keyMatch = firstStream.url.match(/[?&]key=([^&]+)/);
+                                    if (keyIdMatch && keyMatch) {
+                                        const separator = recordUrl.includes('?') ? '&' : '?';
+                                        recordUrl += `${separator}key_id=${keyIdMatch[1]}&key=${keyMatch[1]}`;
+                                    }
+                                }
+
+                                const dvrStreams = await getDvrStreamsForChannel(
+                                    channel.name || cleanId,
+                                    recordUrl,
+                                    { addonConfig: config as any }
+                                );
+                                for (const dvrStream of dvrStreams) {
+                                    dvrRecordStreams.push({
+                                        name: 'DVR',
+                                        title: dvrStream.title,
+                                        url: dvrStream.url,
+                                        behaviorHints: { notWebReady: false } as any
+                                    });
+                                }
+                            }
+
+                            // Add all DVR streams
+                            for (const dvrStream of dvrRecordStreams) {
+                                allStreams.push(dvrStream);
+                            }
+
+                            if (dvrRecordStreams.length > 0) {
+                                console.log(`[DVR] Added ${dvrRecordStreams.length} DVR stream(s) for ${channel.name}`);
+                            }
+                        } catch (dvrErr) {
+                            console.warn('[DVR] Error adding DVR streams:', (dvrErr as any)?.message || dvrErr);
+                        }
+                    }
                 }
 
                 // === LOGICA ANIME/FILM (originale) ===
