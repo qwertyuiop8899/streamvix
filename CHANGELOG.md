@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.14.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.2...v1.14.3) (2026-01-16)
+
+
+### Bug Fixes
+
+* add sportextrac ([14dd0ef](https://github.com/qwertyuiop8899/streamvix/commit/14dd0ef8082f84a5a7c1b30f1d27a33e6b32902d))
+* add sportzxUpdater.ts ([c0efb23](https://github.com/qwertyuiop8899/streamvix/commit/c0efb233431b419a16410e181e150da6186a6868))
+* addon sportzx ([e0ede1a](https://github.com/qwertyuiop8899/streamvix/commit/e0ede1aa1bea1612a79576fa3bb68f85a8584602))
+* dvr button ([e74e36f](https://github.com/qwertyuiop8899/streamvix/commit/e74e36fc32861371cadd7aa844262f817db942e1))
+
 ## [1.14.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.1...v1.14.2) (2026-01-16)
 
 
