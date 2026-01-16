@@ -635,7 +635,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "9.8.23",
+    version: "9.7.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -1528,15 +1528,24 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     // Applica un filtro leggero al manifest per nascondere il catalogo TV quando disabilitato
     const effectiveManifest: Manifest = (() => {
         try {
+            const filtered = { ...manifest } as Manifest;
+            const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
+
+            // Rimuovi cataloghi TV quando disabilitato
             if (initialConfig && (initialConfig as any).disableLiveTv) {
-                const filtered = { ...manifest } as Manifest;
-                const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
-                // Rimuovi ENTRAMBI i cataloghi TV (streamvix_tv + streamvix_live) quando disabilitato
                 filtered.catalogs = cats.filter((c: any) =>
                     !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live'))
                 );
-                return filtered;
             }
+
+            // Rimuovi catalogo DVR quando dvrEnabled non è attivo
+            if (!initialConfig || !(initialConfig as any).dvrEnabled) {
+                filtered.catalogs = (filtered.catalogs || []).filter((c: any) =>
+                    !(c && (c as any).id === 'streamvix_dvr')
+                );
+            }
+
+            return filtered;
         } catch { }
         return manifest;
     })();
@@ -5760,6 +5769,14 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
             // Rimuovi ENTRAMBI i cataloghi TV (streamvix_tv + streamvix_live) quando disabilitato
             filtered.catalogs = cats.filter((c: any) =>
                 !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live'))
+            );
+        }
+
+        // Rimuovi catalogo DVR quando dvrEnabled non è attivo
+        const effectiveDvr = (cfgFromUrl as any)?.dvrEnabled ?? (configCache as any)?.dvrEnabled;
+        if (!effectiveDvr) {
+            filtered.catalogs = (filtered.catalogs || []).filter((c: any) =>
+                !(c && (c as any).id === 'streamvix_dvr')
             );
         }
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
