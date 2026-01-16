@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.3...v1.14.4) (2026-01-16)
+
+
+### Bug Fixes
+
+* hide dvr ([0eb92da](https://github.com/qwertyuiop8899/streamvix/commit/0eb92da656799cbf43b91ea4239b40c8d4d5608e))
+
 ## [1.14.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.2...v1.14.3) (2026-01-16)
 
 
