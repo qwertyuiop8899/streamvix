@@ -230,8 +230,9 @@ export class SportzxClient {
                             [keyid, key] = ch.api.split(":", 2);
                         }
 
-                        // event.time format: "2025/11/10 16:00:00 +0000"
-                        const timeSt = (event.time || "").substring(0, 16);
+                        // event.eventInfo.startTime format: "2025/11/10 16:00:00 +0000"
+                        const startTime = event.eventInfo?.startTime || "";
+                        const timeSt = startTime.substring(0, 16);
 
                         channelsList.push({
                             event_title: event.title,
