@@ -1,6 +1,6 @@
 {
   "name": "streamvix",
-  "version": "9.8.23",
+  "version": "10.0.23",
   "description": "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, CB01, TV ed Eventi Live",
   "main": "dist/addon.js",
   "packageManager": "pnpm@8.15.5",
