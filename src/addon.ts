@@ -636,7 +636,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "9.7.23",
+    version: "9.8.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -6709,6 +6709,16 @@ app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) =
             htmlLog.push(`<li>✅ <strong>SportzX</strong>: ${count} channels updated (FORCED)</li>`);
         } catch (e: any) {
             htmlLog.push(`<li>❌ <strong>SportzX</strong>: Error: ${e.message}</li>`);
+        }
+
+        // Sports99 (in-memory cache)
+        try {
+            const { updateSports99Channels, getSports99Channels } = await import('./utils/sports99Updater');
+            await updateSports99Channels();
+            const count = getSports99Channels().length;
+            htmlLog.push(`<li>✅ <strong>Sports99</strong>: ${count} channels updated (FORCED)</li>`);
+        } catch (e: any) {
+            htmlLog.push(`<li>❌ <strong>Sports99</strong>: Error: ${e.message}</li>`);
         }
 
         htmlLog.push('</ul>');
