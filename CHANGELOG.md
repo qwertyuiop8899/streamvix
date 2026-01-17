@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.8...v1.14.9) (2026-01-17)
+
+
+### Bug Fixes
+
+* packagejson missing dist provide ([21dd852](https://github.com/qwertyuiop8899/streamvix/commit/21dd852e12917e6630a0b415f5dcc188530b0c2d))
+
 ## [1.14.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.7...v1.14.8) (2026-01-17)
 
 
