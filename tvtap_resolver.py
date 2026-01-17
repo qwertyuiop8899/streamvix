@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*- 
 """
 TVTap Resolver per StreamViX MFP
 Basato sul codice originale funzionante
