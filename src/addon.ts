@@ -683,7 +683,7 @@ const baseManifest: Manifest = {
                     name: "genre",
                     options: [
                         "X-Eventi",
-                        "Z-Eventi",
+                        // "Z-Eventi",
                         "THISNOT",
                         "SportzX",
                         "Sports99",
@@ -2954,7 +2954,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
 
                         // === Z-Eventi & X-Eventi EARLY RETURN: MPD con chiavi - costruisce URL proxy usando config utente ===
+                        /* Z-Eventi DISABLED
                         const isZEventi = channelCategory === 'Z-EVENTI' || (channel as any).id?.startsWith('zeventi_');
+                        */
+                        const isZEventi = false;
                         const isXEventi = channelCategory === 'X-Eventi' || channelCategory === 'X-EVENTI' || (channel as any).id?.startsWith('xeventi_');
 
                         if (isZEventi || isXEventi) {
