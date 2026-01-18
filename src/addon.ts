@@ -513,8 +513,14 @@ function getStreamPriority(stream: { url: string; title: string }): number {
     // 8. GDplayer
     if (/\[🌐Gd\]|\bGd\b|gdplayer/i.test(title)) return 8;
 
-    // 10. SPON
-    if (/\[?SPON\]?/i.test(title)) return 10;
+    // 9.5. SPON
+    if (/\[?SPON\]?/i.test(title)) return 9.5;
+
+    // 9.8. SportzX [SPZX]
+    if (/\[SPZX\]/i.test(title)) return 9.8;
+
+    // 9.9. Sports99 [SP99]
+    if (/\[SP99\]/i.test(title)) return 9.9;
 
     // 13. Altri daddy FAST dynamic (estratti ma non italiani, non leftover)
     if (!/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 13;
@@ -3551,6 +3557,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             console.error('[MPDx] Injection error:', (e as any)?.message || e);
                         }
 
+
                         // (Normalizzazione CF rimossa: ora pubblichiamo link avvolti con extractor on-demand)
                         // Append leftover entries (beyond CAP) con stessa logica on-demand (proxy/hls diretto)
                         if (extraFast.length && mfpUrl) {
@@ -4505,6 +4512,138 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 streams.splice(insertPos, 0, freeshotStream);
                             }
                         } catch { }
+                        // === SPORTZX & SPORTS99 STREAM INJECTION (Fuzzy Match) ===
+                        try {
+                            // Helper Fuzzy Match (locale per lo stream handler)
+                            const fuzzyMatch = (eventTitle: string, channelTitle: string): boolean => {
+                                const TEAM_ALIASES: Record<string, string> = {
+                                    'juve': 'juventus',
+                                    'fc juventus': 'juventus',
+                                    'inter': 'internazionale',
+                                    'fc inter': 'internazionale',
+                                    'lazio': 'sslazio',
+                                    'ss lazio': 'sslazio',
+                                    'roma': 'asroma',
+                                    'as roma': 'asroma',
+                                    'milan': 'acmilan',
+                                    'ac milan': 'acmilan',
+                                    'napoli': 'sscnapoli',
+                                    'ssc napoli': 'sscnapoli',
+                                    'atalanta': 'atalanta',
+                                    'fiorentina': 'acffiorentina',
+                                    'acf fiorentina': 'acffiorentina'
+                                };
+
+                                const normalize = (s: string) => {
+                                    let clean = s.toLowerCase()
+                                        // Rimuovi parole comuni, date (NN/NN), e termini generici di leghe
+                                        .replace(/\b(vs|v|-|live|hd|it|ita|italy|italia|match|serie|semifinal|quarterfinal|round|cup|league|football|st|nd|rd|th)\b/g, ' ')
+                                        .replace(/\b\d{1,2}[\/-]\d{1,2}\b/g, '') // remove DD/MM or DD-MM
+                                        .replace(/\b[a-z]?\d{1,4}[a-z]?\b/g, '') // remove standalone numbers (years, times, simple numbers)
+                                        .replace(/[^\w\s]/g, '')
+                                        .replace(/\s+/g, ' ')
+                                        .trim();
+
+                                    for (const [alias, target] of Object.entries(TEAM_ALIASES)) {
+                                        const regex = new RegExp(`\\b${alias}\\b`, 'g');
+                                        if (regex.test(clean)) {
+                                            clean = clean.replace(regex, target);
+                                        }
+                                    }
+                                    return clean;
+                                };
+
+                                const t1 = normalize(eventTitle);
+                                const t2 = normalize(channelTitle);
+
+                                const tokens1 = t1.split(' ').filter(t => t.length > 3);
+                                const tokens2 = t2.split(' ').filter(t => t.length > 3);
+
+                                if (tokens1.length === 0 || tokens2.length === 0) return false;
+
+                                const sourceTokens = tokens1.length < tokens2.length ? tokens1 : tokens2;
+                                const targetTokens = tokens1.length < tokens2.length ? tokens2 : tokens1;
+
+                                const ms = sourceTokens.filter(st => targetTokens.some(tt => tt.includes(st) || st.includes(tt)));
+
+                                if (sourceTokens.length === 1) return ms.length === 1;
+                                return ms.length >= 2;
+                            };
+
+                            const eventName = (channel as any).name || '';
+                            if (eventName) {
+                                // 1. SPORTZX Injection
+                                try {
+                                    const { getSportzxChannels } = await import('./utils/sportzxUpdater');
+                                    const spzxChannels = getSportzxChannels();
+                                    const matchedSpzx = spzxChannels.filter((c: any) => fuzzyMatch(eventName, c.name));
+
+                                    for (const c of matchedSpzx) {
+                                        if (c._sportzx) {
+                                            const match = c._sportzx;
+                                            let finalUrl = match.stream_url;
+                                            let proxyUsed = false;
+
+                                            // Proxy Logic (reuse generic logic)
+                                            if (mfpUrl) {
+                                                if (match.keyid && match.key) {
+                                                    const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                                    finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?d=${encodeURIComponent(match.stream_url)}${passwordParam}&key_id=${match.keyid}&key=${match.key}`;
+                                                    proxyUsed = true;
+                                                } else if (match.headers && match.headers.trim()) {
+                                                    const headersObj: any = {};
+                                                    (match.headers as string).split('&').forEach((pair: string) => {
+                                                        const [k, v] = pair.split('=');
+                                                        if (k && v) headersObj[k] = decodeURIComponent(v);
+                                                    });
+                                                    const headersJson = encodeURIComponent(JSON.stringify(headersObj));
+                                                    const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                                    finalUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(match.stream_url)}${passwordParam}&headers=${headersJson}`;
+                                                    proxyUsed = true;
+                                                }
+                                            }
+
+                                            streams.push({
+                                                url: finalUrl,
+                                                title: `[SPZX] ${c._sportzx.channel_title || c.name}`,
+                                                behaviorHints: { notWebReady: true }
+                                            } as any);
+                                            console.log(`✅ [SPZX] Injected stream for ${eventName} -> ${c.name}`);
+                                        }
+                                    }
+                                } catch (e) { console.error('Error injecting SportzX', e); }
+
+                                // 2. SPORTS99 Injection
+                                try {
+                                    const { getSports99Channels } = await import('./utils/sports99Updater');
+                                    const { Sports99Client } = await import('./extractors/sports99');
+                                    const sp99Channels = getSports99Channels();
+                                    const matchedSp99 = sp99Channels.filter((c: any) => fuzzyMatch(eventName, c.name));
+
+                                    if (matchedSp99.length > 0) {
+                                        const client99 = new Sports99Client();
+                                        // Resolve async
+                                        for (const c of matchedSp99) {
+                                            if (c._sports99 && c._sports99.player_url) {
+                                                const sUrl = await client99.resolveStreamUrl(c._sports99.player_url);
+                                                if (sUrl) {
+                                                    streams.push({
+                                                        url: sUrl,
+                                                        title: `[SP99] ${c._sports99.channel_name || c.name}`,
+                                                        behaviorHints: { notWebReady: true }
+                                                    } as any);
+                                                    console.log(`✅ [SP99] Injected stream for ${eventName} -> ${c.name}`);
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (e) { console.error('Error injecting Sports99', e); }
+                            }
+
+                        } catch (e) {
+                            console.error('Generic injection error', e);
+                        }
+
                         // === SPON (sportzonline) injection (always-on, no placeholders / no time gating) ===
                         try {
                             const eventNameRaw = (channel as any).name || '';
@@ -4609,6 +4748,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             console.log('[SPON] ❌ Error:', (e as any)?.message || e);
                             debugLog('[SPON] injection error', e);
                         }
+
+
                         const allowVavooClean = true; // simplified: always allow clean Vavoo variant
                         for (const s of streams) {
                             // Support special marker '#headers#<b64json>' to attach headers properly
