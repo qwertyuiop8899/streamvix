@@ -54,7 +54,8 @@ export async function updateSportzxChannels() {
                     stream_url: ch.stream_url,
                     keyid: ch.keyid,
                     key: ch.key,
-                    headers: ch.headers
+                    headers: ch.headers,
+                    channel_title: ch.channel_title
                 }
             };
         });
