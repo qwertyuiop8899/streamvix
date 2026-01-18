@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.14.11](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.10...v1.14.11) (2026-01-18)
+
+
+### Bug Fixes
+
+* addon ([abf5547](https://github.com/qwertyuiop8899/streamvix/commit/abf5547d3a9f3ebdd0b272e31aa25ef5d1db5ae5))
+* z eventi ([d983d95](https://github.com/qwertyuiop8899/streamvix/commit/d983d9543cc2d1eecb8cfc30dbe9d0f272490a68))
+
 ## [1.14.10](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.9...v1.14.10) (2026-01-17)
 
 
