@@ -734,15 +734,15 @@ const baseManifest: Manifest = {
         { key: "tmdbApiKey", title: "TMDB API Key", type: "text" },
         { key: "mediaFlowProxyUrl", title: "☂️ Proxy URL", type: "text" },
         { key: "mediaFlowProxyPassword", title: "Proxy Password (opzionale)", type: "text" },
-        { key: "dvrEnabled", title: "DVR (EasyProxy only) 📹", type: "checkbox", default: false },
+        { key: "dvrEnabled", title: "DVR (EasyProxy only) 📹", type: "checkbox" },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
         { key: "disableVixsrc", title: "Disable StreamingCommunity", type: "checkbox" },
         { key: "vixDirect", title: "StreamingCommunity Direct mode", type: "checkbox" },
         { key: "vixDirectFhd", title: "StreamingCommunity Direct FHD mode", type: "checkbox" },
         { key: "vixProxy", title: "StreamingCommunity Proxy mode", type: "checkbox" },
         { key: "vixProxyFhd", title: "StreamingCommunity Proxy FHD mode", type: "checkbox" },
-        { key: "disableLiveTv", title: "Live TV 📺 [Molti canali hanno bisogno di MFP]", type: "checkbox", default: false },
-        { key: "trailerEnabled", title: "🎬▶️ Trailer", type: "checkbox", default: true },
+        { key: "disableLiveTv", title: "Live TV 📺 [Molti canali hanno bisogno di MFP]", type: "checkbox" },
+        { key: "trailerEnabled", title: "🎬▶️ Trailer", type: "checkbox", default: "checked" },
         { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
         { key: "animeunityAuto", title: "AnimeUnity AUTO mode", type: "checkbox" },
         { key: "animeunityFhd", title: "AnimeUnity FHD mode", type: "checkbox" },
@@ -756,12 +756,16 @@ const baseManifest: Manifest = {
         { key: "loonexEnabled", title: "Enable Loonex", type: "checkbox" },
         { key: "toonitaliaEnabled", title: "Enable ToonItalia", type: "checkbox" },
         { key: "cb01Enabled", title: "Enable CB01 Mixdrop", type: "checkbox" },
-        // { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: true }, // TVTAP RIMOSSO
-        { key: "vavooNoMfpEnabled", title: "Vavoo NO MFP 🔓", type: "checkbox", default: true },
+        // { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: "checked" }, // TVTAP RIMOSSO
+        { key: "vavooNoMfpEnabled", title: "Vavoo NO MFP 🔓", type: "checkbox", default: "checked" },
         // UI helper toggles (not used directly server-side but drive dynamic form logic)
         { key: "personalTmdbKey", title: "TMDB API KEY Personale", type: "checkbox" },
-        { key: "mediaflowMaster", title: "MediaflowProxy", type: "checkbox", default: false },
-    ]
+        { key: "mediaflowMaster", title: "MediaflowProxy", type: "checkbox" },
+    ],
+    stremioAddonsConfig: {
+        issuer: "https://stremio-addons.net",
+        signature: "eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..lq-o2JziPJNLx0ktbXf4Cg.4k4_nsv-K378IN3bdkw5AzfIMtQyhlw0v8lWwtAFNx9W0OdkP6lczmlPOYqKYQ6OA4dU6N3GicW08Wdxm78wreyU4Irtn_A_BAoVc-EGUIC-C9-N68V0J4wLvFWogSKY.OlNc0_M7cbDgDVSNBihFUQ"
+    }
 };
 
 // Load custom configuration if available
