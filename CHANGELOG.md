@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.14.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.11...v1.14.12) (2026-01-21)
+
+
+### Bug Fixes
+
+* addon boolean and validate for stremio addon ([f3fef92](https://github.com/qwertyuiop8899/streamvix/commit/f3fef92de5f4c9b891cc14f190d1e0ba044d96b1))
+* domains update ([9dd1def](https://github.com/qwertyuiop8899/streamvix/commit/9dd1defe855c1467f5f785f3b985ff889462cecc))
+* landingPage.ts ([6100139](https://github.com/qwertyuiop8899/streamvix/commit/610013994134c4ee530e3e988adbbe6c60d1e6e0))
+
 ## [1.14.11](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.10...v1.14.11) (2026-01-18)
 
 
