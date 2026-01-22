@@ -237,6 +237,14 @@ function normalizeTitleForSearch(title: string): string {
 
 
 
+        "Record of Ragnarok II Part 2": "Record of Ragnarok 2 Part 2",
+
+
+
+
+
+
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
