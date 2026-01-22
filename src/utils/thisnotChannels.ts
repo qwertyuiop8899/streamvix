@@ -236,7 +236,7 @@ function isToday(dateStr: string): boolean {
 }
 
 /**
- * Processa le tabelle HTML (ora su index.php o eventi.php)
+ * Processa la pagina HTML (ora strutturata a DIV)
  */
 async function processEventsTable(htmlContent: string): Promise<ThisNotChannel[]> {
     if (!htmlContent) {
@@ -246,123 +246,111 @@ async function processEventsTable(htmlContent: string): Promise<ThisNotChannel[]
     const $ = cheerio.load(htmlContent);
     const channels: ThisNotChannel[] = [];
 
-    // Estrai la data dall'<h1> - formato: "Calendario Giovedi 6 Novembre"
+    // Estrai la data dal .subtitle - formato: "Giovedi 22 Gennaio · Programmazione eventi sportivi"
     let currentDate = '';
-    const h1Text = $('h1').first().text().trim();
-    if (h1Text) {
-        // Cerca pattern "6 Novembre" o "06 Novembre" dopo il giorno della settimana
-        const dateMatch = h1Text.match(/(\d+)\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i);
+    const subtitleText = $('.subtitle').first().text().trim();
+    if (subtitleText) {
+        // Cerca pattern "22 Gennaio"
+        const dateMatch = subtitleText.match(/(\d+)\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i);
         if (dateMatch) {
             currentDate = parseDate(`${dateMatch[1]} ${dateMatch[2]}`);
         }
     }
 
-    // Trova tutte le sezioni con <h2> (Calcio, Tennis, etc.)
-    const h2Tags = $('h2');
+    // Trova tutti i div con classe .event
+    const events = $('.event');
 
-    for (let i = 0; i < h2Tags.length; i++) {
-        const h2 = h2Tags.eq(i);
-        const sectionName = h2.text().trim();
+    for (let i = 0; i < events.length; i++) {
+        const eventCard = events.eq(i);
 
-        // Trova la tabella successiva all'h2
-        const table = h2.next('table');
-        if (table.length === 0) {
+        try {
+            // Estrai i dati dall'evento
+            const timeText = eventCard.find('.sport-time').text().trim(); // es: "🎾 01:00"
+            // Rimuovi l'emoji (o tutto ciò che non è ora:minuti)
+            const timeMatch = timeText.match(/(\d{2}:\d{2})/);
+            const time = timeMatch ? timeMatch[1] : '';
+
+            const competition = eventCard.find('.competition').text().trim(); // es: "GRAND SLAM, Australian Open"
+            const matchName = eventCard.find('.match').text().trim(); // es: "Live Match"
+
+            // Il canale e il link sono in .event-right
+            const rightSection = eventCard.find('.event-right');
+            const channelNameRaw = rightSection.find('.channel').text().trim(); // es: "Eurosport3" (ignora flag invisibile se testo pulito)
+            const linkTag = rightSection.find('a.btn-watch');
+
+            if (linkTag.length === 0 || !linkTag.attr('href')) {
+                continue;
+            }
+
+            const playerHref = linkTag.attr('href');
+            if (!playerHref) {
+                continue;
+            }
+
+            const playerUrl = new URL(playerHref, BASE_URL).href;
+            const playerContent = await getPageContent(playerUrl);
+
+            if (!playerContent) {
+                continue;
+            }
+
+            const iframeMatch = playerContent.match(/<iframe[^>]*src=["']([^"']+)["']/i);
+            if (!iframeMatch) {
+                continue;
+            }
+
+            let iframeSrc = iframeMatch[1];
+
+            if (iframeSrc.startsWith("chrome-extension://") && iframeSrc.includes("#https://")) {
+                iframeSrc = iframeSrc.split("#", 2)[1];
+            }
+
+            if (iframeSrc.includes('nochannel.php')) {
+                continue;
+            }
+
+            const mpdUrlMatch = iframeSrc.match(/(https?:\/\/[^\s"'#]+\.mpd(?:\/[^?\s"'#]*)*)/);
+            const tokenMatch = iframeSrc.match(/ck=([A-Za-z0-9+/=_-]+)/);
+
+            if (!mpdUrlMatch || !tokenMatch) {
+                continue;
+            }
+
+            let mpdUrl = mpdUrlMatch[1];
+            mpdUrl = mpdUrl.split('?')[0].split('#')[0];
+
+            const tokenRaw = tokenMatch[1];
+            const { keyid, key } = decodeToken(tokenRaw);
+
+            if (!keyid || !key) {
+                continue;
+            }
+
+            // Costruisci il nome del canale: "DD/MM ⏰ HH:MM - MATCH - COMPETITION [CHANNEL]"
+            // Aggiungo il nome del canale alla fine per distinguerlo meglio
+            let fullChannelName: string;
+            // Usa channelNameRaw se presente, altrimenti stringa vuota
+            const chSuffix = channelNameRaw ? ` [${channelNameRaw}]` : '';
+
+            if (currentDate && time) {
+                fullChannelName = `${currentDate.replace('-', '/')} ⏰ ${time} - ${matchName} - ${competition}${chSuffix}`;
+            } else if (time) {
+                fullChannelName = `⏰ ${time} - ${matchName} - ${competition}${chSuffix}`;
+            } else {
+                fullChannelName = `${matchName} - ${competition}${chSuffix}`;
+            }
+
+            const staticUrlMpd = createStaticUrlMpd(mpdUrl, keyid, key);
+
+            channels.push({
+                name: fullChannelName,
+                staticUrlMpd: staticUrlMpd,
+                logo: LOGO_URL
+            });
+
+        } catch (e) {
+            // Silenziosamente continua in caso di errore su singolo evento
             continue;
-        }
-
-        // Processa tutte le righe della tabella (escludi header)
-        const rows = table.find('tr');
-
-        for (let j = 0; j < rows.length; j++) {
-            const row = rows.eq(j);
-
-            // Skip header row
-            if (row.attr('class')?.includes('mobile')) {
-                continue;
-            }
-
-            const cells = row.find('td');
-            if (cells.length < 4) {
-                continue;
-            }
-
-            try {
-                const time = cells.eq(0).text().trim();
-                const competition = cells.eq(1).text().trim();
-                const match = cells.eq(2).text().trim();
-                const linkCell = cells.eq(3);
-                const linkTag = linkCell.find('a');
-
-                if (linkTag.length === 0 || !linkTag.attr('href')) {
-                    continue;
-                }
-
-                const playerHref = linkTag.attr('href');
-                if (!playerHref) {
-                    continue;
-                }
-
-                const playerUrl = new URL(playerHref, BASE_URL).href;
-                const playerContent = await getPageContent(playerUrl);
-
-                if (!playerContent) {
-                    continue;
-                }
-
-                const iframeMatch = playerContent.match(/<iframe[^>]*src=["']([^"']+)["']/i);
-                if (!iframeMatch) {
-                    continue;
-                }
-
-                let iframeSrc = iframeMatch[1];
-
-                if (iframeSrc.startsWith("chrome-extension://") && iframeSrc.includes("#https://")) {
-                    iframeSrc = iframeSrc.split("#", 2)[1];
-                }
-
-                if (iframeSrc.includes('nochannel.php')) {
-                    continue;
-                }
-
-                const mpdUrlMatch = iframeSrc.match(/(https?:\/\/[^\s"'#]+\.mpd(?:\/[^?\s"'#]*)*)/);
-                const tokenMatch = iframeSrc.match(/ck=([A-Za-z0-9+/=_-]+)/);
-
-                if (!mpdUrlMatch || !tokenMatch) {
-                    continue;
-                }
-
-                let mpdUrl = mpdUrlMatch[1];
-                mpdUrl = mpdUrl.split('?')[0].split('#')[0];
-
-                const tokenRaw = tokenMatch[1];
-                const { keyid, key } = decodeToken(tokenRaw);
-
-                if (!keyid || !key) {
-                    continue;
-                }
-
-                // Costruisci il nome del canale: "DD/MM ⏰ HH:MM - MATCH - COMPETITION"
-                let channelName: string;
-                if (currentDate && time) {
-                    channelName = `${currentDate.replace('-', '/')} ⏰ ${time} - ${match} - ${competition}`;
-                } else if (time) {
-                    channelName = `⏰ ${time} - ${match} - ${competition}`;
-                } else {
-                    channelName = `${match} - ${competition}`;
-                }
-
-                const staticUrlMpd = createStaticUrlMpd(mpdUrl, keyid, key);
-
-                channels.push({
-                    name: channelName,
-                    staticUrlMpd: staticUrlMpd,
-                    logo: LOGO_URL
-                });
-
-            } catch (e) {
-                // Silenziosamente continua in caso di errore su singola riga
-                continue;
-            }
         }
     }
 
