@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.12...v1.14.13) (2026-01-22)
+
+
+### Bug Fixes
+
+* tdn ([7cf481d](https://github.com/qwertyuiop8899/streamvix/commit/7cf481dfc64eb41405bdeab6eb5573b682c3d6ed))
+
 ## [1.14.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.11...v1.14.12) (2026-01-21)
 
 
