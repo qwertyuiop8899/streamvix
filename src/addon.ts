@@ -2531,16 +2531,74 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                         // 3. Plain -> Direct
 
-                        return {
-                            streams: [{
-                                url: finalUrl,
-                                title: title,
-                                name: 'SportzX',
-                                behaviorHints: {
-                                    notWebReady: true
+                        const sportzxStreams: any[] = [{
+                            url: finalUrl,
+                            title: title,
+                            name: 'SportzX',
+                            behaviorHints: {
+                                notWebReady: true
+                            }
+                        }];
+
+                        // === DVR INTEGRATION FOR SPORTZX ===
+                        const sportzxDvrConfig = getDvrConfig(config as any);
+                        const sportzxDvrEnabled = sportzxDvrConfig && ((config as any).dvrEnabled !== false);
+                        if (sportzxDvrEnabled) {
+                            try {
+                                const dvrRecordStreams: any[] = [];
+
+                                // Extract the source URL from proxied stream if applicable
+                                let recordUrl = finalUrl;
+                                const dMatch = finalUrl.match(/[?&]d=([^&]+)/);
+                                if (dMatch) {
+                                    recordUrl = decodeURIComponent(dMatch[1]);
+                                    // Extract and append key_id and key if present
+                                    const keyIdMatch = finalUrl.match(/[?&]key_id=([^&]+)/);
+                                    const keyMatch = finalUrl.match(/[?&]key=([^&]+)/);
+                                    if (keyIdMatch && keyMatch) {
+                                        const separator = recordUrl.includes('?') ? '&' : '?';
+                                        recordUrl += `${separator}key_id=${keyIdMatch[1]}&key=${keyMatch[1]}`;
+                                    }
                                 }
-                            }]
-                        };
+
+                                const dvrEntry = buildDvrRecordEntry(
+                                    recordUrl,
+                                    title,
+                                    sportzxChannel.name,
+                                    { addonConfig: config as any }
+                                );
+                                if (dvrEntry) {
+                                    dvrRecordStreams.push({
+                                        name: 'DVR',
+                                        title: dvrEntry.title,
+                                        url: dvrEntry.url,
+                                        behaviorHints: { notWebReady: false }
+                                    });
+                                }
+
+                                // Add active/completed recordings
+                                const dvrStreams = await getDvrStreamsForChannel(
+                                    sportzxChannel.name,
+                                    recordUrl,
+                                    { addonConfig: config as any }
+                                );
+                                for (const dvrStream of dvrStreams) {
+                                    dvrRecordStreams.push({
+                                        name: 'DVR',
+                                        title: dvrStream.title,
+                                        url: dvrStream.url,
+                                        behaviorHints: { notWebReady: false }
+                                    });
+                                }
+
+                                // Append DVR streams
+                                sportzxStreams.push(...dvrRecordStreams);
+                            } catch (dvrErr) {
+                                console.warn('[SportzX] DVR error:', (dvrErr as any)?.message || dvrErr);
+                            }
+                        }
+
+                        return { streams: sportzxStreams };
                     }
                 }
 
@@ -2558,16 +2616,71 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         const streamUrl = await client.resolveStreamUrl(match.player_url);
 
                         if (streamUrl) {
-                            return {
-                                streams: [{
-                                    url: streamUrl,
-                                    title: '🔴 LIVE',
-                                    name: match.channel_name || 'Sports99',
-                                    behaviorHints: {
-                                        notWebReady: true
+                            const sports99Streams: any[] = [{
+                                url: streamUrl,
+                                title: '🔴 LIVE',
+                                name: match.channel_name || 'Sports99',
+                                behaviorHints: {
+                                    notWebReady: true
+                                }
+                            }];
+
+                            // === DVR INTEGRATION FOR SPORTS99 ===
+                            const sports99DvrConfig = getDvrConfig(config as any);
+                            const sports99DvrEnabled = sports99DvrConfig && ((config as any).dvrEnabled !== false);
+                            if (sports99DvrEnabled) {
+                                try {
+                                    const dvrRecordStreams: any[] = [];
+
+                                    // Extract the source URL from proxied stream if applicable
+                                    let recordUrl = streamUrl;
+                                    const dMatch = streamUrl.match(/[?&]d=([^&]+)/);
+                                    if (dMatch) {
+                                        recordUrl = decodeURIComponent(dMatch[1]);
+                                        const keyIdMatch = streamUrl.match(/[?&]key_id=([^&]+)/);
+                                        const keyMatch = streamUrl.match(/[?&]key=([^&]+)/);
+                                        if (keyIdMatch && keyMatch) {
+                                            const separator = recordUrl.includes('?') ? '&' : '?';
+                                            recordUrl += `${separator}key_id=${keyIdMatch[1]}&key=${keyMatch[1]}`;
+                                        }
                                     }
-                                }]
-                            };
+
+                                    const dvrEntry = buildDvrRecordEntry(
+                                        recordUrl,
+                                        '🔴 LIVE',
+                                        sports99Channel.name,
+                                        { addonConfig: config as any }
+                                    );
+                                    if (dvrEntry) {
+                                        dvrRecordStreams.push({
+                                            name: 'DVR',
+                                            title: dvrEntry.title,
+                                            url: dvrEntry.url,
+                                            behaviorHints: { notWebReady: false }
+                                        });
+                                    }
+
+                                    const dvrStreams = await getDvrStreamsForChannel(
+                                        sports99Channel.name,
+                                        recordUrl,
+                                        { addonConfig: config as any }
+                                    );
+                                    for (const dvrStream of dvrStreams) {
+                                        dvrRecordStreams.push({
+                                            name: 'DVR',
+                                            title: dvrStream.title,
+                                            url: dvrStream.url,
+                                            behaviorHints: { notWebReady: false }
+                                        });
+                                    }
+
+                                    sports99Streams.push(...dvrRecordStreams);
+                                } catch (dvrErr) {
+                                    console.warn('[Sports99] DVR error:', (dvrErr as any)?.message || dvrErr);
+                                }
+                            }
+
+                            return { streams: sports99Streams };
                         } else {
                             console.warn(`[Sports99] Could not resolve stream for ${sports99Channel.name}`);
                             return { streams: [] };
