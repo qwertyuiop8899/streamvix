@@ -378,11 +378,19 @@ export async function getDvrStreamsForChannel(
 
         for (const activeRec of activeRecordings) {
             const elapsed = activeRec.elapsed_seconds ? formatDuration(activeRec.elapsed_seconds) : '';
-            const stopStreamUrl = buildStopAndStreamUrl(config, activeRec.id);
 
+            // Option 1: Watch recording without stopping (live stream of growing file)
+            const watchUrl = buildRecordingStreamUrl(config, activeRec.id);
+            streams.push({
+                url: watchUrl,
+                title: `▶️ Watch Recording ${elapsed ? `(${elapsed})` : ''}`
+            });
+
+            // Option 2: Stop recording and watch (existing behavior)
+            const stopStreamUrl = buildStopAndStreamUrl(config, activeRec.id);
             streams.push({
                 url: stopStreamUrl,
-                title: `🔴 Recording... ${elapsed ? `(${elapsed})` : ''} - Stop & Watch`
+                title: `⏹️ Stop Recording & Watch ${elapsed ? `(${elapsed})` : ''}`
             });
         }
 
