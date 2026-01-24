@@ -260,6 +260,16 @@ const exactMap: Record<string,string> = {
 
 
 
+        "[Oshi No Ko] Season 3": "Oshi No Ko 3",
+
+
+
+
+
+
+
+
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
