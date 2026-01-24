@@ -221,23 +221,17 @@ function normalizeTitleForSearch(title: string): string {
         "My Hero Academia Final Season": "Boku no Hero Academia: Final Season",
 
 
-
-
-
         "Jujutsu Kaisen: The Culling Game Part 1": "Jujutsu Kaisen 3: The Culling Game Part 1",
-
-
 
 
 
         "Hell's Paradise Season 2": "Jigokuraku 2",
 
 
-
-
-
-
         "[Oshi no Ko]": "Oshi no Ko",
+
+        "Record of Ragnarok II": "Record of Ragnarok 2",
+
 
 
 
