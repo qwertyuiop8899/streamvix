@@ -207,7 +207,7 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             controller.abort();
         }, 12000);
         const pingBody = {
-            token: 'tosFwQCJMS8qrW_AjLoHPQ41646J5dRNha6ZWHnijoYQQQoADQoXYSo7ki7O5-CsgN4CH0uRk6EEoJ0728ar9scCRQW3ZkbfrPfeCXW2VgopSW2FWDqPOoVYIuVPAOnXCZ5g',
+            token: '',
             reason: 'app-blur',
             locale: 'de',
             theme: 'dark',
