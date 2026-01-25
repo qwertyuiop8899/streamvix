@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.15.1...v1.15.2) (2026-01-25)
+
+
+### Bug Fixes
+
+* token ([08e41f1](https://github.com/qwertyuiop8899/streamvix/commit/08e41f124ad2568ed74f2a315961f5b39446fefa))
+
 ## [1.15.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.15.0...v1.15.1) (2026-01-25)
 
 
