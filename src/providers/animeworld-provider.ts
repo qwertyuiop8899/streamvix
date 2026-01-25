@@ -204,6 +204,15 @@ const exactMap: Record<string, string> = {
 
 
 
+      "[Oshi no Ko]": "Oshi no Ko",
+
+
+
+
+
+
+
+
   // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====

@@ -207,37 +207,18 @@ function normalizeTitleForSearch(title: string): string {
     "JoJo's Bizarre Adventure: Stardust Crusaders": "Le Bizzarre Avventure di JoJo: Stardust Crusaders",
         "Cat's Eye (2025)": "Occhi di gatto (2025)",
         "Cat's\u2665Eye": "Occhi di gatto (2025)",
-
     "Ranma \u00bd (2024) Season 2": "Ranma \u00bd (2024) 2",
     "Ranma1/2 (2024) Season 2": "Ranma \u00bd (2024) 2",
-
         "Link Click Season 2": "Link Click 2",
-
         "K: SEVEN STORIES Lost Small World - Outside the Cage - ": "K: Seven Stories Movie 4 - Lost Small World - Ori no Mukou ni",
-
         "Nichijou - My Ordinary Life": "Nichijou",
-
         "Case Closed Movie 01: The Time Bombed Skyscraper": "Detective Conan Movie 01: Fino alla fine del tempo",
         "My Hero Academia Final Season": "Boku no Hero Academia: Final Season",
-
-
         "Jujutsu Kaisen: The Culling Game Part 1": "Jujutsu Kaisen 3: The Culling Game Part 1",
-
-
-
         "Hell's Paradise Season 2": "Jigokuraku 2",
-
-
         "[Oshi no Ko]": "Oshi no Ko",
-
+        "Record of Ragnarok II Part 2": "Record of Ragnarok 2 Part 2",
         "Record of Ragnarok II": "Record of Ragnarok 2",
-
-
-
-
-
-
-
 
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
