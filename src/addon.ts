@@ -100,6 +100,7 @@ const VAVOO_FORCE_SERVER_IP: boolean = (() => {
 })();
 const VAVOO_SET_IPLOCATION_ONLY: boolean = (() => { try { const v = (process?.env?.VAVOO_SET_IPLOCATION_ONLY || '').toLowerCase(); if (!v) return true; return !(v === '0' || v === 'false' || v === 'off'); } catch { return false; } })();
 const VAVOO_LOG_SIG_FULL: boolean = (() => { try { const v = (process?.env?.VAVOO_LOG_SIG_FULL || '').toLowerCase(); if (['0', 'false', 'off'].includes(v)) return false; if (['1', 'true', 'on'].includes(v)) return true; return true; } catch { return true; } })();
+const VAVOO_WORKER_URLS = (process.env.VAVOO_WORKER_URL || '').split(',').map((u: string) => u.trim()).filter(Boolean);
 function maskSig(sig: string, keepStart = 12, keepEnd = 6): string { try { if (!sig) return ''; const len = sig.length; const head = sig.slice(0, Math.min(keepStart, len)); const tail = len > keepStart ? sig.slice(Math.max(len - keepEnd, keepStart)) : ''; const hidden = Math.max(0, len - head.length - tail.length); const mask = hidden > 0 ? '*'.repeat(Math.min(hidden, 32)) + (hidden > 32 ? `(+${hidden - 32})` : '') : ''; return `${head}${mask}${tail}`; } catch { return ''; } }
 
 function getClientIpFromReq(req: any): string | null {
@@ -206,15 +207,45 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             vdbg('Ping timeout -> aborting request');
             controller.abort();
         }, 12000);
+        if (VAVOO_WORKER_URLS.length > 0) {
+            try {
+                const selectedWorker = VAVOO_WORKER_URLS[Math.floor(Math.random() * VAVOO_WORKER_URLS.length)];
+                vdbg('Resolving via Cloudflare Worker...', { worker: selectedWorker, url: (vavooPlayUrl || '').substring(0, 80) });
+                const workerReqUrl = `${selectedWorker.replace(/\/$/, '')}/manifest.m3u8?url=${encodeURIComponent(vavooPlayUrl)}`;
+                const workerHeaders: Record<string, string> = {};
+                if (clientIp) workerHeaders['X-Forwarded-For'] = clientIp;
+
+                const workerRes = await fetch(workerReqUrl, {
+                    method: 'GET',
+                    headers: workerHeaders,
+                    redirect: 'manual'
+                } as any);
+
+                let resolvedUrl: string | null = null;
+                if (workerRes.status === 302 || workerRes.status === 301) {
+                    resolvedUrl = workerRes.headers.get('Location');
+                } else if (workerRes.ok) {
+                    const j: any = await workerRes.json().catch(() => ({}));
+                    resolvedUrl = j.url || null;
+                }
+
+                if (resolvedUrl) {
+                    vdbg('Worker resolve SUCCESS', { resolved: resolvedUrl.substring(0, 100), worker: selectedWorker });
+                    return { url: resolvedUrl, headers: { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } };
+                }
+                vdbg('Worker resolve failed to return URL', { status: workerRes.status, worker: selectedWorker });
+            } catch (e) {
+                vdbg('Worker resolve EXCEPTION', (e as any)?.message);
+            }
+            vdbg('Worker failed or not working, falling back to internal resolution...');
+        }
+
         const pingBody = {
             token: '',
             reason: 'app-blur',
             locale: 'de',
             theme: 'dark',
             metadata: {
-                device: { type: 'Handset', brand: 'google', model: 'Pixel', name: 'sdk_gphone64_arm64', uniqueId: 'd10e5d99ab665233' },
-                os: { name: 'android', version: '13', abis: ['arm64-v8a', 'armeabi-v7a', 'armeabi'], host: 'android' },
-                app: { platform: 'android', version: '3.1.21', buildId: '289515000', engine: 'hbc85', signatures: ['6e8a975e3cbf07d5de823a760d4c2547f86c1403105020adee5de67ac510999e'], installer: 'app.revanced.manager.flutter' },
                 version: { package: 'tv.vavoo.app', binary: '3.1.21', js: '3.1.21' }
             },
             ipLocation: (clientIp && (!VAVOO_FORCE_SERVER_IP || VAVOO_SET_IPLOCATION_ONLY)) ? clientIp : '',
@@ -757,7 +788,7 @@ const baseManifest: Manifest = {
         { key: "toonitaliaEnabled", title: "Enable ToonItalia", type: "checkbox" },
         { key: "cb01Enabled", title: "Enable CB01 Mixdrop", type: "checkbox" },
         // { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: "checked" }, // TVTAP RIMOSSO
-        { key: "vavooNoMfpEnabled", title: "Vavoo NO MFP 🔓", type: "checkbox", default: "checked" },
+        { key: "vavooNoMfpEnabled", title: "Vavoo NO MFP 🔓", type: "checkbox", default: false },
         // UI helper toggles (not used directly server-side but drive dynamic form logic)
         { key: "personalTmdbKey", title: "TMDB API KEY Personale", type: "checkbox" },
         { key: "mediaflowMaster", title: "MediaflowProxy", type: "checkbox" },
@@ -4995,7 +5026,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     // Dopo aver popolato streams (nella logica TV):
                     for (const s of streams) {
-                        const allowVavooClean = config.vavooNoMfpEnabled !== false; // default true se non specificato
+                        const allowVavooClean = config.vavooNoMfpEnabled === true; // default false se non specificato
                         const marker = '#headers#';
                         if (s.url.includes(marker)) {
                             const [pureUrl, b64] = s.url.split(marker);
