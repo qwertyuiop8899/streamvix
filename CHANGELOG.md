@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.15.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.13...v1.15.0) (2026-01-25)
+
+
+### Features
+
+* **normalize-au:** add "[Oshi No Ko] Season 3" ([0a7a739](https://github.com/qwertyuiop8899/streamvix/commit/0a7a739a70e58c5d0aa49c837866a191a4781c84))
+* **normalize-aw:** add "[Oshi no Ko]" ([2491644](https://github.com/qwertyuiop8899/streamvix/commit/24916449ff01d6cbfd9153de269f66fc5744c740))
+* **normalize:** add "Record of Ragnarok II Part 2" ([84787bc](https://github.com/qwertyuiop8899/streamvix/commit/84787bc9ccd0cf55bebeb8cf4092fac1d54feb14))
+* **normalize:** add "Record of Ragnarok II" ([edbde87](https://github.com/qwertyuiop8899/streamvix/commit/edbde8706081b0ebd8fb8f1fa9ebad7b8291bb2a))
+
 ## [1.14.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.12...v1.14.13) (2026-01-22)
 
 
