@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.15.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.15.2...v1.15.3) (2026-01-25)
+
+
+### Bug Fixes
+
+* vavoo default ([7793112](https://github.com/qwertyuiop8899/streamvix/commit/77931120ace2af5b155ab1bd2db1fdae947e3de4))
+* vavoo worker ([abacec6](https://github.com/qwertyuiop8899/streamvix/commit/abacec630ee0595c688a7545a0c1432ef7b7edd2))
+
 ## [1.15.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.15.1...v1.15.2) (2026-01-25)
 
 
