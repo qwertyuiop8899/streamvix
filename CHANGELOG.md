@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.15.0...v1.15.1) (2026-01-25)
+
+
+### Bug Fixes
+
+* vavoo with proxy ([1229d9d](https://github.com/qwertyuiop8899/streamvix/commit/1229d9dd1e6925b84a13384e5972d565fcf00fde))
+
 ## [1.15.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.14.13...v1.15.0) (2026-01-25)
 
 
