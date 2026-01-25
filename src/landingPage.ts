@@ -282,85 +282,85 @@ button:active {
 `
 
 function landingTemplate(manifest: any) {
-    const background = manifest.background || 'https://dl.strem.io/addon-background.jpg'
-    const logo = manifest.logo || 'https://dl.strem.io/addon-logo.png'
-    const favicon = manifest.favicon || logo
-    const contactHTML = manifest.contactEmail ?
-        `<div class="contact">
+	const background = manifest.background || 'https://dl.strem.io/addon-background.jpg'
+	const logo = manifest.logo || 'https://dl.strem.io/addon-logo.png'
+	const favicon = manifest.favicon || logo
+	const contactHTML = manifest.contactEmail ?
+		`<div class="contact">
 			<p>Contact ${manifest.name} creator:</p>
 			<a href="mailto:${manifest.contactEmail}">${manifest.contactEmail}</a>
 		</div>` : ''
 
-    const stylizedTypes = manifest.types
-        .map((t: string) => t[0].toUpperCase() + t.slice(1) + (t !== 'series' ? 's' : ''))
+	const stylizedTypes = manifest.types
+		.map((t: string) => t[0].toUpperCase() + t.slice(1) + (t !== 'series' ? 's' : ''))
 
-    let formHTML = ''
-    let script = ''
+	let formHTML = ''
+	let script = ''
 
-    if ((manifest.config || []).length) {
-        let options = ''
-        // We'll collect auto-generated options, but skip tmdbApiKey & personalTmdbKey here to custom place them at top later
-        manifest.config.forEach((elem: any) => {
-            const key = elem.key
-            if (["text", "number", "password"].includes(elem.type)) {
-                if (key === 'tmdbApiKey') {
-                    // Remove custom TMDB key field from UI entirely (use default only)
-                    return;
-                }
-                const isRequired = elem.required ? ' required' : ''
-                const defaultHTML = elem.default ? ` value="${elem.default}"` : ''
-                const inputType = elem.type
-                options += `
+	if ((manifest.config || []).length) {
+		let options = ''
+		// We'll collect auto-generated options, but skip tmdbApiKey & personalTmdbKey here to custom place them at top later
+		manifest.config.forEach((elem: any) => {
+			const key = elem.key
+			if (["text", "number", "password"].includes(elem.type)) {
+				if (key === 'tmdbApiKey') {
+					// Remove custom TMDB key field from UI entirely (use default only)
+					return;
+				}
+				const isRequired = elem.required ? ' required' : ''
+				const defaultHTML = elem.default ? ` value="${elem.default}"` : ''
+				const inputType = elem.type
+				options += `
 					<div class="form-element">
 						<div class="label-to-top">${elem.title}</div>
 						<input type="${inputType}" id="${key}" name="${key}" class="full-width"${defaultHTML}${isRequired}/>
 					</div>
 					`
-            } else if (elem.type === 'checkbox') {
-                // Skip only personalTmdbKey (custom placement); mediaflowMaster & localMode will be moved later
-                if (key === 'personalTmdbKey') return; // removed from UI
-                // Sub-menu items: create hidden inputs to store their values from manifest
-                if (['animeunityAuto', 'animeunityFhd', 'vixDirect', 'vixDirectFhd', 'vixProxy', 'vixProxyFhd'].includes(key)) {
-                    const isChecked = (typeof (elem as any).default === 'boolean') && ((elem as any).default as boolean);
-                    const checkedAttr = isChecked ? ' checked' : '';
-                    options += `<input type="checkbox" id="hidden_${key}" data-config-key="${key}" style="display:none;"${checkedAttr} />`;
-                    return;
-                }
-                // Custom pretty toggle for known keys
-                const toggleMap: any = {
-                    'disableVixsrc': { title: 'StreamingCommunity 🍿', invert: true },
-                    'disableLiveTv': { title: 'Live TV 📺 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Molti canali hanno bisogno di MFP)</span>', invert: true },
-                    'trailerEnabled': { title: '🎬▶️ Trailer TMDB', invert: false },
-                    'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
-                    'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
-                    'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
-                    'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
-                    'guardoserieEnabled': { title: 'Guardoserie 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
-                    'guardaflixEnabled': { title: 'Guardaflix 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
-                    'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
-                    'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Lento🐌)</span>', invert: false },
-                    'loonexEnabled': { title: 'Loonex 🎬 - 🔓', invert: false },
-                    'toonitaliaEnabled': { title: 'ToonItalia 🎨 - 🔒', invert: false },
-                    'cb01Enabled': { title: 'CB01 🎞️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci Proxy URL per abilitare)</span>', invert: false },
-                    // 'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false }, // NASCOSTO
-                    'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
-                    'dvrEnabled': { title: 'DVR (EasyProxy only) 📹', invert: false },
-                    'mediaflowMaster': { title: 'EasyProxy o MediaFlowProxy ☂️', invert: false },
-                }
-                if (toggleMap[key]) {
-                    const t = toggleMap[key];
-                    // Determine checked from elem.default boolean if provided; default visually ON
-                    const hasDefault = (typeof (elem as any).default === 'boolean');
-                    // For inverted toggles (disable*), show ON when default=false (i.e., feature enabled)
-                    let isChecked = hasDefault ? (t.invert ? !((elem as any).default as boolean) : !!(elem as any).default) : true;
-                    // Force Eurostreaming & Loonex OFF by default (unless explicit default true)
-                    if ((key === 'eurostreamingEnabled' || key === 'loonexEnabled') && !hasDefault) isChecked = false;
-                    const checkedAttr = isChecked ? ' checked' : '';
-                    const extraAttr = key === 'mediaflowMaster' ? ' data-master-mfp="1"' : '';
-                    const extraAttrTmdb = key === 'personalTmdbKey' ? ' data-personal-tmdb="1"' : '';
-                    // (Rimossa vecchia iniezione pills Local/FHD - verrà creato sotto-menu dedicato)
-                    let extraLocal = '';
-                    options += `
+			} else if (elem.type === 'checkbox') {
+				// Skip only personalTmdbKey (custom placement); mediaflowMaster & localMode will be moved later
+				if (key === 'personalTmdbKey') return; // removed from UI
+				// Sub-menu items: create hidden inputs to store their values from manifest
+				if (['animeunityAuto', 'animeunityFhd', 'vixDirect', 'vixDirectFhd', 'vixProxy', 'vixProxyFhd'].includes(key)) {
+					const isChecked = (typeof (elem as any).default === 'boolean') && ((elem as any).default as boolean);
+					const checkedAttr = isChecked ? ' checked' : '';
+					options += `<input type="checkbox" id="hidden_${key}" data-config-key="${key}" style="display:none;"${checkedAttr} />`;
+					return;
+				}
+				// Custom pretty toggle for known keys
+				const toggleMap: any = {
+					'disableVixsrc': { title: 'StreamingCommunity 🍿', invert: true },
+					'disableLiveTv': { title: 'Live TV 📺 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Molti canali hanno bisogno di MFP)</span>', invert: true },
+					'trailerEnabled': { title: '🎬▶️ Trailer TMDB', invert: false },
+					'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
+					'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
+					'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
+					'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
+					'guardoserieEnabled': { title: 'Guardoserie 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
+					'guardaflixEnabled': { title: 'Guardaflix 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
+					'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
+					'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Lento🐌)</span>', invert: false },
+					'loonexEnabled': { title: 'Loonex 🎬 - 🔓', invert: false },
+					'toonitaliaEnabled': { title: 'ToonItalia 🎨 - 🔒', invert: false },
+					'cb01Enabled': { title: 'CB01 🎞️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci Proxy URL per abilitare)</span>', invert: false },
+					// 'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false }, // NASCOSTO
+					'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
+					'dvrEnabled': { title: 'DVR (EasyProxy only) 📹', invert: false },
+					'mediaflowMaster': { title: 'EasyProxy o MediaFlowProxy ☂️', invert: false },
+				}
+				if (toggleMap[key]) {
+					const t = toggleMap[key];
+					// Determine checked from elem.default boolean if provided; default visually ON
+					const hasDefault = (typeof (elem as any).default === 'boolean');
+					// For inverted toggles (disable*), show ON when default=false (i.e., feature enabled)
+					let isChecked = hasDefault ? (t.invert ? !((elem as any).default as boolean) : !!(elem as any).default) : true;
+					// Force Eurostreaming & Loonex OFF by default (unless explicit default true)
+					if ((key === 'eurostreamingEnabled' || key === 'loonexEnabled' || key === 'vavooNoMfpEnabled') && !hasDefault) isChecked = false;
+					const checkedAttr = isChecked ? ' checked' : '';
+					const extraAttr = key === 'mediaflowMaster' ? ' data-master-mfp="1"' : '';
+					const extraAttrTmdb = key === 'personalTmdbKey' ? ' data-personal-tmdb="1"' : '';
+					// (Rimossa vecchia iniezione pills Local/FHD - verrà creato sotto-menu dedicato)
+					let extraLocal = '';
+					options += `
 							<div class="form-element"${extraAttr}${extraAttrTmdb}>
 								<div class="toggle-row" data-toggle-row="${key}">
 									<span class="toggle-title">${t.title}${extraLocal}</span>
@@ -375,37 +375,37 @@ function landingTemplate(manifest: any) {
 								</div>
 							</div>
 							`
-                } else {
-                    // Support boolean default as well as legacy 'checked'
-                    const isChecked = (typeof (elem as any).default === 'boolean')
-                        ? (((elem as any).default as boolean) ? ' checked' : '')
-                        : (elem.default === 'checked' ? ' checked' : '')
-                    options += `
+				} else {
+					// Support boolean default as well as legacy 'checked'
+					const isChecked = (typeof (elem as any).default === 'boolean')
+						? (((elem as any).default as boolean) ? ' checked' : '')
+						: (elem.default === 'checked' ? ' checked' : '')
+					options += `
 						<div class="form-element">
 							<label for="${key}">
 								<input type="checkbox" id="${key}" name="${key}"${isChecked}> <span class="label-to-right">${elem.title}</span>
 							</label>
 						</div>
 						`
-                }
-            } else if (elem.type === 'select') {
-                const defaultValue = elem.default || (elem.options || [])[0]
-                options += `<div class="form-element">
+				}
+			} else if (elem.type === 'select') {
+				const defaultValue = elem.default || (elem.options || [])[0]
+				options += `<div class="form-element">
 				<div class="label-to-top">${elem.title}</div>
 				<select id="${key}" name="${key}" class="full-width">
 				`
-                const selections = elem.options || []
-                selections.forEach((el: string) => {
-                    const isSelected = el === defaultValue ? ' selected' : ''
-                    options += `<option value="${el}"${isSelected}>${el}</option>`
-                })
-                options += `</select>
+				const selections = elem.options || []
+				selections.forEach((el: string) => {
+					const isSelected = el === defaultValue ? ' selected' : ''
+					options += `<option value="${el}"${isSelected}>${el}</option>`
+				})
+				options += `</select>
                </div>
                `
-            }
-        })
-        if (options.length) {
-            formHTML = `
+			}
+		})
+		if (options.length) {
+			formHTML = `
 			<form class="pure-form" id="mainForm">
 				<!-- (Addon Base input removed – resolved server-side; read-only badge appears if available) -->
 				<!-- Preset Installazioni consigliate - RIMOSSO -->
@@ -432,14 +432,14 @@ function landingTemplate(manifest: any) {
 					<p style="margin:0.5rem 0 0 0; font-size:0.7rem; color:#f59e0b; font-weight:500; text-align:center; line-height:1.4;">⚠️ NB. Utilizzare VLC come player esterno nel caso in cui i flussi MPD non fossero riproducibili con il player di Stremio</p>
 				</div>
 				${manifest.__resolvedAddonBase ? (() => {
-                    const _raw = manifest.__resolvedAddonBase; const _host = _raw.replace(/^https?:\/\//, ''); const _isFallback = /streamvix\.hayd\.uk/.test(_raw); return `<div id="svxAddonBaseBadge" style="text-align:center; margin:-0.25rem 0 1.1rem 0;">
+					const _raw = manifest.__resolvedAddonBase; const _host = _raw.replace(/^https?:\/\//, ''); const _isFallback = /streamvix\.hayd\.uk/.test(_raw); return `<div id="svxAddonBaseBadge" style="text-align:center; margin:-0.25rem 0 1.1rem 0;">
 					<span style=\"display:inline-block; padding:0.35rem 0.75rem; background:rgba(0,0,0,0.45); border:1px solid rgba(140,82,255,0.65); border-radius:14px; font-size:0.70rem; letter-spacing:0.05em; font-weight:600; color:#c9b3ff;\" title=\"Addon Base URL risolta all'avvio\">Addon Base URL per Vix FHD: <span style='color:#00c16e;'>${_host}</span><a href=\"https://github.com/qwertyuiop8899/StreamViX/blob/main/README.md\" target=\"_blank\" style=\"text-decoration:none; margin-left:6px; color:#8c52ff;\">📖 README</a></span>
 				</div>` })() : ''}
 			</form>
 
 			<div class="separator"></div>
 			`
-            script += `
+			script += `
 			console.log('[SVX] Main form logic init');
 			var installLink = document.getElementById('installLink');
 			var mainForm = document.getElementById('mainForm');
@@ -928,12 +928,12 @@ function landingTemplate(manifest: any) {
 				window.updateLink = updateLink;
 			}
 			`
-        }
-    }
+		}
+	}
 
-    // Aggiunge la logica per il pulsante "Copia Manifest" allo script
-    // Questa logica viene aggiunta indipendentemente dalla presenza di un form di configurazione
-    script += `
+	// Aggiunge la logica per il pulsante "Copia Manifest" allo script
+	// Questa logica viene aggiunta indipendentemente dalla presenza di un form di configurazione
+	script += `
 		console.log('[SVX] Copy manifest setup');
 		var copyManifestLink = document.getElementById('copyManifestLink');
 		if (copyManifestLink) {
@@ -988,8 +988,8 @@ function landingTemplate(manifest: any) {
 		} catch (e) { console.warn(e); }
 	`;
 
-    const resolvedAddonBaseEsc = (manifest.__resolvedAddonBase || '').replace(/`/g, '\\`').replace(/\$/g, '$$');
-    return `
+	const resolvedAddonBaseEsc = (manifest.__resolvedAddonBase || '').replace(/`/g, '\\`').replace(/\$/g, '$$');
+	return `
 	<!DOCTYPE html>
 	<html style="background-image: url(${background});">
 
