@@ -232,13 +232,8 @@ function normalizeTitleForSearch(title: string): string {
 
         "Hell's Paradise Season 2": "Jigokuraku 2",
 
-
-
-
-
-
+        "Record of Ragnarok II Part 2": "Record of Ragnarok 2 Part 2",
         "Record of Ragnarok II": "Record of Ragnarok 2",
-
 
 
 
