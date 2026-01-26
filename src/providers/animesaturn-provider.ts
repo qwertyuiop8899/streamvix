@@ -220,6 +220,9 @@ function normalizeTitleForSearch(title: string): string {
         "Record of Ragnarok II Part 2": "Record of Ragnarok 2 Part 2",
         "Record of Ragnarok II": "Record of Ragnarok 2",
 
+        "Magical Circle": "Mahoujin Guru Guru",
+
+
     // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
   };
   // ==== AUTO-NORMALIZATIOmN-EXACT-MAP-END ====
