@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.15.3...v1.16.0) (2026-01-26)
+
+
+### Features
+
+* **normalize:** add "Magical Circle" ([67aee92](https://github.com/qwertyuiop8899/streamvix/commit/67aee92a45fce940b927ecad30e5c545630729a2))
+
 ## [1.15.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.15.2...v1.15.3) (2026-01-25)
 
 
