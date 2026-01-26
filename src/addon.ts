@@ -1,6 +1,7 @@
 import { addonBuilder, getRouter, Manifest, Stream } from "stremio-addon-sdk";
 import { getStreamContent, VixCloudStreamInfo, ExtractorConfig } from "./extractor";
 import { mapLegacyProviderName, buildUnifiedStreamName, providerLabel } from './utils/unifiedNames';
+import { getImdbIdFromKitsu } from './utils/kitsu_mapping';
 import * as fs from 'fs';
 import { landingTemplate } from './landingPage';
 import * as path from 'path';
@@ -5205,7 +5206,27 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld + Loonex
                 // IMPORTANTE: includere trailerEnabled per permettere trailer standalone
                 const trailerEnabled = (config as any).trailerEnabled !== false;
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled)) {
+
+                // [Kitsu Mapping] Logic
+                let mappedImdbId: string | null = null;
+                let mappedSeason: number | null = null;
+                const isKitsu = id.startsWith('kitsu:');
+                if (isKitsu) {
+                    try {
+                        // Attempt to resolve mapped ID synchronously if cached or wait if needed
+                        // Note: defineStreamHandler is async, so await is fine
+                        const mapping = await getImdbIdFromKitsu(id);
+                        if (mapping) {
+                            mappedImdbId = mapping.imdb_id;
+                            mappedSeason = mapping.season || null;
+                            console.log(`[KitsuMapping] Mapped ${id} -> ${mappedImdbId} (Season: ${mappedSeason ?? '?'})`);
+                        }
+                    } catch (e) {
+                        console.warn('[KitsuMapping] Resolution failed:', e);
+                    }
+                }
+
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:') || mappedImdbId) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled)) {
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
                         mfpUrl: mfpUrl,
@@ -5257,6 +5278,25 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 // tmdb:12345:S:E
                                 seasonNumber = parseInt(parts[2]);
                                 episodeNumber = parseInt(parts[3]);
+                            }
+                        }
+                    }
+
+                    // [Kitsu Mapping] Derive S/E/Movie flag
+                    if (isKitsu && mappedImdbId) {
+                        if (type === 'movie') {
+                            isMovie = true;
+                        } else if (type === 'series' || type === 'anime') {
+                            // Assuming Kitsu ID format: kitsu:id:episode
+                            const parts = id.split(':');
+                            if (parts.length >= 3) {
+                                const epIndex = parseInt(parts[2], 10);
+                                if (!isNaN(epIndex)) {
+                                    episodeNumber = epIndex;
+                                    // Default to Season 1 if mapping doesn't specify, or use mapped season
+                                    // This assumes simple linear mapping or season-aligned mapping
+                                    seasonNumber = mappedSeason || 1;
+                                }
                             }
                         }
                     }
@@ -5518,7 +5558,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     };
 
                     // VixSrc PRIMA di tutti (se abilitato)
-                    if (vixsrcEnabled && !id.startsWith('kitsu:') && !id.startsWith('mal:') && !id.startsWith('tv:')) {
+                    // Added: Support mapped IMDB ID for Kitsu fallback
+                    if (vixsrcEnabled && (mappedImdbId || (!id.startsWith('kitsu:') && !id.startsWith('mal:') && !id.startsWith('tv:')))) {
                         vixsrcScheduled = true;
                         providerPromises.push(runProvider('VixSrc', true, async () => {
                             const finalConfig: ExtractorConfig = {
@@ -5542,7 +5583,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 })()
                             };
                             console.log('[VixSrc][ParallelConfig]', { vixLocal: finalConfig.vixLocal, vixDual: finalConfig.vixDual, addonBase: finalConfig.addonBase });
-                            const res: VixCloudStreamInfo[] | null = await getStreamContent(id, type, finalConfig);
+
+                            let searchId = id;
+                            if (isKitsu && mappedImdbId) {
+                                // Construct TT ID for VixSrc
+                                if (isMovie) searchId = mappedImdbId;
+                                else if (seasonNumber != null && episodeNumber != null) searchId = `${mappedImdbId}:${seasonNumber}:${episodeNumber}`;
+                            }
+
+                            const res: VixCloudStreamInfo[] | null = await getStreamContent(searchId, type, finalConfig);
                             if (!res) return { streams: [] };
                             const fmtBytes = (n: number): string => {
                                 const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -5571,7 +5620,24 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     if (guardoserieEnabled && ((type as string) === 'movie' || (type as string) === 'series')) {
                         providerPromises.push(runProvider('Guardoserie', true, async () => {
                             try {
-                                const gsStreams = await getGuardoserieStreams(type, id, (config as any).tmdbApiKey, mfpUrl, mfpPsw);
+                                const targetId = (isKitsu && mappedImdbId) ? mappedImdbId : id;
+                                // If Kitsu mapped to Series, we need S/E passed differently? 
+                                // getGuardoserieStreams signature: (type, id, apiKey, mfp, mfpPsw)
+                                // Looking at guardoserie provider: it usually expects standard ID.
+                                // If we pass mappedImdbId (tt...), it works if it's movie.
+                                // If series, it checks ID format?
+                                // Actually, VixSrc expects full ID (tt:s:e). Guardoserie might imply it from args?
+                                // Let's check signature usage in line 5574: getGuardoserieStreams(type, id, ...)
+                                // We'll pass targetId below.
+
+                                // WAIT: Guardoserie provider internally parses ID? 
+                                // Yes, "id" arg. So for Series it needs full ID.
+                                let finalId = targetId;
+                                if (isKitsu && mappedImdbId && type === 'series' && seasonNumber != null && episodeNumber != null) {
+                                    finalId = `${mappedImdbId}:${seasonNumber}:${episodeNumber}`;
+                                }
+
+                                const gsStreams = await getGuardoserieStreams(type, finalId, (config as any).tmdbApiKey, mfpUrl, mfpPsw);
                                 if (gsStreams && gsStreams.length > 0) {
                                     console.log(`✅ [Guardoserie] Found ${gsStreams.length} streams for ${id}`);
                                     return { streams: gsStreams };
@@ -5587,7 +5653,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     if (guardaflixEnabled && ((type as string) === 'movie')) {
                         providerPromises.push(runProvider('Guardaflix', true, async () => {
                             try {
-                                const gfStreams = await getGuardaflixStreams(type, id, (config as any).tmdbApiKey, mfpUrl, mfpPsw);
+                                const targetId = (isKitsu && mappedImdbId) ? mappedImdbId : id;
+                                const gfStreams = await getGuardaflixStreams(type, targetId, (config as any).tmdbApiKey, mfpUrl, mfpPsw);
                                 if (gfStreams && gfStreams.length > 0) {
                                     console.log(`✅ [Guardaflix] Found ${gfStreams.length} streams for ${id}`);
                                     return { streams: gfStreams };
@@ -5635,7 +5702,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }, providerLabel('animeworld'), false, 30000));  // AnimeWorld: timeout 30s
 
                     // GuardaSerie
-                    if (guardaSerieEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
+                    if (guardaSerieEnabled && (id.startsWith('tt') || id.startsWith('tmdb:') || (isKitsu && mappedImdbId))) {
                         providerPromises.push(runProvider('GuardaSerie', true, async () => {
                             const { GuardaSerieProvider } = await import('./providers/guardaserie-provider');
                             const gsProvider = new GuardaSerieProvider({
@@ -5646,12 +5713,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             });
                             if (id.startsWith('tt')) return gsProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return gsProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            if (isKitsu && mappedImdbId) return gsProvider.handleImdbRequest(mappedImdbId, seasonNumber, episodeNumber, isMovie);
                             return { streams: [] };
                         }, providerLabel('guardaserie'), false, 30000));  // GuardaSerie: timeout 30s
                     }
 
                     // GuardaHD
-                    if (guardaHdEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
+                    if (guardaHdEnabled && (id.startsWith('tt') || id.startsWith('tmdb:') || (isKitsu && mappedImdbId))) {
                         providerPromises.push(runProvider('GuardaHD', true, async () => {
                             const { GuardaHdProvider } = await import('./providers/guardahd-provider');
                             const ghProvider = new GuardaHdProvider({
@@ -5662,12 +5730,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             });
                             if (id.startsWith('tt')) return ghProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            if (isKitsu && mappedImdbId) return ghProvider.handleImdbRequest(mappedImdbId, seasonNumber, episodeNumber, isMovie);
                             return { streams: [] };
                         }, providerLabel('guardahd'), true, 30000));  // GuardaHD: timeout 30s
                     }
 
                     // CB01 (Mixdrop only)
-                    if (cb01Enabled && (id.startsWith('tt'))) {
+                    if (cb01Enabled && (id.startsWith('tt') || (isKitsu && mappedImdbId))) {
                         providerPromises.push(runProvider('CB01', true, async () => {
                             const { Cb01Provider } = await import('./providers/cb01-provider');
                             const cbProvider = new Cb01Provider({
@@ -5676,12 +5745,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 mfpPassword: mfpPsw,
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
-                            return cbProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            const targetId = (isKitsu && mappedImdbId) ? mappedImdbId : id;
+                            return cbProvider.handleImdbRequest(targetId, seasonNumber, episodeNumber, isMovie);
                         }, providerLabel('cb01'), true, 30000));  // CB01: timeout 30s
                     }
 
                     // Eurostreaming
-                    if (eurostreamingEnabled && id.startsWith('tt') && seasonNumber != null && episodeNumber != null) {
+                    if (eurostreamingEnabled && (id.startsWith('tt') || (isKitsu && mappedImdbId)) && seasonNumber != null && episodeNumber != null) {
                         providerPromises.push(runProvider('Eurostreaming', true, async () => {
                             const { EurostreamingProvider } = await import('./providers/eurostreaming-provider');
                             const esProvider = new EurostreamingProvider({
@@ -5690,17 +5760,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 mfpPassword: mfpPsw,
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
-                            return esProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            const targetId = (isKitsu && mappedImdbId) ? mappedImdbId : id;
+                            return esProvider.handleImdbRequest(targetId, seasonNumber, episodeNumber, isMovie);
                         }, providerLabel('eurostreaming'), true, 30000));  // Eurostreaming: timeout 30s
                     }
 
                     // Loonex (serie TV)
-                    if (loonexEnabled && type === 'series' && seasonNumber != null && episodeNumber != null && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
+                    if (loonexEnabled && type === 'series' && seasonNumber != null && episodeNumber != null && (id.startsWith('tt') || id.startsWith('tmdb:') || (isKitsu && mappedImdbId))) {
                         providerPromises.push(runProvider('Loonex', true, async () => {
                             const { getLoonexStreams } = await import('./providers/loonex-provider');
                             // Extract IDs from the request
                             const tmdbId = id.startsWith('tmdb:') ? id.replace('tmdb:', '').split(':')[0] : undefined;
-                            const imdbId = id.startsWith('tt') ? id.split(':')[0] : '';
+                            const imdbId = (isKitsu && mappedImdbId) ? mappedImdbId : (id.startsWith('tt') ? id.split(':')[0] : '');
                             console.log(`[DEBUG-LOONEX] Calling getLoonexStreams: type=${type}, imdbId=${imdbId}, tmdbId=${tmdbId}, S${seasonNumber}E${episodeNumber}`);
                             // Non passiamo il titolo, lo recupererà da TMDb
                             const streams = await getLoonexStreams(type, imdbId, undefined, seasonNumber, episodeNumber, tmdbId);
@@ -5722,6 +5793,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 // TMDb ID: "tmdb:12345:season:episode"
                                 const tmdbId = id.replace('tmdb:', '').split(':')[0];
                                 requestId = `tmdb:${tmdbId}:${seasonNumber}:${episodeNumber}`;
+                            } else if (isKitsu && mappedImdbId) {
+                                // Mapped ID (usually IMDB)
+                                requestId = `${mappedImdbId}:${seasonNumber}:${episodeNumber}`;
                             } else {
                                 // Fallback (shouldn't happen)
                                 console.log('[ToonItalia] Unknown ID format:', id);
