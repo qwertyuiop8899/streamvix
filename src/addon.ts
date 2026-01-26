@@ -5215,9 +5215,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     try {
                         // Attempt to resolve mapped ID synchronously if cached or wait if needed
                         // Note: defineStreamHandler is async, so await is fine
-                        const mapping = await getImdbIdFromKitsu(id);
+                        const tmdbKey = config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0';
+                        const mapping = await getImdbIdFromKitsu(id, type, tmdbKey);
                         if (mapping) {
-                            mappedImdbId = mapping.imdb_id;
+                            mappedImdbId = mapping.imdb_id || null;
                             mappedSeason = mapping.season || null;
                             console.log(`[KitsuMapping] Mapped ${id} -> ${mappedImdbId} (Season: ${mappedSeason ?? '?'})`);
                         }
