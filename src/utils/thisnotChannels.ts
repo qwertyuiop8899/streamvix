@@ -121,7 +121,7 @@ async function performLogin(url: string, pwd: string): Promise<string | null> {
                 actionUrl = new URL(action, BASE_URL).href;
             }
 
-            form.find('input').each((_, elem) => {
+            form.find('input').each((_: any, elem: any) => {
                 const name = $(elem).attr('name');
                 if (name) {
                     inputs[name] = $(elem).attr('value') || '';
@@ -197,103 +197,66 @@ function createStaticUrlMpd(mpdUrl: string, keyid: string, key: string): string 
     return Buffer.from(urlWithKeys).toString('base64');
 }
 
-function parseDate(dateText: string): string {
-    try {
-        const match = dateText.match(/(\d+)\s+(\w+)/i);
-        if (!match) return '';
+// Helper per mappare il giorno (Sabato, Domenica...) alla data DD-MM
+function getDateFromDayName(dayName: string): string {
+    const days = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+    const today = new Date();
+    const todayDayIndex = today.getDay(); // 0-6
 
-        const day = match[1].padStart(2, '0');
-        const monthMap: Record<string, string> = {
-            'gennaio': '01', 'febbraio': '02', 'marzo': '03', 'aprile': '04',
-            'maggio': '05', 'giugno': '06', 'luglio': '07', 'agosto': '08',
-            'settembre': '09', 'ottobre': '10', 'novembre': '11', 'dicembre': '12'
-        };
+    let targetDayIndex = days.findIndex(d => d.toLowerCase() === dayName.toLowerCase());
+    if (targetDayIndex === -1) return '';
 
-        const monthName = match[2].toLowerCase();
-        const month = monthMap[monthName] || '00';
+    // Calcola quanti giorni mancano o sono passati per arrivare a quel giorno della settimana
+    // Se oggi è Venerdì (5) e il target è Sabato (6), diff = 1
+    // Se oggi è Venerdì (5) e il target è Domenica (0), diff = 2 (mod 7)
+    let diff = (targetDayIndex - todayDayIndex + 7) % 7;
 
-        return `${day}-${month}`;
-    } catch (e) {
-        return '';
-    }
+    // Se il giorno è oggi, ma vogliamo assicurarci di non prendere il giorno sbagliato se siamo a mezzanotte
+    // In genere gli eventi sono per questa settimana.
+
+    // Proviamo a indovinare se il giorno è "scorso" o "prossimo"
+    // Di solito ThisNot mostra eventi di oggi e dei prossimi giorni.
+    // Se targetDayIndex < todayDayIndex, probabilmente è per la prossima settimana o è un residuo.
+    // Ma per eventi sportivi nel weekend è quasi sempre oggi o domani.
+
+    const targetDate = new Date();
+    targetDate.setDate(today.getDate() + diff);
+
+    const day = String(targetDate.getDate()).padStart(2, '0');
+    const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+
+    return `${day}-${month}`;
 }
 
 /**
- * Verifica se una data è il giorno corrente
+ * Processa gli eventi dal JSON fornito dall'API
  */
-function isToday(dateStr: string): boolean {
-    try {
-        // dateStr formato: "DD-MM"
-        const [day, month] = dateStr.split('-');
-        const today = new Date();
-        const todayDay = String(today.getDate()).padStart(2, '0');
-        const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
-
-        return day === todayDay && month === todayMonth;
-    } catch (e) {
-        return false;
-    }
-}
-
-/**
- * Processa la pagina HTML (ora strutturata a DIV)
- */
-async function processEventsTable(htmlContent: string): Promise<ThisNotChannel[]> {
-    if (!htmlContent) {
-        return [];
-    }
-
-    const $ = cheerio.load(htmlContent);
+async function processEventsJson(eventi: any[]): Promise<ThisNotChannel[]> {
     const channels: ThisNotChannel[] = [];
 
-    // Estrai la data dal .subtitle - formato: "Giovedi 22 Gennaio · Programmazione eventi sportivi"
-    let currentDate = '';
-    const subtitleText = $('.subtitle').first().text().trim();
-    if (subtitleText) {
-        // Cerca pattern "22 Gennaio"
-        const dateMatch = subtitleText.match(/(\d+)\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i);
-        if (dateMatch) {
-            currentDate = parseDate(`${dateMatch[1]} ${dateMatch[2]}`);
-        }
-    }
-
-    // Trova tutti i div con classe .event
-    const events = $('.event');
-
-    for (let i = 0; i < events.length; i++) {
-        const eventCard = events.eq(i);
-
+    for (const ev of eventi) {
         try {
-            // Estrai i dati dall'evento
-            const timeText = eventCard.find('.sport-time').text().trim(); // es: "🎾 01:00"
-            // Rimuovi l'emoji (o tutto ciò che non è ora:minuti)
-            const timeMatch = timeText.match(/(\d{2}:\d{2})/);
-            const time = timeMatch ? timeMatch[1] : '';
+            const competition = ev.competizione || '';
+            const matchName = ev.evento || '';
+            const time = ev.orario || ''; // HH:MM
+            const channelNameRaw = ev.canale || '';
+            const playerUrlRaw = ev.link || '';
+            const dayName = ev.giorno || ''; // Sabato, Domenica...
 
-            const competition = eventCard.find('.competition').text().trim(); // es: "GRAND SLAM, Australian Open"
-            const matchName = eventCard.find('.match').text().trim(); // es: "Live Match"
-
-            // Il canale e il link sono in .event-right
-            const rightSection = eventCard.find('.event-right');
-            const channelNameRaw = rightSection.find('.channel').text().trim(); // es: "Eurosport3" (ignora flag invisibile se testo pulito)
-            const linkTag = rightSection.find('a.btn-watch');
-
-            if (linkTag.length === 0 || !linkTag.attr('href')) {
+            if (!playerUrlRaw || !playerUrlRaw.startsWith('http')) {
                 continue;
             }
 
-            const playerHref = linkTag.attr('href');
-            if (!playerHref) {
-                continue;
-            }
+            const currentDate = getDateFromDayName(dayName);
 
-            const playerUrl = new URL(playerHref, BASE_URL).href;
+            const playerUrl = new URL(playerUrlRaw, BASE_URL).href;
             const playerContent = await getPageContent(playerUrl);
 
             if (!playerContent) {
                 continue;
             }
 
+            // Stessa logica di estrazione del player
             const iframeMatch = playerContent.match(/<iframe[^>]*src=["']([^"']+)["']/i);
             if (!iframeMatch) {
                 continue;
@@ -327,10 +290,8 @@ async function processEventsTable(htmlContent: string): Promise<ThisNotChannel[]
             }
 
             // Costruisci il nome del canale: "DD/MM ⏰ HH:MM - MATCH - COMPETITION [CHANNEL]"
-            // Aggiungo il nome del canale alla fine per distinguerlo meglio
-            let fullChannelName: string;
-            // Usa channelNameRaw se presente, altrimenti stringa vuota
             const chSuffix = channelNameRaw ? ` [${channelNameRaw}]` : '';
+            let fullChannelName: string;
 
             if (currentDate && time) {
                 fullChannelName = `${currentDate.replace('-', '/')} ⏰ ${time} - ${matchName} - ${competition}${chSuffix}`;
@@ -348,8 +309,8 @@ async function processEventsTable(htmlContent: string): Promise<ThisNotChannel[]
                 logo: LOGO_URL
             });
 
-        } catch (e) {
-            // Silenziosamente continua in caso di errore su singolo evento
+        } catch (e: any) {
+            console.error(`❌ [ThisNot] Errore processamento evento: ${e.message}`);
             continue;
         }
     }
@@ -358,21 +319,22 @@ async function processEventsTable(htmlContent: string): Promise<ThisNotChannel[]
 }
 
 async function fetchThisNotChannels(): Promise<ThisNotChannel[]> {
-    // Esegui login su index.php e ottieni HTML
-    const htmlContent = await performLogin(`${BASE_URL}/index.php`, PASSWORD);
+    // Esegui login per avere i cookie sessione
+    await performLogin(`${BASE_URL}/index.php`, PASSWORD);
 
-    if (!htmlContent) {
-        console.error("❌ [ThisNot] Login fallito o pagina vuota");
+    // Carica il JSON dell'API
+    const apiUrl = `${BASE_URL}/api/eventi.json`;
+    const response = await makeRequest(apiUrl);
+
+    if (!response || !response.data || !response.data.eventi) {
+        console.error("❌ [ThisNot] Fallito caricamento API eventi");
         return [];
     }
 
-    const allChannels: ThisNotChannel[] = [];
+    const eventi = response.data.eventi;
+    const allChannels = await processEventsJson(eventi);
 
-    // Processa la tabella HTML restituita dal login
-    const htmlTableChannels = await processEventsTable(htmlContent);
-    allChannels.push(...htmlTableChannels);
-
-    console.log(`✅ [ThisNot] ${allChannels.length} eventi OGGI estratti`);
+    console.log(`✅ [ThisNot] ${allChannels.length} eventi estratti`);
     return allChannels;
 }
 
