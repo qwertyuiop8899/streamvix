@@ -1,33 +1,49 @@
 /**
  * RM Channel Updater
- * Aggiorna automaticamente il campo staticUrlMpd2 in tv_channels.json con i link MPD
- * Sorgente: env RM_SOURCE_URL
+ * Aggiorna automaticamente i campi staticUrlMpd e staticUrlMpdh in tv_channels.json con i link MPD
+ * Sorgente: env RM_SOURCE_URL (per MPD) e RM_SOURCE_URL_H (per MPDh)
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
 
-// Sorgente M3U da variabile ambiente (per sicurezza)
+// Sorgenti M3U da variabili ambiente (per sicurezza)
 const RM_SOURCE = process.env.RM_SOURCE_URL || '';
+const RM_SOURCE_H = process.env.RM_SOURCE_URL_H || '';
 
 // Mapping nomi canale M3U → vavooName per canali con nomi diversi
 const NAME_MAPPING: Record<string, string> = {
     'SKY MTV': 'MTV',
+    'MTV HD': 'MTV',
+    'MTV': 'MTV',
     'SKY HISTORY': 'HISTORY CHANNEL',
     'HISTORYCHANNEL': 'HISTORY CHANNEL',
+    'HISTORY': 'HISTORY CHANNEL',
     'SKY SPORT BASKET': 'SKY SPORT NBA',
     'SKY TG 24': 'SKY TG24',
     'TG 24': 'SKY TG24',
+    'SKY TG24 HD': 'SKY TG24',
     'SKY COMEDY CENTRAL': 'COMEDY CENTRAL',
     'COMEDYCENTRAL': 'COMEDY CENTRAL',
     'CARTOON NETWORK': 'CARTOON NETWORK',
+    'CARTOON NETWORK HD': 'CARTOON NETWORK',
     'NICK JUNIOR': 'NICK JR',
+    'NICK JR HD': 'NICK JR',
     'NICKELODEON': 'NICKELODEON',
     'DEAKIDS': 'DEAKIDS',
     'BOOMERANG': 'BOOMERANG',
+    'BOOMERANG HD': 'BOOMERANG',
     'SKY SPORT F 1': 'SKY SPORT F1',
-    'SKY SPORT GOLF': 'SKY SPORT GOLF'
+    'SKY SPORT GOLF': 'SKY SPORT GOLF',
+    // Sky Uno+ varianti → vavooName è "SKY UNO PLUS"
+    'SKY UNO +': 'SKY UNO PLUS',
+    'SKY UNO+': 'SKY UNO PLUS',
+    // Sky Collection
+    'SKY COLLECTION HD': 'SKY COLLECTION',
+    'SKY SPORT 24 HD': 'SKY SPORT 24',
+    // Sky Cinema Stories → vavooName è "SKY CINEMA DUE"
+    'SKY CINEMA STORIES': 'SKY CINEMA DUE'
 };
 
 interface RmChannel {
@@ -44,7 +60,8 @@ interface TVChannel {
     id: string;
     name: string;
     vavooNames?: string[];
-    staticUrlMpd?: string; // Changed from staticUrlMpd2 to staticUrlMpd
+    staticUrlMpd?: string; // MPD source (RM_SOURCE_URL)
+    staticUrlMpdh?: string; // MPDh source (RM_SOURCE_URL_H)
     [key: string]: any;
 }
 
@@ -87,24 +104,34 @@ function parseM3U(m3uText: string): RmChannel[] {
             const rawName = commaIndex >= 0 ? line.substring(commaIndex + 1).trim() : '';
             const name = rawName.replace(/\s*\(MPD\)\s*/g, '').trim();
 
-            // Cerca URL nelle righe SUCCESSIVE
+            // Cerca URL e chiavi DRM nelle righe SUCCESSIVE (nuovo formato: KODIPROP dopo EXTINF)
             let url = '';
-
-            // Salviamo le chiavi correnti perché il loop sotto potrebbe incontrare le chiavi del PROSSIMO canale
-            const currentKeyId = pendingKeyId;
-            const currentKey = pendingKey;
-
-            // Resetta pending keys per evitare che si propaghino se il prossimo canale non ne ha
-            pendingKeyId = undefined;
-            pendingKey = undefined;
+            let extractedKeyId: string | undefined;
+            let extractedKey: string | undefined;
 
             for (let j = i + 1; j < lines.length; j++) {
                 const nextLine = lines[j].trim();
                 if (!nextLine) continue;
 
-                // Stop se troviamo un altro tag di inizio blocco
-                if (nextLine.startsWith('#EXTINF:') || nextLine.startsWith('#KODIPROP:')) {
+                // Stop se troviamo il prossimo canale
+                if (nextLine.startsWith('#EXTINF:')) {
                     break;
+                }
+
+                // Estrai license_key da KODIPROP (nuovo formato: dopo EXTINF)
+                if (nextLine.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
+                    const licenseKey = nextLine.substring('#KODIPROP:inputstream.adaptive.license_key='.length);
+                    const [keyId, key] = licenseKey.split(':');
+                    if (keyId && key && keyId !== '0000') {
+                        extractedKeyId = keyId.trim();
+                        extractedKey = key.trim();
+                    }
+                    continue;
+                }
+
+                // Skip altri KODIPROP
+                if (nextLine.startsWith('#KODIPROP:')) {
+                    continue;
                 }
 
                 // Trovato URL
@@ -114,10 +141,18 @@ function parseM3U(m3uText: string): RmChannel[] {
                 }
             }
 
+            // Usa chiavi estratte dopo EXTINF, oppure quelle pending (vecchio formato: prima di EXTINF)
+            const finalKeyId = extractedKeyId || pendingKeyId;
+            const finalKey = extractedKey || pendingKey;
+
+            // Resetta pending keys
+            pendingKeyId = undefined;
+            pendingKey = undefined;
+
             if (url && name) {
                 // Aggiungi chiavi all'URL se presenti
-                if (currentKeyId && currentKey) {
-                    url += `&key_id=${currentKeyId}&key=${currentKey}`;
+                if (finalKeyId && finalKey) {
+                    url += `&key_id=${finalKeyId}&key=${finalKey}`;
                 }
 
                 channels.push({
@@ -126,8 +161,8 @@ function parseM3U(m3uText: string): RmChannel[] {
                     group: groupMatch ? groupMatch[1] : '',
                     logo: tvgLogoMatch ? tvgLogoMatch[1] : '',
                     url: url,
-                    keyId: currentKeyId,
-                    key: currentKey
+                    keyId: finalKeyId,
+                    key: finalKey
                 });
             }
         }
@@ -156,6 +191,8 @@ function normalizeForMatching(name: string): string {
         .replace(/📺|🎭|🏎️|🏀/g, '') // Emoji specifiche comuni
         .trim()
         .toUpperCase()
+        // Rimuovi suffissi HD/FHD alla fine (es. "SKY UNO FHD" → "SKY UNO")
+        .replace(/\s+(FHD|HD)$/g, '')
         .replace(/\s+/g, ' '); // Normalizza spazi
 }
 
@@ -271,6 +308,35 @@ async function fetchRmChannels(): Promise<RmChannel[]> {
         return channels;
     } catch (error: any) {
         console.error(`[RM] ❌ Error downloading: ${error.message}`);
+        return [];
+    }
+}
+
+/**
+ * Scarica e parsa il file M3U per MPDh
+ */
+async function fetchRmChannelsH(): Promise<RmChannel[]> {
+    if (!RM_SOURCE_H) {
+        console.log('[RMh] ⚠️  RM_SOURCE_URL_H non configurato, skip update');
+        return [];
+    }
+
+    try {
+        console.log(`[RMh] 📥 Downloading from RM_SOURCE_URL_H...`);
+        const response = await axios.get(RM_SOURCE_H, {
+            timeout: 60000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': '*/*'
+            }
+        });
+
+        const channels = parseM3U(response.data);
+        console.log(`[RMh] ✅ Parsed ${channels.length} channels`);
+
+        return channels;
+    } catch (error: any) {
+        console.error(`[RMh] ❌ Error downloading: ${error.message}`);
         return [];
     }
 }
@@ -403,6 +469,116 @@ export async function updateRmChannels(force: boolean = false, skipReload: boole
 }
 
 /**
+ * Aggiorna tv_channels.json con campo staticUrlMpdh (sorgente H)
+ */
+export async function updateRmChannelsH(force: boolean = false, skipReload: boolean = false): Promise<number> {
+    try {
+        console.log('[RMh] 📥 Inizio aggiornamento canali MPDh...');
+
+        // Scarica canali RM H
+        const rmChannels = await fetchRmChannelsH();
+
+        if (rmChannels.length === 0) {
+            console.log('[RMh] ⚠️  Nessun canale scaricato');
+            return 0;
+        }
+
+        const sourceChannels = rmChannels;
+        console.log(`[RMh] 🎯 Canali trovati nel M3U: ${sourceChannels.length}`);
+
+        // Legge tv_channels.json
+        const tvChannelsPath = path.join(__dirname, '../../config/tv_channels.json');
+        console.log(`[RMh] 📁 Percorso file: ${tvChannelsPath}`);
+        const tvChannelsData = fs.readFileSync(tvChannelsPath, 'utf-8');
+        const tvChannels: TVChannel[] = JSON.parse(tvChannelsData);
+
+        let updates = 0;
+        let matches = 0;
+        const matched: string[] = [];
+        const unmatched: string[] = [];
+
+        // Match e update
+        for (const rmChannel of sourceChannels) {
+            const matchedChannel = matchChannel(tvChannels, rmChannel);
+
+            if (matchedChannel) {
+                matches++;
+                const urlBase64 = Buffer.from(rmChannel.url).toString('base64');
+
+                // Sovrascrivi SEMPRE staticUrlMpdh
+                if (force || matchedChannel.staticUrlMpdh !== urlBase64) {
+                    matchedChannel.staticUrlMpdh = urlBase64;
+                    updates++;
+                    matched.push(`${matchedChannel.name} <- ${rmChannel.name} (UPDATED)`);
+                }
+            } else {
+                unmatched.push(rmChannel.name);
+            }
+        }
+
+        console.log(`[RMh] 📊 Matched ${matches}/${sourceChannels.length} channels`);
+
+        // Log risultati
+        console.log(`[RMh] ✅ Updated ${updates} canali:`);
+        for (const m of matched) {
+            console.log(`[RMh]   ✅ ${m}`);
+        }
+
+        if (unmatched.length > 0) {
+            console.log(`[RMh] ⚠️  Unmatched ${unmatched.length} canali:`);
+            for (const u of unmatched) {
+                console.log(`[RMh]   ❌ ${u}`);
+            }
+        }
+
+        if (updates > 0) {
+            // Salva file aggiornato
+            fs.writeFileSync(tvChannelsPath, JSON.stringify(tvChannels, null, 2), 'utf-8');
+            console.log(`[RMh] ✅ Aggiornati ${updates} canali con staticUrlMpdh`);
+
+            // Trigger reload (se non skipReload)
+            if (!skipReload) {
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+
+                    const http = require('http');
+                    const options = {
+                        hostname: 'localhost',
+                        port: process.env.PORT || 7000,
+                        path: '/static/reload',
+                        method: 'GET',
+                        timeout: 3000
+                    };
+
+                    const req = http.request(options, (res: any) => {
+                        let data = '';
+                        res.on('data', (chunk: any) => { data += chunk; });
+                        res.on('end', () => {
+                            console.log('[RMh] 🔄 Reload triggerato', data ? JSON.parse(data) : 'ok');
+                        });
+                    });
+
+                    req.on('error', () => {
+                        console.log('[RMh] ℹ️  Reload non disponibile');
+                    });
+
+                    req.end();
+                } catch (err) {
+                    console.log('[RMh] ⚠️  Errore trigger reload');
+                }
+            }
+        } else {
+            console.log('[RMh] ℹ️  Nessun canale aggiornato (tutti già aggiornati)');
+        }
+
+        return updates;
+    } catch (error) {
+        console.error('[RMh] ❌ Errore aggiornamento:', error);
+        return 0;
+    }
+}
+
+/**
  * Scheduler per aggiornamenti automatici ogni 15 minuti
  */
 export function startRmScheduler() {
@@ -410,13 +586,15 @@ export function startRmScheduler() {
     setTimeout(async () => {
         console.log('[RM] 🚀 Primo aggiornamento all\'avvio...');
         await updateRmChannels();
+        await updateRmChannelsH();
     }, 45000);
 
     // Poi ogni 15 minuti (900000 ms)
     setInterval(async () => {
         console.log('[RM] 🔄 Aggiornamento programmato (15min)...');
         await updateRmChannels();
+        await updateRmChannelsH();
     }, 900000);
 
-    console.log('[RM] 📅 Scheduler attivato: aggiornamenti ogni 15 minuti');
+    console.log('[RM] 📅 Scheduler attivato: aggiornamenti ogni 15 minuti (MPD + MPDh)');
 }
