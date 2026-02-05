@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.1...v1.16.2) (2026-02-05)
+
+
+### Bug Fixes
+
+* m ([d4c326f](https://github.com/qwertyuiop8899/streamvix/commit/d4c326f948d5ff92d06f6c1c74a11c8a9173cf19))
+* mdh ([70fde78](https://github.com/qwertyuiop8899/streamvix/commit/70fde78661f34faa2eaf1dbd8ba1a6b77aee8f5a))
+
 ## [1.16.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.0...v1.16.1) (2026-01-30)
 
 
