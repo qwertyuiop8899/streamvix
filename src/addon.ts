@@ -523,6 +523,9 @@ function getStreamPriority(stream: { url: string; title: string }): number {
     // 3. Freeshot (cerca [🏟 Free] o freeshot)
     if (/freeshot|\[🏟\s*Free\]|🏟.*free/i.test(title)) return 3;
 
+    // 3.9. staticUrlMpdh (🎬MPDh - SkyFHD source) - PRIMO tra i MPD
+    if (/\[🎬MPDh\]/i.test(title)) return 3.9;
+
     // 4. staticUrlMpd (🎬MPD - canali statici con MPD iniettati dinamicamente)
     if (/\[🎬MPD\]/i.test(title)) return 4;
 
@@ -3310,7 +3313,78 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             debugLog(`Freeshot import/fetch fallito: ${e}`);
                         }
 
-                        // === INJECTION GENERICO staticUrlMpd (come Vavoo) - Posizione #4 dopo Freeshot ===
+                        // === INJECTION ORDINE: prima MPDh, poi MPD, poi MPDx ===
+
+                        // === INJECTION staticUrlMpdh (SkyFHD - 🎬MPDh) - Posizione #4 (PRIMO MPD) ===
+                        try {
+                            const mpdhInjectedChannels = new Set<string>();
+
+                            for (const staticCh of staticBaseChannels) {
+                                if (!staticCh || !(staticCh as any).staticUrlMpdh) continue;
+                                if (mpdhInjectedChannels.has(staticCh.id)) continue;
+
+                                const aliases = staticCh.vavooNames || [staticCh.name];
+
+                                let matched = false;
+                                for (const alias of aliases) {
+                                    if (matched) break;
+                                    const normalizedAlias = normAlias(alias);
+
+                                    const matches = providerTitlesExt.some((pt: string) => {
+                                        const normalizedProvider = normAlias(pt);
+                                        return normalizedProvider.includes(normalizedAlias) || normalizedAlias.includes(normalizedProvider);
+                                    });
+
+                                    if (matches) {
+                                        try {
+                                            const decodedUrl = decodeStaticUrl((staticCh as any).staticUrlMpdh);
+                                            let finalUrl = decodedUrl;
+                                            let proxyUsed = false;
+
+                                            if (mfpUrl) {
+                                                const urlParts = decodedUrl.split('&');
+                                                const baseUrl = urlParts[0];
+                                                const additionalParams = urlParts.slice(1);
+                                                const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                                                finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
+                                                for (const param of additionalParams) if (param) finalUrl += `&${param}`;
+                                                proxyUsed = true;
+                                            }
+
+                                            const title = `${proxyUsed ? '' : '[❌Proxy]'}[🎬MPDh] ${staticCh.name} [ITA]`;
+
+                                            // Inserisce PRIMA di tutti gli MPD (MPDh va per primo)
+                                            let insertAt = 0;
+                                            try {
+                                                while (insertAt < streams.length && /(\(Vavoo🔓\))/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /🇮🇹🔄/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🏟\s*Free\]/i.test(streams[insertAt].title)) insertAt++;
+                                            } catch { }
+
+                                            try {
+                                                streams.splice(insertAt, 0, { url: finalUrl, title });
+                                            } catch {
+                                                streams.push({ url: finalUrl, title });
+                                            }
+
+                                            mpdhInjectedChannels.add(staticCh.id);
+                                            matched = true;
+                                            console.log(`✅ [MPDh] Injected ${staticCh.name} (matched alias: ${alias}) - SkyFHD source`);
+                                        } catch (injectErr) {
+                                            debugLog(`[MPDh] Injection failed for ${staticCh.name}:`, injectErr);
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (mpdhInjectedChannels.size > 0) {
+                                console.log(`✅ [MPDh] Total injected: ${mpdhInjectedChannels.size} channels with staticUrlMpdh (SkyFHD)`);
+                            }
+                        } catch (e) {
+                            console.error('[MPDh] Injection error:', (e as any)?.message || e);
+                        }
+
+                        // === INJECTION GENERICO staticUrlMpd (come Vavoo) - Posizione #5 dopo MPDh ===
                         try {
                             const mpdInjectedChannels = new Set<string>(); // Track per evitare duplicati
 
@@ -3594,7 +3668,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         } catch (e) {
                             console.error('[MPDx] Injection error:', (e as any)?.message || e);
                         }
-
 
                         // (Normalizzazione CF rimossa: ora pubblichiamo link avvolti con extractor on-demand)
                         // Append leftover entries (beyond CAP) con stessa logica on-demand (proxy/hls diretto)
@@ -3896,7 +3969,37 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
 
-                    // staticUrlMpd (sempre attivo se presente, non dipende da enableMpd)
+                    // === ORDINE MPD: prima MPDh, poi MPD, poi MPDx ===
+
+                    // staticUrlMpdh (MPDh / SkyFHD source - RM_SOURCE_URL_H) - PRIMO
+                    if ((channel as any).staticUrlMpdh) {
+                        const decodedUrlh = decodeStaticUrl((channel as any).staticUrlMpdh);
+
+                        if (mfpUrl) {
+                            const urlParts = decodedUrlh.split('&');
+                            const baseUrl = urlParts[0];
+                            const additionalParams = urlParts.slice(1);
+
+                            const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
+
+                            for (const param of additionalParams) {
+                                if (param) {
+                                    proxyUrl += `&${param}`;
+                                }
+                            }
+
+                            streams.push({
+                                url: proxyUrl,
+                                title: `[🎬MPDh] ${channel.name} [ITA]`
+                            });
+                            debugLog(`Aggiunto staticUrlMpdh Proxy (MFP): ${proxyUrl.substring(0, 150)}...`);
+                        } else {
+                            debugLog(`(NASCONDI) staticUrlMpdh Direct senza MFP: ${decodedUrlh}`);
+                        }
+                    }
+
+                    // staticUrlMpd (sempre attivo se presente, non dipende da enableMpd) - SECONDO
                     console.log(`🔧 [staticUrlMpd] DEBUG - channel has staticUrlMpd? ${!!(channel as any).staticUrlMpd}`);
                     if ((channel as any).staticUrlMpd) {
                         console.log(`🔧 [staticUrlMpd] Raw URL: ${(channel as any).staticUrlMpd}`);
@@ -4019,6 +4122,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             debugLog(`(NASCONDI) staticUrlMpdx Direct senza MFP: ${decodedUrlx}`);
                         }
                     }
+
 
                     // staticUrlD / staticUrlD_CF
                     // Richiesta: i canali D_CF devono essere SEMPRE visibili anche senza MFP (perché già proxy CF pronto)
@@ -6805,12 +6909,17 @@ app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) =
 
         // RM (MPD)
         try {
-            const { updateRmChannels } = await import('./utils/rmUpdater');
+            const { updateRmChannels, updateRmChannelsH } = await import('./utils/rmUpdater');
             const c = await updateRmChannels(true, true); // force=true, skipReload=true
             totalUpdates += c;
             htmlLog.push(`<li>✅ <strong>RM (MPD)</strong>: ${c} channels updated (FORCED)</li>`);
+
+            // RM H (MPDh / SkyFHD)
+            const h = await updateRmChannelsH(true, true); // force=true, skipReload=true
+            totalUpdates += h;
+            htmlLog.push(`<li>✅ <strong>RM H (MPDh)</strong>: ${h} channels updated (FORCED)</li>`);
         } catch (e: any) {
-            htmlLog.push(`<li>❌ <strong>RM (MPD)</strong>: Error: ${e.message}</li>`);
+            htmlLog.push(`<li>❌ <strong>RM (MPD/MPDh)</strong>: Error: ${e.message}</li>`);
         }
 
         // MPDz
@@ -6909,18 +7018,20 @@ app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) =
             _loadStaticChannelsIfChanged(true);
 
             // Conta canali con vari campi MPD
-            let mpdCount = 0, mpd2Count = 0, mpdzCount = 0, mpdxCount = 0;
+            let mpdCount = 0, mpd2Count = 0, mpdzCount = 0, mpdxCount = 0, mpdhCount = 0;
             for (const c of staticBaseChannels) {
                 if (c && (c as any).staticUrlMpd) mpdCount++;
                 if (c && (c as any).staticUrlMpd2) mpd2Count++;
                 if (c && (c as any).staticUrlMpdz) mpdzCount++;
                 if (c && (c as any).staticUrlMpdx) mpdxCount++;
+                if (c && (c as any).staticUrlMpdh) mpdhCount++;
             }
 
             htmlLog.push(`<p>✅ <strong>Reload completato!</strong></p>`);
             htmlLog.push(`<ul>`);
             htmlLog.push(`<li>Total channels in memory: <strong>${staticBaseChannels.length}</strong></li>`);
             htmlLog.push(`<li>staticUrlMpd (RM/MPD): <strong>${mpdCount}</strong></li>`);
+            htmlLog.push(`<li>staticUrlMpdh (RM H/SkyFHD): <strong>${mpdhCount}</strong></li>`);
             // htmlLog.push(`<li>staticUrlMpd2 (DEPRECATED): <strong>${mpd2Count}</strong></li>`);
             htmlLog.push(`<li>staticUrlMpdx (MPDx): <strong>${mpdxCount}</strong></li>`);
             htmlLog.push(`</ul>`);
