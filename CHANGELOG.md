@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.2...v1.16.3) (2026-02-07)
+
+
+### Bug Fixes
+
+* add tag versions to docker ([b061b93](https://github.com/qwertyuiop8899/streamvix/commit/b061b936fcda79209b587d59753b660f2fc386f0))
+
 ## [1.16.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.1...v1.16.2) (2026-02-05)
 
 
