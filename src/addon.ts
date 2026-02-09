@@ -698,6 +698,7 @@ const baseManifest: Manifest = {
             extra: [
                 {
                     name: "genre",
+                    isRequired: false,
                     options: [
                         "RAI",
                         "Mediaset",
@@ -712,7 +713,6 @@ const baseManifest: Manifest = {
                         "Pluto"
                     ]
                 },
-                { name: "genre", isRequired: false },
                 { name: "search", isRequired: false }
             ]
         },
@@ -723,9 +723,9 @@ const baseManifest: Manifest = {
             extra: [
                 {
                     name: "genre",
+                    isRequired: false,
                     options: [
                         "X-Eventi",
-                        // "Z-Eventi",
                         "THISNOT",
                         "SportzX",
                         "Sports99",
@@ -752,7 +752,6 @@ const baseManifest: Manifest = {
                         "PPV"
                     ]
                 },
-                { name: "genre", isRequired: false },
                 { name: "search", isRequired: false }
             ]
         },
@@ -1950,7 +1949,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     filteredChannels = filteredChannels.filter(ch => getChannelCategories(ch).includes(target));
                     console.log(`🔍 Genre='${norm}' -> slug='${target}' results=${filteredChannels.length}`);
                 } else {
-                    console.log(`📺 No genre filter, showing all ${tvChannels.length} channels`);
+                    // Nessun genre e nessuna search -> richiesta dalla Home: restituisci vuoto per non mostrare il catalogo
+                    console.log(`📺 No genre/search filter -> Home request, returning empty`);
+                    return { metas: [], cacheMaxAge: 300 };
                 }
             }
 
