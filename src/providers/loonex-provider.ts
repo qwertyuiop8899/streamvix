@@ -54,17 +54,20 @@ async function searchSeries(searchTitle: string, imdbId?: string, tmdbId?: strin
         const $ = cheerio.load(response.data);
         const series: LoonexSeries[] = [];
 
-        // 3. Estrai tutte le serie dalla homepage
-        $('.list-item').each((_, element) => {
+        // 3. Estrai tutte le serie dalla homepage (Nuova struttura 2025)
+        $('.lx-cartoon-col').each((_, element) => {
             const $item = $(element);
-            
-            // Il titolo è dentro .item-main-title
-            const title = $item.find('.item-main-title').text().trim();
-            
-            // Il link è dentro .item-link (attributo href)
-            const href = $item.find('.item-link').attr('href');
-            
+
+            // Il titolo è dentro .lx-search-title
+            // Nota: .text() potrebbe includere spazi extra, quindi trim() è essenziale
+            const title = $item.find('.lx-search-title').text().trim();
+
+            // Il link è l'elemento <a> principale, spesso figlio diretto o padre della card
+            // In questo caso struttura è: <div class="lx-cartoon-col"> <a href="..."> <div class="card"> ...
+            const href = $item.find('a').attr('href');
+
             if (title && href) {
+                // Rimuovi query params se presenti per pulizia (opzionale) o mantieni tutto
                 series.push({
                     title,
                     url: href,
@@ -77,7 +80,7 @@ async function searchSeries(searchTitle: string, imdbId?: string, tmdbId?: strin
 
         // 4. Cerca corrispondenza
         for (const serie of series) {
-            if (serie.normalizedTitle.includes(normalizedSearch) || 
+            if (serie.normalizedTitle.includes(normalizedSearch) ||
                 normalizedSearch.includes(serie.normalizedTitle)) {
                 console.log(`[Loonex] Found match: "${serie.title}" at ${serie.url}`);
                 return serie;
@@ -99,7 +102,7 @@ async function searchSeries(searchTitle: string, imdbId?: string, tmdbId?: strin
 async function getEpisodes(seriesUrl: string): Promise<LoonexEpisode[]> {
     try {
         console.log(`[Loonex] Fetching episodes from: ${seriesUrl}`);
-        
+
         const response = await axios.get(seriesUrl, {
             headers: { 'User-Agent': USER_AGENT },
             timeout: 10000
@@ -112,19 +115,19 @@ async function getEpisodes(seriesUrl: string): Promise<LoonexEpisode[]> {
         $('.season-header').each((_, seasonElement) => {
             const $season = $(seasonElement);
             const seasonTitle = $season.find('.season-title').text().trim();
-            
+
             // Prendi il target del collapse per trovare gli episodi
             const target = $season.attr('data-bs-target');
             if (!target) return;
 
             // Trova il contenitore degli episodi
             const $episodeContainer = $(target);
-            
+
             // Estrai tutti i link "GUARDA" in questa stagione
             $episodeContainer.find('.btn-watch').each((_, btnElement) => {
                 const $btn = $(btnElement);
                 const episodeUrl = $btn.attr('href');
-                
+
                 // Trova il titolo dell'episodio: è nel primo .d-flex > span del parent
                 const parentDiv = $btn.closest('.d-flex').parent();
                 const firstDFlex = parentDiv.find('.d-flex').first();
@@ -155,21 +158,21 @@ async function getEpisodes(seriesUrl: string): Promise<LoonexEpisode[]> {
 async function getM3U8Url(episodeUrl: string): Promise<string | null> {
     try {
         console.log(`[Loonex] Fetching M3U8 from: ${episodeUrl}`);
-        
+
         const response = await axios.get(episodeUrl, {
             headers: { 'User-Agent': USER_AGENT },
             timeout: 10000
         });
 
         const $ = cheerio.load(response.data);
-        
+
         // Cerca il tag <source> con l'M3U8
-        const m3u8Url = $('#video-source').attr('src') || 
-                        $('source[type="application/x-mpegURL"]').attr('src') ||
-                        $('source').filter((_, el) => {
-                            const src = $(el).attr('src') || '';
-                            return src.includes('.m3u8');
-                        }).attr('src');
+        const m3u8Url = $('#video-source').attr('src') ||
+            $('source[type="application/x-mpegURL"]').attr('src') ||
+            $('source').filter((_, el) => {
+                const src = $(el).attr('src') || '';
+                return src.includes('.m3u8');
+            }).attr('src');
 
         if (m3u8Url) {
             console.log(`[Loonex] Found M3U8: ${m3u8Url}`);
@@ -192,7 +195,7 @@ async function getTitleFromTMDb(imdbId: string, tmdbId?: string, tmdbApiKey?: st
     try {
         const apiKey = tmdbApiKey || '40a9faa1f6741afb2c0c40238d85f8d0';
         let url: string;
-        
+
         if (tmdbId) {
             // Se abbiamo TMDb ID, usalo direttamente
             url = `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${apiKey}&language=it-IT`;
@@ -202,10 +205,10 @@ async function getTitleFromTMDb(imdbId: string, tmdbId?: string, tmdbApiKey?: st
         } else {
             return null;
         }
-        
+
         console.log(`[Loonex] Fetching title from TMDb...`);
         const response = await axios.get(url, { timeout: 5000 });
-        
+
         if (tmdbId) {
             return response.data.name || response.data.original_name || null;
         } else {
@@ -215,7 +218,7 @@ async function getTitleFromTMDb(imdbId: string, tmdbId?: string, tmdbApiKey?: st
                 return results[0].name || results[0].original_name || null;
             }
         }
-        
+
         return null;
     } catch (error) {
         console.error('[Loonex] Error fetching from TMDb:', error);
@@ -260,7 +263,7 @@ export async function getLoonexStreams(
             searchTitle = tmdbTitle;
             console.log(`[Loonex] Got title from TMDb: "${searchTitle}"`);
         }
-        
+
         // 2. Cerca la serie
         const series = await searchSeries(searchTitle, imdbId, tmdbId);
         if (!series) {
@@ -278,21 +281,21 @@ export async function getLoonexStreams(
         const filteredEpisodes = episodes.filter(ep => {
             const title = ep.title.toLowerCase();
             const url = ep.episodeUrl.toLowerCase();
-            
+
             // Rimuovi episodi con:
             // - URL che contiene "0x00" (es: overthegardenwall_0x00)
             // - Titolo che inizia con "0 -" (es: "0 - PREQUEL")
             // - Titolo che contiene "0x00"
             // - Titolo che contiene "prequel"
-            const isPrequel = url.includes('0x00') || 
-                            url.includes('_0x0') ||
-                            title.startsWith('0 -') || 
-                            title.includes('0x00') || 
-                            title.includes('prequel');
-            
+            const isPrequel = url.includes('0x00') ||
+                url.includes('_0x0') ||
+                title.startsWith('0 -') ||
+                title.includes('0x00') ||
+                title.includes('prequel');
+
             return !isPrequel;
         });
-        
+
         if (filteredEpisodes.length < episodes.length) {
             console.log(`[Loonex] Filtered out ${episodes.length - filteredEpisodes.length} prequel episode(s) (0x00)`);
             episodes = filteredEpisodes;
@@ -303,19 +306,19 @@ export async function getLoonexStreams(
         const streams: Stream[] = [];
 
         console.log(`[Loonex] Searching for S${season}E${episode} among ${episodes.length} episodes`);
-        
+
         // Usa direttamente l'indice: episode 1 = indice 0, episode 2 = indice 1, ecc.
         const targetIndex = episode - 1;
-        
+
         if (targetIndex >= 0 && targetIndex < episodes.length) {
             const targetEpisode = episodes[targetIndex];
             console.log(`[Loonex] Trying episode at index ${targetIndex}: ${targetEpisode.episodeUrl}`);
-            
+
             const m3u8Url = await getM3U8Url(targetEpisode.episodeUrl);
             if (m3u8Url) {
                 // Titolo con serie, stagione ed episodio
                 const streamTitle = `${searchTitle} S${season}E${episode}`;
-                
+
                 // Descrizione dettagliata multi-linea
                 const streamDescription = [
                     `🎬 ${streamTitle}`,
@@ -323,7 +326,7 @@ export async function getLoonexStreams(
                     `📺 1080p`,
                     `📝 ${targetEpisode.title || `Episodio ${episode}`}`
                 ].join('\n');
-                
+
                 streams.push({
                     name: 'Loonex',  // Il nome verrà sostituito da providerLabel() in addon.ts
                     title: streamDescription,
