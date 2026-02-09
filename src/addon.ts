@@ -698,7 +698,7 @@ const baseManifest: Manifest = {
             extra: [
                 {
                     name: "genre",
-                    isRequired: false,
+                    isRequired: true,
                     options: [
                         "RAI",
                         "Mediaset",
@@ -723,7 +723,7 @@ const baseManifest: Manifest = {
             extra: [
                 {
                     name: "genre",
-                    isRequired: false,
+                    isRequired: true,
                     options: [
                         "X-Eventi",
                         "THISNOT",
@@ -762,7 +762,7 @@ const baseManifest: Manifest = {
             extra: [
                 {
                     name: "genre",
-                    isRequired: false,
+                    isRequired: true,
                     options: ["All Recordings"]
                 },
                 { name: "search", isRequired: false }
@@ -5187,6 +5187,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             } else {
                                 allStreams.push({ name: getStreamName(s.url), title: s.title, url: s.url });
                             }
+                        }
+                    }
+
+                    // Direct vavoo streams (raw URL, VLC only) - only when Vavoo NO MFP 🔓 is enabled
+                    if (config.vavooNoMfpEnabled === true && vavooFoundUrls.length > 0) {
+                        for (let i = 0; i < vavooFoundUrls.length; i++) {
+                            const directTitle = `[🎯 V-${i + 1}] ${channel.name} (VLC only) [ITA]`;
+                            allStreams.push({ name: 'Direct', title: directTitle, url: vavooFoundUrls[i], behaviorHints: { notWebReady: true } as any });
                         }
                     }
 
