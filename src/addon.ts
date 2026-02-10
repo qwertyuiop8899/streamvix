@@ -2601,14 +2601,21 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         const streamUrl = await client.resolveStreamUrl(match.player_url);
 
                         if (streamUrl) {
+                            const sports99Hdrs: Record<string, string> = {
+                                'Referer': 'https://cdn-live.tv/',
+                                'Origin': 'https://cdn-live.tv',
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                            };
                             return {
                                 streams: [{
                                     url: streamUrl,
                                     title: '🔴 LIVE',
                                     name: match.channel_name || 'Sports99',
                                     behaviorHints: {
-                                        notWebReady: true
-                                    }
+                                        notWebReady: true,
+                                        headers: sports99Hdrs,
+                                        proxyHeaders: sports99Hdrs
+                                    } as any
                                 }]
                             };
                         } else {
