@@ -24,7 +24,7 @@ export class Sports99Client {
     private playerReferer: string;
     private timeout: number;
 
-    constructor(user: string = "streamsports99", plan: string = "vip", timeout: number = 30000) {
+    constructor(user: string = "cdnlivetv", plan: string = "free", timeout: number = 30000) {
         this.user = user;
         this.plan = plan;
         this.baseApi = "https://api.cdn-live.tv/api/v1";
@@ -94,9 +94,63 @@ export class Sports99Client {
     // Find Stream URL
     // ---------------------------------------------------------
     private findStreamUrl(jsCode: string): string | null {
-        const pattern = /[\"']([^\"']*index\.m3u8\?token=[^\"']+)[\"']/;
-        const match = jsCode.match(pattern);
-        return match ? match[1] : null;
+        // Try old pattern first (index.m3u8?token=)
+        const oldPattern = /[\"']([^\"']*index\.m3u8\?token=[^\"']+)[\"']/;
+        const oldMatch = jsCode.match(oldPattern);
+        if (oldMatch) return oldMatch[1];
+
+        // New pattern: base64-encoded URL fragments in const declarations
+        // The decoded JS builds URLs from concatenated base64 parts
+        const b64Pattern = /const\s+\w+\s*=\s*'([A-Za-z0-9+/_-]{2,})'/g;
+        const b64Strings: string[] = [];
+        let m: RegExpExecArray | null;
+        while ((m = b64Pattern.exec(jsCode)) !== null) {
+            b64Strings.push(m[1]);
+        }
+
+        if (b64Strings.length === 0) return null;
+
+        // Base64 decode (handles URL-safe base64)
+        const b64decode = (str: string): string => {
+            str = str.replace(/-/g, '+').replace(/_/g, '/');
+            while (str.length % 4) str += '=';
+            return Buffer.from(str, 'base64').toString();
+        };
+
+        // Decode all fragments
+        const decoded = b64Strings.map(s => {
+            try { return b64decode(s); } catch { return ''; }
+        });
+
+        // Reconstruct URLs from consecutive fragments
+        const urls: string[] = [];
+        let current = '';
+        for (let i = 0; i < decoded.length; i++) {
+            if (decoded[i] === 'https' || decoded[i] === 'http') {
+                if (current && (current.includes('.m3u8') || current.includes('playlist'))) {
+                    urls.push(current);
+                }
+                current = decoded[i];
+            } else if (current) {
+                current += decoded[i];
+            }
+        }
+        if (current) urls.push(current);
+
+        // Prefer URL with token= and m3u8
+        for (const url of urls) {
+            if (url.includes('token=') && (url.includes('.m3u8') || url.includes('playlist'))) {
+                return url;
+            }
+        }
+        // Fallback: any URL with m3u8
+        for (const url of urls) {
+            if (url.includes('.m3u8')) {
+                return url;
+            }
+        }
+
+        return null;
     }
 
     // ---------------------------------------------------------
@@ -176,8 +230,15 @@ export class Sports99Client {
     // ---------------------------------------------------------
     public async resolveStreamUrl(playerUrl: string): Promise<string | null> {
         try {
-            const headers = { Referer: this.playerReferer };
-            const res = await axios.get(playerUrl, { headers, timeout: this.timeout });
+            // Rewrite old credentials in cached player URLs
+            let url = playerUrl;
+            url = url.replace(/user=streamsports99/g, `user=${this.user}`);
+            url = url.replace(/plan=vip/g, `plan=${this.plan}`);
+            const headers = {
+                Referer: this.playerReferer,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            };
+            const res = await axios.get(url, { headers, timeout: this.timeout });
             const js = this.decodeObfuscatedJs(res.data);
             if (!js) {
                 console.warn('[Sports99] Could not decode obfuscated JS');
