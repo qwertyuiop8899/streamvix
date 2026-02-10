@@ -33,7 +33,7 @@ export class Sports99Client {
     }
 
     // ---------------------------------------------------------
-    // Utility: Convert base
+    // Utility: Convert base 
     // ---------------------------------------------------------
     private convertBase(s: string, base: number): number {
         let result = 0;
