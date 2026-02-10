@@ -117,6 +117,16 @@ export class Sports99Client {
             return Buffer.from(str, 'base64').toString();
         };
 
+        // Check if a decoded fragment is valid URL content (printable ASCII only)
+        const isValidUrlPart = (s: string): boolean => {
+            if (!s || s.length === 0) return false;
+            for (let i = 0; i < s.length; i++) {
+                const code = s.charCodeAt(i);
+                if (code < 0x20 || code > 0x7E) return false;
+            }
+            return true;
+        };
+
         // Decode all fragments
         const decoded = b64Strings.map(s => {
             try { return b64decode(s); } catch { return ''; }
@@ -132,7 +142,16 @@ export class Sports99Client {
                 }
                 current = decoded[i];
             } else if (current) {
-                current += decoded[i];
+                // Only append if decoded fragment is valid ASCII (not binary garbage)
+                if (isValidUrlPart(decoded[i])) {
+                    current += decoded[i];
+                } else {
+                    // Non-URL content found, finalize current URL
+                    if (current.includes('.m3u8') || current.includes('playlist')) {
+                        urls.push(current);
+                    }
+                    current = '';
+                }
             }
         }
         if (current) urls.push(current);
