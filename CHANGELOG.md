@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.16.7](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.6...v1.16.7) (2026-02-10)
+
+
+### Bug Fixes
+
+* sp99 ([1c9c71f](https://github.com/qwertyuiop8899/streamvix/commit/1c9c71f1605ab84c7ef8b613fdc97eb9e142d3ee))
+* sp9ext ([4142c15](https://github.com/qwertyuiop8899/streamvix/commit/4142c159eb72f277c200450056907bd28454fd6b))
+* sports9 ([4b86888](https://github.com/qwertyuiop8899/streamvix/commit/4b86888c8b738a63f66bbb9ae33ca87e04c4b642))
+
 ## [1.16.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.5...v1.16.6) (2026-02-09)
 
 
