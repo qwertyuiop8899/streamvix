@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.16.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.7...v1.16.8) (2026-02-11)
+
+
+### Bug Fixes
+
+* header sp99 ([d9d9a70](https://github.com/qwertyuiop8899/streamvix/commit/d9d9a70630523cf5d37f4c8637bbf67f5ea09446))
+* sp99 ([a09a32f](https://github.com/qwertyuiop8899/streamvix/commit/a09a32fad5e8f5fa6fe7ad142c6ae3f8b5b243cf))
+* sp99mandra ([8f5e901](https://github.com/qwertyuiop8899/streamvix/commit/8f5e9012311b64a497ad2bd279e97ea6c1d4fe51))
+
 ## [1.16.7](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.6...v1.16.7) (2026-02-10)
 
 
