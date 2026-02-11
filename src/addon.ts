@@ -2604,18 +2604,30 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const sports99Hdrs: Record<string, string> = {
                                 'Referer': 'https://cdn-live.tv/',
                                 'Origin': 'https://cdn-live.tv',
-                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
                             };
+
+                            // Use MFP proxy if available (proxyHeaders unreliable on Android TV)
+                            const sp99MfpUrl = (requestConfig?.mediaFlowProxyUrl || configCache?.mediaFlowProxyUrl || process.env.MFP_URL || '').replace(/\/+$/, '');
+                            const sp99MfpPsw = requestConfig?.mediaFlowProxyPassword || configCache?.mediaFlowProxyPassword || process.env.MFP_PSW || '';
+                            let sp99FinalUrl = streamUrl;
+                            let sp99Title = '🔴 LIVE';
+
+                            if (sp99MfpUrl) {
+                                const headersJson = encodeURIComponent(JSON.stringify(sports99Hdrs));
+                                const passwordParam = sp99MfpPsw ? `&api_password=${encodeURIComponent(sp99MfpPsw)}` : '';
+                                sp99FinalUrl = `${sp99MfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(streamUrl)}${passwordParam}&headers=${headersJson}`;
+                                sp99Title = '🌐 🔴 LIVE';
+                            }
+
                             return {
                                 streams: [{
-                                    url: streamUrl,
-                                    title: '🔴 LIVE',
+                                    url: sp99FinalUrl,
+                                    title: sp99Title,
                                     name: match.channel_name || 'Sports99',
                                     behaviorHints: {
                                         notWebReady: true,
-                                        proxyHeaders: {
-                                            request: sports99Hdrs
-                                        }
+                                        ...(sp99MfpUrl ? {} : { proxyHeaders: { request: sports99Hdrs } })
                                     } as any
                                 }]
                             };
@@ -4810,7 +4822,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                                     if (matchedSp99.length > 0) {
                                         const client99 = new Sports99Client();
-                                        // Resolve async
+                                        // MFP config for proxying HLS with headers
+                                        const inj99MfpUrl = (requestConfig?.mediaFlowProxyUrl || configCache?.mediaFlowProxyUrl || process.env.MFP_URL || '').replace(/\/+$/, '');
+                                        const inj99MfpPsw = requestConfig?.mediaFlowProxyPassword || configCache?.mediaFlowProxyPassword || process.env.MFP_PSW || '';
                                         for (const c of matchedSp99) {
                                             if (c._sports99 && c._sports99.player_url) {
                                                 const sUrl = await client99.resolveStreamUrl(c._sports99.player_url);
@@ -4820,17 +4834,23 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                         'Origin': 'https://cdn-live.tv',
                                                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
                                                     };
+                                                    let sp99InjUrl = sUrl;
+                                                    let sp99InjTitle = `[SP99] ${c._sports99.channel_name || c.name}`;
+                                                    if (inj99MfpUrl) {
+                                                        const hdrsJson = encodeURIComponent(JSON.stringify(sp99Hdrs));
+                                                        const pwParam = inj99MfpPsw ? `&api_password=${encodeURIComponent(inj99MfpPsw)}` : '';
+                                                        sp99InjUrl = `${inj99MfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(sUrl)}${pwParam}&headers=${hdrsJson}`;
+                                                        sp99InjTitle = `🌐 ${sp99InjTitle}`;
+                                                    }
                                                     streams.push({
-                                                        url: sUrl,
-                                                        title: `[SP99] ${c._sports99.channel_name || c.name}`,
+                                                        url: sp99InjUrl,
+                                                        title: sp99InjTitle,
                                                         behaviorHints: {
                                                             notWebReady: true,
-                                                            proxyHeaders: {
-                                                                request: sp99Hdrs
-                                                            }
+                                                            ...(inj99MfpUrl ? {} : { proxyHeaders: { request: sp99Hdrs } })
                                                         }
                                                     } as any);
-                                                    console.log(`✅ [SP99] Injected stream for ${eventName} -> ${c.name}`);
+                                                    console.log(`✅ [SP99] Injected stream for ${eventName} -> ${c.name} [mfp=${!!inj99MfpUrl}]`);
                                                 }
                                             }
                                         }
