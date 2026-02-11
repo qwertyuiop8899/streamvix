@@ -2613,8 +2613,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     name: match.channel_name || 'Sports99',
                                     behaviorHints: {
                                         notWebReady: true,
-                                        headers: sports99Hdrs,
-                                        proxyHeaders: sports99Hdrs
+                                        proxyHeaders: {
+                                            request: sports99Hdrs
+                                        }
                                     } as any
                                 }]
                             };
@@ -4824,8 +4825,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                         title: `[SP99] ${c._sports99.channel_name || c.name}`,
                                                         behaviorHints: {
                                                             notWebReady: true,
-                                                            headers: sp99Hdrs,
-                                                            proxyHeaders: sp99Hdrs
+                                                            proxyHeaders: {
+                                                                request: sp99Hdrs
+                                                            }
                                                         }
                                                     } as any);
                                                     console.log(`✅ [SP99] Injected stream for ${eventName} -> ${c.name}`);
