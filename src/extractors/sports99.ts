@@ -33,7 +33,7 @@ export class Sports99Client {
     }
 
     // ---------------------------------------------------------
-    // Utility: Convert base 
+    // Utility: Convert base
     // ---------------------------------------------------------
     private convertBase(s: string, base: number): number {
         let result = 0;
@@ -91,82 +91,127 @@ export class Sports99Client {
     }
 
     // ---------------------------------------------------------
+    // Normalize JS code for deobfuscation
+    // ---------------------------------------------------------
+    private normalizeJsCode(jsCode: string): string {
+        jsCode = jsCode.replace(/\\'/g, "'").replace(/\\"/g, '"');
+        jsCode = jsCode.replace(/\s+/g, ' ');
+        return jsCode;
+    }
+
+    // ---------------------------------------------------------
+    // Base64 decode (handles URL-safe base64)
+    // ---------------------------------------------------------
+    private pumDecode(s: string): string | null {
+        s = s.replace(/-/g, '+').replace(/_/g, '/');
+        while (s.length % 4 !== 0) s += '=';
+        try {
+            const raw = Buffer.from(s, 'base64');
+            return raw.toString('utf-8');
+        } catch {
+            try {
+                const raw = Buffer.from(s, 'base64');
+                return raw.toString('latin1');
+            } catch {
+                return null;
+            }
+        }
+    }
+
+    // ---------------------------------------------------------
+    // Find the decode function name (function that uses atob)
+    // ---------------------------------------------------------
+    private findDecodeFunction(jsCode: string): string | null {
+        const patterns = [
+            /function\s+(\w+)\s*\(\s*str\s*\)\s*\{[^}]{0,500}atob/i,
+            /function\s+(\w+)\s*\(\s*\w+\s*\)\s*\{[^}]{0,500}atob/i,
+            /(?:const|let|var)\s+(\w+)\s*=\s*function\s*\(\s*str\s*\)\s*\{[^}]{0,500}atob/i,
+            /function\s+(\w+)\s*\([^)]+\)\s*\{(?:[^}]|[\r\n]){0,500}(?:replace.*atob|atob.*replace)/is,
+        ];
+        for (const pattern of patterns) {
+            const match = jsCode.match(pattern);
+            if (match) return match[1];
+        }
+        return null;
+    }
+
+    // ---------------------------------------------------------
+    // Find all variable assignments (const/let/var name = 'value')
+    // ---------------------------------------------------------
+    private findVariableAssignments(jsCode: string): Record<string, string> {
+        const pattern = /(?:const|let|var)\s+(\w+)\s*=\s*["']([^"']+)["']/g;
+        const vars: Record<string, string> = {};
+        let m: RegExpExecArray | null;
+        while ((m = pattern.exec(jsCode)) !== null) {
+            vars[m[1]] = m[2];
+        }
+        return vars;
+    }
+
+    // ---------------------------------------------------------
+    // Find concatenations using the decode function
+    // ---------------------------------------------------------
+    private findConcatenations(jsCode: string, varDict: Record<string, string>, decodeFuncName: string): Array<{ variable: string; decoded: string }> {
+        const escaped = decodeFuncName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const patternStr = `(?:const|let|var)\\s+(\\w+)\\s*=\\s*((?:${escaped}\\([^)]+\\)\\s*\\+?\\s*)+);`;
+        const pattern = new RegExp(patternStr, 'gm');
+        const results: Array<{ variable: string; decoded: string }> = [];
+        let m: RegExpExecArray | null;
+
+        while ((m = pattern.exec(jsCode)) !== null) {
+            const varName = m[1];
+            const concatExpr = m[2];
+            const funcCallPattern = new RegExp(`${escaped}\\((\\w+)\\)`, 'g');
+            const decodedParts: string[] = [];
+            let fc: RegExpExecArray | null;
+
+            while ((fc = funcCallPattern.exec(concatExpr)) !== null) {
+                const arg = fc[1];
+                if (varDict[arg]) {
+                    const decoded = this.pumDecode(varDict[arg]);
+                    if (decoded) decodedParts.push(decoded);
+                }
+            }
+
+            if (decodedParts.length > 0) {
+                results.push({
+                    variable: varName,
+                    decoded: decodedParts.join('')
+                });
+            }
+        }
+
+        return results;
+    }
+
+    // ---------------------------------------------------------
+    // Auto-deobfuscate JS to extract URLs
+    // ---------------------------------------------------------
+    private autoDeobfuscateJs(jsCode: string): { concatenations: Array<{ variable: string; decoded: string }> } {
+        jsCode = this.normalizeJsCode(jsCode);
+        const decodeFuncName = this.findDecodeFunction(jsCode);
+
+        if (!decodeFuncName) {
+            return { concatenations: [] };
+        }
+
+        const varDict = this.findVariableAssignments(jsCode);
+        const concatenations = this.findConcatenations(jsCode, varDict, decodeFuncName);
+
+        return { concatenations };
+    }
+
+    // ---------------------------------------------------------
     // Find Stream URL
     // ---------------------------------------------------------
     private findStreamUrl(jsCode: string): string | null {
-        // Try old pattern first (index.m3u8?token=)
-        const oldPattern = /[\"']([^\"']*index\.m3u8\?token=[^\"']+)[\"']/;
-        const oldMatch = jsCode.match(oldPattern);
-        if (oldMatch) return oldMatch[1];
-
-        // New pattern: base64-encoded URL fragments in const declarations
-        // The decoded JS builds URLs from concatenated base64 parts
-        const b64Pattern = /const\s+\w+\s*=\s*'([A-Za-z0-9+/_-]{2,})'/g;
-        const b64Strings: string[] = [];
-        let m: RegExpExecArray | null;
-        while ((m = b64Pattern.exec(jsCode)) !== null) {
-            b64Strings.push(m[1]);
+        // Deobfuscate JS and extract the second URL (used by the player source: { src: ... })
+        const result = this.autoDeobfuscateJs(jsCode);
+        if (result.concatenations.length > 1) {
+            return result.concatenations[1].decoded;
         }
-
-        if (b64Strings.length === 0) return null;
-
-        // Base64 decode (handles URL-safe base64)
-        const b64decode = (str: string): string => {
-            str = str.replace(/-/g, '+').replace(/_/g, '/');
-            while (str.length % 4) str += '=';
-            return Buffer.from(str, 'base64').toString();
-        };
-
-        // Check if a decoded fragment is valid URL content (printable ASCII only)
-        const isValidUrlPart = (s: string): boolean => {
-            if (!s || s.length === 0) return false;
-            for (let i = 0; i < s.length; i++) {
-                const code = s.charCodeAt(i);
-                if (code < 0x20 || code > 0x7E) return false;
-            }
-            return true;
-        };
-
-        // Decode all fragments
-        const decoded = b64Strings.map(s => {
-            try { return b64decode(s); } catch { return ''; }
-        });
-
-        // Reconstruct URLs from consecutive fragments
-        const urls: string[] = [];
-        let current = '';
-        for (let i = 0; i < decoded.length; i++) {
-            if (decoded[i] === 'https' || decoded[i] === 'http') {
-                if (current && (current.includes('.m3u8') || current.includes('playlist'))) {
-                    urls.push(current);
-                }
-                current = decoded[i];
-            } else if (current) {
-                // Only append if decoded fragment is valid ASCII (not binary garbage)
-                if (isValidUrlPart(decoded[i])) {
-                    current += decoded[i];
-                } else {
-                    // Non-URL content found, finalize current URL
-                    if (current.includes('.m3u8') || current.includes('playlist')) {
-                        urls.push(current);
-                    }
-                    current = '';
-                }
-            }
-        }
-        if (current) urls.push(current);
-
-        // Prefer URL with token= and m3u8
-        for (const url of urls) {
-            if (url.includes('token=') && (url.includes('.m3u8') || url.includes('playlist'))) {
-                return url;
-            }
-        }
-        // Fallback: any URL with m3u8
-        for (const url of urls) {
-            if (url.includes('.m3u8')) {
-                return url;
-            }
+        if (result.concatenations.length === 1) {
+            return result.concatenations[0].decoded;
         }
 
         return null;
@@ -263,7 +308,9 @@ export class Sports99Client {
                 console.warn('[Sports99] Could not decode obfuscated JS');
                 return null;
             }
-            return this.findStreamUrl(js);
+            // Clean up escaped quotes before deobfuscation (like mandrakodi)
+            const cleanJs = js.replace(/\\'/g, "'").replace(/\\"/g, '"');
+            return this.findStreamUrl(cleanJs);
         } catch (e: any) {
             console.error('[Sports99] Error resolving stream:', e.message);
             return null;
