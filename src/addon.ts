@@ -4814,10 +4814,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             if (c._sports99 && c._sports99.player_url) {
                                                 const sUrl = await client99.resolveStreamUrl(c._sports99.player_url);
                                                 if (sUrl) {
+                                                    const sp99Hdrs: Record<string, string> = {
+                                                        'Referer': 'https://cdn-live.tv/',
+                                                        'Origin': 'https://cdn-live.tv',
+                                                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+                                                    };
                                                     streams.push({
                                                         url: sUrl,
                                                         title: `[SP99] ${c._sports99.channel_name || c.name}`,
-                                                        behaviorHints: { notWebReady: true }
+                                                        behaviorHints: {
+                                                            notWebReady: true,
+                                                            headers: sp99Hdrs,
+                                                            proxyHeaders: sp99Hdrs
+                                                        }
                                                     } as any);
                                                     console.log(`✅ [SP99] Injected stream for ${eventName} -> ${c.name}`);
                                                 }
