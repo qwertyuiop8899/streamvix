@@ -163,9 +163,25 @@ def ensure_es_domain(force: bool = False):
     _ES_LAST_CHECK = now
     return ES_DOMAIN
 
-# Proxies / ForwardProxy simplified (disabled by default)
-proxies: Dict[str, str] = {}
+# Proxies / ForwardProxy simplified
+# Prima prova senza proxy; se CF blocca (risposta non-JSON), fallback su PROXY env
+_proxy_url = os.environ.get('PROXY', '').strip()
+_proxy_dict: Dict[str, str] = {"http": _proxy_url, "https": _proxy_url} if _proxy_url else {}
+proxies: Dict[str, str] = {}  # default: nessun proxy
 ForwardProxy = ""
+
+async def _cf_safe_get(client, url, headers=None, **kwargs):
+    """GET con fallback proxy: prima prova diretto, se CF blocca riprova con PROXY."""
+    resp = await client.get(url, proxies=proxies, headers=headers, **kwargs)
+    # Se la risposta è JSON valida, ok
+    ct = resp.headers.get('content-type', '')
+    if 'json' in ct or resp.status_code == 404:
+        return resp
+    # Cloudflare challenge? Riprova con proxy se disponibile
+    if _proxy_dict and resp.status_code in (403, 503):
+        log('cf_safe_get: CF block detected, retrying with PROXY')
+        resp = await client.get(url, proxies=_proxy_dict, headers=headers, **kwargs)
+    return resp
 
 random_headers = Headers()
 
@@ -616,7 +632,7 @@ async def search_advanced(showname, date, season, episode, MFP, client, skip_yea
     reason = None
     debug = { 'candidates': [], 'matched': [], 'filtered_tokens': [], 'rejected': [], 'phase': None, 'skip_year_check': skip_year_check }
     try:
-        response = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/search?search={showname}&_fields=id", proxies=proxies, headers=headers)
+        response = await _cf_safe_get(client, ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/search?search={showname}&_fields=id", headers=headers)
     except Exception as e:
         log('search: wp search exception', e)
         return None, 'search_request_failed', debug
@@ -637,7 +653,7 @@ async def search_advanced(showname, date, season, episode, MFP, client, skip_yea
 
     for i in results:
         try:
-            response = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/posts/{i['id']}?_fields=title,content", proxies=proxies, headers=headers)
+            response = await _cf_safe_get(client, ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/posts/{i['id']}?_fields=title,content", headers=headers)
         except Exception as e:  # pragma: no cover
             log('search: post fetch exception', i.get('id'), e)
             continue
@@ -950,7 +966,7 @@ async def search_legacy(showname, date, season, episode, MFP, client, skip_year_
     debug = { 'mode': 'legacy', 'year': date, 'skip_year_check': skip_year_check }
     headers = random_headers.generate()
     try:
-        response = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/search?search={showname}&_fields=id", proxies=proxies, headers=headers)
+        response = await _cf_safe_get(client, ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/search?search={showname}&_fields=id", headers=headers)
     except Exception as e:
         debug['error'] = str(e)
         return None, 'search_request_failed', debug
@@ -963,7 +979,7 @@ async def search_legacy(showname, date, season, episode, MFP, client, skip_year_
     year_pattern = re.compile(r'(?<!/)(19|20)\d{2}(?!/)')
     for i in results:
         try:
-            r = await client.get(ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/posts/{i['id']}?_fields=content", proxies=proxies, headers=headers)
+            r = await _cf_safe_get(client, ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/posts/{i['id']}?_fields=content", headers=headers)
         except Exception:
             continue
         if 'ID articolo non valido' in r.text:
