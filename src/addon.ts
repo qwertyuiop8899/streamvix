@@ -41,6 +41,8 @@ import { startRmScheduler, updateRmChannels } from './utils/rmUpdater';
 import { startThisNotUpdater, updateThisNotChannels } from './utils/thisnotChannels';
 import { startSportzxScheduler, getSportzxChannels } from './utils/sportzxUpdater';
 import { startSports99Scheduler, getSports99Channels } from './utils/sports99Updater';
+import { startMediaHostingScheduler, getMediaHostingChannels } from './utils/mediahostingUpdater';
+import { startFreeshotScheduler, getFreeshotChannels } from './utils/freeshotUpdater';
 // import { startMpdzScheduler, updateMpdzChannels } from './utils/mpdzUpdater';
 import { startMpdxScheduler, updateMpdxChannels } from './utils/mpdxUpdater';
 // import { startZEventiScheduler, updateZEventiChannels } from './utils/zEventiUpdater';
@@ -531,6 +533,9 @@ function getStreamPriority(stream: { url: string; title: string }): number {
     // 3. Freeshot (cerca [🏟 Free] o freeshot)
     if (/freeshot|\[🏟\s*Free\]|🏟.*free/i.test(title)) return 3;
 
+    // 3.5. MediaHosting [MH] (subito dopo Freeshot)
+    if (/\[MH\]/i.test(title)) return 3.5;
+
     // 3.9. staticUrlMpdh (🎬MPDh - SkyFHD source) - PRIMO tra i MPD
     if (/\[🎬MPDh\]/i.test(title)) return 3.9;
 
@@ -729,6 +734,22 @@ const baseManifest: Manifest = {
                         "THISNOT",
                         "SportzX",
                         "Sports99",
+                        "MediaHosting",
+                        "Freeshot"
+                    ]
+                },
+                { name: "search", isRequired: false }
+            ]
+        },
+        {
+            id: "streamvix_eventi",
+            type: "tv",
+            name: "StreamViX Eventi",
+            extra: [
+                {
+                    name: "genre",
+                    isRequired: true,
+                    options: [
                         "Serie A",
                         "Serie B",
                         "Serie C",
@@ -748,8 +769,7 @@ const baseManifest: Manifest = {
                         "Boxing",
                         "Darts",
                         "Baseball",
-                        "NFL",
-                        "PPV"
+                        "NFL"
                     ]
                 },
                 { name: "search", isRequired: false }
@@ -1587,7 +1607,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             // Rimuovi cataloghi TV quando disabilitato
             if (initialConfig && (initialConfig as any).disableLiveTv) {
                 filtered.catalogs = cats.filter((c: any) =>
-                    !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live'))
+                    !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live' || (c as any).id === 'streamvix_eventi'))
                 );
             }
 
@@ -1686,7 +1706,29 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 if (sports99.length > 0) {
                     filteredChannels = [...filteredChannels, ...sports99];
                 }
+                // INTEGRATION: Add MediaHosting channels to Live catalog
+                const mhChannels = getMediaHostingChannels();
+                if (mhChannels.length > 0) {
+                    filteredChannels = [...filteredChannels, ...mhChannels];
+                }
+                // INTEGRATION: Add Freeshot channels to Live catalog
+                const fsChannels = getFreeshotChannels();
+                if (fsChannels.length > 0) {
+                    filteredChannels = [...filteredChannels, ...fsChannels];
+                }
                 // console.log(`[CATALOG] streamvix_live -> filtered dynamic count=${filteredChannels.length}`);
+            } else if (id === 'streamvix_eventi') {
+                // Canali eventi sportivi — stesso pool di streamvix_live
+                filteredChannels = filteredChannels.filter((c: any) => c._dynamic);
+                const sportzxE = getSportzxChannels();
+                if (sportzxE.length > 0) filteredChannels = [...filteredChannels, ...sportzxE];
+                const sports99E = getSports99Channels();
+                if (sports99E.length > 0) filteredChannels = [...filteredChannels, ...sports99E];
+                const mhChE = getMediaHostingChannels();
+                if (mhChE.length > 0) filteredChannels = [...filteredChannels, ...mhChE];
+                const fsChE = getFreeshotChannels();
+                if (fsChE.length > 0) filteredChannels = [...filteredChannels, ...fsChE];
+                // console.log(`[CATALOG] streamvix_eventi -> filtered dynamic count=${filteredChannels.length}`);
             } else if (id === 'streamvix_dvr') {
                 // DVR catalog - fetch recordings from EasyProxy
                 try {
@@ -1931,6 +1973,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     genreMap['ppv'] = 'ppv';
                     genreMap['sportzx'] = 'sportzx'; // lowercase to match getChannelCategories() output
                     genreMap['sports99'] = 'sports99'; // Sports99 channels
+                    genreMap['mediahosting'] = 'mediahosting'; // MediaHosting channels
+                    genreMap['freeshot'] = 'freeshot'; // Freeshot channels
                     const target = genreMap[norm] || norm;
                     requestedSlug = target;
 
@@ -2304,6 +2348,50 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }
             }
 
+            // === MEDIAHOSTING META HANDLER ===
+            if (cleanId.startsWith('mh_')) {
+                const { getMediaHostingChannels } = await import('./utils/mediahostingUpdater');
+                const mhChannel = getMediaHostingChannels().find((c: any) => c.id === cleanId);
+                if (mhChannel) {
+                    console.log(`✅ Found MediaHosting channel for meta: ${mhChannel.name}`);
+                    return {
+                        meta: {
+                            id: `tv:${mhChannel.id}`,
+                            type: 'tv',
+                            name: mhChannel.name,
+                            poster: mhChannel.logo,
+                            posterShape: 'square',
+                            background: mhChannel.logo,
+                            description: mhChannel.description || 'MediaHosting Live Stream',
+                            genres: ['MediaHosting', 'Live', 'Sport'],
+                            releaseInfo: 'Live'
+                        }
+                    };
+                }
+            }
+
+            // === FREESHOT META HANDLER ===
+            if (cleanId.startsWith('fs_')) {
+                const { getFreeshotChannels } = await import('./utils/freeshotUpdater');
+                const fsChannel = getFreeshotChannels().find((c: any) => c.id === cleanId);
+                if (fsChannel) {
+                    console.log(`✅ Found Freeshot channel for meta: ${fsChannel.name}`);
+                    return {
+                        meta: {
+                            id: `tv:${fsChannel.id}`,
+                            type: 'tv',
+                            name: fsChannel.name,
+                            poster: fsChannel.logo,
+                            posterShape: 'square',
+                            background: fsChannel.logo,
+                            description: fsChannel.description || 'Freeshot Live Stream',
+                            genres: ['Freeshot', 'Live', 'Sport'],
+                            releaseInfo: 'Live'
+                        }
+                    };
+                }
+            }
+
             // === THISNOT META HANDLER ===
             // Prima controlla se è un canale ThisNot
             const allChannels = loadDynamicChannels(false);
@@ -2633,6 +2721,89 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             };
                         } else {
                             console.warn(`[Sports99] Could not resolve stream for ${sports99Channel.name}`);
+                            return { streams: [] };
+                        }
+                    }
+                }
+
+                // === MEDIAHOSTING STREAM HANDLER ===
+                if (cleanIdForSportzx.startsWith('mh_')) {
+                    const { getMediaHostingChannels } = await import('./utils/mediahostingUpdater');
+                    const { MediaHostingClient } = await import('./extractors/mediahosting');
+                    const mhCh = getMediaHostingChannels().find((c: any) => c.id === cleanIdForSportzx);
+                    if (mhCh && mhCh._mediahosting) {
+                        const mhMatch = mhCh._mediahosting;
+                        console.log(`✅ Found MediaHosting stream for: ${mhCh.name}`);
+                        const mhClient = new MediaHostingClient();
+                        const mhStreamUrl = await mhClient.resolve(mhMatch.stream_id);
+                        if (mhStreamUrl) {
+                            const mhHdrs = mhClient.getPlaybackHeaders();
+                            const mhMfpUrl = (requestConfig?.mediaFlowProxyUrl || configCache?.mediaFlowProxyUrl || process.env.MFP_URL || '').replace(/\/+$/, '');
+                            const mhMfpPsw = requestConfig?.mediaFlowProxyPassword || configCache?.mediaFlowProxyPassword || process.env.MFP_PSW || '';
+                            let mhFinalUrl = mhStreamUrl;
+                            let mhTitle = '🔴 LIVE';
+                            if (mhMfpUrl) {
+                                const hParams = Object.entries(mhHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
+                                const pwParam = mhMfpPsw ? `&api_password=${encodeURIComponent(mhMfpPsw)}` : '';
+                                mhFinalUrl = `${mhMfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(mhStreamUrl)}${pwParam}${hParams}`;
+                                mhTitle = '🌐 🔴 LIVE';
+                            }
+                            return {
+                                streams: [{
+                                    url: mhFinalUrl,
+                                    title: mhTitle,
+                                    name: mhMatch.channel_name || 'MediaHosting',
+                                    behaviorHints: {
+                                        notWebReady: true,
+                                        ...(mhMfpUrl ? {} : { proxyHeaders: { request: mhHdrs } })
+                                    } as any
+                                }]
+                            };
+                        } else {
+                            console.warn(`[MediaHosting] Could not resolve stream for ${mhCh.name}`);
+                            return { streams: [] };
+                        }
+                    }
+                }
+
+                // === FREESHOT STREAM HANDLER ===
+                if (cleanIdForSportzx.startsWith('fs_')) {
+                    const { getFreeshotChannels } = await import('./utils/freeshotUpdater');
+                    const fsCh = getFreeshotChannels().find((c: any) => c.id === cleanIdForSportzx);
+                    if (fsCh && fsCh._freeshot) {
+                        const fsMatch = fsCh._freeshot;
+                        console.log(`✅ Found Freeshot stream for: ${fsCh.name}`);
+                        const fsMfpUrl = (requestConfig?.mediaFlowProxyUrl || configCache?.mediaFlowProxyUrl || process.env.MFP_URL || '').replace(/\/+$/, '');
+                        const fsMfpPsw = requestConfig?.mediaFlowProxyPassword || configCache?.mediaFlowProxyPassword || process.env.MFP_PSW || '';
+                        let fsFinalUrl = '';
+                        let fsTitle = '🔴 LIVE';
+
+                        if (fsMfpUrl) {
+                            // Proxy-Side: popcdn → MFP
+                            const popcdnUrl = `https://popcdn.day/go.php?stream=${encodeURIComponent(fsMatch.code)}&filename=manifest.m3u8`;
+                            const { formatMediaFlowUrl } = await import('./utils/mediaflow');
+                            fsFinalUrl = formatMediaFlowUrl(popcdnUrl, fsMfpUrl, fsMfpPsw || '');
+                            if (fsFinalUrl.includes('/proxy/stream/')) {
+                                fsFinalUrl = fsFinalUrl.replace('/proxy/stream/', '/proxy/hls/');
+                            }
+                            fsTitle = '🌐 🔴 LIVE';
+                        } else {
+                            // Senza MFP, Freeshot non funziona
+                            console.warn(`[Freeshot] MFP non configurato, nessuno stream per ${fsCh.name}`);
+                            return { streams: [] };
+                        }
+
+                        if (fsFinalUrl) {
+                            return {
+                                streams: [{
+                                    url: fsFinalUrl,
+                                    title: fsTitle,
+                                    name: fsMatch.channel_name || 'Freeshot',
+                                    behaviorHints: { notWebReady: true } as any
+                                }]
+                            };
+                        } else {
+                            console.warn(`[Freeshot] Could not resolve stream for ${fsCh.name}`);
                             return { streams: [] };
                         }
                     }
@@ -3287,59 +3458,73 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         for (const r of resolved) streams.push(r);
 
                         // === Freeshot (iniezione DOPO DLHD resolved, PRIMA dei leftover) ===
-                        try {
-                            const { resolveFreeshotForChannel, getFreeshotCode } = await import('./extractors/freeshotRuntime');
-                            const reqObj: any = (global as any).lastExpressRequest;
-                            const clientIp = getClientIpFromReq(reqObj);
+                        // Freeshot richiede MFP — senza MFP non iniettare
+                        if (mfpUrl) {
+                            try {
+                                const { getFreeshotCode } = await import('./extractors/freeshotRuntime');
 
-                            let frUrl: string | undefined;
-                            let frName = (channel as any).name || 'Canale';
-                            let frError: string | undefined;
+                                let frUrl: string | undefined;
+                                let frName = (channel as any).name || 'Canale';
 
-                            // Se abbiamo MFP, usiamo la risoluzione lato proxy (Server-Side Resolution)
-                            // Questo risolve il problema dell'IP mismatch: il proxy genera il token e lo usa.
-                            if (mfpUrl) {
                                 const match = getFreeshotCode({ id: (channel as any).id, name: (channel as any).name, epgChannelIds: (channel as any).epgChannelIds, extraTexts: providerTitlesExt });
                                 if (match) {
                                     const { code } = match;
-                                    // Costruiamo l'URL che il proxy dovrà risolvere
                                     const popcdnUrl = `https://popcdn.day/go.php?stream=${encodeURIComponent(code)}`;
-
-                                    // Aggiungiamo parametro filename fittizio per far generare un URL .m3u8 al formatMediaFlowUrl
                                     const popcdnUrlWithFilename = `${popcdnUrl}&filename=manifest.m3u8`;
 
-                                    // Avvolgiamo in MFP
                                     frUrl = formatMediaFlowUrl(popcdnUrlWithFilename, mfpUrl, mfpPsw || '');
 
-                                    // Forziamo endpoint HLS per compatibilità player
                                     if (frUrl.includes('/proxy/stream/')) {
                                         frUrl = frUrl.replace('/proxy/stream/', '/proxy/hls/');
                                     }
 
                                     debugLog(`Freeshot (Proxy-Side) aggiunto per ${frName}: ${frUrl}`);
                                 }
-                            } else {
-                                // Fallback: risoluzione locale (funziona solo se Addon e Player sono sullo stesso IP)
-                                const fr = await resolveFreeshotForChannel({ id: (channel as any).id, name: (channel as any).name, epgChannelIds: (channel as any).epgChannelIds, extraTexts: providerTitlesExt }, clientIp || undefined);
-                                if (fr && fr.url && !fr.error) {
-                                    frUrl = fr.url;
-                                    frName = (fr as any).displayName || frName;
-                                    debugLog(`Freeshot (Local) aggiunto per ${frName}: ${frUrl}`);
-                                } else if (fr && fr.error) {
-                                    frError = fr.error;
+
+                                if (frUrl) {
+                                    streams.push({
+                                        url: frUrl,
+                                        title: `[🏟 Free] ${frName} [ITA]`
+                                    });
+                                }
+                            } catch (e) {
+                                debugLog(`Freeshot import/fetch fallito: ${e}`);
+                            }
+                        }
+
+                        // === MEDIAHOSTING per canali dinamici (DOPO Freeshot) ===
+                        try {
+                            const { MediaHostingClient, getMediaHostingCode } = await import('./extractors/mediahosting');
+                            const mhMatch = getMediaHostingCode({
+                                id: (channel as any).id,
+                                name: (channel as any).name,
+                                epgChannelIds: (channel as any).epgChannelIds,
+                                extraTexts: providerTitlesExt
+                            });
+                            if (mhMatch) {
+                                const mhClient = new MediaHostingClient();
+                                const mhStreamUrl = await mhClient.resolve(mhMatch.streamId);
+                                if (mhStreamUrl) {
+                                    const mhHdrs = mhClient.getPlaybackHeaders();
+                                    let mhInjUrl = mhStreamUrl;
+                                    if (mfpUrl) {
+                                        const hParams = Object.entries(mhHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
+                                        const pwParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                        mhInjUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(mhStreamUrl)}${pwParam}${hParams}`;
+                                    }
+                                    streams.push({
+                                        url: mhInjUrl,
+                                        title: `[MH] ${mhMatch.displayName} [ITA]`,
+                                        behaviorHints: {
+                                            notWebReady: true,
+                                            ...(mfpUrl ? {} : { proxyHeaders: { request: mhHdrs } })
+                                        }
+                                    } as any);
+                                    debugLog(`MediaHosting (dynamic) aggiunto per ${mhMatch.displayName} (hint: ${mhMatch.matchHint}): ${mhInjUrl.substring(0, 80)}`);
                                 }
                             }
-
-                            if (frUrl) {
-                                streams.push({
-                                    url: frUrl,
-                                    title: `[🏟 Free] ${frName} [ITA]`
-                                });
-                            } else if (frError) {
-                                debugLog(`Freeshot errore ${channel.name}: ${frError}`);
-                            }
                         } catch (e) {
-                            debugLog(`Freeshot import/fetch fallito: ${e}`);
+                            debugLog(`MediaHosting import/fetch fallito (dynamic): ${e}`);
                         }
 
                         // === INJECTION ORDINE: prima MPDh, poi MPD, poi MPDx ===
@@ -3855,17 +4040,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
 
                         // --- FREESHOT per canali statici ---
-                        try {
-                            const { resolveFreeshotForChannel, getFreeshotCode } = await import('./extractors/freeshotRuntime');
-                            const reqObj: any = (global as any).lastExpressRequest;
-                            const clientIp = getClientIpFromReq(reqObj);
+                        // Freeshot richiede MFP — senza MFP non iniettare
+                        if (mfpUrl) {
+                            try {
+                                const { getFreeshotCode } = await import('./extractors/freeshotRuntime');
 
-                            let frUrl: string | undefined;
-                            let frName = (channel as any).name || 'Canale';
-                            let frError: string | undefined;
+                                let frUrl: string | undefined;
+                                let frName = (channel as any).name || 'Canale';
 
-                            // Proxy-Side Resolution (se MFP attivo)
-                            if (mfpUrl) {
                                 const match = getFreeshotCode({
                                     id: (channel as any).id,
                                     name: (channel as any).name,
@@ -3882,35 +4064,51 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     }
                                     debugLog(`Freeshot (Proxy-Side Static) aggiunto per ${frName}: ${frUrl}`);
                                 }
+
+                                if (frUrl) {
+                                    streams.push({
+                                        url: frUrl,
+                                        title: `[🏟 Free] ${frName} [ITA]`
+                                    });
+                                }
+                            } catch (e) {
+                                debugLog('Freeshot import/fetch fallito per canale statico', (e as any)?.message || e);
                             }
+                        }
 
-                            // Fallback Local Resolution (se MFP assente o getFreeshotCode fallito)
-                            if (!frUrl) {
-                                const fr = await resolveFreeshotForChannel({
-                                    id: (channel as any).id,
-                                    name: (channel as any).name,
-                                    epgChannelIds: (channel as any).epgChannelIds,
-                                    extraTexts: []
-                                }, clientIp || undefined);
-
-                                if (fr && fr.url && !fr.error) {
-                                    frName = (fr as any).displayName || frName;
-                                    frUrl = fr.url;
-                                } else if (fr && fr.error) {
-                                    frError = fr.error;
+                        // --- MEDIAHOSTING per canali statici (DOPO Freeshot) ---
+                        try {
+                            const { MediaHostingClient, getMediaHostingCode } = await import('./extractors/mediahosting');
+                            const mhMatch = getMediaHostingCode({
+                                id: (channel as any).id,
+                                name: (channel as any).name,
+                                epgChannelIds: (channel as any).epgChannelIds,
+                                extraTexts: []
+                            });
+                            if (mhMatch) {
+                                const mhClient = new MediaHostingClient();
+                                const mhStreamUrl = await mhClient.resolve(mhMatch.streamId);
+                                if (mhStreamUrl) {
+                                    const mhHdrs = mhClient.getPlaybackHeaders();
+                                    let mhInjUrl = mhStreamUrl;
+                                    if (mfpUrl) {
+                                        const hParams = Object.entries(mhHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
+                                        const pwParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                        mhInjUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(mhStreamUrl)}${pwParam}${hParams}`;
+                                    }
+                                    streams.push({
+                                        url: mhInjUrl,
+                                        title: `[MH] ${mhMatch.displayName} [ITA]`,
+                                        behaviorHints: {
+                                            notWebReady: true,
+                                            ...(mfpUrl ? {} : { proxyHeaders: { request: mhHdrs } })
+                                        }
+                                    } as any);
+                                    debugLog(`MediaHosting (static) aggiunto per ${mhMatch.displayName} (hint: ${mhMatch.matchHint})`);
                                 }
                             }
-
-                            if (frUrl) {
-                                streams.push({
-                                    url: frUrl,
-                                    title: `[🏟 Free] ${frName} [ITA]`
-                                });
-                            } else if (frError) {
-                                debugLog(`Freeshot errore su canale statico ${channel.name}: ${frError}`);
-                            }
                         } catch (e) {
-                            debugLog('Freeshot import/fetch fallito per canale statico', (e as any)?.message || e);
+                            debugLog('MediaHosting import/fetch fallito per canale statico', (e as any)?.message || e);
                         }
                     }
 
@@ -4856,6 +5054,44 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         }
                                     }
                                 } catch (e) { console.error('Error injecting Sports99', e); }
+
+                                // 3. MEDIAHOSTING Injection
+                                try {
+                                    const { getMediaHostingChannels } = await import('./utils/mediahostingUpdater');
+                                    const { MediaHostingClient } = await import('./extractors/mediahosting');
+                                    const mhAllCh = getMediaHostingChannels();
+                                    const matchedMh = mhAllCh.filter((c: any) => fuzzyMatch(eventName, c.name));
+                                    if (matchedMh.length > 0) {
+                                        const mhClient = new MediaHostingClient();
+                                        const injMhMfpUrl = (requestConfig?.mediaFlowProxyUrl || configCache?.mediaFlowProxyUrl || process.env.MFP_URL || '').replace(/\/+$/, '');
+                                        const injMhMfpPsw = requestConfig?.mediaFlowProxyPassword || configCache?.mediaFlowProxyPassword || process.env.MFP_PSW || '';
+                                        for (const c of matchedMh) {
+                                            if (c._mediahosting && c._mediahosting.stream_id) {
+                                                const mhUrl = await mhClient.resolve(c._mediahosting.stream_id);
+                                                if (mhUrl) {
+                                                    const mhHdrs = mhClient.getPlaybackHeaders();
+                                                    let mhInjUrl = mhUrl;
+                                                    let mhInjTitle = `[MH] ${c._mediahosting.channel_name || c.name}`;
+                                                    if (injMhMfpUrl) {
+                                                        const hParams = Object.entries(mhHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
+                                                        const pwParam = injMhMfpPsw ? `&api_password=${encodeURIComponent(injMhMfpPsw)}` : '';
+                                                        mhInjUrl = `${injMhMfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(mhUrl)}${pwParam}${hParams}`;
+                                                        mhInjTitle = `🌐 ${mhInjTitle}`;
+                                                    }
+                                                    streams.push({
+                                                        url: mhInjUrl,
+                                                        title: mhInjTitle,
+                                                        behaviorHints: {
+                                                            notWebReady: true,
+                                                            ...(injMhMfpUrl ? {} : { proxyHeaders: { request: mhHdrs } })
+                                                        }
+                                                    } as any);
+                                                    console.log(`✅ [MH] Injected stream for ${eventName} -> ${c.name} [mfp=${!!injMhMfpUrl}]`);
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (e) { console.error('Error injecting MediaHosting', e); }
                             }
 
                         } catch (e) {
@@ -6213,9 +6449,9 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
         if (!Array.isArray((filtered as any).catalogs)) (filtered as any).catalogs = [];
         if (effectiveDisable) {
             const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
-            // Rimuovi ENTRAMBI i cataloghi TV (streamvix_tv + streamvix_live) quando disabilitato
+            // Rimuovi ENTRAMBI i cataloghi TV (streamvix_tv + streamvix_live + streamvix_eventi) quando disabilitato
             filtered.catalogs = cats.filter((c: any) =>
-                !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live'))
+                !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live' || (c as any).id === 'streamvix_eventi'))
             );
         }
 
@@ -7527,6 +7763,22 @@ try {
     console.log('✅ Sports99 auto-updater attivato (ogni 15 min)');
 } catch (e) {
     console.error('❌ Errore avvio Sports99 updater:', e);
+}
+
+// =============== MEDIAHOSTING AUTO-UPDATER ==============================
+try {
+    startMediaHostingScheduler();
+    console.log('✅ MediaHosting auto-updater attivato (ogni 30 min)');
+} catch (e) {
+    console.error('❌ Errore avvio MediaHosting updater:', e);
+}
+
+// =============== FREESHOT AUTO-UPDATER ==============================
+try {
+    startFreeshotScheduler();
+    console.log('✅ Freeshot auto-updater attivato (ogni 30 min)');
+} catch (e) {
+    console.error('❌ Errore avvio Freeshot updater:', e);
 }
 
 // =============== MPDZ AUTO-UPDATER ==============================
