@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.16.11](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.10...v1.16.11) (2026-02-12)
+
+
+### Bug Fixes
+
+* real lang vix ([bd910ef](https://github.com/qwertyuiop8899/streamvix/commit/bd910ef51b180447a3f6fd837ec845504def60b9))
+* real lang vix ([6540d69](https://github.com/qwertyuiop8899/streamvix/commit/6540d69df31a17cc171cc587aaf2001b21c77b6d))
+* real lang vix ([ca1cdd4](https://github.com/qwertyuiop8899/streamvix/commit/ca1cdd49f881b665847ec9f9fc2c1b5809237302))
+
 ## [1.16.10](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.9...v1.16.10) (2026-02-11)
 
 
