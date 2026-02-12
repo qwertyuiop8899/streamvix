@@ -11,6 +11,7 @@ export interface UnifiedNameOptions {
   provider: string; // Provider key (vixsrc, animeunity, etc.)
   isFhdOrDual?: boolean; // Tag provider with HD marker (VixSrc dual/FHD etc.)
   hideProviderInTitle?: boolean; // If true, do not include provider label in the title/desc
+  langFlag?: string; // Optional: override language display (e.g. '🇮🇹' or '🇬🇧'). If absent falls back to isSub logic.
 }
 
 export function formatBytesHuman(b?: number): string {
@@ -43,7 +44,12 @@ export function providerLabel(provider: string, isFhd?: boolean): string {
 export function buildUnifiedStreamName(opts: UnifiedNameOptions): string {
   const lines: string[] = [];
   lines.push(`🎬 ${opts.baseTitle}`);
-  lines.push(`🗣 ${opts.isSub ? '[SUB]' : '[ITA]'}`);
+  // Language line: use explicit langFlag if provided, otherwise legacy isSub logic
+  if (opts.langFlag) {
+    lines.push(`🗣 ${opts.langFlag}`);
+  } else {
+    lines.push(`🗣 ${opts.isSub ? '[SUB]' : '[ITA]'}`);
+  }
   if (opts.sizeBytes) {
     const sz = formatBytesHuman(opts.sizeBytes);
     if (sz) lines.push(`💾 ${sz}`);
@@ -54,6 +60,17 @@ export function buildUnifiedStreamName(opts: UnifiedNameOptions): string {
     lines.push(providerLabel(opts.provider, opts.isFhdOrDual));
   }
   return lines.join('\n');
+}
+
+/** Maps detected audio language codes to display flag string */
+export function langToFlag(langs: string[]): string {
+  const hasIt = langs.some(l => l === 'it' || l === 'ita' || l.startsWith('it'));
+  const hasEn = langs.some(l => l === 'en' || l === 'eng' || l.startsWith('en'));
+  if (hasIt && hasEn) return '🇮🇹 🇬🇧';
+  if (hasIt) return '🇮🇹';
+  if (hasEn) return '🇬🇧';
+  if (langs.length > 0) return `🌐 ${langs[0].toUpperCase()}`;
+  return '🇮🇹'; // fallback default
 }
 
 // Simple legacy name mapping helper for transitional phase
