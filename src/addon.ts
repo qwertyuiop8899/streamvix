@@ -717,8 +717,7 @@ const baseManifest: Manifest = {
                         "Bambini",
                         "Pluto"
                     ]
-                },
-                { name: "search", isRequired: false }
+                }
             ]
         },
         {
@@ -737,8 +736,7 @@ const baseManifest: Manifest = {
                         "MediaHosting",
                         "Freeshot"
                     ]
-                },
-                { name: "search", isRequired: false }
+                }
             ]
         },
         {
@@ -771,8 +769,7 @@ const baseManifest: Manifest = {
                         "Baseball",
                         "NFL"
                     ]
-                },
-                { name: "search", isRequired: false }
+                }
             ]
         },
         {
@@ -784,8 +781,31 @@ const baseManifest: Manifest = {
                     name: "genre",
                     isRequired: true,
                     options: ["All Recordings"]
-                },
-                { name: "search", isRequired: false }
+                }
+            ]
+        },
+        {
+            id: "streamvix_tv_search",
+            type: "tv",
+            name: "🔎 Cerca TV",
+            extra: [
+                { name: "search", isRequired: true }
+            ]
+        },
+        {
+            id: "streamvix_live_search",
+            type: "tv",
+            name: "🔎 Cerca Live",
+            extra: [
+                { name: "search", isRequired: true }
+            ]
+        },
+        {
+            id: "streamvix_eventi_search",
+            type: "tv",
+            name: "🔎 Cerca Eventi",
+            extra: [
+                { name: "search", isRequired: true }
             ]
         }
     ],
@@ -1611,7 +1631,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             // Rimuovi cataloghi TV quando disabilitato
             if (initialConfig && (initialConfig as any).disableLiveTv) {
                 filtered.catalogs = cats.filter((c: any) =>
-                    !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live' || (c as any).id === 'streamvix_eventi'))
+                    !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live' || (c as any).id === 'streamvix_eventi' || (c as any).id === 'streamvix_tv_search' || (c as any).id === 'streamvix_live_search' || (c as any).id === 'streamvix_eventi_search'))
                 );
             }
 
@@ -1693,11 +1713,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             let filteredChannels = tvChannels;
 
             // === NUOVO: Filtro per ID catalogo (Static vs Live/Dynamic) ===
-            if (id === 'streamvix_tv') {
+            const searchCatalogMap: Record<string, string> = {
+                'streamvix_tv_search': 'streamvix_tv',
+                'streamvix_live_search': 'streamvix_live',
+                'streamvix_eventi_search': 'streamvix_eventi'
+            };
+            const effectiveId = searchCatalogMap[id] || id;
+            const isSearchCatalog = !!searchCatalogMap[id];
+
+            if (effectiveId === 'streamvix_tv') {
                 // Solo canali statici (non hanno _dynamic: true)
                 filteredChannels = filteredChannels.filter((c: any) => !c._dynamic);
                 // console.log(`[CATALOG] streamvix_tv -> filtered static count=${filteredChannels.length}`);
-            } else if (id === 'streamvix_live') {
+            } else if (effectiveId === 'streamvix_live') {
                 // Solo canali live/dinamici (hanno _dynamic: true)
                 filteredChannels = filteredChannels.filter((c: any) => c._dynamic);
                 // INTEGRATION: Add SportZX channels to Live catalog
@@ -1721,7 +1749,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     filteredChannels = [...filteredChannels, ...fsChannels];
                 }
                 // console.log(`[CATALOG] streamvix_live -> filtered dynamic count=${filteredChannels.length}`);
-            } else if (id === 'streamvix_eventi') {
+            } else if (effectiveId === 'streamvix_eventi') {
                 // Canali eventi sportivi — stesso pool di streamvix_live
                 filteredChannels = filteredChannels.filter((c: any) => c._dynamic);
                 const sportzxE = getSportzxChannels();
@@ -1733,7 +1761,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const fsChE = getFreeshotChannels();
                 if (fsChE.length > 0) filteredChannels = [...filteredChannels, ...fsChE];
                 // console.log(`[CATALOG] streamvix_eventi -> filtered dynamic count=${filteredChannels.length}`);
-            } else if (id === 'streamvix_dvr') {
+            } else if (effectiveId === 'streamvix_dvr') {
                 // DVR catalog - fetch recordings from EasyProxy
                 try {
                     const { getDvrConfig, formatDuration, formatFileSize } = await import('./utils/easyproxyDvr');
@@ -1858,10 +1886,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 console.log(`🔎 Search (OR+fuzzy) query tokens:`, tokens);
                 const seen = new Set<string>();
 
-                const simpleLevenshtein = (a: string, b: string): number => {
+                const levenshtein = (a: string, b: string): number => {
                     if (a === b) return 0;
                     const al = a.length, bl = b.length;
-                    if (Math.abs(al - bl) > 1) return 99; // prune (we only care distance 0/1)
+                    if (Math.abs(al - bl) > 2) return 99; // prune
                     const dp: number[] = Array(bl + 1).fill(0);
                     for (let j = 0; j <= bl; j++) dp[j] = j;
                     for (let i = 1; i <= al; i++) {
@@ -1876,16 +1904,29 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     return dp[bl];
                 };
 
+                // Tolleranza errori in base alla lunghezza del token:
+                // 3-4 lettere → max 1 errore, 5+ lettere → max 2 errori
+                const maxTypos = (len: number): number => len >= 5 ? 2 : 1;
+
                 const tokenMatches = (token: string, hay: string, words: string[]): boolean => {
                     if (!token) return false;
-                    if (hay.includes(token)) return true; // substring
+                    if (hay.includes(token)) return true; // substring esatta
                     // prefix match on any word
                     if (words.some(w => w.startsWith(token))) return true;
-                    // fuzzy distance 1 on words (only if token length > 3 to avoid noise)
-                    if (token.length > 3) {
+                    // fuzzy match (token >= 3 chars per evitare falsi positivi)
+                    if (token.length >= 3) {
+                        const allowed = maxTypos(token.length);
                         for (const w of words) {
-                            if (Math.abs(w.length - token.length) > 1) continue;
-                            if (simpleLevenshtein(token, w) <= 1) return true;
+                            if (Math.abs(w.length - token.length) > allowed) continue;
+                            if (levenshtein(token, w) <= allowed) return true;
+                        }
+                        // Fuzzy substring: controlla se il token è "quasi contenuto" nel testo completo
+                        // (gestisce casi dove le parole sono attaccate o separate diversamente)
+                        if (allowed >= 1 && token.length >= 4) {
+                            for (let i = 0; i <= hay.length - token.length + allowed; i++) {
+                                const sub = hay.substring(i, i + token.length);
+                                if (levenshtein(token, sub) <= 1) return true;
+                            }
                         }
                     }
                     return false;
@@ -1896,7 +1937,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const categoryStr = categories.join(' ');
                     const hayRaw = `${c.name || ''} ${(c.description || '')} ${categoryStr}`.toLowerCase();
                     const words = hayRaw.split(/[^a-z0-9]+/).filter(Boolean);
-                    const ok = tokens.some((t: string) => tokenMatches(t, hayRaw, words)); // OR logic
+                    const ok = tokens.every((t: string) => tokenMatches(t, hayRaw, words)); // AND logic: ALL tokens must match
                     if (ok) {
                         if (seen.has(c.id)) return false;
                         seen.add(c.id);
@@ -1904,7 +1945,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     return false;
                 }).slice(0, 200);
-                console.log(`🔎 Search results (OR+fuzzy): ${filteredChannels.length}`);
+                console.log(`🔎 Search results (AND+fuzzy): ${filteredChannels.length}`);
             } else {
                 // === GENRE FILTERING (robusto) ===
                 let genreInput: string | undefined;
