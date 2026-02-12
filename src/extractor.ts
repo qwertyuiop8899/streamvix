@@ -1,5 +1,5 @@
 import { ContentType } from "stremio-addon-sdk";
-import { buildUnifiedStreamName, providerLabel } from './utils/unifiedNames';
+import { buildUnifiedStreamName, providerLabel, langToFlag } from './utils/unifiedNames';
 import * as cheerio from "cheerio";
 import * as fs from 'fs';
 import * as path from 'path';
@@ -112,6 +112,44 @@ export interface VixCloudStreamInfo {
   isSyntheticFhd?: boolean;
   // Original content base title (senza placeholder Synthetic/Proxy FHD) se disponibile
   originalName?: string;
+  // Detected audio language from master manifest (e.g. 'it', 'en')
+  detectedLang?: string;
+}
+
+/**
+ * Fetches a master HLS manifest and parses available audio languages.
+ * Returns an array of language codes (e.g. ['it', 'en']).
+ * Safe: returns empty array on any error (network, parse, timeout).
+ */
+async function parseManifestLanguages(masterUrl: string): Promise<string[]> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(masterUrl, {
+      headers: { 'Accept': 'application/vnd.apple.mpegurl, */*' } as any,
+      signal: controller.signal as any
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return [];
+    const text = await res.text();
+    const langs: string[] = [];
+    const mediaRegex = /#EXT-X-MEDIA:[^\n]*/g;
+    let match: RegExpExecArray | null;
+    while ((match = mediaRegex.exec(text)) !== null) {
+      const line = match[0];
+      if (!/TYPE=AUDIO/i.test(line)) continue;
+      const langMatch = line.match(/LANGUAGE="([^"]+)"/i);
+      if (langMatch && langMatch[1]) {
+        const lang = langMatch[1].toLowerCase();
+        if (!langs.includes(lang)) langs.push(lang);
+      }
+    }
+    console.log(`[VixSrc][LangDetect] Lingue audio trovate: ${langs.length ? langs.join(', ') : 'nessuna (no EXT-X-MEDIA AUDIO)'}`);
+    return langs;
+  } catch (e) {
+    console.warn('[VixSrc][LangDetect] Errore fetch/parse manifest:', (e as any)?.message || e);
+    return [];
+  }
 }
 
 /**
@@ -966,11 +1004,24 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         console.warn('[VixSrc][Direct][Normalize] Errore normalizzazione URL master:', (e as any)?.message || e);
       }
 
+      // Detect audio languages from master manifest
+      let detectedLang: string | undefined;
+      try {
+        const langs = await parseManifestLanguages(finalStreamUrl);
+        if (langs.length > 0) {
+          detectedLang = langs.join(','); // store all languages comma-separated
+          console.log(`[VixSrc][Direct] Lingue audio rilevate: ${detectedLang}`);
+        }
+      } catch (e) {
+        console.warn('[VixSrc][Direct] Errore rilevamento lingua:', (e as any)?.message || e);
+      }
+
       return {
         name: determinedName, // raw; unify later
         streamUrl: finalStreamUrl,
         referer: finalReferer,
-        source: 'direct'
+        source: 'direct',
+        detectedLang
       };
 
     } catch (error) {
@@ -1160,15 +1211,16 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     // Aggiunto suffisso .m3u8 per compatibilità con player HLS che richiedono estensione
     const syntheticUrl = `${usableAddonBase.replace(/\/$/, '')}/vixsynthetic.m3u8?src=${encodeURIComponent(masterUrl)}&lang=it&max=1&multi=1`;
     const directRef = streams.find(s => s.source === 'direct');
+    const inheritedLang = directRef?.detectedLang || streams.find(s => s.source === 'proxy')?.detectedLang;
     if (haveDirect && directRef && masterUrl === directRef.streamUrl) {
-      return { name: directRef.name.replace(/\s*🔓FHD?$/, '').replace(/\s*🔓$/, '') + ' 🔓FHD', streamUrl: syntheticUrl, referer, source: 'direct', isSyntheticFhd: true, originalName: directRef.name };
+      return { name: directRef.name.replace(/\s*🔓FHD?$/, '').replace(/\s*🔓$/, '') + ' 🔓FHD', streamUrl: syntheticUrl, referer, source: 'direct', isSyntheticFhd: true, originalName: directRef.name, detectedLang: inheritedLang };
     }
     const proxyRef = streams.find(s => s.source === 'proxy');
     if (!haveDirect && proxyRef) {
       const baseName = proxyRef.name.replace(/\s*🔒FHD$/, '').replace(/\s*🔒$/, '').replace(/\s*🔓FHD?$/, '').replace(/\s*🔓$/, '').trim();
-      return { name: baseName + ' 🔓FHD', streamUrl: syntheticUrl, referer, source: 'direct', isSyntheticFhd: true, originalName: baseName };
+      return { name: baseName + ' 🔓FHD', streamUrl: syntheticUrl, referer, source: 'direct', isSyntheticFhd: true, originalName: baseName, detectedLang: inheritedLang };
     }
-    return { name: 'Synthetic 🔓FHD', streamUrl: syntheticUrl, referer, source: 'direct', isSyntheticFhd: true };
+    return { name: 'Synthetic 🔓FHD', streamUrl: syntheticUrl, referer, source: 'direct', isSyntheticFhd: true, detectedLang: inheritedLang };
   }
 
   function buildSyntheticProxyWrapper(innerSynthetic: string, referer: string): VixCloudStreamInfo | null {
@@ -1254,6 +1306,16 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         const isSub = /\bSUB\b/i.test(s.name);
         const proxyOn = s.source === 'proxy' || /mediaflow|proxy/i.test(s.streamUrl);
         const sizeBytes = (s as any).sizeBytes as number | undefined;
+        // Build language flag from detected manifest languages
+        let resolvedLangFlag: string;
+        if (s.detectedLang) {
+          const allLangs = s.detectedLang.split(',').map(l => l.trim()).filter(Boolean);
+          // Mostra tutte le lingue disponibili (sia Direct che Synthetic mantengono tutte le tracce)
+          resolvedLangFlag = langToFlag(allLangs);
+        } else {
+          // Nessuna lingua rilevata dal manifest: default ❓
+          resolvedLangFlag = '❓';
+        }
         const unified = buildUnifiedStreamName({
           baseTitle: baseTitle || 'Titolo',
           isSub,
@@ -1261,7 +1323,8 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           playerName: undefined,
           proxyOn,
           provider: 'vixsrc',
-          isFhdOrDual: isFhd
+          isFhdOrDual: isFhd,
+          langFlag: resolvedLangFlag
         });
         // PATCH: aggiungi linea fissa "🎦 1080p" SOLO per stream synthetic FHD VixSrc (isSyntheticFhd true)
         // Requisito: la linea deve comparire immediatamente sopra la linea Proxy e solo per questi casi.
