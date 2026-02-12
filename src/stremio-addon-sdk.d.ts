@@ -31,7 +31,7 @@ declare module 'stremio-addon-sdk' {
     icon?: string;
     background?: string;
 
-    resources: string[];
+    resources: (string | { name: string; types: string[]; idPrefixes?: string[] })[];
     types: string[];
     idPrefixes?: string[];
     catalogs?: any[];
