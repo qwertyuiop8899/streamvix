@@ -789,7 +789,11 @@ const baseManifest: Manifest = {
             ]
         }
     ],
-    resources: ["stream", "catalog", "meta"],
+    resources: [
+        "stream",
+        "catalog",
+        { name: "meta", types: ["tv"] }
+    ],
     behaviorHints: { configurable: true },
     config: [
         { key: "tmdbApiKey", title: "TMDB API Key", type: "text" },
