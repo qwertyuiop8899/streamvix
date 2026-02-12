@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.16.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.11...v1.16.12) (2026-02-12)
+
+
+### Bug Fixes
+
+* meta stremio ([17592bf](https://github.com/qwertyuiop8899/streamvix/commit/17592bf7a8271836dc63c0a1d4ae86eee9b11051))
+* meta stremio ([f282753](https://github.com/qwertyuiop8899/streamvix/commit/f282753a5c183d0cd6ff47d826e0f7467af4bad4))
+* search ([db60bf0](https://github.com/qwertyuiop8899/streamvix/commit/db60bf0b20434ca046b1bfe60d984357a5eea5be))
+
 ## [1.16.11](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.10...v1.16.11) (2026-02-12)
 
 
