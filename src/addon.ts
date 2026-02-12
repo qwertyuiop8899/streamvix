@@ -689,7 +689,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "10.2.23",
+    version: "10.1.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -5835,7 +5835,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             // (Provider label removed from multiline)
                             const outLines: string[] = [];
                             outLines.push(`🎬 ${baseLine}`);
-                            outLines.push(`🗣 [${isSub ? 'SUB' : 'ITA'}]`);
+                            // Language line: per VixSrc, preserva la riga 🗣 originale (contiene flag 🇮🇹/🇬🇧 da finalize).
+                            // Per gli altri provider, usa la logica legacy [ITA]/[SUB].
+                            let langLine = `🗣 [${isSub ? 'SUB' : 'ITA'}]`;
+                            if (providerKey === 'vixsrc') {
+                                const existingLangLine = lines.find(l => /^🗣\s/.test(l));
+                                if (existingLangLine) langLine = existingLangLine;
+                            }
+                            outLines.push(langLine);
                             if (playerName) outLines.push(`▶️ ${playerName}`);
                             // Build size/res combined line before proxy if present
                             let sizeResLine = '';
@@ -5976,13 +5983,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const streams: Stream[] = [];
                             for (const st of res) {
                                 if (!st.streamUrl) continue;
-                                let adjustedName = st.name || '';
-                                adjustedName = adjustedName.replace(/\s*•\s*\[ITA\]$/i, ' • [ITA]');
-                                adjustedName = adjustedName.replace(/\s*\[ITA\]$/i, ' • [ITA]');
-                                let finalTitle = adjustedName;
+                                // st.name arriva già formattato da finalize() in extractor.ts
+                                // con langFlag corretto (🇮🇹/🇬🇧). Usare direttamente.
+                                let finalTitle = (st.name || 'VixSrc').trim();
+                                // Rimuovi la riga provider (🤌) — va nel campo name separato
+                                const parts = finalTitle.split('\n');
+                                if (parts.length && /^🤌\s/.test(parts[parts.length - 1])) parts.pop();
+                                finalTitle = parts.join('\n');
                                 if (typeof st.sizeBytes === 'number') {
                                     const sizeLabel = st.sizeBytes > 0 ? fmtBytes(st.sizeBytes) : '?';
-                                    finalTitle = `${adjustedName}\n💾 ${sizeLabel}`;
+                                    finalTitle = `${finalTitle}\n💾 ${sizeLabel}`;
                                 }
                                 streams.push({ title: finalTitle, url: st.streamUrl, behaviorHints: { notWebReady: true, headers: { Referer: st.referer } } as any, isSyntheticFhd: st.isSyntheticFhd, originalName: (st as any).originalName } as any);
                             }
@@ -6223,19 +6233,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (res) {
                             for (const st of res) {
                                 if (!st.streamUrl) continue;
-                                let rawBase = (st.name || '').replace(/\s*•\s*\[ITA\]$/i, '').replace(/\s*\[ITA\]$/i, '').trim();
-                                if (/^(Synthetic FHD|Proxy FHD)$/i.test(rawBase) && (st as any).originalName) {
-                                    rawBase = (st as any).originalName;
-                                }
-                                let unified = buildUnifiedStreamName({
-                                    baseTitle: rawBase || 'VixSrc',
-                                    isSub: /\bsub\b|\[sub\]/i.test(st.name || ''),
-                                    sizeBytes: undefined, // non includere size per coerenza esempio
-                                    playerName: undefined,
-                                    proxyOn: st.source === 'proxy',
-                                    provider: 'vixsrc',
-                                    isFhdOrDual: !!st.isSyntheticFhd
-                                });
+                                // st.name arriva già formattato da finalize() in extractor.ts
+                                // con langFlag corretto (🇮🇹/🇬🇧). Non ricostruire il nome,
+                                // solo rimuovere la riga provider (🤌) perché va nel campo name.
+                                let unified = (st.name || 'VixSrc').trim();
                                 const parts = unified.split('\n');
                                 if (parts.length && /^🤌\s/.test(parts[parts.length - 1])) parts.pop();
                                 unified = parts.join('\n');
