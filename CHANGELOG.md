@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.14](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.13...v1.16.14) (2026-02-16)
+
+
+### Bug Fixes
+
+* add mpdp ([eff9328](https://github.com/qwertyuiop8899/streamvix/commit/eff932810587f0e171e1f69f7f878dea22aa1ae3))
+* addon ([1761c4e](https://github.com/qwertyuiop8899/streamvix/commit/1761c4e2de50a5cc14a86f0ab55fdefc8542651c))
+
 ## [1.16.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.12...v1.16.13) (2026-02-16)
 
 
