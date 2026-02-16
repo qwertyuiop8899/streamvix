@@ -43,8 +43,7 @@ import { startSportzxScheduler, getSportzxChannels } from './utils/sportzxUpdate
 import { startSports99Scheduler, getSports99Channels } from './utils/sports99Updater';
 import { startMediaHostingScheduler, getMediaHostingChannels } from './utils/mediahostingUpdater';
 import { startFreeshotScheduler, getFreeshotChannels } from './utils/freeshotUpdater';
-// import { startMpdzScheduler, updateMpdzChannels } from './utils/mpdzUpdater';
-import { startMpdxScheduler, updateMpdxChannels } from './utils/mpdxUpdater';
+import { startMpdzScheduler, updateMpdzChannels } from './utils/mpdzUpdater';
 // import { startZEventiScheduler, updateZEventiChannels } from './utils/zEventiUpdater';
 import { getGuardoserieStreams } from './providers/guardoserie';
 import { getGuardaflixStreams } from './providers/guardaflix';
@@ -548,9 +547,6 @@ function getStreamPriority(stream: { url: string; title: string }): number {
     // 4.6. staticUrlMpdz (🎬MPDz -  source)
     if (/\[🎬MPDz\]/i.test(title)) return 4.6;
 
-    // 4.7. staticUrlMpdx (🎬MPDx -  source)
-    if (/\[🎬MPDx\]/i.test(title)) return 4.7;
-
     // 6. Daddy con 🇮🇹 (estratti, wrappati MFP o diretti ma NON 🔄 e NON [Player Esterno])
     if (/^🇮🇹(?!🔄)/.test(title) && !/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 6;
 
@@ -689,7 +685,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "10.1.23",
+    version: "10.3.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -729,6 +725,7 @@ const baseManifest: Manifest = {
                     name: "genre",
                     isRequired: true,
                     options: [
+                        "Z-Eventi",
                         "X-Eventi",
                         "THISNOT",
                         "SportzX",
@@ -3237,10 +3234,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
 
                         // === Z-Eventi & X-Eventi EARLY RETURN: MPD con chiavi - costruisce URL proxy usando config utente ===
-                        /* Z-Eventi DISABLED
-                        const isZEventi = channelCategory === 'Z-EVENTI' || (channel as any).id?.startsWith('zeventi_');
-                        */
-                        const isZEventi = false;
+                        const isZEventi = channelCategory === 'Z-Eventi' || channelCategory === 'Z-EVENTI' || (channel as any).id?.startsWith('zeventi_');
                         const isXEventi = channelCategory === 'X-Eventi' || channelCategory === 'X-EVENTI' || (channel as any).id?.startsWith('xeventi_');
 
                         if (isZEventi || isXEventi) {
@@ -3257,10 +3251,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                                 for (const d of dArr) {
                                     if (d.url) {
-                                        // d.url è nel formato: mpdUrl&key_id=kids&key=keys
-                                        // Dobbiamo costruire: {mfpUrl}/proxy/mpd/manifest.m3u8?{passwordParam}d={encodedMpdUrl}&key_id=...&key=...
-                                        // Verifica se ci sono chiavi:
-                                        if (d.url.includes('key_id=') && d.url.includes('key=')) {
+                                        // d.url può contenere key_id/key oppure license_key=...
+                                        // Dobbiamo costruire: {mfpUrl}/proxy/mpd/manifest.m3u8?{passwordParam}d={encodedMpdUrl}&...
+                                        const hasKeyId = d.url.includes('key_id=') && d.url.includes('key=');
+                                        const hasLicenseKey = /[?&]license_key=/.test(d.url);
+                                        if (hasKeyId || hasLicenseKey) {
                                             // HA CHIAVI -> PROXY
                                             const urlParts = d.url.split('&');
                                             const baseUrl = urlParts[0];
@@ -3572,7 +3567,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             debugLog(`MediaHosting import/fetch fallito (dynamic): ${e}`);
                         }
 
-                        // === INJECTION ORDINE: prima MPDh, poi MPD, poi MPDx ===
+                        // === INJECTION ORDINE: prima MPDh, poi MPD, poi MPDz ===
 
                         // === INJECTION staticUrlMpdh (SkyFHD - 🎬MPDh) - Posizione #4 (PRIMO MPD) ===
                         try {
@@ -3810,20 +3805,24 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     if (matches) {
                                         try {
                                             const decodedUrl = decodeStaticUrl((staticCh as any).staticUrlMpdz);
+                                            const needsProxy = /(?:[?&]key_id=|[?&]key=)/i.test(decodedUrl);
                                             let finalUrl = decodedUrl;
                                             let proxyUsed = false;
 
-                                            if (mfpUrl) {
+                                            if (needsProxy) {
+                                                if (!mfpUrl) {
+                                                    debugLog(`[MPDz] Skip clearkey without MFP: ${staticCh.name}`);
+                                                    continue;
+                                                }
                                                 const urlParts = decodedUrl.split('&');
                                                 const baseUrl = urlParts[0];
                                                 const additionalParams = urlParts.slice(1);
                                                 const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
                                                 finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
                                                 for (const param of additionalParams) if (param) finalUrl += `&${param}`;
-                                                proxyUsed = true;
                                             }
 
-                                            const title = `${proxyUsed ? '' : '[❌Proxy]'}[🎬MPDz] ${staticCh.name} [ITA]`;
+                                            const title = `[🎬MPDz] ${staticCh.name} [ITA]`;
 
                                             let insertAt = 0;
                                             try {
@@ -3855,77 +3854,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                         } catch (e) {
                             console.error('[MPDz] Injection error:', (e as any)?.message || e);
-                        }
-
-                        // === INJECTION staticUrlMpdx ( - 🎬MPDx) - Posizione #7 dopo MPDz ===
-                        try {
-                            const mpdxInjectedChannels = new Set<string>();
-
-                            for (const staticCh of staticBaseChannels) {
-                                if (!staticCh || !(staticCh as any).staticUrlMpdx) continue;
-                                if (mpdxInjectedChannels.has(staticCh.id)) continue;
-
-                                const aliases = staticCh.vavooNames || [staticCh.name];
-
-                                let matched = false;
-                                for (const alias of aliases) {
-                                    if (matched) break;
-                                    const normalizedAlias = normAlias(alias);
-
-                                    const matches = providerTitlesExt.some((pt: string) => {
-                                        const normalizedProvider = normAlias(pt);
-                                        return normalizedProvider.includes(normalizedAlias) || normalizedAlias.includes(normalizedProvider);
-                                    });
-
-                                    if (matches) {
-                                        try {
-                                            const decodedUrl = decodeStaticUrl((staticCh as any).staticUrlMpdx);
-                                            let finalUrl = decodedUrl;
-                                            let proxyUsed = false;
-
-                                            if (mfpUrl) {
-                                                const urlParts = decodedUrl.split('&');
-                                                const baseUrl = urlParts[0];
-                                                const additionalParams = urlParts.slice(1);
-                                                const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
-                                                finalUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
-                                                for (const param of additionalParams) if (param) finalUrl += `&${param}`;
-                                                proxyUsed = true;
-                                            }
-
-                                            const title = `${proxyUsed ? '' : '[❌Proxy]'}[🎬MPDx] ${staticCh.name} [ITA]`;
-
-                                            let insertAt = 0;
-                                            try {
-                                                while (insertAt < streams.length && /(\(Vavoo🔓\))/i.test(streams[insertAt].title)) insertAt++;
-                                                while (insertAt < streams.length && /🇮🇹🔄/i.test(streams[insertAt].title)) insertAt++;
-                                                while (insertAt < streams.length && /\[🏟\s*Free\]/i.test(streams[insertAt].title)) insertAt++;
-                                                while (insertAt < streams.length && /\[🎬MPD\]/i.test(streams[insertAt].title)) insertAt++;
-                                                while (insertAt < streams.length && /\[🎬MPD2\]/i.test(streams[insertAt].title)) insertAt++;
-                                                while (insertAt < streams.length && /\[🎬MPDz\]/i.test(streams[insertAt].title)) insertAt++;
-                                            } catch { }
-
-                                            try {
-                                                streams.splice(insertAt, 0, { url: finalUrl, title });
-                                            } catch {
-                                                streams.push({ url: finalUrl, title });
-                                            }
-
-                                            mpdxInjectedChannels.add(staticCh.id);
-                                            matched = true;
-                                            console.log(`✅ [MPDx] Injected ${staticCh.name} (matched alias: ${alias}) -  source`);
-                                        } catch (injectErr) {
-                                            debugLog(`[MPDx] Injection failed for ${staticCh.name}:`, injectErr);
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (mpdxInjectedChannels.size > 0) {
-                                console.log(`✅ [MPDx] Total injected: ${mpdxInjectedChannels.size} channels with staticUrlMpdx ()`);
-                            }
-                        } catch (e) {
-                            console.error('[MPDx] Injection error:', (e as any)?.message || e);
                         }
 
                         // (Normalizzazione CF rimossa: ora pubblichiamo link avvolti con extractor on-demand)
@@ -4241,7 +4169,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
 
-                    // === ORDINE MPD: prima MPDh, poi MPD, poi MPDx ===
+                    // === ORDINE MPD: prima MPDh, poi MPD, poi MPDz ===
 
                     // staticUrlMpdh (MPDh / SkyFHD source - RM_SOURCE_URL_H) - PRIMO
                     if ((channel as any).staticUrlMpdh) {
@@ -4342,56 +4270,37 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // staticUrlMpdz ()
                     if ((channel as any).staticUrlMpdz) {
                         const decodedUrlz = decodeStaticUrl((channel as any).staticUrlMpdz);
+                        const needsProxy = /(?:[?&]key_id=|[?&]key=)/i.test(decodedUrlz);
 
-                        if (mfpUrl) {
-                            const urlParts = decodedUrlz.split('&');
-                            const baseUrl = urlParts[0];
-                            const additionalParams = urlParts.slice(1);
+                        if (needsProxy) {
+                            if (mfpUrl) {
+                                const urlParts = decodedUrlz.split('&');
+                                const baseUrl = urlParts[0];
+                                const additionalParams = urlParts.slice(1);
 
-                            const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
-                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
+                                const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
+                                let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
 
-                            for (const param of additionalParams) {
-                                if (param) {
-                                    proxyUrl += `&${param}`;
+                                for (const param of additionalParams) {
+                                    if (param) {
+                                        proxyUrl += `&${param}`;
+                                    }
                                 }
-                            }
 
+                                streams.push({
+                                    url: proxyUrl,
+                                    title: `[🎬MPDz] ${channel.name} [ITA]`
+                                });
+                                debugLog(`Aggiunto staticUrlMpdz Proxy (MFP): ${proxyUrl.substring(0, 150)}...`);
+                            } else {
+                                debugLog(`(NASCONDI) staticUrlMpdz Direct senza MFP: ${decodedUrlz}`);
+                            }
+                        } else {
                             streams.push({
-                                url: proxyUrl,
+                                url: decodedUrlz,
                                 title: `[🎬MPDz] ${channel.name} [ITA]`
                             });
-                            debugLog(`Aggiunto staticUrlMpdz Proxy (MFP): ${proxyUrl.substring(0, 150)}...`);
-                        } else {
-                            debugLog(`(NASCONDI) staticUrlMpdz Direct senza MFP: ${decodedUrlz}`);
-                        }
-                    }
-
-                    // staticUrlMpdx ()
-                    if ((channel as any).staticUrlMpdx) {
-                        const decodedUrlx = decodeStaticUrl((channel as any).staticUrlMpdx);
-
-                        if (mfpUrl) {
-                            const urlParts = decodedUrlx.split('&');
-                            const baseUrl = urlParts[0];
-                            const additionalParams = urlParts.slice(1);
-
-                            const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
-                            let proxyUrl = `${mfpUrl}/proxy/mpd/manifest.m3u8?${passwordParam}d=${encodeURIComponent(baseUrl)}`;
-
-                            for (const param of additionalParams) {
-                                if (param) {
-                                    proxyUrl += `&${param}`;
-                                }
-                            }
-
-                            streams.push({
-                                url: proxyUrl,
-                                title: `[🎬MPDx] ${channel.name} [ITA]`
-                            });
-                            debugLog(`Aggiunto staticUrlMpdx Proxy (MFP): ${proxyUrl.substring(0, 150)}...`);
-                        } else {
-                            debugLog(`(NASCONDI) staticUrlMpdx Direct senza MFP: ${decodedUrlx}`);
+                            debugLog(`Aggiunto staticUrlMpdz Direct: ${decodedUrlz.substring(0, 150)}...`);
                         }
                     }
 
@@ -7209,40 +7118,20 @@ app.get('/rm/update', async (req: Request, res: Response) => {
 // =============================================================
 
 // ================= MANUAL MPDZ UPDATE ENDPOINT ==============
-// GET /mpdz/update - Forza aggiornamento canali MPDz ()
-// app.get('/mpdz/update', async (req: Request, res: Response) => {
-//     try {
-//         console.log('[MPDz][API] Manual update triggered via /mpdz/update');
-//         const { updateMpdzChannels } = await import('./utils/mpdzUpdater');
-//         const count = await updateMpdzChannels();
-
-//         return res.json({
-//             ok: true,
-//             count,
-//             message: `Updated ${count} MPDz channels in tv_channels.json`
-//         });
-//     } catch (e: any) {
-//         console.error('[MPDz][API] Error:', e);
-//         return res.status(500).json({ ok: false, error: e?.message || String(e) });
-//     }
-// });
-// =============================================================
-
-// ================= MANUAL MPDX UPDATE ENDPOINT ==============
-// GET /mpdx/update - Forza aggiornamento canali MPDx
-app.get('/mpdx/update', async (req: Request, res: Response) => {
+// GET /mpdz/update - Forza aggiornamento canali MPDz
+app.get('/mpdz/update', async (req: Request, res: Response) => {
     try {
-        console.log('[MPDx][API] Manual update triggered via /mpdx/update');
-        const { updateMpdxChannels } = await import('./utils/mpdxUpdater');
-        const count = await updateMpdxChannels();
+        console.log('[MPDz][API] Manual update triggered via /mpdz/update');
+        const { updateMpdzChannels } = await import('./utils/mpdzUpdater');
+        const count = await updateMpdzChannels();
 
         return res.json({
             ok: true,
             count,
-            message: `Updated ${count} MPDx channels in tv_channels.json`
+            message: `Updated ${count} MPDz channels in tv_channels.json`
         });
     } catch (e: any) {
-        console.error('[MPDx][API] Error:', e);
+        console.error('[MPDz][API] Error:', e);
         return res.status(500).json({ ok: false, error: e?.message || String(e) });
     }
 });
@@ -7309,23 +7198,13 @@ app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) =
         }
 
         // MPDz
-        // try {
-        //     const { updateMpdzChannels } = await import('./utils/mpdzUpdater');
-        //     const c = await updateMpdzChannels(true, true); // force=true, skipReload=true
-        //     totalUpdates += c;
-        //     htmlLog.push(`<li>✅ <strong>MPDz</strong>: ${c} channels updated (FORCED)</li>`);
-        // } catch (e: any) {
-        //     htmlLog.push(`<li>❌ <strong>MPDz</strong>: Error: ${e.message}</li>`);
-        // }
-
-        // MPDx
         try {
-            const { updateMpdxChannels } = await import('./utils/mpdxUpdater');
-            const c = await updateMpdxChannels(true, true); // force=true, skipReload=true
+            const { updateMpdzChannels } = await import('./utils/mpdzUpdater');
+            const c = await updateMpdzChannels(true, true); // force=true, skipReload=true
             totalUpdates += c;
-            htmlLog.push(`<li>✅ <strong>MPDx</strong>: ${c} channels updated (FORCED)</li>`);
+            htmlLog.push(`<li>✅ <strong>MPDz</strong>: ${c} channels updated (FORCED)</li>`);
         } catch (e: any) {
-            htmlLog.push(`<li>❌ <strong>MPDx</strong>: Error: ${e.message}</li>`);
+            htmlLog.push(`<li>❌ <strong>MPDz</strong>: Error: ${e.message}</li>`);
         }
 
         // ThisNot (non scrive su tv_channels.json, scrive su /tmp/thisnot_channels.json)
@@ -7404,12 +7283,11 @@ app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) =
             _loadStaticChannelsIfChanged(true);
 
             // Conta canali con vari campi MPD
-            let mpdCount = 0, mpd2Count = 0, mpdzCount = 0, mpdxCount = 0, mpdhCount = 0;
+            let mpdCount = 0, mpd2Count = 0, mpdzCount = 0, mpdhCount = 0;
             for (const c of staticBaseChannels) {
                 if (c && (c as any).staticUrlMpd) mpdCount++;
                 if (c && (c as any).staticUrlMpd2) mpd2Count++;
                 if (c && (c as any).staticUrlMpdz) mpdzCount++;
-                if (c && (c as any).staticUrlMpdx) mpdxCount++;
                 if (c && (c as any).staticUrlMpdh) mpdhCount++;
             }
 
@@ -7419,7 +7297,7 @@ app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) =
             htmlLog.push(`<li>staticUrlMpd (RM/MPD): <strong>${mpdCount}</strong></li>`);
             htmlLog.push(`<li>staticUrlMpdh (RM H/SkyFHD): <strong>${mpdhCount}</strong></li>`);
             // htmlLog.push(`<li>staticUrlMpd2 (DEPRECATED): <strong>${mpd2Count}</strong></li>`);
-            htmlLog.push(`<li>staticUrlMpdx (MPDx): <strong>${mpdxCount}</strong></li>`);
+            htmlLog.push(`<li>staticUrlMpdz (MPDz): <strong>${mpdzCount}</strong></li>`);
             htmlLog.push(`</ul>`);
             htmlLog.push(`<p>Total updates this run: <strong>${totalUpdates}</strong></p>`);
         } catch (e: any) {
@@ -7828,22 +7706,12 @@ try {
 }
 
 // =============== MPDZ AUTO-UPDATER ==============================
-// Avvia aggiornamento automatico canali MPDz () ogni 23 minuti
-// try {
-//     startMpdzScheduler(1380000);
-//     console.log('✅ MPDz auto-updater attivato (ogni 23 min)');
-// } catch (e) {
-//     console.error('❌ Errore avvio MPDz updater:', e);
-// }
-// ====================================================================
-
-// =============== MPDX AUTO-UPDATER ==============================
-// Avvia aggiornamento automatico canali MPDx ( worker) ogni 23 minuti
+// Avvia aggiornamento automatico canali MPDz ogni 23 minuti
 try {
-    startMpdxScheduler(1380000);
-    console.log('✅ MPDx auto-updater attivato (ogni 23 min)');
+    startMpdzScheduler(1380000);
+    console.log('✅ MPDz auto-updater attivato (ogni 23 min)');
 } catch (e) {
-    console.error('❌ Errore avvio MPDx updater:', e);
+    console.error('❌ Errore avvio MPDz updater:', e);
 }
 // ====================================================================
 
@@ -7856,6 +7724,202 @@ try {
 //     console.error('❌ Errore avvio Z-Eventi updater:', e);
 // }
 // ====================================================================
+
+// === Z-Eventi playlist enrichment & Endpoint ===
+(() => {
+    try {
+        const zUrl = process.env.ZEVENTI_ENV_URL;
+        const outputFile = '/tmp/z_eventi.json';
+
+        type RawEventi = {
+            logo: string;
+            group: string;
+            nameRaw: string;
+            url: string;
+            kodiprops: Record<string, string>;
+        };
+
+        const fetchM3u = async (url: string): Promise<string | null> => {
+            if (!url) return null;
+            const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return await res.text();
+        };
+
+        const parseM3u = (content: string): RawEventi[] => {
+            const channels: RawEventi[] = [];
+            const lines = content.split(/\r?\n/);
+            let pendingKodiprops: Record<string, string> = {};
+            let i = 0;
+            while (i < lines.length) {
+                const line = lines[i].trim();
+
+                // Raccogli KODIPROP che appaiono PRIMA di #EXTINF
+                if (line.startsWith('#KODIPROP:')) {
+                    try {
+                        const raw = line.replace('#KODIPROP:', '');
+                        const eqIdx = raw.indexOf('=');
+                        if (eqIdx > 0) {
+                            pendingKodiprops[raw.slice(0, eqIdx).trim()] = raw.slice(eqIdx + 1).trim();
+                        }
+                    } catch { }
+                    i++;
+                    continue;
+                }
+
+                if (line.startsWith('#EXTINF:')) {
+                    const tvgLogo = /tvg-logo="([^"]+)"/i.exec(line);
+                    const groupTitle = /group-title="([^"]+)"/i.exec(line);
+                    const titleMatch = /,([^,]+)$/.exec(line);
+                    const nameRaw = titleMatch ? titleMatch[1].trim() : '';
+                    const logo = tvgLogo ? tvgLogo[1] : '';
+                    const group = groupTitle && groupTitle[1] ? groupTitle[1] : 'Z-Eventi';
+                    let url = '';
+                    // Prendi i KODIPROP già raccolti prima di #EXTINF
+                    const kodiprops: Record<string, string> = { ...pendingKodiprops };
+                    pendingKodiprops = {};
+
+                    // Cerca anche KODIPROP dopo #EXTINF (e poi la URL)
+                    let j = i + 1;
+                    while (j < lines.length) {
+                        const nextLine = lines[j].trim();
+                        if (!nextLine) {
+                            j++;
+                            continue;
+                        }
+                        if (nextLine.startsWith('#KODIPROP:')) {
+                            try {
+                                const raw = nextLine.replace('#KODIPROP:', '');
+                                const eqIdx = raw.indexOf('=');
+                                if (eqIdx > 0) {
+                                    kodiprops[raw.slice(0, eqIdx).trim()] = raw.slice(eqIdx + 1).trim();
+                                }
+                            } catch { }
+                        } else if (nextLine.startsWith('#')) {
+                            // skip other directives
+                        } else {
+                            url = nextLine;
+                            i = j;
+                            break;
+                        }
+                        j++;
+                    }
+
+                    if (url) {
+                        channels.push({ logo, group, nameRaw, url, kodiprops });
+                    }
+                } else {
+                    // Qualsiasi riga non-KODIPROP e non-EXTINF resetta i pending
+                    if (!line.startsWith('#')) {
+                        pendingKodiprops = {};
+                    }
+                }
+                i++;
+            }
+            return channels;
+        };
+
+        const extractClearkeyPair = (licenseKey: string): { keyId: string; key: string } | null => {
+            const cleaned = (licenseKey || '').trim();
+            if (!cleaned) return null;
+            const stripped = cleaned.replace(/^clearkey:\/\//i, '').replace(/^clearkey:/i, '');
+            const match = stripped.match(/([a-f0-9]{32})[^a-f0-9]+([a-f0-9]{32})/i);
+            if (!match) return null;
+            return { keyId: match[1], key: match[2] };
+        };
+
+        const processChannels = (rawChannels: RawEventi[]) => {
+            const processed: any[] = [];
+            for (const ch of rawChannels) {
+                const group = 'Z-Eventi';
+                const nameRaw = ch.nameRaw || '';
+                let nameCleaned = nameRaw.replace(/\bx[-\s]?rom\b/gi, '').trim();
+                nameCleaned = nameCleaned.replace(/\s{2,}/g, ' ').trim();
+                const finalName = `🔴 ${nameRaw}`;
+                const idHash = crypto.createHash('md5').update(ch.url).digest('hex').slice(0, 12);
+
+                let finalUrl = ch.url;
+                const licenseKey = ch.kodiprops?.['inputstream.adaptive.license_key'] || '';
+                const keyPair = extractClearkeyPair(licenseKey);
+                const allZeros = '00000000000000000000000000000000';
+                if (keyPair && keyPair.keyId !== allZeros && keyPair.key !== allZeros) {
+                    finalUrl = `${ch.url}&key_id=${keyPair.keyId}&key=${keyPair.key}`;
+                    console.log(`[Z-Eventi] DRM key aggiunto per: ${nameRaw.slice(0, 40)}...`);
+                } else if (licenseKey && !licenseKey.includes(allZeros)) {
+                    finalUrl = `${ch.url}&license_key=${encodeURIComponent(licenseKey)}`;
+                    console.log(`[Z-Eventi] DRM license_key aggiunto per: ${nameRaw.slice(0, 40)}...`);
+                }
+
+                processed.push({
+                    id: `zeventi_${idHash}`,
+                    name: finalName,
+                    description: `${nameCleaned} - ${group}`,
+                    logo: ch.logo || 'https://i.imgur.com/ngOzxVP.png',
+                    poster: ch.logo,
+                    background: ch.logo,
+                    type: 'tv',
+                    category: 'Z-Eventi',
+                    streams: [{
+                        url: finalUrl,
+                        title: '🔴 LIVE'
+                    }]
+                });
+            }
+            return processed;
+        };
+
+        const runZEventiUpdate = async (tag: string): Promise<{ ok: boolean; output: string; error: string }> => {
+            try {
+                if (!zUrl) {
+                    return { ok: false, output: '', error: 'ZEVENTI_ENV_URL not set' };
+                }
+                const content = await fetchM3u(zUrl);
+                if (!content) {
+                    return { ok: false, output: '', error: 'No content fetched' };
+                }
+                const rawChannels = parseM3u(content);
+                const processed = processChannels(rawChannels);
+                fs.writeFileSync(outputFile, JSON.stringify(processed, null, 2), 'utf-8');
+                loadDynamicChannels(true);
+                const output = `Saved ${processed.length} channels to ${outputFile} (tag=${tag})`;
+                return { ok: true, output, error: '' };
+            } catch (e: any) {
+                return { ok: false, output: '', error: e?.message || String(e) };
+            }
+        };
+
+        if (app) {
+            app.get('/zeventi/update', async (req: Request, res: Response) => {
+                console.log('[Z-Events][API] Trigger manual update...');
+                try {
+                    const result = await runZEventiUpdate('manual-api');
+                    res.json({ success: result.ok, output: result.output, error: result.error });
+                } catch (e: any) {
+                    res.status(500).json({ success: false, error: e.message });
+                }
+            });
+            console.log('[Z-Events][INIT] Endpoint /zeventi/update registrato');
+        } else {
+            console.warn('[Z-Events][INIT] WARNING: app Express non trovata, endpoint non registrato');
+        }
+
+        if (zUrl) {
+            setTimeout(() => {
+                console.log('[Z-Events][INIT] Starting initial run (90s delayed)...');
+                runZEventiUpdate('init');
+            }, 90000);
+
+            setInterval(() => {
+                console.log('[Z-Events][SCHED] Running scheduled update...');
+                runZEventiUpdate('scheduled');
+            }, 30 * 60 * 1000);
+        } else {
+            console.log('[Z-Events][INIT] ZEVENTI_ENV_URL non presente, scheduler automatico disabilitato.');
+        }
+    } catch (e) {
+        console.error('[Z-Events][INIT] Error:', e);
+    }
+})();
 
 // === X-Eventi playlist enrichment & Endpoint ===
 (() => {
