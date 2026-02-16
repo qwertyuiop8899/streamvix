@@ -44,6 +44,7 @@ import { startSports99Scheduler, getSports99Channels } from './utils/sports99Upd
 import { startMediaHostingScheduler, getMediaHostingChannels } from './utils/mediahostingUpdater';
 import { startFreeshotScheduler, getFreeshotChannels } from './utils/freeshotUpdater';
 import { startMpdzScheduler, updateMpdzChannels } from './utils/mpdzUpdater';
+import { startMpdpScheduler, updateMpdpChannels } from './utils/mpdpUpdater';
 // import { startZEventiScheduler, updateZEventiChannels } from './utils/zEventiUpdater';
 import { getGuardoserieStreams } from './providers/guardoserie';
 import { getGuardaflixStreams } from './providers/guardaflix';
@@ -546,6 +547,9 @@ function getStreamPriority(stream: { url: string; title: string }): number {
 
     // 4.6. staticUrlMpdz (🎬MPDz -  source)
     if (/\[🎬MPDz\]/i.test(title)) return 4.6;
+
+    // 4.7. staticUrlMpdp (🎬MPDp - PSky source)
+    if (/\[🎬MPDp\]/i.test(title)) return 4.7;
 
     // 6. Daddy con 🇮🇹 (estratti, wrappati MFP o diretti ma NON 🔄 e NON [Player Esterno])
     if (/^🇮🇹(?!🔄)/.test(title) && !/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 6;
@@ -3856,6 +3860,65 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             console.error('[MPDz] Injection error:', (e as any)?.message || e);
                         }
 
+                        // === INJECTION staticUrlMpdp (PSky - 🎬MPDp) - Posizione #7 dopo MPDz ===
+                        try {
+                            const mpdpInjectedChannels = new Set<string>();
+
+                            for (const staticCh of staticBaseChannels) {
+                                if (!staticCh || !(staticCh as any).staticUrlMpdp) continue;
+                                if (mpdpInjectedChannels.has(staticCh.id)) continue;
+
+                                const aliases = staticCh.vavooNames || [staticCh.name];
+
+                                let matched = false;
+                                for (const alias of aliases) {
+                                    if (matched) break;
+                                    const normalizedAlias = normAlias(alias);
+
+                                    const matches = providerTitlesExt.some((pt: string) => {
+                                        const normalizedProvider = normAlias(pt);
+                                        return normalizedProvider.includes(normalizedAlias) || normalizedAlias.includes(normalizedProvider);
+                                    });
+
+                                    if (matches) {
+                                        try {
+                                            const decodedUrl = decodeStaticUrl((staticCh as any).staticUrlMpdp);
+                                            // PSky links sono diretti (no clearkey), passali così come sono
+                                            const title = `[🎬MPDp] ${staticCh.name} [ITA]`;
+
+                                            let insertAt = 0;
+                                            try {
+                                                while (insertAt < streams.length && /(\(Vavoo🔓\))/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /🇮🇹🔄/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🏟\s*Free\]/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🎬MPD\]/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🎬MPD2\]/i.test(streams[insertAt].title)) insertAt++;
+                                                while (insertAt < streams.length && /\[🎬MPDz\]/i.test(streams[insertAt].title)) insertAt++;
+                                            } catch { }
+
+                                            try {
+                                                streams.splice(insertAt, 0, { url: decodedUrl, title });
+                                            } catch {
+                                                streams.push({ url: decodedUrl, title });
+                                            }
+
+                                            mpdpInjectedChannels.add(staticCh.id);
+                                            matched = true;
+                                            console.log(`✅ [MPDp] Injected ${staticCh.name} (matched alias: ${alias}) - PSky source`);
+                                        } catch (injectErr) {
+                                            debugLog(`[MPDp] Injection failed for ${staticCh.name}:`, injectErr);
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (mpdpInjectedChannels.size > 0) {
+                                console.log(`✅ [MPDp] Total injected: ${mpdpInjectedChannels.size} channels with staticUrlMpdp (PSky)`);
+                            }
+                        } catch (e) {
+                            console.error('[MPDp] Injection error:', (e as any)?.message || e);
+                        }
+
                         // (Normalizzazione CF rimossa: ora pubblichiamo link avvolti con extractor on-demand)
                         // Append leftover entries (beyond CAP) con stessa logica on-demand (proxy/hls diretto)
                         if (extraFast.length && mfpUrl) {
@@ -4302,6 +4365,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             });
                             debugLog(`Aggiunto staticUrlMpdz Direct: ${decodedUrlz.substring(0, 150)}...`);
                         }
+                    }
+
+
+                    // staticUrlMpdp (PSky)
+                    if ((channel as any).staticUrlMpdp) {
+                        const decodedUrlp = decodeStaticUrl((channel as any).staticUrlMpdp);
+                        // PSky links sono diretti (no clearkey/DRM)
+                        streams.push({
+                            url: decodedUrlp,
+                            title: `[🎬MPDp] ${channel.name} [ITA]`
+                        });
+                        debugLog(`Aggiunto staticUrlMpdp Direct: ${decodedUrlp.substring(0, 150)}...`);
                     }
 
 
@@ -7137,6 +7212,26 @@ app.get('/mpdz/update', async (req: Request, res: Response) => {
 });
 // =============================================================
 
+// ================= MANUAL MPDP UPDATE ENDPOINT ==============
+// GET /mpdp/update - Forza aggiornamento canali MPDp (PSky)
+app.get('/mpdp/update', async (req: Request, res: Response) => {
+    try {
+        console.log('[MPDp][API] Manual update triggered via /mpdp/update');
+        const { updateMpdpChannels } = await import('./utils/mpdpUpdater');
+        const count = await updateMpdpChannels();
+
+        return res.json({
+            ok: true,
+            count,
+            message: `Updated ${count} MPDp channels in tv_channels.json`
+        });
+    } catch (e: any) {
+        console.error('[MPDp][API] Error:', e);
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// =============================================================
+
 // ================= MANUAL ZEVENTI UPDATE ENDPOINT ==============
 // GET /zeventi/update - Forza aggiornamento canali Z-Eventi (serieaz + coppez)
 // app.get('/zeventi/update', async (req: Request, res: Response) => {
@@ -7205,6 +7300,16 @@ app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) =
             htmlLog.push(`<li>✅ <strong>MPDz</strong>: ${c} channels updated (FORCED)</li>`);
         } catch (e: any) {
             htmlLog.push(`<li>❌ <strong>MPDz</strong>: Error: ${e.message}</li>`);
+        }
+
+        // MPDp (PSky)
+        try {
+            const { updateMpdpChannels } = await import('./utils/mpdpUpdater');
+            const c = await updateMpdpChannels(true, true); // force=true, skipReload=true
+            totalUpdates += c;
+            htmlLog.push(`<li>✅ <strong>MPDp (PSky)</strong>: ${c} channels updated (FORCED)</li>`);
+        } catch (e: any) {
+            htmlLog.push(`<li>❌ <strong>MPDp (PSky)</strong>: Error: ${e.message}</li>`);
         }
 
         // ThisNot (non scrive su tv_channels.json, scrive su /tmp/thisnot_channels.json)
@@ -7283,12 +7388,13 @@ app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) =
             _loadStaticChannelsIfChanged(true);
 
             // Conta canali con vari campi MPD
-            let mpdCount = 0, mpd2Count = 0, mpdzCount = 0, mpdhCount = 0;
+            let mpdCount = 0, mpd2Count = 0, mpdzCount = 0, mpdhCount = 0, mpdpCount = 0;
             for (const c of staticBaseChannels) {
                 if (c && (c as any).staticUrlMpd) mpdCount++;
                 if (c && (c as any).staticUrlMpd2) mpd2Count++;
                 if (c && (c as any).staticUrlMpdz) mpdzCount++;
                 if (c && (c as any).staticUrlMpdh) mpdhCount++;
+                if (c && (c as any).staticUrlMpdp) mpdpCount++;
             }
 
             htmlLog.push(`<p>✅ <strong>Reload completato!</strong></p>`);
@@ -7298,6 +7404,7 @@ app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) =
             htmlLog.push(`<li>staticUrlMpdh (RM H/SkyFHD): <strong>${mpdhCount}</strong></li>`);
             // htmlLog.push(`<li>staticUrlMpd2 (DEPRECATED): <strong>${mpd2Count}</strong></li>`);
             htmlLog.push(`<li>staticUrlMpdz (MPDz): <strong>${mpdzCount}</strong></li>`);
+            htmlLog.push(`<li>staticUrlMpdp (MPDp/PSky): <strong>${mpdpCount}</strong></li>`);
             htmlLog.push(`</ul>`);
             htmlLog.push(`<p>Total updates this run: <strong>${totalUpdates}</strong></p>`);
         } catch (e: any) {
@@ -7712,6 +7819,16 @@ try {
     console.log('✅ MPDz auto-updater attivato (ogni 23 min)');
 } catch (e) {
     console.error('❌ Errore avvio MPDz updater:', e);
+}
+// ====================================================================
+
+// =============== MPDP AUTO-UPDATER ==============================
+// Avvia aggiornamento automatico canali MPDp (PSky) ogni 23 minuti
+try {
+    startMpdpScheduler(1380000);
+    console.log('✅ MPDp auto-updater attivato (ogni 23 min)');
+} catch (e) {
+    console.error('❌ Errore avvio MPDp updater:', e);
 }
 // ====================================================================
 
