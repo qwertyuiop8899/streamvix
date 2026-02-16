@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.16.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.12...v1.16.13) (2026-02-16)
+
+
+### Bug Fixes
+
+* dynamicChannels.ts ([03966a7](https://github.com/qwertyuiop8899/streamvix/commit/03966a72f304b676e5b3739d02d75a8555e4f0cb))
+* mpdz ([8268c15](https://github.com/qwertyuiop8899/streamvix/commit/8268c15cfed32275afa96371ed9c490c1df86b87))
+* mpdzUpdater.ts ([e2332a9](https://github.com/qwertyuiop8899/streamvix/commit/e2332a9e7ea2428ad724df8921ed0634658d5820))
+* version ([60d0ae1](https://github.com/qwertyuiop8899/streamvix/commit/60d0ae1247cd2c6ac648e9f3de271c336bb75151))
+* versionpackage-lock.json ([436e2ca](https://github.com/qwertyuiop8899/streamvix/commit/436e2cab00022d9a9093f0c8e68c70f4be298814))
+
 ## [1.16.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.11...v1.16.12) (2026-02-12)
 
 
