@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.15](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.14...v1.16.15) (2026-02-17)
+
+
+### Bug Fixes
+
+* kofi grog ([562589a](https://github.com/qwertyuiop8899/streamvix/commit/562589a58274ab618cdae79191837ade47bbe5d1))
+
 ## [1.16.14](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.13...v1.16.14) (2026-02-16)
 
 
