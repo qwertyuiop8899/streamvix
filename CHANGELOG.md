@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.16](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.15...v1.16.16) (2026-02-17)
+
+
+### Bug Fixes
+
+* ak ([baf836e](https://github.com/qwertyuiop8899/streamvix/commit/baf836efbf5476828cb596ab16a59446f662b001))
+* dyn ak ([2a7fd44](https://github.com/qwertyuiop8899/streamvix/commit/2a7fd448f283981195bb82a7ec6f880289c9d5aa))
+
 ## [1.16.15](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.14...v1.16.15) (2026-02-17)
 
 
