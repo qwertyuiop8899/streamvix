@@ -277,8 +277,26 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       }
     }
 
-    // Mergia i cinque array
-    const data = [...mainData, ...thisnotData, ...ppvData, ...zEventiData, ...xEventiData];
+    // Carica ak_eventi.json (AK-Eventi separato)
+    let akEventiData: any[] = [];
+    const AKEVENTI_FILE = '/tmp/ak_eventi.json';
+    if (fs.existsSync(AKEVENTI_FILE)) {
+      try {
+        const akRaw = fs.readFileSync(AKEVENTI_FILE, 'utf-8');
+        if (akRaw.trim().length >= 2) {
+          const akParsed = JSON.parse(akRaw);
+          if (Array.isArray(akParsed)) {
+            akEventiData = akParsed;
+            try { console.log(`[DynamicChannels] 🔗 Mergiati ${akEventiData.length} canali AK-Eventi da ${AKEVENTI_FILE}`); } catch { }
+          }
+        }
+      } catch (akErr) {
+        try { console.warn('[DynamicChannels] Errore caricamento AK-Eventi file, skip:', (akErr as any)?.message); } catch { }
+      }
+    }
+
+    // Mergia i sei array
+    const data = [...mainData, ...thisnotData, ...ppvData, ...zEventiData, ...akEventiData, ...xEventiData];
 
 
     if (data.length === 0) {
@@ -362,9 +380,9 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
       let removedPrevDay = 0;
       let removedExpiredAge = 0;
       const filtered: DynamicChannel[] = data.filter(ch => {
-        // THISNOT, X-EVENTI, Z-EVENTI: mantieni SEMPRE senza filtri temporali
+        // THISNOT, X-EVENTI, Z-EVENTI, AK-EVENTI: mantieni SEMPRE senza filtri temporali
         const category = (ch.category || '').toString().toLowerCase();
-        if (category === 'thisnot' || category === 'x-eventi' || category === 'z-eventi') {
+        if (category === 'thisnot' || category === 'x-eventi' || category === 'z-eventi' || category === 'ak-eventi') {
           return true; // Skip tutti i filtri temporali per queste categorie
         }
 
@@ -493,9 +511,9 @@ export function purgeOldDynamicEvents(): { before: number; after: number; remove
     const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
     const nowMs = nowRome.getTime();
     const filtered = data.filter((ch: DynamicChannel) => {
-      // THISNOT, X-EVENTI, Z-EVENTI: mantieni SEMPRE senza filtri temporali
+      // THISNOT, X-EVENTI, Z-EVENTI, AK-EVENTI: mantieni SEMPRE senza filtri temporali
       const category = (ch.category || '').toString().toLowerCase();
-      if (category === 'thisnot' || category === 'x-eventi' || category === 'z-eventi') {
+      if (category === 'thisnot' || category === 'x-eventi' || category === 'z-eventi' || category === 'ak-eventi') {
         return true; // Skip tutti i filtri temporali per queste categorie
       }
 
