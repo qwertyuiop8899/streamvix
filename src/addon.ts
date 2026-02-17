@@ -730,6 +730,7 @@ const baseManifest: Manifest = {
                     isRequired: true,
                     options: [
                         "Z-Eventi",
+                        "AK-Eventi",
                         "X-Eventi",
                         "THISNOT",
                         "SportzX",
@@ -3237,18 +3238,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                         }
 
-                        // === Z-Eventi & X-Eventi EARLY RETURN: MPD con chiavi - costruisce URL proxy usando config utente ===
+                        // === Z-Eventi, AK-Eventi & X-Eventi EARLY RETURN: MPD con chiavi - costruisce URL proxy usando config utente ===
                         const isZEventi = channelCategory === 'Z-Eventi' || channelCategory === 'Z-EVENTI' || (channel as any).id?.startsWith('zeventi_');
+                        const isAkEventi = channelCategory === 'AK-Eventi' || channelCategory === 'AK-EVENTI' || (channel as any).id?.startsWith('akeventi_');
                         const isXEventi = channelCategory === 'X-Eventi' || channelCategory === 'X-EVENTI' || (channel as any).id?.startsWith('xeventi_');
 
-                        if (isZEventi || isXEventi) {
+                        if (isZEventi || isAkEventi || isXEventi) {
                             const zStreams: Stream[] = [];
                             const dArr = [
                                 ...(Array.isArray((channel as any).streams) ? (channel as any).streams : []),
                                 ...(Array.isArray((channel as any).dynamicDUrls) ? (channel as any).dynamicDUrls : [])
                             ];
-                            const groupTitle = isZEventi ? 'Z-Eventi' : 'X-Eventi';
-                            const logPrefix = isZEventi ? '[Z-Eventi]' : '[X-Eventi]';
+                            const groupTitle = isZEventi ? 'Z-Eventi' : (isAkEventi ? 'AK-Eventi' : 'X-Eventi');
+                            const logPrefix = isZEventi ? '[Z-Eventi]' : (isAkEventi ? '[AK-Eventi]' : '[X-Eventi]');
 
                             if (mfpUrl) {
                                 const passwordParam = mfpPsw ? `api_password=${encodeURIComponent(mfpPsw)}&` : '';
@@ -8035,6 +8037,198 @@ try {
         }
     } catch (e) {
         console.error('[Z-Events][INIT] Error:', e);
+    }
+})();
+
+// === AK-Eventi playlist enrichment & Endpoint ===
+(() => {
+    try {
+        const akUrl = process.env.AK_ENV_URL;
+        const outputFile = '/tmp/ak_eventi.json';
+
+        type RawEventi = {
+            logo: string;
+            group: string;
+            nameRaw: string;
+            url: string;
+            kodiprops: Record<string, string>;
+        };
+
+        const fetchM3u = async (url: string): Promise<string | null> => {
+            if (!url) return null;
+            const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return await res.text();
+        };
+
+        const parseM3u = (content: string): RawEventi[] => {
+            const channels: RawEventi[] = [];
+            const lines = content.split(/\r?\n/);
+            let pendingKodiprops: Record<string, string> = {};
+            let i = 0;
+            while (i < lines.length) {
+                const line = lines[i].trim();
+
+                if (line.startsWith('#KODIPROP:')) {
+                    try {
+                        const raw = line.replace('#KODIPROP:', '');
+                        const eqIdx = raw.indexOf('=');
+                        if (eqIdx > 0) {
+                            pendingKodiprops[raw.slice(0, eqIdx).trim()] = raw.slice(eqIdx + 1).trim();
+                        }
+                    } catch { }
+                    i++;
+                    continue;
+                }
+
+                if (line.startsWith('#EXTINF:')) {
+                    const tvgLogo = /tvg-logo="([^"]+)"/i.exec(line);
+                    const groupTitle = /group-title="([^"]+)"/i.exec(line);
+                    const titleMatch = /,([^,]+)$/.exec(line);
+                    const nameRaw = titleMatch ? titleMatch[1].trim() : '';
+                    const logo = tvgLogo ? tvgLogo[1] : '';
+                    const group = groupTitle && groupTitle[1] ? groupTitle[1] : 'AK-Eventi';
+                    let url = '';
+                    const kodiprops: Record<string, string> = { ...pendingKodiprops };
+                    pendingKodiprops = {};
+
+                    let j = i + 1;
+                    while (j < lines.length) {
+                        const nextLine = lines[j].trim();
+                        if (!nextLine) {
+                            j++;
+                            continue;
+                        }
+                        if (nextLine.startsWith('#KODIPROP:')) {
+                            try {
+                                const raw = nextLine.replace('#KODIPROP:', '');
+                                const eqIdx = raw.indexOf('=');
+                                if (eqIdx > 0) {
+                                    kodiprops[raw.slice(0, eqIdx).trim()] = raw.slice(eqIdx + 1).trim();
+                                }
+                            } catch { }
+                        } else if (nextLine.startsWith('#')) {
+                            // skip other directives
+                        } else {
+                            url = nextLine;
+                            i = j;
+                            break;
+                        }
+                        j++;
+                    }
+
+                    if (url) {
+                        channels.push({ logo, group, nameRaw, url, kodiprops });
+                    }
+                } else {
+                    if (!line.startsWith('#')) {
+                        pendingKodiprops = {};
+                    }
+                }
+                i++;
+            }
+            return channels;
+        };
+
+        const extractClearkeyPair = (licenseKey: string): { keyId: string; key: string } | null => {
+            const cleaned = (licenseKey || '').trim();
+            if (!cleaned) return null;
+            const stripped = cleaned.replace(/^clearkey:\/\//i, '').replace(/^clearkey:/i, '');
+            const match = stripped.match(/([a-f0-9]{32})[^a-f0-9]+([a-f0-9]{32})/i);
+            if (!match) return null;
+            return { keyId: match[1], key: match[2] };
+        };
+
+        const processChannels = (rawChannels: RawEventi[]) => {
+            const processed: any[] = [];
+            for (const ch of rawChannels) {
+                const group = 'AK-Eventi';
+                const nameRaw = ch.nameRaw || '';
+                let nameCleaned = nameRaw.replace(/\bx[-\s]?rom\b/gi, '').trim();
+                nameCleaned = nameCleaned.replace(/\s{2,}/g, ' ').trim();
+                const finalName = `🔴 ${nameRaw}`;
+                const idHash = crypto.createHash('md5').update(ch.url).digest('hex').slice(0, 12);
+
+                let finalUrl = ch.url;
+                const licenseKey = ch.kodiprops?.['inputstream.adaptive.license_key'] || '';
+                const keyPair = extractClearkeyPair(licenseKey);
+                const allZeros = '00000000000000000000000000000000';
+                if (keyPair && keyPair.keyId !== allZeros && keyPair.key !== allZeros) {
+                    finalUrl = `${ch.url}&key_id=${keyPair.keyId}&key=${keyPair.key}`;
+                    console.log(`[AK-Eventi] DRM key aggiunto per: ${nameRaw.slice(0, 40)}...`);
+                } else if (licenseKey && !licenseKey.includes(allZeros)) {
+                    finalUrl = `${ch.url}&license_key=${encodeURIComponent(licenseKey)}`;
+                    console.log(`[AK-Eventi] DRM license_key aggiunto per: ${nameRaw.slice(0, 40)}...`);
+                }
+
+                processed.push({
+                    id: `akeventi_${idHash}`,
+                    name: finalName,
+                    description: `${nameCleaned} - ${group}`,
+                    logo: ch.logo || 'https://i.imgur.com/ngOzxVP.png',
+                    poster: ch.logo,
+                    background: ch.logo,
+                    type: 'tv',
+                    category: 'AK-Eventi',
+                    streams: [{
+                        url: finalUrl,
+                        title: '🔴 LIVE'
+                    }]
+                });
+            }
+            return processed;
+        };
+
+        const runAkEventiUpdate = async (tag: string): Promise<{ ok: boolean; output: string; error: string }> => {
+            try {
+                if (!akUrl) {
+                    return { ok: false, output: '', error: 'AK_ENV_URL not set' };
+                }
+                const content = await fetchM3u(akUrl);
+                if (!content) {
+                    return { ok: false, output: '', error: 'No content fetched' };
+                }
+                const rawChannels = parseM3u(content);
+                const processed = processChannels(rawChannels);
+                fs.writeFileSync(outputFile, JSON.stringify(processed, null, 2), 'utf-8');
+                loadDynamicChannels(true);
+                const output = `Saved ${processed.length} channels to ${outputFile} (tag=${tag})`;
+                return { ok: true, output, error: '' };
+            } catch (e: any) {
+                return { ok: false, output: '', error: e?.message || String(e) };
+            }
+        };
+
+        if (app) {
+            app.get('/akeventi/update', async (req: Request, res: Response) => {
+                console.log('[AK-Events][API] Trigger manual update...');
+                try {
+                    const result = await runAkEventiUpdate('manual-api');
+                    res.json({ success: result.ok, output: result.output, error: result.error });
+                } catch (e: any) {
+                    res.status(500).json({ success: false, error: e.message });
+                }
+            });
+            console.log('[AK-Events][INIT] Endpoint /akeventi/update registrato');
+        } else {
+            console.warn('[AK-Events][INIT] WARNING: app Express non trovata, endpoint non registrato');
+        }
+
+        if (akUrl) {
+            setTimeout(() => {
+                console.log('[AK-Events][INIT] Starting initial run (90s delayed)...');
+                runAkEventiUpdate('init');
+            }, 90000);
+
+            setInterval(() => {
+                console.log('[AK-Events][SCHED] Running scheduled update...');
+                runAkEventiUpdate('scheduled');
+            }, 30 * 60 * 1000);
+        } else {
+            console.log('[AK-Events][INIT] AK_ENV_URL non presente, scheduler automatico disabilitato.');
+        }
+    } catch (e) {
+        console.error('[AK-Events][INIT] Error:', e);
     }
 })();
 
