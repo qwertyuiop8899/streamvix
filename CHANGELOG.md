@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.20](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.19...v1.16.20) (2026-02-25)
+
+
+### Bug Fixes
+
+* Modify searchGuardoserie to accept type parameter ([30c04f5](https://github.com/qwertyuiop8899/streamvix/commit/30c04f5190fb8f3b3b7c96cd0723d458176019fe))
+* Refactor searchGuardaflix to use Ajax search first ([9e2d68e](https://github.com/qwertyuiop8899/streamvix/commit/9e2d68ec74626179e93a23f8d45f4bce729e560a))
+
 ## [1.16.19](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.18...v1.16.19) (2026-02-25)
 
 
