@@ -27,7 +27,12 @@ KEY_HINTS = {
 
 def fetch(url: str) -> str:
     try:
-        with urllib.request.urlopen(url, timeout=15) as r:
+        # Creiamo un oggetto Request con un User-Agent comune
+        req = urllib.request.Request(
+            url,
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
             return r.read().decode('utf-8', 'replace')
     except Exception as e:
         print(f'[update_domains] fetch fail {url}: {e}', file=sys.stderr)
@@ -65,26 +70,26 @@ def scrape_guardaserie_it(html: str):
     - guardaflix: <a href="https://guardaplay.bar/" class="btn btn-success fw-bold ...
     """
     result = {}
-    
+
     # guardoserie: Look for btn-outline-success link with Guardaserie text
     m = re.search(r'<a\s+href="https?://([^"/]+)/?"\s+class="btn btn-outline-success[^"]*"', html, re.I)
     if m:
         result['guardoserie'] = m.group(1).lower()
         print(f'[update_domains] Found guardoserie domain: {result["guardoserie"]}')
-    
+
     # guardaflix: Look for btn-success link with GuardaPlay text
     m = re.search(r'<a\s+href="https?://([^"/]+)/?"\s+class="btn btn-success[^"]*"[^>]*>GuardaPlay', html, re.I)
     if m:
         result['guardaflix'] = m.group(1).lower()
         print(f'[update_domains] Found guardaflix domain: {result["guardaflix"]}')
-    
+
     return result
 
 
 def main():
     paste_txt = fetch(PASTEBIN_RAW)
     guardaserie_it_html = fetch(GUARDASERIE_IT_URL)
-    
+
     reachable = True
     if not paste_txt and not guardaserie_it_html:
         reachable = False
@@ -179,4 +184,3 @@ def main():
 if __name__ == '__main__':
     rc = main()
     sys.exit(0)
-
