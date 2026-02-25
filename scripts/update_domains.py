@@ -3,7 +3,7 @@ import os, json, sys, re, datetime, urllib.request
 from pathlib import Path
 
 PASTEBIN_RAW = 'https://pastebin.com/raw/KgQ4jTy6'
-GUARDASERIE_IT_URL = 'https://guardaserie.it.com/'  # Source for guardoserie + guardaflix domains
+GUARDASERIE_IT_URL = 'https://guardaserie.foo/'  # Source for guardoserie + guardaflix domains
 DOMAINS_FILE = Path('config/domains.json')
 BACKUP_FILE = Path('config/domains.jsonbk')
 ATTENTION_FILE = Path('attenzione.check')
