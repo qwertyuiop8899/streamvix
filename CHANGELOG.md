@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.17](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.16...v1.16.17) (2026-02-25)
+
+
+### Bug Fixes
+
+* Re-enable seriesFlow method for handling series requests ([58e042a](https://github.com/qwertyuiop8899/streamvix/commit/58e042a3a17c43ab58e2414f02937da9061b0995))
+* Update fmt.Println message from 'Hello' to 'Goodbye' ([1533573](https://github.com/qwertyuiop8899/streamvix/commit/15335730bfff7ac47600d0590141282fab48c3ae))
+
 ## [1.16.16](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.15...v1.16.16) (2026-02-17)
 
 
