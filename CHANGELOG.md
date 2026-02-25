@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.16.19](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.18...v1.16.19) (2026-02-25)
+
+
+### Bug Fixes
+
+* domains update ([10261af](https://github.com/qwertyuiop8899/streamvix/commit/10261afb180dedfb4989182afa7b89756d1172b4))
+* Implement fast mode toggle and help button ([ee1d435](https://github.com/qwertyuiop8899/streamvix/commit/ee1d435f3c45f03d1e62e5b63913b37a2eab38d4))
+* Implement fastMode feature in addon ([ab3fda7](https://github.com/qwertyuiop8899/streamvix/commit/ab3fda765630a9499f764daedebf9ca42f3965ad))
+
 ## [1.16.18](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.17...v1.16.18) (2026-02-25)
 
 
