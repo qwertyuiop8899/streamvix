@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.18](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.17...v1.16.18) (2026-02-25)
+
+
+### Bug Fixes
+
+* Update domain entries for guardaflix and guardoserie ([7976141](https://github.com/qwertyuiop8899/streamvix/commit/7976141571933a52ed77db223782d5d27e845caa))
+
 ## [1.16.17](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.16...v1.16.17) (2026-02-25)
 
 
