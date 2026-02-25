@@ -93,9 +93,21 @@ export class Cb01Provider {
                     return { streams: stream ? [stream] : [] };
                 }
                 return { streams: [] };
-                // Series temporarily disabled per user request
             } else if (season != null && episode != null) {
-                log('seriesFlow skipped (disabled)', { imdbId, season, episode });
+                log('seriesFlow start', { imdbId, season, episode });
+                const result = await this.seriesFlow(imdbId, season, episode);
+                log('seriesFlow done', { imdbId, season, episode, found: !!result });
+
+                if (result) {
+                    this.cache.set(key, {
+                        ts: Date.now(),
+                        mixdropUrl: result.mixdropUrl,
+                        meta: result.meta,
+                        title: result.title
+                    });
+                    const stream = await this.wrapMediaFlow(result.mixdropUrl, '', { season, episode }, result.meta);
+                    return { streams: stream ? [stream] : [] };
+                }
                 return { streams: [] };
             }
         } catch (e) { warn('handleImdbRequest error', String((e as Error).message || e)); }
@@ -297,63 +309,159 @@ export class Cb01Provider {
         };
     }
 
-    // private async seriesFlow(imdbId:string, season:number, episode:number):Promise<StreamForStremio[]>{
-    //   // DISABLED: series handling temporarily removed
-    //   return [];
-    // }
-    /*
-    // --- Archived seriesFlow (disabled) ---
-    // private async seriesFlow(imdbId:string, season:number, episode:number):Promise<StreamForStremio[]>{
-    //   const meta = await this.resolveTitleYear(imdbId, false); const title = meta.title; const year = meta.year; log('meta chosen', { imdbId, source: meta.source, title, year });
-    //   const q = this.norm(title);
-    //   const searchUrl = `${this.baseSerie}/?s=${encodeURIComponent(q)}`;
-    //   let searchHtml:string; try { searchHtml = await this.fetch(searchUrl, this.baseSerie+'/'); } catch (e){ warn('series search fetch fail', searchUrl, String(e)); return []; }
-    //   log('series search html', { url: searchUrl, len: searchHtml.length, snippet: searchHtml.slice(0,220) });
-    //   const serieHref = this.pickYearMatch(searchHtml, year);
-    //   if(!serieHref){ log('series no match', { imdbId, title, year }); return []; }
-    //   log('series picked', { imdbId, serieHref });
-    //   let pageHtml:string; try { pageHtml = await this.fetch(serieHref, this.baseSerie+'/'); } catch (e){ warn('series page fetch fail', serieHref, String(e)); return []; }
-    //   log('series page html', { href: serieHref, len: pageHtml.length, snippet: pageHtml.slice(0,220) });
-    //   const blocks: { seasonNum:number|null; headRaw:string; bodyHtml:string }[] = [];
-    //   const headRe = /<div[^>]*class=\"sp-head[^\"]*\"[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*class=\"sp-body\"[^>]*>([\s\S]*?)(?=<div[^>]*class=\"sp-head|$)/gi;
-    //   let hm:RegExpExecArray|null;
-    //   while((hm = headRe.exec(pageHtml))){
-    //     const headHtml = hm[1];
-    //     const bodyHtml = hm[2];
-    //     const text = headHtml.replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').trim();
-    //     const mSeason = text.match(/STAGIONE\s+(\d+)/i);
-    //     const seasonNum = mSeason? parseInt(mSeason[1],10): null;
-    //     blocks.push({ seasonNum, headRaw: text, bodyHtml });
-    //   }
-    //   log('series seasons parsed', { total: blocks.length, seasons: blocks.map(b=>b.seasonNum) });
-    //   const chosen = blocks.find(b=> b.seasonNum === season);
-    //   if(!chosen){ log('series season block not found', { imdbId, season, parsed: blocks.map(b=>b.headRaw) }); return []; }
-    //   const segment = `<div class=\"sp-body\">${chosen.bodyHtml}`;
-    //   log('series season segment', { len: segment.length, snippet: segment.slice(0,260) });
-    //   const epPad = (n:number)=> n<10? '0'+n: ''+n;
-    //   const ePad = epPad(episode);
-    //   const pat = `(?:S0?${season}E${ePad}|${season}x${ePad}|${season}[×x]${ePad})`;
-    //   const epBlockRe = new RegExp(pat+`[\\s\\S]{0,260}?href=\"(https?:[^"]+)\"[\\s\\S]{0,80}?Mixdrop`, 'i');
-    //   const epLinkMatch = segment.match(epBlockRe);
-    //   log('series episode pattern', { pattern: epBlockRe.toString(), matched: !!epLinkMatch });
-    //   let candidate = epLinkMatch? epLinkMatch[1]: null;
-    //   if(!candidate){
-    //     const lineRe = new RegExp(pat+`[\\s\\S]{0,300}?<p>[\\s\\S]*?</p>`, 'i');
-    //     const line = segment.match(lineRe);
-    //     if(line){
-    //       const mix = line[0].match(/href=\"(https?:[^\"]+mixdrop[^\"]*)\"/i);
-    //       if(mix) candidate = mix[1];
-    //       log('series episode fallback line', { foundLine: !!line, hasMix: !!mix });
-    //     }
-    //   }
-    //   if(!candidate){ log('series episode link not found', { imdbId, season, episode }); return []; }
-    //   log('series episode candidate', { candidate });
-    //   const mixdrop = await this.resolveToMixdrop(candidate, pageHtml);
-    //   if(!mixdrop){ log('series resolveToMixdrop failed', { imdbId, candidate }); return []; }
-    //   const stream = await this.wrapMediaFlow(mixdrop, pageHtml, { season, episode });
-    //   return stream? [stream]: [];
-    // }
-    */
+    private async seriesFlow(imdbId: string, season: number, episode: number): Promise<{ mixdropUrl: string; meta: { file: string | null; size: string | null }; title: string } | null> {
+        await this.ensureDomain();
+        const meta = await this.resolveTitleYear(imdbId, false);
+        const title = meta.title;
+        const year = meta.year;
+        log('meta chosen', { imdbId, source: meta.source, title, year });
+
+        const q = this.norm(title);
+        const searchUrl = `${this.baseSerie}/?s=${encodeURIComponent(q)}`;
+        let searchHtml: string;
+        try { searchHtml = await this.fetch(searchUrl); } catch (e) { warn('series search fetch fail', searchUrl, String(e)); return null; }
+
+        log('series search html', { url: searchUrl, len: searchHtml.length, snippet: searchHtml.slice(0, 220) });
+
+        // Match possible urls
+        const divRe = /<div[^>]+class="card-content"[\s\S]*?<h3[^>]*class="card-title"[\s\S]*?<a[^>]+href="([^"]+)"/gi;
+        let m: RegExpExecArray | null;
+        let serieHref: string | null = null;
+
+        // Cerca l'URL che fa match con l'anno (esattamente come MammaMia: solo year match)
+        const regexYear = /(19|20)\d{2}/;
+        while ((m = divRe.exec(searchHtml))) {
+            const txtMatch = searchHtml.substring(m.index, m.index + 400).match(/<span[^>]*style="color[^"]*"[^>]*>([^<]+)<\/span>/i);
+            if (txtMatch) {
+                const mYear = txtMatch[1].match(regexYear);
+                if (year && mYear) {
+                    const diff = Math.abs(parseInt(mYear[0]) - parseInt(year));
+                    if (diff <= 1) {
+                        serieHref = m[1];
+                        break;
+                    }
+                }
+            }
+        }
+        // Last resort: if no year info found at all in any card, take the first result (title+year unknown)
+        if (!serieHref) {
+            const m2 = divRe.exec(searchHtml.slice(0));
+            // Reset and check if any card has NO year span at all — if so, use first href
+            const reFirst = /<div[^>]+class="card-content"[\s\S]*?<h3[^>]*class="card-title"[\s\S]*?<a[^>]+href="([^"]+)"/i;
+            const checkFirst = searchHtml.match(reFirst);
+            if (checkFirst) {
+                const nearby = searchHtml.substring(searchHtml.indexOf(checkFirst[1]) - 50, searchHtml.indexOf(checkFirst[1]) + 400);
+                const hasYear = /<span[^>]*style="color/.test(nearby);
+                if (!hasYear) serieHref = checkFirst[1];
+            }
+        }
+
+        if (!serieHref) { log('series no match', { imdbId, title, year }); return null; }
+        log('series picked', { imdbId, serieHref });
+
+        let pageHtml: string;
+        try { pageHtml = await this.fetch(serieHref, this.baseSerie + '/'); } catch (e) { warn('series page fetch fail', serieHref, String(e)); return null; }
+        log('series page html', { href: serieHref, len: pageHtml.length, snippet: pageHtml.slice(0, 220) });
+
+        const blocks: { headText: string; bodyHtml: string }[] = [];
+        const headRe = /<div[^>]*class=\"sp-head[^\"]*\"[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*class=\"sp-body\"[^>]*>([\s\S]*?)(?=<div[^>]*class=\"sp-head|$)/gi;
+        let hm: RegExpExecArray | null;
+        while ((hm = headRe.exec(pageHtml))) {
+            const headHtml = hm[1];
+            const bodyHtml = hm[2];
+            const text = headHtml.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+            blocks.push({ headText: text, bodyHtml });
+        }
+
+        log('series blocks parsed', { total: blocks.length });
+
+        let chosenBodyHtml: string | null = null;
+
+        for (const block of blocks) {
+            const headObj = block.headText.toUpperCase();
+            if (headObj.includes('STAGIONE') && headObj.includes(season.toString())) {
+                chosenBodyHtml = block.bodyHtml;
+                break;
+            } else if (headObj.includes('STAGIONE') && headObj.includes('A')) {
+                // Split "STAGIONE 1 A 3" -> find range
+                try {
+                    const txtWithoutStagioneIta = headObj.replace("STAGIONE", "").replace("ITA", "").trim();
+                    const parts = txtWithoutStagioneIta.split('A');
+                    if (parts.length >= 2) {
+                        const num1 = parseInt(parts[0].trim());
+                        const num2Str = parts[1].trim().match(/\d+/);
+                        const num2 = num2Str ? parseInt(num2Str[0]) : 0;
+
+                        // e.g. season 2 in range(1, 4) matches. range in MammaMia was python equivalent so num1 <= season <= num2 (careful: range logic was partially flawed in MammaMia - `in range(num1,num2)` was exclusive on num2, we'll make it inclusive here logically because "1 A 3" normally includes 3)
+                        if (season >= num1 && season <= num2) {
+                            chosenBodyHtml = block.bodyHtml;
+                            break;
+                        }
+                    }
+                } catch (ex) { }
+            }
+        }
+
+        if (!chosenBodyHtml) {
+            // Fallback: if no per-season block matched (e.g. all seasons in one block),
+            // use the combined body of all parsed blocks. If no blocks, use full pageHtml.
+            if (blocks.length > 0) {
+                log('series target season block not found, using combined blocks as fallback', { imdbId, season, parsed: blocks.map(b => b.headText) });
+                chosenBodyHtml = blocks.map(b => b.bodyHtml).join('\n');
+            } else {
+                log('series no sp-head blocks found, using full pageHtml as fallback', { imdbId, season });
+                chosenBodyHtml = pageHtml;
+            }
+        }
+
+        // MammaMia searches the FULL page text, not just the sp-body extract.
+        // We use pageHtml as the primary search target, always.
+        // The sp-head parsing above was only needed to confirm if there's any relevant season block.
+        // Exactly like MammaMia's series_search_streams(text, search_text, response.text, ...)
+        const segment = pageHtml;
+        log('series season segment', { len: segment.length, snippet: segment.slice(0, 260) });
+
+        const epPad = (n: number) => n < 10 ? '0' + n : '' + n;
+        const ePad = epPad(episode);
+        const sPad = epPad(season);
+
+        // MammaMia styles
+        // Style 1: S01E02.+?href='([^']+)
+        // Style 2: 1x02.+?href='([^']+)
+        // Style 3: 1&#215;02 &#8211; <a href=...
+
+        let candidate: string | null = null;
+
+        // Pattern 1 (MammaMia primary): {season}&#215;{episode} &#8211; ... href
+        const rx2 = new RegExp(`${season}&#215;${ePad}\\s*&#8211;.*?href=['"]([^'"]+)`, 'i');
+        const match2 = segment.match(rx2);
+        if (match2) candidate = match2[1];
+
+        // Pattern 2: SXXEXX or XXxXX
+        if (!candidate) {
+            const pat1 = `(S${sPad}E${ePad}|${season}x${ePad}|${sPad}x${ePad})`;
+            const rx1 = new RegExp(`${pat1}.+?href=['"]([^'"]+)`, 'i');
+            const match1 = segment.match(rx1);
+            if (match1) candidate = match1[2];
+        }
+
+        if (!candidate) { log('series episode link not found', { imdbId, season, episode }); return null; }
+        log('series episode candidate', { candidate });
+
+        let stayMeta: { file: string | null; size: string | null } | null = null;
+        if (/stayonline\./i.test(candidate)) {
+            stayMeta = await this.fetchStayMeta(candidate);
+        }
+
+        const mixdrop = await this.resolveToMixdrop(candidate, pageHtml);
+        if (!mixdrop) { log('series resolveToMixdrop failed', { imdbId, candidate }); return null; }
+
+        return {
+            mixdropUrl: mixdrop,
+            meta: stayMeta || { file: null, size: null },
+            title: title
+        };
+    }
 
     private async resolveToMixdrop(raw: string, pageHtml: string): Promise<string | null> {
         let link = raw.trim();
