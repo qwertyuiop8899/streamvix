@@ -174,33 +174,67 @@ async function getDynamicNonce(): Promise<string | null> {
     }
 }
 
-async function searchGuardoserie(query: string, year: string): Promise<string | null> {
+async function searchGuardoserie(query: string, year: string, type: string): Promise<string | null> {
     try {
-        // Usa ricerca diretta /?s= invece di admin-ajax.php che restituisce 400
-        const searchUrl = `${getTargetDomain()}/?s=${encodeURIComponent(query)}`;
-        console.log('[Guardoserie] Direct search:', searchUrl);
+        let $: cheerio.CheerioAPI | null = null;
 
-        const res = await getClient().get(searchUrl);
-        console.log('[GS][Direct] search html length', res.data.length);
+        // 1) Try SearchWP live search via admin-ajax.php (easystreams style)
+        try {
+            const ajaxUrl = `${getTargetDomain()}/wp-admin/admin-ajax.php`;
+            const body = new URLSearchParams();
+            body.set('s', query);
+            body.set('action', 'searchwp_live_search');
+            body.set('swpengine', 'default');
+            body.set('swpquery', query);
 
-        const $ = cheerio.load(res.data);
+            console.log('[Guardoserie] Ajax search:', ajaxUrl);
+            const resAjax = await getClient().post(ajaxUrl, body.toString(), {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }
+            });
+            if (resAjax && resAjax.data) {
+                console.log('[GS][Ajax] search html length', resAjax.data.length);
+                $ = cheerio.load(resAjax.data);
+            }
+        } catch (e) {
+            console.warn('[Guardoserie] Ajax search failed, falling back to direct search');
+        }
+
+        // 2) Fallback to direct /?s= search
+        if (!$) {
+            const searchUrl = `${getTargetDomain()}/?s=${encodeURIComponent(query)}`;
+            console.log('[Guardoserie] Direct search:', searchUrl);
+
+            const res = await getClient().get(searchUrl);
+            console.log('[GS][Direct] search html length', res.data.length);
+            $ = cheerio.load(res.data);
+        }
 
         // Normalizza query per matching
         const queryLower = query.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-        // Cerca tutti i link che potrebbero essere risultati
-        const allLinks: { href: string, text: string }[] = [];
-        $('a[href*="/serie/"]').each((_, el) => {
-            const href = $(el).attr('href');
-            if (!href || href === '#') return;
-            // Filtra link generici (es. /serie/ senza slug)
-            if (/\/serie\/?$/.test(href)) return;
-            // Deve avere uno slug dopo /serie/
-            if (!/\/serie\/[a-z0-9-]+/i.test(href)) return;
+        const collectLinks = (path: 'serie' | 'film') => {
+            const links: { href: string, text: string }[] = [];
+            $(`a[href*="/${path}/"]`).each((_, el) => {
+                const href = $(el).attr('href');
+                if (!href || href === '#') return;
+                // Filtra link generici (es. /serie/ senza slug)
+                if (new RegExp(`\\/${path}\\/?$`, 'i').test(href)) return;
+                // Deve avere uno slug dopo /serie/ o /film/
+                if (!new RegExp(`\\/${path}\\/[a-z0-9-]+`, 'i').test(href)) return;
 
-            const text = $(el).text().trim();
-            allLinks.push({ href, text });
-        });
+                const text = $(el).text().trim();
+                links.push({ href, text });
+            });
+            return links;
+        };
+
+        // Cerca prima per tipo (serie o film), poi fallback sull'altro
+        const primaryPath = type === 'movie' ? 'film' : 'serie';
+        const secondaryPath = primaryPath === 'film' ? 'serie' : 'film';
+        let allLinks = collectLinks(primaryPath as 'serie' | 'film');
+        if (allLinks.length === 0) {
+            allLinks = collectLinks(secondaryPath as 'serie' | 'film');
+        }
 
         console.log('[Guardoserie] Found', allLinks.length, 'candidate links');
 
@@ -446,7 +480,7 @@ async function getGuardoserieStreamsCore(type: string, id: string, tmdbApiKey?: 
         return [];
     }
 
-    const seriesUrl = await searchGuardoserie(name, year);
+    const seriesUrl = await searchGuardoserie(name, year, type);
     if (!seriesUrl) {
         console.log(`[Guardoserie] Not found on site (IT): ${name}`);
 
@@ -455,7 +489,7 @@ async function getGuardoserieStreamsCore(type: string, id: string, tmdbApiKey?: 
             const engMeta = await getCinemetaMeta(type, imdbId);
             if (engMeta && engMeta.name !== name) {
                 console.log(`[Guardoserie] Trying fallback with English title: ${engMeta.name}`);
-                const engUrl = await searchGuardoserie(engMeta.name, year);
+                const engUrl = await searchGuardoserie(engMeta.name, year, type);
                 if (engUrl) {
                     console.log(`✅ [Guardoserie] Found with English title!`);
                     const targetUrl = type === 'series'
@@ -480,4 +514,3 @@ async function getGuardoserieStreamsCore(type: string, id: string, tmdbApiKey?: 
 
     return await resolvePageStream(targetUrl, mfpUrl, mfpPsw);
 }
-
