@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.16.21](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.20...v1.16.21) (2026-02-26)
+
+
+### Bug Fixes
+
+* Implement centralized anime title pre-resolution ([b5ac963](https://github.com/qwertyuiop8899/streamvix/commit/b5ac963eb408db88d83f409e9c3c0176533db8db))
+* Implement handlePreResolved for AnimeResolvedTitle ([ef3aae3](https://github.com/qwertyuiop8899/streamvix/commit/ef3aae3785bdb63eeff3f77e1202d9ffc0918e0c))
+* Implement handlePreResolved for title resolution ([47af8f7](https://github.com/qwertyuiop8899/streamvix/commit/47af8f70e2ccba73107043c1f633efecd3f8a7d5))
+* Implement handlePreResolved for title resolution ([41bc2c1](https://github.com/qwertyuiop8899/streamvix/commit/41bc2c1dd55967ff8619ac85772c0f682ccfbff5))
+
 ## [1.16.20](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.19...v1.16.20) (2026-02-25)
 
 
