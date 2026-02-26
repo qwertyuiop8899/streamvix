@@ -11,6 +11,7 @@ import { AnimeWorldProvider } from './providers/animeworld-provider';
 import { KitsuProvider } from './providers/kitsu';
 import { formatMediaFlowUrl } from './utils/mediaflow';
 import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels, getDynamicFilePath, getDynamicFileStats } from './utils/dynamicChannels';
+import { resolveAnimeTitle, AnimeResolvedTitle } from './utils/animeTitleResolver';
 // --- Lightweight declarations to avoid TS complaints if @types/node non installati ---
 // (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.) 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -6193,25 +6194,37 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }, providerLabel('guardaflix'), false, 30000);
                     }
 
+                    // ── Pre-risoluzione centralizzata titolo anime ──
+                    // UNA SOLA catena di chiamate API per tutti e 3 i provider anime.
+                    // Il risultato (englishTitle, malId, tmdbId, startDate) viene condiviso.
+                    const anyAnimeEnabled = animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled;
+                    const isAnimeId = id.startsWith('kitsu:') || id.startsWith('mal:');
+                    let preResolved: AnimeResolvedTitle | null = null;
+                    if (anyAnimeEnabled && isAnimeId) {
+                        const tmdbKey = config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0';
+                        preResolved = await resolveAnimeTitle(id, tmdbKey);
+                    }
+
                     // AnimeUnity
                     scheduleProviderRun('AnimeUnity', animeUnityEnabled, async () => {
                         const animeUnityProvider = new AnimeUnityProvider(animeUnityConfig);
-                        let res;
-                        if (id.startsWith('kitsu:')) res = await animeUnityProvider.handleKitsuRequest(id);
-                        else if (id.startsWith('mal:')) res = await animeUnityProvider.handleMalRequest(id);
-                        else if (id.startsWith('tt')) res = await animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        else if (id.startsWith('tmdb:')) res = await animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
-                        else res = { streams: [] };
-                        // Uniforma pattern VixSrc: non manipolare multi-line title qui; providerLabel userà isSyntheticFhd
-                        return res;
+                        // Per kitsu:/mal: usa il titolo pre-risolto (0 chiamate API aggiuntive)
+                        if (isAnimeId && preResolved) {
+                            return animeUnityProvider.handlePreResolved(preResolved, id);
+                        }
+                        // Per IMDB/TMDB: risoluzione propria (gate + title da IMDB/TMDB, non duplicabile)
+                        if (id.startsWith('tt')) return animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        if (id.startsWith('tmdb:')) return animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                        return { streams: [] };
                     }, providerLabel('animeunity'), false, 30000);  // AnimeUnity: timeout 30s
 
                     // AnimeSaturn
                     scheduleProviderRun('AnimeSaturn', animeSaturnEnabled, async () => {
                         const { AnimeSaturnProvider } = await import('./providers/animesaturn-provider');
                         const animeSaturnProvider = new AnimeSaturnProvider(animeSaturnConfig);
-                        if (id.startsWith('kitsu:')) return animeSaturnProvider.handleKitsuRequest(id);
-                        if (id.startsWith('mal:')) return animeSaturnProvider.handleMalRequest(id);
+                        if (isAnimeId && preResolved) {
+                            return animeSaturnProvider.handlePreResolved(preResolved, id);
+                        }
                         if (id.startsWith('tt')) return animeSaturnProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                         if (id.startsWith('tmdb:')) return animeSaturnProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                         return { streams: [] };
@@ -6221,8 +6234,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     scheduleProviderRun('AnimeWorld', animeWorldEnabled, async () => {
                         const { AnimeWorldProvider } = await import('./providers/animeworld-provider');
                         const animeWorldProvider = new AnimeWorldProvider(animeWorldConfig);
-                        if (id.startsWith('kitsu:')) return animeWorldProvider.handleKitsuRequest(id);
-                        if (id.startsWith('mal:')) return animeWorldProvider.handleMalRequest(id);
+                        if (isAnimeId && preResolved) {
+                            return animeWorldProvider.handlePreResolved(preResolved, id);
+                        }
                         if (id.startsWith('tt')) return animeWorldProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                         if (id.startsWith('tmdb:')) return animeWorldProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                         return { streams: [] };
