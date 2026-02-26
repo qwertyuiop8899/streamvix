@@ -7,6 +7,7 @@ import * as path from 'path';
 import axios from 'axios';
 import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
 import { extractFromUrl } from '../extractors';
+import { AnimeResolvedTitle } from '../utils/animeTitleResolver';
 
 // Helper function to invoke the Python scraper
 async function invokePythonScraper(args: string[]): Promise<any> {
@@ -307,7 +308,7 @@ function normalizeTitleForSearch(title: string): string {
   if (normalized.includes('Naruto:')) {
     normalized = normalized.replace(':', '');
   }
-  return normalized.trim();
+  return normalized.replace(/\s{2,}/g, ' ').trim();
 }
 
 export class AnimeUnityProvider {
@@ -316,6 +317,32 @@ export class AnimeUnityProvider {
   constructor(private config: AnimeUnityConfig) {}
 
   private get baseHost(): string { return getDomain('animeunity') || 'animeunity.so'; }
+
+  /**
+   * Usa il titolo pre-risolto dal resolver centralizzato (0 chiamate API).
+   * Chiamato da addon.ts per kitsu: e mal: IDs.
+   */
+  async handlePreResolved(resolved: AnimeResolvedTitle, rawId: string): Promise<{ streams: StreamForStremio[] }> {
+    if (!this.config.enabled) return { streams: [] };
+    try {
+      let seasonNumber: number | null = null;
+      let episodeNumber: number | null = null;
+      let isMovie = false;
+      if (rawId.startsWith('kitsu:')) {
+        ({ seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(rawId));
+      } else if (rawId.startsWith('mal:')) {
+        const parts = rawId.split(':');
+        if (parts.length === 2) isMovie = true;
+        else if (parts.length === 3) episodeNumber = parseInt(parts[2]);
+        else if (parts.length === 4) { seasonNumber = parseInt(parts[2]); episodeNumber = parseInt(parts[3]); }
+      }
+      console.log(`[AnimeUnity] handlePreResolved: "${resolved.englishTitle}" (malId=${resolved.malId || '-'}) S${seasonNumber}E${episodeNumber} movie=${isMovie}`);
+      return this.handleTitleRequest(resolved.englishTitle, seasonNumber, episodeNumber, isMovie);
+    } catch (error) {
+      console.error('[AnimeUnity] Error in handlePreResolved:', error);
+      return { streams: [] };
+    }
+  }
 
   // Made public for catalog search
   async searchAllVersions(title: string): Promise<{ version: AnimeUnitySearchResult; language_type: string }[]> {
