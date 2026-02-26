@@ -6,6 +6,7 @@ import { getDomain } from '../utils/domains';
 // import { formatMediaFlowUrl } from '../utils/mediaflow'; // disabilitato: usiamo URL mp4 diretto
 import { AnimeWorldConfig, AnimeWorldResult, AnimeWorldEpisode, StreamForStremio } from '../types/animeunity';
 import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
+import { AnimeResolvedTitle } from '../utils/animeTitleResolver';
 
 // Cache semplice in-memory per titoli tradotti per evitare chiamate ripetute
 const englishTitleCache = new Map<string, string>();
@@ -282,6 +283,37 @@ function scoreOriginalMatch(slug: string, normKey: string): number {
 export class AnimeWorldProvider {
   private kitsuProvider = new KitsuProvider();
   constructor(private config: AnimeWorldConfig) {}
+
+  /**
+   * Usa il titolo pre-risolto dal resolver centralizzato (0 chiamate API).
+   * Chiamato da addon.ts per kitsu: e mal: IDs.
+   * Usa startDate per il fallback filter-year di AnimeWorld.
+   */
+  async handlePreResolved(resolved: AnimeResolvedTitle, rawId: string): Promise<{ streams: StreamForStremio[] }> {
+    if (!this.config.enabled) return { streams: [] };
+    try {
+      let seasonNumber: number | null = null;
+      let episodeNumber: number | null = null;
+      let isMovie = false;
+      if (rawId.startsWith('kitsu:')) {
+        ({ seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(rawId));
+      } else if (rawId.startsWith('mal:')) {
+        const parts = rawId.split(':');
+        if (parts.length === 2) isMovie = true;
+        else if (parts.length === 3) episodeNumber = parseInt(parts[2]);
+        else if (parts.length === 4) { seasonNumber = parseInt(parts[2]); episodeNumber = parseInt(parts[3]); }
+      }
+      // Passa startDate per il fallback filter-year (usato se la ricerca per titolo non trova nulla)
+      if (resolved.startDate) {
+        (this as any)._lastKitsuStartDate = resolved.startDate;
+      }
+      console.log(`[AnimeWorld] handlePreResolved: "${resolved.englishTitle}" (malId=${resolved.malId || '-'}, startDate=${resolved.startDate || '-'}) S${seasonNumber}E${episodeNumber} movie=${isMovie}`);
+      return this.handleTitleRequest(resolved.englishTitle, seasonNumber, episodeNumber, isMovie);
+    } catch (error) {
+      console.error('[AnimeWorld] Error in handlePreResolved:', error);
+      return { streams: [] };
+    }
+  }
 
   private playLangCache = new Map<string,'ITA'|'SUB ITA'>();
   private playLangSubChecked = new Set<string>();
