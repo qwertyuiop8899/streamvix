@@ -5,6 +5,7 @@ import axios from 'axios';
 import { KitsuProvider } from './kitsu';
 import { getDomain } from '../utils/domains';
 import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
+import { AnimeResolvedTitle } from '../utils/animeTitleResolver';
 
 // Helper function to invoke the Python scraper
 // MFP config viene passata esplicitamente, con fallback a env vars per installazioni locali
@@ -274,6 +275,33 @@ export class AnimeSaturnProvider {
   private baseHost: string;
   constructor(private config: AnimeSaturnConfig) {
     this.baseHost = getDomain('animesaturn') || 'animesaturn.cx';
+  }
+
+  /**
+   * Usa il titolo pre-risolto dal resolver centralizzato (0 chiamate API).
+   * Chiamato da addon.ts per kitsu: e mal: IDs.
+   * Passa malId a handleTitleRequest per il filtro MAL-based di AnimeSaturn.
+   */
+  async handlePreResolved(resolved: AnimeResolvedTitle, rawId: string): Promise<{ streams: StreamForStremio[] }> {
+    if (!this.config.enabled) return { streams: [] };
+    try {
+      let seasonNumber: number | null = null;
+      let episodeNumber: number | null = null;
+      let isMovie = false;
+      if (rawId.startsWith('kitsu:')) {
+        ({ seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(rawId));
+      } else if (rawId.startsWith('mal:')) {
+        const parts = rawId.split(':');
+        if (parts.length === 2) isMovie = true;
+        else if (parts.length === 3) episodeNumber = parseInt(parts[2]);
+        else if (parts.length === 4) { seasonNumber = parseInt(parts[2]); episodeNumber = parseInt(parts[3]); }
+      }
+      console.log(`[AnimeSaturn] handlePreResolved: "${resolved.englishTitle}" (malId=${resolved.malId || '-'}) S${seasonNumber}E${episodeNumber} movie=${isMovie}`);
+      return this.handleTitleRequest(resolved.englishTitle, seasonNumber, episodeNumber, isMovie, resolved.malId);
+    } catch (error) {
+      console.error('[AnimeSaturn] Error in handlePreResolved:', error);
+      return { streams: [] };
+    }
   }
 
   // Ricerca tutte le versioni (AnimeSaturn non distingue SUB/ITA/CR, ma puoi inferirlo dal titolo)
