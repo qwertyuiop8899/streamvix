@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.16.23](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.22...v1.16.23) (2026-02-27)
+
+
+### Bug Fixes
+
+* Add caching for anime gate checks ([19b6255](https://github.com/qwertyuiop8899/streamvix/commit/19b625594380f225e0858fc34ab938415e40b337))
+* Enhance anime title resolver with new strategies ([0684c35](https://github.com/qwertyuiop8899/streamvix/commit/0684c35dc8b4d54a88e0fff9583b2fcf7e7ff99a))
+* Enhance scraper invocation and title handling ([c5490cf](https://github.com/qwertyuiop8899/streamvix/commit/c5490cf0a1ba0853812167bb4ce4ae9f3618db46))
+* Enhance scraper timeout and parallel processing ([938b730](https://github.com/qwertyuiop8899/streamvix/commit/938b7302b4920b581531bc5c6728fe6b0589d64e))
+* missing newline at end of addon.ts ([cf47c84](https://github.com/qwertyuiop8899/streamvix/commit/cf47c84ad6ad903858ad51ec8572f4c95e4b9025))
+* Refactor title handling and logging in anime provider ([76ef848](https://github.com/qwertyuiop8899/streamvix/commit/76ef848fffd6602c2ee257078938621213bda63f))
+
 ## [1.16.22](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.21...v1.16.22) (2026-02-27)
 
 
