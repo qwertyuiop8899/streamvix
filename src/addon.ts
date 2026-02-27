@@ -1720,9 +1720,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     builder.defineCatalogHandler(async ({ type, id, extra, config: requestConfig }: { type: string; id: string; extra?: any; config?: any }) => {
         if (type === "tv") {
             // Simple runtime toggle: hide TV when disabled
+            // FIX: check user's per-URL config (requestConfig) first, fallback to global configCache
             try {
-                const cfg = { ...configCache } as AddonConfig;
-                if (cfg.disableLiveTv) {
+                const effectiveDisableLiveTv = !!(requestConfig?.disableLiveTv ?? (configCache as any)?.disableLiveTv);
+                if (effectiveDisableLiveTv) {
                     console.log('📴 TV catalog disabled by config.disableLiveTv');
                     return { metas: [], cacheMaxAge: 0 };
                 }
@@ -2412,6 +2413,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }
             }
 
+            // Runtime disable live TV — blocca TUTTI i meta TV (SportZX, Sports99, MediaHosting, Freeshot, ThisNot, canali statici)
+            // FIX: usa config dell'utente (requestConfig) con fallback a configCache globale
+            try {
+                const effectiveDisableLiveTv = !!(requestConfig?.disableLiveTv ?? (configCache as any)?.disableLiveTv);
+                if (effectiveDisableLiveTv) {
+                    console.log('📴 TV meta disabled by config.disableLiveTv');
+                    return { meta: null };
+                }
+            } catch { }
+
             // === SPORTZX META HANDLER ===
             if (cleanId.startsWith('sportzx_')) {
                 const { getSportzxChannels } = await import('./utils/sportzxUpdater');
@@ -2554,15 +2565,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 };
                 return { meta };
             }
-
-            // Se non è ThisNot, continua con la logica normale
-            try {
-                const cfg = { ...configCache } as AddonConfig;
-                if (cfg.disableLiveTv) {
-                    console.log('📴 TV meta disabled by config.disableLiveTv');
-                    return { meta: null };
-                }
-            } catch { }
 
             const channel = tvChannels.find((c: any) => c.id === cleanId);
             if (channel) {
@@ -2730,6 +2732,23 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 type = normalizedType;
 
                 console.log(`🔍 Stream request: ${normalizedType}/${id}`);
+
+                // Runtime disable live TV — blocca TUTTI gli stream TV (SportZX, Sports99, MediaHosting, Freeshot, ThisNot, canali statici)
+                // FIX: usa config dell'utente (requestConfig) con fallback a configCache globale
+                // Posizionato PRIMA di tutti i live handler per evitare bypass
+                if (type === 'tv' || normalizedType === 'tv') {
+                    try {
+                        const effectiveDisableLiveTv = !!(requestConfig?.disableLiveTv ?? (configCache as any)?.disableLiveTv);
+                        if (effectiveDisableLiveTv) {
+                            // Permetti DVR anche con Live TV disabilitata
+                            const isDvr = id.startsWith('dvr:') || id.startsWith('dvr%3A');
+                            if (!isDvr) {
+                                console.log('📴 TV streams disabled by config.disableLiveTv');
+                                return { streams: [] };
+                            }
+                        }
+                    } catch { }
+                }
 
                 // === SPORTZX STREAM HANDLER ===
                 const cleanIdForSportzx = id.startsWith('tv:') ? id.replace('tv:', '') : id;
@@ -3105,14 +3124,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         return { streams };
                     }
 
-                    // Runtime disable live TV (solo per canali normali)
-                    // FIX: usa config dell'utente, NON configCache globale
-                    try {
-                        if ((config as any).disableLiveTv) {
-                            console.log('📴 TV streams disabled by config.disableLiveTv');
-                            return { streams: [] };
-                        }
-                    } catch { }
                     // Assicura che i canali dinamici siano presenti anche se la prima richiesta è uno stream (senza passare dal catalog)
                     try {
                         loadDynamicChannels(false);
@@ -6632,9 +6643,9 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
         if (!Array.isArray((filtered as any).catalogs)) (filtered as any).catalogs = [];
         if (effectiveDisable) {
             const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
-            // Rimuovi ENTRAMBI i cataloghi TV (streamvix_tv + streamvix_live + streamvix_eventi) quando disabilitato
+            // Rimuovi TUTTI i cataloghi TV (browse + search) quando disabilitato
             filtered.catalogs = cats.filter((c: any) =>
-                !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live' || (c as any).id === 'streamvix_eventi'))
+                !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live' || (c as any).id === 'streamvix_eventi' || (c as any).id === 'streamvix_tv_search' || (c as any).id === 'streamvix_live_search' || (c as any).id === 'streamvix_eventi_search'))
             );
         }
 
