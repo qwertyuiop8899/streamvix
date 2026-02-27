@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.22](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.21...v1.16.22) (2026-02-27)
+
+
+### Bug Fixes
+
+* domains update ([7f0fccb](https://github.com/qwertyuiop8899/streamvix/commit/7f0fccb78803eaf2f9dcbae9704900a2bf539e01))
+* Refactor live TV disable logic with user config ([2e21884](https://github.com/qwertyuiop8899/streamvix/commit/2e21884dc46c7c9d0ec22122099e3c3b2022d983))
+
 ## [1.16.21](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.20...v1.16.21) (2026-02-26)
 
 
