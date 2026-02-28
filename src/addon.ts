@@ -13,7 +13,7 @@ import { formatMediaFlowUrl } from './utils/mediaflow';
 import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels, getDynamicFilePath, getDynamicFileStats } from './utils/dynamicChannels';
 import { resolveAnimeTitle, AnimeResolvedTitle } from './utils/animeTitleResolver';
 // --- Lightweight declarations to avoid TS complaints if @types/node non installati ---
-// (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.) 
+// (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const __dirname: string;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -108,7 +108,12 @@ const VAVOO_LOG_SIG_FULL: boolean = (() => { try { const v = (process?.env?.VAVO
 const VAVOO_WORKER_URLS = (process.env.VAVOO_WORKER_URL || '').split(',').map((u: string) => u.trim()).filter(Boolean);
 const VAVOO_API_UA = 'electron-fetch/1.0 electron (+https://github.com/arantes555/electron-fetch)';
 const VAVOO_TS_UA = 'VAVOO/2.6';
+// --- Env toggles to show/hide Vavoo stream types (default: all true) ---
+const VAVOO_CLEAN: boolean = (() => { try { const v = (process?.env?.VAVOO_CLEAN || '').toLowerCase(); if (!v) return true; return !(v === '0' || v === 'false' || v === 'off'); } catch { return true; } })();
+const VAVOO_PROXY: boolean = (() => { try { const v = (process?.env?.VAVOO_PROXY || '').toLowerCase(); if (!v) return true; return !(v === '0' || v === 'false' || v === 'off'); } catch { return true; } })();
+const VAVOO_DIRECT: boolean = (() => { try { const v = (process?.env?.VAVOO_DIRECT || '').toLowerCase(); if (!v) return true; return !(v === '0' || v === 'false' || v === 'off'); } catch { return true; } })();
 console.log(`[VAVOO] Worker URLs loaded: ${VAVOO_WORKER_URLS.length}`);
+console.log(`[VAVOO] Stream toggles: CLEAN=${VAVOO_CLEAN} PROXY=${VAVOO_PROXY} DIRECT=${VAVOO_DIRECT}`);
 function maskSig(sig: string, keepStart = 12, keepEnd = 6): string { try { if (!sig) return ''; const len = sig.length; const head = sig.slice(0, Math.min(keepStart, len)); const tail = len > keepStart ? sig.slice(Math.max(len - keepEnd, keepStart)) : ''; const hidden = Math.max(0, len - head.length - tail.length); const mask = hidden > 0 ? '*'.repeat(Math.min(hidden, 32)) + (hidden > 32 ? `(+${hidden - 32})` : '') : ''; return `${head}${mask}${tail}`; } catch { return ''; } }
 
 function getClientIpFromReq(req: any): string | null {
@@ -483,6 +488,7 @@ const execFilePromise = util.promisify(execFile);
 // Key: `${mfpUrl}|${mfpPsw}|${originalDUrl}` -> { finalUrl, ts }
 const dynamicStreamCache = new Map<string, { finalUrl: string; ts: number }>();
 const DYNAMIC_STREAM_TTL_MS = 5 * 60 * 1000; // 5 minuti
+
 
 async function resolveDynamicEventUrl(dUrl: string, providerTitle: string, mfpUrl?: string, mfpPsw?: string): Promise<{ url: string; title: string }> {
     if (!mfpUrl) return { url: dUrl, title: providerTitle };
@@ -3416,6 +3422,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     const reqObj: any = (global as any).lastExpressRequest;
                                     const clientIp = getClientIpFromReq(reqObj);
                                     let vavooCleanResolved: { url: string; headers: Record<string, string> } | null = null;
+                                    if (VAVOO_CLEAN) {
                                     try {
                                         const clean = await resolveVavooCleanUrl(vUrl, clientIp);
                                         if (clean && clean.url) {
@@ -3430,7 +3437,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         vdbg('Alias clean resolve failed', { alias, error: msg });
                                         console.log('[VAVOO] Clean resolve skipped/failed:', msg);
                                     }
+                                    } else { vdbg('VAVOO_CLEAN=false, skip alias clean resolve'); }
                                     // Iniezione Vavoo/MFP: incapsula SEMPRE l'URL vavoo.to originale (come in Live TV), senza extractor
+                                    if (VAVOO_PROXY) {
                                     try {
                                         if (mfpUrl) {
                                             const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
@@ -3446,6 +3455,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     } catch (e2) {
                                         vdbg('Vavoo/MFP injection error', String((e2 as any)?.message || e2));
                                     }
+                                    } else { vdbg('VAVOO_PROXY=false, skip alias MFP injection'); }
+                                    // Iniezione Vavoo Direct (raw URL) per eventi dinamici
+                                    if (VAVOO_DIRECT) {
+                                    try {
+                                        const title4 = `🎯 ${alias} (Vavoo Direct) [ITA]`;
+                                        const directStream = { url: vUrl, title: title4, behaviorHints: { notWebReady: true } as any };
+                                        let insertAt = 0;
+                                        try { if (streams.length && /\(Vavoo\)/i.test(streams[0].title)) insertAt = 1; } catch { }
+                                        try { streams.splice(insertAt, 0, directStream); } catch { streams.push(directStream); }
+                                        vdbg('Alias Vavoo Direct injected', { alias, url: vUrl.substring(0, 140) });
+                                    } catch (e3) {
+                                        vdbg('Vavoo Direct injection error', String((e3 as any)?.message || e3));
+                                    }
+                                    } else { vdbg('VAVOO_DIRECT=false, skip alias direct injection'); }
                                     console.log(`✅ [VAVOO] Injected first stream from alias='${alias}' -> ${vUrl.substring(0, 60)}...`);
                                 } else {
                                     console.log(`⚠️ [VAVOO] Alias trovato ma nessun URL in cache: '${alias}'`);
@@ -4903,7 +4926,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (foundVavooLinks.length > 0) {
                             foundVavooLinks.forEach(({ url, key }, idx) => {
                                 const streamTitle = `[✌️ V-${idx + 1}] ${channel.name} [ITA]`;
-                                if (mfpUrl) {
+                                if (VAVOO_PROXY && mfpUrl) {
                                     const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
                                     const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}${passwordParam}`;
                                     streams.push({
@@ -4911,10 +4934,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         url: vavooProxyUrl
                                     });
                                 } else {
-                                    // Richiesta: nascondere stream Vavoo direct senza MFP URL
+                                    // Richiesta: nascondere stream Vavoo direct senza MFP URL (o VAVOO_PROXY=false)
                                 }
                                 vavooFoundUrls.push(url);
                                 // For each found link, also prepare a clean variant labeled per index (➡️ V-1, V-2, ...)
+                                if (VAVOO_CLEAN) {
                                 const reqObj: any = (global as any).lastExpressRequest;
                                 let clientIpForClean = getClientIpFromReq(reqObj);
                                 // Fallback: use cached IP from middleware (tvvoo approach)
@@ -4941,6 +4965,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
                                     }
                                 })());
+                                } // end VAVOO_CLEAN gate
                             });
                             console.log(`[VAVOO] RISULTATO: trovati ${foundVavooLinks.length} link, stream generati:`, streams.map(s => s.title));
                         } else {
@@ -4950,9 +4975,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const links = Array.isArray(exact) ? exact : [exact];
                                 links.forEach((url, idx) => {
                                     const streamTitle = `[✌️ V-${idx + 1}] ${channel.name} [ITA]`;
-                                    // Fix: Do not add Proxy streams if Vavoo Clean mode is enabled (vavooNoMfpEnabled=true)
-                                    // This prevents duplication since Clean streams are added separately via resolveVavooCleanUrl
-                                    if (mfpUrl && config.vavooNoMfpEnabled !== true) {
+                                    // Gate: only add Proxy streams if VAVOO_PROXY=true and MFP configured
+                                    if (VAVOO_PROXY && mfpUrl && config.vavooNoMfpEnabled !== true) {
                                         const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
                                         const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}${passwordParam}`;
                                         streams.push({
@@ -4960,10 +4984,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             url: vavooProxyUrl
                                         });
                                     } else {
-                                        // Richiesta: nascondere stream Vavoo direct senza MFP URL (o se siamo in Clean mode, li aggiungiamo dopo)
+                                        // Richiesta: nascondere stream Vavoo direct senza MFP URL (o VAVOO_PROXY=false, o Clean mode)
                                     }
                                     vavooFoundUrls.push(url);
                                     // Prepare clean variant per index as well
+                                    if (VAVOO_CLEAN) {
                                     const reqObj: any = (global as any).lastExpressRequest;
                                     let clientIpForClean = getClientIpFromReq(reqObj);
                                     // Fallback: use cached IP from middleware (tvvoo approach)
@@ -4987,6 +5012,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
                                         }
                                     })());
+                                    } // end VAVOO_CLEAN gate
                                 });
                                 console.log(`[VAVOO] RISULTATO: fallback chiave esatta, trovati ${links.length} link, stream generati:`, streams.map(s => s.title));
                             } else {
@@ -5307,7 +5333,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
 
 
-                        const allowVavooClean = true; // simplified: always allow clean Vavoo variant
+                        const allowVavooClean = VAVOO_CLEAN; // env-gated: VAVOO_CLEAN=false hides clean streams
                         for (const s of streams) {
                             // Support special marker '#headers#<b64json>' to attach headers properly
                             const marker = '#headers#';
@@ -5545,7 +5571,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     // Dopo aver popolato streams (nella logica TV):
                     for (const s of streams) {
-                        const allowVavooClean = config.vavooNoMfpEnabled === true; // default false se non specificato
+                        const allowVavooClean = VAVOO_CLEAN && config.vavooNoMfpEnabled === true; // env-gated + user toggle
                         const marker = '#headers#';
                         if (s.url.includes(marker)) {
                             const [pureUrl, b64] = s.url.split(marker);
@@ -5567,8 +5593,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
 
-                    // Direct vavoo streams (raw URL, VLC only) - only when Vavoo NO MFP 🔓 is enabled
-                    if (config.vavooNoMfpEnabled === true && vavooFoundUrls.length > 0) {
+                    // Direct vavoo streams (raw URL, VLC only) - env-gated by VAVOO_DIRECT + user toggle vavooNoMfpEnabled
+                    if (VAVOO_DIRECT && config.vavooNoMfpEnabled === true && vavooFoundUrls.length > 0) {
                         for (let i = 0; i < vavooFoundUrls.length; i++) {
                             const directTitle = `[🎯 V-${i + 1}] ${channel.name} (VLC only) [ITA]`;
                             allStreams.push({ name: 'Direct', title: directTitle, url: vavooFoundUrls[i], behaviorHints: { notWebReady: true } as any });
@@ -6207,25 +6233,40 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     // ── Pre-risoluzione centralizzata titolo anime ──
                     // UNA SOLA catena di chiamate API per tutti e 3 i provider anime.
-                    // Il risultato (englishTitle, malId, tmdbId, startDate) viene condiviso.
+                    // Il risultato (englishTitle, malId, tmdbId, kitsuId, titleHints, episodeMode, absoluteEpisode, startDate)
+                    // viene condiviso tra AnimeUnity, AnimeSaturn e AnimeWorld.
+                    // Copre: kitsu:, mal:, IMDB (tt...), TMDB (tmdb:)
                     const anyAnimeEnabled = animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled;
-                    const isAnimeId = id.startsWith('kitsu:') || id.startsWith('mal:');
+                    const isKitsuMalId = id.startsWith('kitsu:') || id.startsWith('mal:');
+                    const isImdbId = id.startsWith('tt');
+                    const isTmdbId = id.startsWith('tmdb:');
                     let preResolved: AnimeResolvedTitle | null = null;
-                    if (anyAnimeEnabled && isAnimeId) {
+                    if (anyAnimeEnabled) {
                         const tmdbKey = config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0';
-                        preResolved = await resolveAnimeTitle(id, tmdbKey);
+                        if (isKitsuMalId) {
+                            // Path kitsu/mal — invariato, passa season/episode per futura compatibilità
+                            preResolved = await resolveAnimeTitle(id, tmdbKey, seasonNumber ?? undefined, episodeNumber ?? undefined);
+                        } else if (isImdbId) {
+                            // NUOVO: pre-resolution unificata per IMDB
+                            const imdbIdOnly = id.split(':')[0]; // tt0388629 (senza :season:episode)
+                            preResolved = await resolveAnimeTitle(`imdb:${imdbIdOnly}`, tmdbKey, seasonNumber ?? undefined, episodeNumber ?? undefined);
+                        } else if (isTmdbId) {
+                            // NUOVO: pre-resolution unificata per TMDB
+                            const tmdbIdOnly = id.replace('tmdb:', '');
+                            preResolved = await resolveAnimeTitle(`tmdb:${tmdbIdOnly}`, tmdbKey, seasonNumber ?? undefined, episodeNumber ?? undefined);
+                        }
                     }
 
                     // AnimeUnity
                     scheduleProviderRun('AnimeUnity', animeUnityEnabled, async () => {
                         const animeUnityProvider = new AnimeUnityProvider(animeUnityConfig);
-                        // Per kitsu:/mal: usa il titolo pre-risolto (0 chiamate API aggiuntive)
-                        if (isAnimeId && preResolved) {
+                        // Se pre-risolto (kitsu/mal/imdb/tmdb) usa handlePreResolved (0 chiamate API aggiuntive)
+                        if (preResolved) {
                             return animeUnityProvider.handlePreResolved(preResolved, id);
                         }
-                        // Per IMDB/TMDB: risoluzione propria (gate + title da IMDB/TMDB, non duplicabile)
-                        if (id.startsWith('tt')) return animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        if (id.startsWith('tmdb:')) return animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                        // Fallback legacy: se preResolved è null (animemapping + Haglund + tutti i fallback hanno fallito)
+                        if (isImdbId) return animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        if (isTmdbId) return animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                         return { streams: [] };
                     }, providerLabel('animeunity'), false, 30000);  // AnimeUnity: timeout 30s
 
@@ -6233,11 +6274,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     scheduleProviderRun('AnimeSaturn', animeSaturnEnabled, async () => {
                         const { AnimeSaturnProvider } = await import('./providers/animesaturn-provider');
                         const animeSaturnProvider = new AnimeSaturnProvider(animeSaturnConfig);
-                        if (isAnimeId && preResolved) {
+                        if (preResolved) {
                             return animeSaturnProvider.handlePreResolved(preResolved, id);
                         }
-                        if (id.startsWith('tt')) return animeSaturnProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        if (id.startsWith('tmdb:')) return animeSaturnProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                        if (isImdbId) return animeSaturnProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        if (isTmdbId) return animeSaturnProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                         return { streams: [] };
                     }, providerLabel('animesaturn'), false, 30000);  // AnimeSaturn: timeout 30s
 
@@ -6245,11 +6286,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     scheduleProviderRun('AnimeWorld', animeWorldEnabled, async () => {
                         const { AnimeWorldProvider } = await import('./providers/animeworld-provider');
                         const animeWorldProvider = new AnimeWorldProvider(animeWorldConfig);
-                        if (isAnimeId && preResolved) {
+                        if (preResolved) {
                             return animeWorldProvider.handlePreResolved(preResolved, id);
                         }
-                        if (id.startsWith('tt')) return animeWorldProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        if (id.startsWith('tmdb:')) return animeWorldProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                        if (isImdbId) return animeWorldProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        if (isTmdbId) return animeWorldProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                         return { streams: [] };
                     }, providerLabel('animeworld'), false, 30000);  // AnimeWorld: timeout 30s
 
