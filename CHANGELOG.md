@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.25](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.24...v1.16.25) (2026-02-28)
+
+
+### Bug Fixes
+
+* typo ([6e520e1](https://github.com/qwertyuiop8899/streamvix/commit/6e520e1cf2a731d362c4433516707e466aad0064))
+* typo ([a85a289](https://github.com/qwertyuiop8899/streamvix/commit/a85a2899870f7d91bb90e432a6b474e2a4597d7c))
+
 ## [1.16.24](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.23...v1.16.24) (2026-02-28)
 
 
