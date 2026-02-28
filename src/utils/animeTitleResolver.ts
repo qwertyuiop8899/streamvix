@@ -1,16 +1,16 @@
 /**
  * Centralized Anime Title Resolver
- * 
+ *
  * Risolve Stremio IDs (kitsu:, mal:, imdb:, tmdb:) → titolo inglese + metadati
  * in UNA SOLA catena di chiamate, condivisa tra tutti i provider anime.
- * 
+ *
  * Strategia per kitsu: IDs:
  *   1. animemapping.stremio.dpdns.org → tmdbId, malId  (in parallelo con Kitsu details)
  *   2. Jikan (via malId) → titolo inglese specifico per stagione
  *   3. Fallback: Kitsu mappings API → malId → Jikan
  *   4. Fallback: Kitsu canonical title (titles.en / en_jp)
  *   5. Fallback: TMDB title (ultima risorsa)
- * 
+ *
  * Strategia per imdb:/tmdb: IDs (NUOVO):
  *   1. (solo imdb) getTmdbIdFromImdbId → tmdbId
  *   2. animemapping by-imdb/by-tmdb?season=N → kitsuId, malId, titleHints, episodeMode
@@ -18,7 +18,7 @@
  *   4. Jikan → englishTitle (fallback: titleHints[0])
  *   5. Fallback: Haglund → malId → Jikan
  *   6. Fallback: TMDB title
- * 
+ *
  * Cache: 6 ore in-memory (il titolo non cambia)
  */
 
@@ -132,7 +132,7 @@ async function fetchTmdbSeasons(tmdbId: string, tmdbKey: string): Promise<Array<
 /**
  * Calcola l'episodio assoluto dalla coppia (stagione, episodio).
  * Somma gli episode_count di tutte le stagioni precedenti a targetSeason.
- * 
+ *
  * Se episode > episode_count della stagione corrente, probabilmente è già assoluto → non toccare.
  * Se targetSeason === 1, restituisce episode invariato.
  */
@@ -185,7 +185,7 @@ function extractAnimeMappingData(mappingData: any) {
 // ─── Entry point principale ─────────────────────────────────────────
 /**
  * Risolve un ID anime Stremio in titolo inglese + metadati.
- * 
+ *
  * @param id       - ID nel formato "kitsu:12345", "mal:67890", "imdb:tt...", "tmdb:12345"
  * @param tmdbApiKey - API key TMDB (opzionale, usa env var come fallback)
  * @param season   - numero stagione (per IMDB/TMDB, per disambiguazione + calcolo ep assoluto)
