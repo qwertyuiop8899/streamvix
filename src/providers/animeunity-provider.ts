@@ -192,7 +192,7 @@ function filterAnimeResults(results: { version: AnimeUnitySearchResult; language
   // Accetta varianti con (ITA), (CR), ecc. MA esclude sequel con numeri (es: "Title 2")
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
   const queryNorm = norm(searchQuery);
-  
+
   // Genera le varianti ammesse: base, base + (ita), base + (cr), base + (ita) (cr)
   // IMPORTANTE: NON rimuovere i numeri dalla query - fanno parte del titolo!
   const queryBase = queryNorm.replace(/\s*\([^)]*\)/g, '').trim();
@@ -203,7 +203,7 @@ function filterAnimeResults(results: { version: AnimeUnitySearchResult; language
     `${queryBase} (ITA) (CR)`,
     `${queryBase} (CR) (ITA)`
   ];
-  
+
   const filtered = results.filter(r => {
     // Raccogli tutti i titoli disponibili del risultato
     const titles = [
@@ -211,22 +211,22 @@ function filterAnimeResults(results: { version: AnimeUnitySearchResult; language
       r.version.name_it || '',
       r.version.name || ''
     ].filter(t => t.trim());
-    
+
     // Per ogni titolo disponibile, controlla se matcha con una delle varianti ammesse
     for (const title of titles) {
       const titleNorm = norm(title);
       // Rimuovi solo le parentesi per il confronto (mantieni i numeri!)
       const titleBase = titleNorm.replace(/\s*\([^)]*\)/g, '').trim();
-      
+
       // Match: il titolo base del risultato deve essere UGUALE al queryBase
       if (titleBase === queryBase) {
         return true;
       }
     }
-    
+
     return false;
   });
-  
+
   console.log(`[UniversalTitle][Filter][Legacy] Query ricerca (norm): "${queryNorm}" -> base: "${queryBase}"`);
   console.log(`[UniversalTitle][Filter][Legacy] Varianti ammesse:`, allowedVariants);
   console.log(`[UniversalTitle][Filter][Legacy] Risultati prima del filtro:`, results.map(r => `${r.version.name} [it:"${r.version.name_it||'N/A'}" eng:"${r.version.name_eng||'N/A'}"]`));
@@ -595,7 +595,7 @@ export class AnimeUnityProvider {
       try {
         const before = animeVersions.length;
         console.log(`[AnimeUnity][ExactMap][StrictFilter] Risultati da filtrare (${before}):`);
-        
+
         // Estrai i nomi base (senza parentesi) di tutti i risultati
         const baseNames = animeVersions.map(v => {
           const base = v.version.name
@@ -606,19 +606,19 @@ export class AnimeUnityProvider {
           console.log(`  name="${v.version.name}" -> base="${base}"`);
           return base;
         });
-        
+
         // Trova il nome più corto (quello senza "Parte 2", "Part 2", ecc.)
         const sortedByLength = [...baseNames].sort((a, b) => a.length - b.length);
         const shortestBase = sortedByLength[0];
         console.log(`[AnimeUnity][ExactMap][StrictFilter] Nome base più corto (target): "${shortestBase}"`);
-        
+
         // Filtra: mantieni solo i risultati che matchano esattamente il nome più corto
         animeVersions = animeVersions.filter((v, idx) => {
           const match = baseNames[idx] === shortestBase;
           console.log(`  [${idx}] "${v.version.name}" -> match=${match}`);
           return match;
         });
-        
+
         console.log(`[AnimeUnity][ExactMap][StrictFilter] DOPO filtro: ${animeVersions.length} risultati rimasti`);
       } catch (e) {
         console.warn('[AnimeUnity][ExactMap][StrictFilter] errore:', (e as any)?.message || e);
