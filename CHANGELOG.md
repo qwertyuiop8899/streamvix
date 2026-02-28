@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.16.24](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.23...v1.16.24) (2026-02-28)
+
+
+### Bug Fixes
+
+* addon ([ede615c](https://github.com/qwertyuiop8899/streamvix/commit/ede615c877a74ad6c85dcd1da2b19204350d16f3))
+* animeGate.ts ([d574379](https://github.com/qwertyuiop8899/streamvix/commit/d57437982f25b577560b2b453493b5d2b09c22f6))
+* animesaturn-provider.ts ([07a14de](https://github.com/qwertyuiop8899/streamvix/commit/07a14de685261a0d50882ee4953bcc1bd44c4d5d))
+* animeunity-provider.ts ([f8273dc](https://github.com/qwertyuiop8899/streamvix/commit/f8273dc119ba205093940ed954b0cdb167a005c3))
+* animeunity-provider.ts ([4b3ce4b](https://github.com/qwertyuiop8899/streamvix/commit/4b3ce4b5895c649b632d36b7a5f792a54ce4d7bd))
+* animeworld-provider.ts ([dcccd4c](https://github.com/qwertyuiop8899/streamvix/commit/dcccd4c9b50ddc1843c16e8142bb963e8ba741f1))
+* Update animesaturn-provider.ts ([3a2cf46](https://github.com/qwertyuiop8899/streamvix/commit/3a2cf46c14df94215bc68761036996e01145a98a))
+
 ## [1.16.23](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.22...v1.16.23) (2026-02-27)
 
 
