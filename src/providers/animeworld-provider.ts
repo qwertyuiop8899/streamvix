@@ -917,7 +917,6 @@ export class AnimeWorldProvider {
     return { streams };
   }
 
-
   /**
    * Fallback che replica la logica del vecchio script: usa la ricerca filter?year=YYYY&keyword=TitoloTroncato
    * - Usa Python scraper con --date per forzare pattern identico all'originale (prima prova con anno, poi senza)
