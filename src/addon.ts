@@ -11,9 +11,8 @@ import { AnimeWorldProvider } from './providers/animeworld-provider';
 import { KitsuProvider } from './providers/kitsu';
 import { formatMediaFlowUrl } from './utils/mediaflow';
 import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels, getDynamicFilePath, getDynamicFileStats } from './utils/dynamicChannels';
-import { resolveAnimeTitle, AnimeResolvedTitle } from './utils/animeTitleResolver';
 // --- Lightweight declarations to avoid TS complaints if @types/node non installati ---
-// (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.)
+// (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.) 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const __dirname: string;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,7 +73,6 @@ interface AddonConfig {
     disableVixsrc?: boolean;
     tvtapProxyEnabled?: boolean;
     vavooNoMfpEnabled?: boolean;
-    fastMode?: boolean;
     // DVR setting (uses mediaFlowProxyUrl for EasyProxy)
     dvrEnabled?: boolean;
 }
@@ -106,14 +104,7 @@ const VAVOO_FORCE_SERVER_IP: boolean = (() => {
 const VAVOO_SET_IPLOCATION_ONLY: boolean = (() => { try { const v = (process?.env?.VAVOO_SET_IPLOCATION_ONLY || '').toLowerCase(); if (!v) return true; return !(v === '0' || v === 'false' || v === 'off'); } catch { return false; } })();
 const VAVOO_LOG_SIG_FULL: boolean = (() => { try { const v = (process?.env?.VAVOO_LOG_SIG_FULL || '').toLowerCase(); if (['0', 'false', 'off'].includes(v)) return false; if (['1', 'true', 'on'].includes(v)) return true; return true; } catch { return true; } })();
 const VAVOO_WORKER_URLS = (process.env.VAVOO_WORKER_URL || '').split(',').map((u: string) => u.trim()).filter(Boolean);
-const VAVOO_API_UA = 'electron-fetch/1.0 electron (+https://github.com/arantes555/electron-fetch)';
-const VAVOO_TS_UA = 'VAVOO/2.6';
-// --- Env toggles to show/hide Vavoo stream types (default: all true) ---
-const VAVOO_CLEAN: boolean = (() => { try { const v = (process?.env?.VAVOO_CLEAN || '').toLowerCase(); if (!v) return true; return !(v === '0' || v === 'false' || v === 'off'); } catch { return true; } })();
-const VAVOO_PROXY: boolean = (() => { try { const v = (process?.env?.VAVOO_PROXY || '').toLowerCase(); if (!v) return true; return !(v === '0' || v === 'false' || v === 'off'); } catch { return true; } })();
-const VAVOO_DIRECT: boolean = (() => { try { const v = (process?.env?.VAVOO_DIRECT || '').toLowerCase(); if (!v) return true; return !(v === '0' || v === 'false' || v === 'off'); } catch { return true; } })();
 console.log(`[VAVOO] Worker URLs loaded: ${VAVOO_WORKER_URLS.length}`);
-console.log(`[VAVOO] Stream toggles: CLEAN=${VAVOO_CLEAN} PROXY=${VAVOO_PROXY} DIRECT=${VAVOO_DIRECT}`);
 function maskSig(sig: string, keepStart = 12, keepEnd = 6): string { try { if (!sig) return ''; const len = sig.length; const head = sig.slice(0, Math.min(keepStart, len)); const tail = len > keepStart ? sig.slice(Math.max(len - keepEnd, keepStart)) : ''; const hidden = Math.max(0, len - head.length - tail.length); const mask = hidden > 0 ? '*'.repeat(Math.min(hidden, 32)) + (hidden > 32 ? `(+${hidden - 32})` : '') : ''; return `${head}${mask}${tail}`; } catch { return ''; } }
 
 function getClientIpFromReq(req: any): string | null {
@@ -208,26 +199,6 @@ function getClientIpFromReq(req: any): string | null {
     return null;
 }
 
-async function getTsSignature(): Promise<string | null> {
-    const vec = { vec: '9frjpxPjxSNilxJPCJ0XGYs6scej3dW/h/VWlnKUiLSG8IP7mfyDU7NirOlld+VtCKGj03XjetfliDMhIev7wcARo+YTU8KPFuVQP9E2DVXzY2BFo1NhE6qEmPfNDnm74eyl/7iFJ0EETm6XbYyz8IKBkAqPN/Spp3PZ2ulKg3QBSDxcVN4R5zRn7OsgLJ2CNTuWkd/h451lDCp+TtTuvnAEhcQckdsydFhTZCK5IiWrrTIC/d4qDXEd+GtOP4hPdoIuCaNzYfX3lLCwFENC6RZoTBYLrcKVVgbqyQZ7DnLqfLqvf3z0FVUWx9H21liGFpByzdnoxyFkue3NzrFtkRL37xkx9ITucepSYKzUVEfyBh+/3mtzKY26VIRkJFkpf8KVcCRNrTRQn47Wuq4gC7sSwT7eHCAydKSACcUMMdpPSvbvfOmIqeBNA83osX8FPFYUMZsjvYNEE3arbFiGsQlggBKgg1V3oN+5ni3Vjc5InHg/xv476LHDFnNdAJx448ph3DoAiJjr2g4ZTNynfSxdzA68qSuJY8UjyzgDjG0RIMv2h7DlQNjkAXv4k1BrPpfOiOqH67yIarNmkPIwrIV+W9TTV/yRyE1LEgOr4DK8uW2AUtHOPA2gn6P5sgFyi68w55MZBPepddfYTQ+E1N6R/hWnMYPt/i0xSUeMPekX47iucfpFBEv9Uh9zdGiEB+0P3LVMP+q+pbBU4o1NkKyY1V8wH1Wilr0a+q87kEnQ1LWYMMBhaP9yFseGSbYwdeLsX9uR1uPaN+u4woO2g8sw9Y5ze5XMgOVpFCZaut02I5k0U4WPyN5adQjG8sAzxsI3KsV04DEVymj224iqg2Lzz53Xz9yEy+7/85ILQpJ6llCyqpHLFyHq/kJxYPhDUF755WaHJEaFRPxUqbparNX+mCE9Xzy7Q/KTgAPiRS41FHXXv+7XSPp4cy9jli0BVnYf13Xsp28OGs/D8Nl3NgEn3/eUcMN80JRdsOrV62fnBVMBNf36+LbISdvsFAFr0xyuPGmlIETcFyxJkrGZnhHAxwzsvZ+Uwf8lffBfZFPRrNv+tgeeLpatVcHLHZGeTgWWml6tIHwWUqv2TVJeMkAEL5PPS4Gtbscau5HM+FEjtGS+KClfX1CNKvgYJl7mLDEf5ZYQv5kHaoQ6RcPaR6vUNn02zpq5/X3EPIgUKF0r/0ctmoT84B2J1BKfCbctdFY9br7JSJ6DvUxyde68jB+Il6qNcQwTFj4cNErk4x719Y42NoAnnQYC2/qfL/gAhJl8TKMvBt3Bno+va8ve8E0z8yEuMLUqe8OXLce6nCa+L5LYK1aBdb60BYbMeWk1qmG6Nk9OnYLhzDyrd9iHDd7X95OM6X5wiMVZRn5ebw4askTTc50xmrg4eic2U1w1JpSEjdH/u/hXrWKSMWAxaj34uQnMuWxPZEXoVxzGyuUbroXRfkhzpqmqqqOcypjsWPdq5BOUGL/Riwjm6yMI0x9kbO8+VoQ6RYfjAbxNriZ1cQ+AW1fqEgnRWXmjt4Z1M0ygUBi8w71bDML1YG6UHeC2cJ2CCCxSrfycKQhpSdI1QIuwd2eyIpd4LgwrMiY3xNWreAF+qobNxvE7ypKTISNrz0iYIhU0aKNlcGwYd0FXIRfKVBzSBe4MRK2pGLDNO6ytoHxvJweZ8h1XG8RWc4aB5gTnB7Tjiqym4b64lRdj1DPHJnzD4aqRixpXhzYzWVDN2kONCR5i2quYbnVFN4sSfLiKeOwKX4JdmzpYixNZXjLkG14seS6KR0Wl8Itp5IMIWFpnNokjRH76RYRZAcx0jP0V5/GfNNTi5QsEU98en0SiXHQGXnROiHpRUDXTl8FmJORjwXc0AjrEMuQ2FDJDmAIlKUSLhjbIiKw3iaqp5TVyXuz0ZMYBhnqhcwqULqtFSuIKpaW8FgF8QJfP2frADf4kKZG1bQ99MrRrb2A=' };
-    try {
-        const res = await fetch('https://www.vavoo.tv/api/box/ping2', {
-            method: 'POST',
-            body: new URLSearchParams(vec as any) as any
-        } as any);
-        if (!res.ok) return null;
-        const j: any = await res.json();
-        return j?.response?.signed || null;
-    } catch { return null; }
-}
-
-function buildTsFallbackUrl(vavooPlayUrl: string, tsSig: string): string | null {
-    if (!vavooPlayUrl || !tsSig || !/vavoo-iptv/i.test(vavooPlayUrl)) return null;
-    const base = vavooPlayUrl.replace(/vavoo-iptv/ig, 'live2').replace(/\/index\.m3u8(?:\?.*)?$/i, '').replace(/\/+$/, '');
-    if (!base) return null;
-    return `${base}.ts?n=1&b=5&vavoo_auth=${encodeURIComponent(tsSig)}`;
-}
-
 async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | null): Promise<{ url: string; headers: Record<string, string> } | null> {
     try {
         if (!vavooPlayUrl || !vavooPlayUrl.includes('vavoo.to')) return null;
@@ -279,42 +250,30 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             vdbg('Worker failed or not working, falling back to internal resolution...');
         }
 
-        const uniqueId = crypto.randomBytes(8).toString('hex');
         const pingBody = {
-            token: '8Us2TfjeOFrzqFFTEjL3E5KfdAWGa5PV3wQe60uK4BmzlkJRMYFu0ufaM_eeDXKS2U04XUuhbDTgGRJrJARUwzDyCcRToXhW5AcDekfFMfwNUjuieeQ1uzeDB9YWyBL2cn5Al3L3gTnF8Vk1t7rPwkBob0swvxA',
-            reason: 'player.enter',
+            token: '',
+            reason: 'app-blur',
             locale: 'de',
             theme: 'dark',
             metadata: {
-                device: { type: 'Desktop', brand: 'Unknown', model: 'Unknown', name: 'Unknown', uniqueId },
-                os: { name: 'windows', version: '10.0.22631', abis: [], host: 'electron' },
-                app: { platform: 'electron', version: '3.1.4', buildId: '288045000', engine: 'jsc', signatures: [], installer: 'unknown' },
-                version: { package: 'tv.vavoo.app', binary: '3.1.4', js: '3.1.4' }
+                version: { package: 'tv.vavoo.app', binary: '3.1.21', js: '3.1.21' }
             },
             ipLocation: (clientIp && (!VAVOO_FORCE_SERVER_IP || VAVOO_SET_IPLOCATION_ONLY)) ? clientIp : '',
-            appFocusTime: 27229,
-            playerActive: true,
+            playerActive: false,
             playDuration: 0,
             devMode: false,
-            hasAddon: false,
+            hasAddon: true,
             castConnected: false,
             package: 'tv.vavoo.app',
-            version: '3.1.4',
+            version: '3.1.21',
             process: 'app',
-            firstAppStart: Date.now() - 86400000,
+            firstAppStart: Date.now(),
             lastAppStart: Date.now(),
-            adblockEnabled: false,
-            proxy: { supported: ['ss'], engine: 'ss', enabled: false, autoServer: true, id: 'ca-bhs' },
-            iap: { supported: true }
+            adblockEnabled: true,
+            proxy: { supported: ['ss', 'openvpn'], engine: 'ss', ssVersion: 1, enabled: true, autoServer: true, id: 'de-fra' },
+            iap: { supported: false }
         } as any;
-        const pingHeaders: Record<string, string> = {
-            'user-agent': VAVOO_API_UA,
-            'accept': '*/*',
-            'accept-language': 'de',
-            'accept-encoding': 'gzip, deflate',
-            'content-type': 'application/json; charset=utf-8',
-            'connection': 'close'
-        };
+        const pingHeaders: Record<string, string> = { 'user-agent': 'okhttp/4.11.0', 'accept': 'application/json', 'content-type': 'application/json; charset=utf-8', 'accept-encoding': 'gzip' };
         if (clientIp && !VAVOO_FORCE_SERVER_IP) {
             pingHeaders['x-forwarded-for'] = clientIp;
             pingHeaders['x-real-ip'] = clientIp;
@@ -394,15 +353,7 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             vdbg('Resolve timeout -> aborting request');
             controller2.abort();
         }, 12000);
-        const resolveHeaders: Record<string, string> = {
-            'user-agent': VAVOO_API_UA,
-            'accept': '*/*',
-            'accept-language': 'de',
-            'accept-encoding': 'gzip, deflate',
-            'content-type': 'application/json; charset=utf-8',
-            'connection': 'close',
-            'mediahubmx-signature': addonSig
-        };
+        const resolveHeaders: Record<string, string> = { 'user-agent': 'MediaHubMX/2', 'accept': 'application/json', 'content-type': 'application/json; charset=utf-8', 'accept-encoding': 'gzip', 'mediahubmx-signature': addonSig };
         if (clientIp && !VAVOO_FORCE_SERVER_IP) {
             resolveHeaders['x-forwarded-for'] = clientIp;
             resolveHeaders['x-real-ip'] = clientIp;
@@ -425,7 +376,7 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
         const resolveRes = await fetch('https://vavoo.to/mediahubmx-resolve.json', {
             method: 'POST',
             headers: resolveHeaders,
-            body: JSON.stringify({ language: 'de', region: 'AT', url: vavooPlayUrl, clientVersion: '3.1.4' }),
+            body: JSON.stringify({ language: 'de', region: 'AT', url: vavooPlayUrl, clientVersion: '3.1.21' }),
             signal: controller2.signal
         } as any);
         clearTimeout(to2);
@@ -434,15 +385,7 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             let text = '';
             try { text = await resolveRes.text(); } catch { }
             vdbg('Resolve NOT OK, body snippet:', text.substring(0, 300));
-            const tsSig = await getTsSignature();
-            if (!tsSig) return null;
-            const tsUrl = buildTsFallbackUrl(vavooPlayUrl, tsSig);
-            if (!tsUrl) return null;
-            try {
-                const probe = await fetch(tsUrl, { method: 'GET', headers: { 'User-Agent': VAVOO_TS_UA }, timeout: 10000 } as any);
-                if (!probe.ok) return null;
-            } catch { return null; }
-            return { url: tsUrl, headers: { 'User-Agent': VAVOO_TS_UA } };
+            return null;
         }
         const resolveJson = await resolveRes.json();
         let resolved: string | null = null;
@@ -453,15 +396,7 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             return null;
         }
         vdbg('Clean resolve SUCCESS', { url: resolved.substring(0, 200) });
-        return {
-            url: resolved,
-            headers: {
-                'User-Agent': VAVOO_API_UA,
-                'Referer': 'https://vavoo.to/',
-                'Origin': 'https://vavoo.to',
-                'mediahubmx-signature': addonSig
-            }
-        };
+        return { url: resolved, headers: { 'User-Agent': DEFAULT_VAVOO_UA, 'Referer': 'https://vavoo.to/' } };
     } catch (e) {
         const msg = (e as any)?.message || String(e);
         vdbg('Clean resolve ERROR:', msg);
@@ -488,7 +423,6 @@ const execFilePromise = util.promisify(execFile);
 // Key: `${mfpUrl}|${mfpPsw}|${originalDUrl}` -> { finalUrl, ts }
 const dynamicStreamCache = new Map<string, { finalUrl: string; ts: number }>();
 const DYNAMIC_STREAM_TTL_MS = 5 * 60 * 1000; // 5 minuti
-
 
 async function resolveDynamicEventUrl(dUrl: string, providerTitle: string, mfpUrl?: string, mfpPsw?: string): Promise<{ url: string; title: string }> {
     if (!mfpUrl) return { url: dUrl, title: providerTitle };
@@ -911,7 +845,6 @@ const baseManifest: Manifest = {
         { key: "cb01Enabled", title: "Enable CB01 Mixdrop", type: "checkbox" },
         // { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: "checked" }, // TVTAP RIMOSSO
         { key: "vavooNoMfpEnabled", title: "Vavoo NO MFP 🔓", type: "checkbox", default: false },
-        { key: "fastMode", title: "Modalità Veloce ⚡", type: "checkbox", default: false },
         // UI helper toggles (not used directly server-side but drive dynamic form logic)
         { key: "personalTmdbKey", title: "TMDB API KEY Personale", type: "checkbox" },
         { key: "mediaflowMaster", title: "MediaflowProxy", type: "checkbox" },
@@ -1726,10 +1659,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     builder.defineCatalogHandler(async ({ type, id, extra, config: requestConfig }: { type: string; id: string; extra?: any; config?: any }) => {
         if (type === "tv") {
             // Simple runtime toggle: hide TV when disabled
-            // FIX: check user's per-URL config (requestConfig) first, fallback to global configCache
             try {
-                const effectiveDisableLiveTv = !!(requestConfig?.disableLiveTv ?? (configCache as any)?.disableLiveTv);
-                if (effectiveDisableLiveTv) {
+                const cfg = { ...configCache } as AddonConfig;
+                if (cfg.disableLiveTv) {
                     console.log('📴 TV catalog disabled by config.disableLiveTv');
                     return { metas: [], cacheMaxAge: 0 };
                 }
@@ -2419,16 +2351,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }
             }
 
-            // Runtime disable live TV — blocca TUTTI i meta TV (SportZX, Sports99, MediaHosting, Freeshot, ThisNot, canali statici)
-            // FIX: usa config dell'utente (requestConfig) con fallback a configCache globale
-            try {
-                const effectiveDisableLiveTv = !!(requestConfig?.disableLiveTv ?? (configCache as any)?.disableLiveTv);
-                if (effectiveDisableLiveTv) {
-                    console.log('📴 TV meta disabled by config.disableLiveTv');
-                    return { meta: null };
-                }
-            } catch { }
-
             // === SPORTZX META HANDLER ===
             if (cleanId.startsWith('sportzx_')) {
                 const { getSportzxChannels } = await import('./utils/sportzxUpdater');
@@ -2571,6 +2493,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 };
                 return { meta };
             }
+
+            // Se non è ThisNot, continua con la logica normale
+            try {
+                const cfg = { ...configCache } as AddonConfig;
+                if (cfg.disableLiveTv) {
+                    console.log('📴 TV meta disabled by config.disableLiveTv');
+                    return { meta: null };
+                }
+            } catch { }
 
             const channel = tvChannels.find((c: any) => c.id === cleanId);
             if (channel) {
@@ -2738,23 +2669,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 type = normalizedType;
 
                 console.log(`🔍 Stream request: ${normalizedType}/${id}`);
-
-                // Runtime disable live TV — blocca TUTTI gli stream TV (SportZX, Sports99, MediaHosting, Freeshot, ThisNot, canali statici)
-                // FIX: usa config dell'utente (requestConfig) con fallback a configCache globale
-                // Posizionato PRIMA di tutti i live handler per evitare bypass
-                if (type === 'tv' || normalizedType === 'tv') {
-                    try {
-                        const effectiveDisableLiveTv = !!(requestConfig?.disableLiveTv ?? (configCache as any)?.disableLiveTv);
-                        if (effectiveDisableLiveTv) {
-                            // Permetti DVR anche con Live TV disabilitata
-                            const isDvr = id.startsWith('dvr:') || id.startsWith('dvr%3A');
-                            if (!isDvr) {
-                                console.log('📴 TV streams disabled by config.disableLiveTv');
-                                return { streams: [] };
-                            }
-                        }
-                    } catch { }
-                }
 
                 // === SPORTZX STREAM HANDLER ===
                 const cleanIdForSportzx = id.startsWith('tv:') ? id.replace('tv:', '') : id;
@@ -3130,6 +3044,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         return { streams };
                     }
 
+                    // Runtime disable live TV (solo per canali normali)
+                    // FIX: usa config dell'utente, NON configCache globale
+                    try {
+                        if ((config as any).disableLiveTv) {
+                            console.log('📴 TV streams disabled by config.disableLiveTv');
+                            return { streams: [] };
+                        }
+                    } catch { }
                     // Assicura che i canali dinamici siano presenti anche se la prima richiesta è uno stream (senza passare dal catalog)
                     try {
                         loadDynamicChannels(false);
@@ -3422,7 +3344,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     const reqObj: any = (global as any).lastExpressRequest;
                                     const clientIp = getClientIpFromReq(reqObj);
                                     let vavooCleanResolved: { url: string; headers: Record<string, string> } | null = null;
-                                    if (VAVOO_CLEAN) {
                                     try {
                                         const clean = await resolveVavooCleanUrl(vUrl, clientIp);
                                         if (clean && clean.url) {
@@ -3437,9 +3358,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         vdbg('Alias clean resolve failed', { alias, error: msg });
                                         console.log('[VAVOO] Clean resolve skipped/failed:', msg);
                                     }
-                                    } else { vdbg('VAVOO_CLEAN=false, skip alias clean resolve'); }
                                     // Iniezione Vavoo/MFP: incapsula SEMPRE l'URL vavoo.to originale (come in Live TV), senza extractor
-                                    if (VAVOO_PROXY) {
                                     try {
                                         if (mfpUrl) {
                                             const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
@@ -3455,20 +3374,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     } catch (e2) {
                                         vdbg('Vavoo/MFP injection error', String((e2 as any)?.message || e2));
                                     }
-                                    } else { vdbg('VAVOO_PROXY=false, skip alias MFP injection'); }
-                                    // Iniezione Vavoo Direct (raw URL) per eventi dinamici
-                                    if (VAVOO_DIRECT) {
-                                    try {
-                                        const title4 = `🎯 ${alias} (Vavoo Direct) [ITA]`;
-                                        const directStream = { url: vUrl, title: title4, behaviorHints: { notWebReady: true } as any };
-                                        let insertAt = 0;
-                                        try { if (streams.length && /\(Vavoo\)/i.test(streams[0].title)) insertAt = 1; } catch { }
-                                        try { streams.splice(insertAt, 0, directStream); } catch { streams.push(directStream); }
-                                        vdbg('Alias Vavoo Direct injected', { alias, url: vUrl.substring(0, 140) });
-                                    } catch (e3) {
-                                        vdbg('Vavoo Direct injection error', String((e3 as any)?.message || e3));
-                                    }
-                                    } else { vdbg('VAVOO_DIRECT=false, skip alias direct injection'); }
                                     console.log(`✅ [VAVOO] Injected first stream from alias='${alias}' -> ${vUrl.substring(0, 60)}...`);
                                 } else {
                                     console.log(`⚠️ [VAVOO] Alias trovato ma nessun URL in cache: '${alias}'`);
@@ -4926,7 +4831,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (foundVavooLinks.length > 0) {
                             foundVavooLinks.forEach(({ url, key }, idx) => {
                                 const streamTitle = `[✌️ V-${idx + 1}] ${channel.name} [ITA]`;
-                                if (VAVOO_PROXY && mfpUrl) {
+                                if (mfpUrl) {
                                     const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
                                     const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}${passwordParam}`;
                                     streams.push({
@@ -4934,11 +4839,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         url: vavooProxyUrl
                                     });
                                 } else {
-                                    // Richiesta: nascondere stream Vavoo direct senza MFP URL (o VAVOO_PROXY=false)
+                                    // Richiesta: nascondere stream Vavoo direct senza MFP URL
                                 }
                                 vavooFoundUrls.push(url);
                                 // For each found link, also prepare a clean variant labeled per index (➡️ V-1, V-2, ...)
-                                if (VAVOO_CLEAN) {
                                 const reqObj: any = (global as any).lastExpressRequest;
                                 let clientIpForClean = getClientIpFromReq(reqObj);
                                 // Fallback: use cached IP from middleware (tvvoo approach)
@@ -4965,7 +4869,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
                                     }
                                 })());
-                                } // end VAVOO_CLEAN gate
                             });
                             console.log(`[VAVOO] RISULTATO: trovati ${foundVavooLinks.length} link, stream generati:`, streams.map(s => s.title));
                         } else {
@@ -4975,8 +4878,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const links = Array.isArray(exact) ? exact : [exact];
                                 links.forEach((url, idx) => {
                                     const streamTitle = `[✌️ V-${idx + 1}] ${channel.name} [ITA]`;
-                                    // Gate: only add Proxy streams if VAVOO_PROXY=true and MFP configured
-                                    if (VAVOO_PROXY && mfpUrl && config.vavooNoMfpEnabled !== true) {
+                                    // Fix: Do not add Proxy streams if Vavoo Clean mode is enabled (vavooNoMfpEnabled=true)
+                                    // This prevents duplication since Clean streams are added separately via resolveVavooCleanUrl
+                                    if (mfpUrl && config.vavooNoMfpEnabled !== true) {
                                         const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
                                         const vavooProxyUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}${passwordParam}`;
                                         streams.push({
@@ -4984,11 +4888,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             url: vavooProxyUrl
                                         });
                                     } else {
-                                        // Richiesta: nascondere stream Vavoo direct senza MFP URL (o VAVOO_PROXY=false, o Clean mode)
+                                        // Richiesta: nascondere stream Vavoo direct senza MFP URL (o se siamo in Clean mode, li aggiungiamo dopo)
                                     }
                                     vavooFoundUrls.push(url);
                                     // Prepare clean variant per index as well
-                                    if (VAVOO_CLEAN) {
                                     const reqObj: any = (global as any).lastExpressRequest;
                                     let clientIpForClean = getClientIpFromReq(reqObj);
                                     // Fallback: use cached IP from middleware (tvvoo approach)
@@ -5012,7 +4915,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
                                         }
                                     })());
-                                    } // end VAVOO_CLEAN gate
                                 });
                                 console.log(`[VAVOO] RISULTATO: fallback chiave esatta, trovati ${links.length} link, stream generati:`, streams.map(s => s.title));
                             } else {
@@ -5333,7 +5235,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
 
 
-                        const allowVavooClean = VAVOO_CLEAN; // env-gated: VAVOO_CLEAN=false hides clean streams
+                        const allowVavooClean = true; // simplified: always allow clean Vavoo variant
                         for (const s of streams) {
                             // Support special marker '#headers#<b64json>' to attach headers properly
                             const marker = '#headers#';
@@ -5571,7 +5473,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     // Dopo aver popolato streams (nella logica TV):
                     for (const s of streams) {
-                        const allowVavooClean = VAVOO_CLEAN && config.vavooNoMfpEnabled === true; // env-gated + user toggle
+                        const allowVavooClean = config.vavooNoMfpEnabled === true; // default false se non specificato
                         const marker = '#headers#';
                         if (s.url.includes(marker)) {
                             const [pureUrl, b64] = s.url.split(marker);
@@ -5593,8 +5495,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     }
 
-                    // Direct vavoo streams (raw URL, VLC only) - env-gated by VAVOO_DIRECT + user toggle vavooNoMfpEnabled
-                    if (VAVOO_DIRECT && config.vavooNoMfpEnabled === true && vavooFoundUrls.length > 0) {
+                    // Direct vavoo streams (raw URL, VLC only) - only when Vavoo NO MFP 🔓 is enabled
+                    if (config.vavooNoMfpEnabled === true && vavooFoundUrls.length > 0) {
                         for (let i = 0; i < vavooFoundUrls.length; i++) {
                             const directTitle = `[🎯 V-${i + 1}] ${channel.name} (VLC only) [ITA]`;
                             allStreams.push({ name: 'Direct', title: directTitle, url: vavooFoundUrls[i], behaviorHints: { notWebReady: true } as any });
@@ -5758,7 +5660,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld + Loonex
                 // IMPORTANTE: includere trailerEnabled per permettere trailer standalone
                 const trailerEnabled = (config as any).trailerEnabled !== false;
-                const fastModeEnabled = (config as any).fastMode === true;
                 if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled)) {
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
@@ -5814,9 +5715,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                         }
                     }
-                    const providerPromises: Promise<Stream[]>[] = [];
-                    const isAnimeFastRequest = type === 'anime' || id.startsWith('kitsu:') || id.startsWith('mal:');
-                    const providerTasks: Record<string, Promise<Stream[]>> = {};
+                    const providerPromises: Promise<void>[] = [];
 
                     // Map legacy streamName label (used for ordering) to internal provider key
                     const reverseProviderKey = (label: string): string => {
@@ -6047,109 +5946,43 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             return { ...st, title: unifiedTitle, name: providerLabel(providerKey, isFhdOrDual), behaviorHints: mergedHints } as Stream;
                         });
                     };
-                    const runProvider = async (name: string, enabled: boolean, handler: () => Promise<{ streams: Stream[] }>, streamName: string, isMixdropSensitive = false, timeoutMs: number | null = null): Promise<Stream[]> => {
-                        if (!enabled) return [];
-                        try {
-                            let result;
+                    const runProvider = async (name: string, enabled: boolean, handler: () => Promise<{ streams: Stream[] }>, streamName: string, isMixdropSensitive = false, timeoutMs: number | null = null) => {
+                        if (enabled) {
+                            try {
+                                let result;
 
-                            if (timeoutMs !== null && timeoutMs > 0) {
-                                // Provider con timeout personalizzato
-                                const timeoutPromise = new Promise<{ streams: Stream[] }>((_, reject) => {
-                                    setTimeout(() => reject(new Error(`${name} timeout after ${timeoutMs}ms`)), timeoutMs);
-                                });
-                                result = await Promise.race([handler(), timeoutPromise]);
-                            } else {
-                                // Provider senza timeout (comportamento attuale)
-                                result = await handler();
-                            }
-
-                            if (result && result.streams) {
-                                const prepared = result.streams.map(s => {
-                                    if (isMixdropSensitive) {
-                                        const isMixdrop = s.title ? /\b(mixdrop|streamtape)\b/i.test(s.title) : false;
-                                        return { ...s, name: isMixdrop ? streamName.replace(' 🔓', '') : streamName } as Stream;
-                                    }
-                                    return { ...s, name: streamName } as Stream;
-                                });
-                                return unifyStreams(prepared, streamName);
-                            }
-                        } catch (error) {
-                            console.error(`🚨 ${name} error:`, error);
-                        }
-                        return [];
-                    };
-                    const scheduleProviderRun = async (
-                        name: string,
-                        enabled: boolean,
-                        handler: () => Promise<{ streams: Stream[] }>,
-                        streamName: string,
-                        isMixdropSensitive = false,
-                        timeoutMs: number | null = null
-                    ): Promise<void> => {
-                        const providerKey = reverseProviderKey(streamName);
-                        const task = runProvider(name, enabled, handler, streamName, isMixdropSensitive, timeoutMs);
-                        if (!providerTasks[providerKey]) providerTasks[providerKey] = task;
-                        providerPromises.push(task);
-                    };
-                    const getFastPriority = (): string[] => {
-                        if (isAnimeFastRequest) return ['animeunity', 'animeworld', 'animesaturn'];
-                        if (type === 'movie') return ['vixsrc', 'guardahd', 'guardaflix', 'toonitalia'];
-                        if (type === 'series') return ['vixsrc', 'guardaserie', 'cb01', 'guardoserie', 'toonitalia', 'eurostreaming'];
-                        return [];
-                    };
-                    const hasItalianStreams = (streams: Stream[]): boolean => {
-                        return streams.some((s: any) => {
-                            const raw = `${s?.title || ''} ${s?.name || ''}`;
-                            return /(^|\W)(ita|italiano)(\W|$)|\[ita\]|🇮🇹/i.test(raw);
-                        });
-                    };
-                    const pickFastModeStreams = async (): Promise<Stream[]> => {
-                        const priority = getFastPriority();
-                        if (!priority.length) return [];
-
-                        // Regola speciale film/serie:
-                        // se StreamingCommunity risponde ma NON ha ITA, tieni SC + primo provider successivo con stream.
-                        if ((type === 'movie' || type === 'series') && priority[0] === 'vixsrc') {
-                            const scTask = providerTasks['vixsrc'];
-                            if (scTask) {
-                                const scStreams = await scTask;
-                                if (scStreams.length > 0) {
-                                    if (hasItalianStreams(scStreams)) {
-                                        console.log(`[FastMode] Selected provider 'vixsrc' with ITA (${scStreams.length} streams)`);
-                                        return scStreams;
-                                    }
-                                    for (let i = 1; i < priority.length; i++) {
-                                        const nextKey = priority[i];
-                                        const nextTask = providerTasks[nextKey];
-                                        if (!nextTask) continue;
-                                        const nextStreams = await nextTask;
-                                        if (nextStreams.length > 0) {
-                                            console.log(`[FastMode] StreamingCommunity senza ITA: returning 'vixsrc' + '${nextKey}'`);
-                                            return [...scStreams, ...nextStreams];
-                                        }
-                                    }
-                                    console.log(`[FastMode] StreamingCommunity senza ITA e nessun fallback disponibile: returning 'vixsrc' only`);
-                                    return scStreams;
+                                if (timeoutMs !== null && timeoutMs > 0) {
+                                    // Provider con timeout personalizzato
+                                    const timeoutPromise = new Promise<{ streams: Stream[] }>((_, reject) => {
+                                        setTimeout(() => reject(new Error(`${name} timeout after ${timeoutMs}ms`)), timeoutMs);
+                                    });
+                                    result = await Promise.race([handler(), timeoutPromise]);
+                                } else {
+                                    // Provider senza timeout (comportamento attuale)
+                                    result = await handler();
                                 }
-                            }
-                        }
 
-                        for (const key of priority) {
-                            const task = providerTasks[key];
-                            if (!task) continue;
-                            const streams = await task;
-                            if (streams.length > 0) {
-                                console.log(`[FastMode] Selected provider '${key}' with ${streams.length} streams`);
-                                return streams;
+                                if (result && result.streams) {
+                                    const prepared = result.streams.map(s => {
+                                        if (isMixdropSensitive) {
+                                            const isMixdrop = s.title ? /\b(mixdrop|streamtape)\b/i.test(s.title) : false;
+                                            return { ...s, name: isMixdrop ? streamName.replace(' 🔓', '') : streamName } as Stream;
+                                        }
+                                        return { ...s, name: streamName } as Stream;
+                                    });
+                                    const unified = unifyStreams(prepared, streamName);
+                                    for (const u of unified) allStreams.push(u);
+                                }
+                            } catch (error) {
+                                console.error(`🚨 ${name} error:`, error);
                             }
                         }
-                        return [];
                     };
 
                     // VixSrc PRIMA di tutti (se abilitato)
                     if (vixsrcEnabled && !id.startsWith('kitsu:') && !id.startsWith('mal:') && !id.startsWith('tv:')) {
                         vixsrcScheduled = true;
-                        scheduleProviderRun('VixSrc', true, async () => {
+                        providerPromises.push(runProvider('VixSrc', true, async () => {
                             const finalConfig: ExtractorConfig = {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                                 mfpUrl: mfpUrl,
@@ -6195,13 +6028,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 streams.push({ title: finalTitle, url: st.streamUrl, behaviorHints: { notWebReady: true, headers: { Referer: st.referer } } as any, isSyntheticFhd: st.isSyntheticFhd, originalName: (st as any).originalName } as any);
                             }
                             return { streams };
-                        }, providerLabel('vixsrc'), false, 30000);  // VixSrc: timeout 30s
+                        }, providerLabel('vixsrc'), false, 30000));  // VixSrc: timeout 30s
                     }
 
 
                     // === GUARDOSERIE PROVIDER (Movie/Series) ===
                     if (guardoserieEnabled && ((type as string) === 'movie' || (type as string) === 'series')) {
-                        scheduleProviderRun('Guardoserie', true, async () => {
+                        providerPromises.push(runProvider('Guardoserie', true, async () => {
                             try {
                                 const gsStreams = await getGuardoserieStreams(type, id, (config as any).tmdbApiKey, mfpUrl, mfpPsw);
                                 if (gsStreams && gsStreams.length > 0) {
@@ -6212,12 +6045,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 console.error(`❌ [Guardoserie] Error processing ${id}:`, e);
                             }
                             return { streams: [] };
-                        }, providerLabel('guardoserie'), false, 30000);
+                        }, providerLabel('guardoserie'), false, 30000));
                     }
 
                     // === GUARDAFLIX PROVIDER (Movie Only) ===
                     if (guardaflixEnabled && ((type as string) === 'movie')) {
-                        scheduleProviderRun('Guardaflix', true, async () => {
+                        providerPromises.push(runProvider('Guardaflix', true, async () => {
                             try {
                                 const gfStreams = await getGuardaflixStreams(type, id, (config as any).tmdbApiKey, mfpUrl, mfpPsw);
                                 if (gfStreams && gfStreams.length > 0) {
@@ -6228,75 +6061,47 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 console.error(`❌ [Guardaflix] Error processing ${id}:`, e);
                             }
                             return { streams: [] };
-                        }, providerLabel('guardaflix'), false, 30000);
-                    }
-
-                    // ── Pre-risoluzione centralizzata titolo anime ──
-                    // UNA SOLA catena di chiamate API per tutti e 3 i provider anime.
-                    // Il risultato (englishTitle, malId, tmdbId, kitsuId, titleHints, episodeMode, absoluteEpisode, startDate)
-                    // viene condiviso tra AnimeUnity, AnimeSaturn e AnimeWorld.
-                    // Copre: kitsu:, mal:, IMDB (tt...), TMDB (tmdb:)
-                    const anyAnimeEnabled = animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled;
-                    const isKitsuMalId = id.startsWith('kitsu:') || id.startsWith('mal:');
-                    const isImdbId = id.startsWith('tt');
-                    const isTmdbId = id.startsWith('tmdb:');
-                    let preResolved: AnimeResolvedTitle | null = null;
-                    if (anyAnimeEnabled) {
-                        const tmdbKey = config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0';
-                        if (isKitsuMalId) {
-                            // Path kitsu/mal — invariato, passa season/episode per futura compatibilità
-                            preResolved = await resolveAnimeTitle(id, tmdbKey, seasonNumber ?? undefined, episodeNumber ?? undefined);
-                        } else if (isImdbId) {
-                            // NUOVO: pre-resolution unificata per IMDB
-                            const imdbIdOnly = id.split(':')[0]; // tt0388629 (senza :season:episode)
-                            preResolved = await resolveAnimeTitle(`imdb:${imdbIdOnly}`, tmdbKey, seasonNumber ?? undefined, episodeNumber ?? undefined);
-                        } else if (isTmdbId) {
-                            // NUOVO: pre-resolution unificata per TMDB
-                            const tmdbIdOnly = id.replace('tmdb:', '');
-                            preResolved = await resolveAnimeTitle(`tmdb:${tmdbIdOnly}`, tmdbKey, seasonNumber ?? undefined, episodeNumber ?? undefined);
-                        }
+                        }, providerLabel('guardaflix'), false, 30000));
                     }
 
                     // AnimeUnity
-                    scheduleProviderRun('AnimeUnity', animeUnityEnabled, async () => {
+                    providerPromises.push(runProvider('AnimeUnity', animeUnityEnabled, async () => {
                         const animeUnityProvider = new AnimeUnityProvider(animeUnityConfig);
-                        // Se pre-risolto (kitsu/mal/imdb/tmdb) usa handlePreResolved (0 chiamate API aggiuntive)
-                        if (preResolved) {
-                            return animeUnityProvider.handlePreResolved(preResolved, id);
-                        }
-                        // Fallback legacy: se preResolved è null (animemapping + Haglund + tutti i fallback hanno fallito)
-                        if (isImdbId) return animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        if (isTmdbId) return animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
-                        return { streams: [] };
-                    }, providerLabel('animeunity'), false, 30000);  // AnimeUnity: timeout 30s
+                        let res;
+                        if (id.startsWith('kitsu:')) res = await animeUnityProvider.handleKitsuRequest(id);
+                        else if (id.startsWith('mal:')) res = await animeUnityProvider.handleMalRequest(id);
+                        else if (id.startsWith('tt')) res = await animeUnityProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        else if (id.startsWith('tmdb:')) res = await animeUnityProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                        else res = { streams: [] };
+                        // Uniforma pattern VixSrc: non manipolare multi-line title qui; providerLabel userà isSyntheticFhd
+                        return res;
+                    }, providerLabel('animeunity'), false, 30000));  // AnimeUnity: timeout 30s
 
                     // AnimeSaturn
-                    scheduleProviderRun('AnimeSaturn', animeSaturnEnabled, async () => {
+                    providerPromises.push(runProvider('AnimeSaturn', animeSaturnEnabled, async () => {
                         const { AnimeSaturnProvider } = await import('./providers/animesaturn-provider');
                         const animeSaturnProvider = new AnimeSaturnProvider(animeSaturnConfig);
-                        if (preResolved) {
-                            return animeSaturnProvider.handlePreResolved(preResolved, id);
-                        }
-                        if (isImdbId) return animeSaturnProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        if (isTmdbId) return animeSaturnProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                        if (id.startsWith('kitsu:')) return animeSaturnProvider.handleKitsuRequest(id);
+                        if (id.startsWith('mal:')) return animeSaturnProvider.handleMalRequest(id);
+                        if (id.startsWith('tt')) return animeSaturnProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        if (id.startsWith('tmdb:')) return animeSaturnProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                         return { streams: [] };
-                    }, providerLabel('animesaturn'), false, 30000);  // AnimeSaturn: timeout 30s
+                    }, providerLabel('animesaturn'), false, 30000));  // AnimeSaturn: timeout 30s
 
                     // AnimeWorld
-                    scheduleProviderRun('AnimeWorld', animeWorldEnabled, async () => {
+                    providerPromises.push(runProvider('AnimeWorld', animeWorldEnabled, async () => {
                         const { AnimeWorldProvider } = await import('./providers/animeworld-provider');
                         const animeWorldProvider = new AnimeWorldProvider(animeWorldConfig);
-                        if (preResolved) {
-                            return animeWorldProvider.handlePreResolved(preResolved, id);
-                        }
-                        if (isImdbId) return animeWorldProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        if (isTmdbId) return animeWorldProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                        if (id.startsWith('kitsu:')) return animeWorldProvider.handleKitsuRequest(id);
+                        if (id.startsWith('mal:')) return animeWorldProvider.handleMalRequest(id);
+                        if (id.startsWith('tt')) return animeWorldProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                        if (id.startsWith('tmdb:')) return animeWorldProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                         return { streams: [] };
-                    }, providerLabel('animeworld'), false, 30000);  // AnimeWorld: timeout 30s
+                    }, providerLabel('animeworld'), false, 30000));  // AnimeWorld: timeout 30s
 
                     // GuardaSerie
                     if (guardaSerieEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
-                        scheduleProviderRun('GuardaSerie', true, async () => {
+                        providerPromises.push(runProvider('GuardaSerie', true, async () => {
                             const { GuardaSerieProvider } = await import('./providers/guardaserie-provider');
                             const gsProvider = new GuardaSerieProvider({
                                 enabled: true,
@@ -6307,12 +6112,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (id.startsWith('tt')) return gsProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return gsProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             return { streams: [] };
-                        }, providerLabel('guardaserie'), false, 30000);  // GuardaSerie: timeout 30s
+                        }, providerLabel('guardaserie'), false, 30000));  // GuardaSerie: timeout 30s
                     }
 
                     // GuardaHD
                     if (guardaHdEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
-                        scheduleProviderRun('GuardaHD', true, async () => {
+                        providerPromises.push(runProvider('GuardaHD', true, async () => {
                             const { GuardaHdProvider } = await import('./providers/guardahd-provider');
                             const ghProvider = new GuardaHdProvider({
                                 enabled: true,
@@ -6323,12 +6128,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (id.startsWith('tt')) return ghProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return ghProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             return { streams: [] };
-                        }, providerLabel('guardahd'), true, 30000);  // GuardaHD: timeout 30s
+                        }, providerLabel('guardahd'), true, 30000));  // GuardaHD: timeout 30s
                     }
 
                     // CB01 (Mixdrop only)
                     if (cb01Enabled && (id.startsWith('tt'))) {
-                        scheduleProviderRun('CB01', true, async () => {
+                        providerPromises.push(runProvider('CB01', true, async () => {
                             const { Cb01Provider } = await import('./providers/cb01-provider');
                             const cbProvider = new Cb01Provider({
                                 enabled: true,
@@ -6337,12 +6142,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return cbProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        }, providerLabel('cb01'), true, 30000);  // CB01: timeout 30s
+                        }, providerLabel('cb01'), true, 30000));  // CB01: timeout 30s
                     }
 
                     // Eurostreaming
                     if (eurostreamingEnabled && id.startsWith('tt') && seasonNumber != null && episodeNumber != null) {
-                        scheduleProviderRun('Eurostreaming', true, async () => {
+                        providerPromises.push(runProvider('Eurostreaming', true, async () => {
                             const { EurostreamingProvider } = await import('./providers/eurostreaming-provider');
                             const esProvider = new EurostreamingProvider({
                                 enabled: true,
@@ -6351,12 +6156,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
                             });
                             return esProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
-                        }, providerLabel('eurostreaming'), true, 30000);  // Eurostreaming: timeout 30s
+                        }, providerLabel('eurostreaming'), true, 30000));  // Eurostreaming: timeout 30s
                     }
 
                     // Loonex (serie TV)
                     if (loonexEnabled && type === 'series' && seasonNumber != null && episodeNumber != null && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
-                        scheduleProviderRun('Loonex', true, async () => {
+                        providerPromises.push(runProvider('Loonex', true, async () => {
                             const { getLoonexStreams } = await import('./providers/loonex-provider');
                             // Extract IDs from the request
                             const tmdbId = id.startsWith('tmdb:') ? id.replace('tmdb:', '').split(':')[0] : undefined;
@@ -6365,12 +6170,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             // Non passiamo il titolo, lo recupererà da TMDb
                             const streams = await getLoonexStreams(type, imdbId, undefined, seasonNumber, episodeNumber, tmdbId);
                             return { streams };
-                        }, providerLabel('loonex'), false, 30000);  // Loonex: timeout 30s
+                        }, providerLabel('loonex'), false, 30000));  // Loonex: timeout 30s
                     }
 
                     // ToonItalia (serie TV/Anime) - Ricerca dinamica via TMDb
                     if (toonitaliaEnabled && seasonNumber != null && episodeNumber != null) {
-                        scheduleProviderRun('ToonItalia', true, async () => {
+                        providerPromises.push(runProvider('ToonItalia', true, async () => {
                             const { toonitalia } = await import('./providers/toonitalia-provider');
 
                             // Costruisci ID nel formato appropriato
@@ -6399,19 +6204,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 }
                             });
                             return { streams };
-                        }, 'ToonItalia', false, 30000);  // ToonItalia: timeout 30s
+                        }, 'ToonItalia', false, 30000));  // ToonItalia: timeout 30s
                     }
 
 
-                    if (fastModeEnabled) {
-                        const picked = await pickFastModeStreams();
-                        for (const s of picked) allStreams.push(s);
-                    } else {
-                        const allProviderResults = await Promise.all(providerPromises);
-                        for (const group of allProviderResults) {
-                            for (const s of group) allStreams.push(s);
-                        }
-                    }
+                    await Promise.all(providerPromises);
 
                     // Post-process AnimeUnity streams to apply FHD badge similarly to VixSrc
                     try {
@@ -6512,7 +6309,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // === TRAILER ITALIANO (TMDB) - Prima posizione ===
                 // Aggiungi trailer SOLO per movie/series (non TV live) se abilitato
                 // trailerEnabled already defined above (default: true if undefined)
-                if (!fastModeEnabled && type !== 'tv' && trailerEnabled && isTrailerProviderAvailable()) {
+                if (type !== 'tv' && trailerEnabled && isTrailerProviderAvailable()) {
                     try {
                         // Estrai imdbId, season, episode dall'id (formato: tt123456:season:episode)
                         const idParts = id.split(':');
@@ -6684,9 +6481,9 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
         if (!Array.isArray((filtered as any).catalogs)) (filtered as any).catalogs = [];
         if (effectiveDisable) {
             const cats = Array.isArray(filtered.catalogs) ? filtered.catalogs.slice() : [];
-            // Rimuovi TUTTI i cataloghi TV (browse + search) quando disabilitato
+            // Rimuovi ENTRAMBI i cataloghi TV (streamvix_tv + streamvix_live + streamvix_eventi) quando disabilitato
             filtered.catalogs = cats.filter((c: any) =>
-                !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live' || (c as any).id === 'streamvix_eventi' || (c as any).id === 'streamvix_tv_search' || (c as any).id === 'streamvix_live_search' || (c as any).id === 'streamvix_eventi_search'))
+                !(c && ((c as any).id === 'streamvix_tv' || (c as any).id === 'streamvix_live' || (c as any).id === 'streamvix_eventi'))
             );
         }
 

@@ -278,13 +278,6 @@ button:active {
 .vix-pill.off { background:#333; color:#bbb; }
 .vix-pill.disabled { filter:grayscale(100%); opacity:.35; cursor:not-allowed; }
 .vix-pill input { display:none; }
-.help-btn.fast-inline {
-	margin-left: 0.75rem;
-}
-.help-btn { background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.4); color:#fff; padding:0.35rem 0.9rem; border-radius:999px; letter-spacing:0.05em; cursor:pointer; transition:background 0.2s ease; }
-.help-btn:hover { background:rgba(255,255,255,0.2); }
-.fast-toast { position:fixed; left:50%; bottom:3rem; transform:translateX(-50%); background:rgba(30,30,40,0.95); color:#fff; padding:0.9rem 1.2rem; border-radius:10px; box-shadow:0 8px 20px rgba(0,0,0,0.3); opacity:0; pointer-events:none; transition:opacity 0.3s ease; max-width:320px; text-align:center; font-size:0.9rem; }
-.fast-toast.show { opacity:1; pointer-events:auto; }
 /* (Removed floating AddonBase toast styles – inline badge used) */
 `
 
@@ -306,7 +299,6 @@ function landingTemplate(manifest: any) {
 
 	if ((manifest.config || []).length) {
 		let options = ''
-		let fastModeDefault = false
 		// We'll collect auto-generated options, but skip tmdbApiKey & personalTmdbKey here to custom place them at top later
 		manifest.config.forEach((elem: any) => {
 			const key = elem.key
@@ -327,10 +319,6 @@ function landingTemplate(manifest: any) {
 			} else if (elem.type === 'checkbox') {
 				// Skip only personalTmdbKey (custom placement); mediaflowMaster & localMode will be moved later
 				if (key === 'personalTmdbKey') return; // removed from UI
-				if (key === 'fastMode') {
-					fastModeDefault = !!(elem as any).default
-					return
-				}
 				// Sub-menu items: create hidden inputs to store their values from manifest
 				if (['animeunityAuto', 'animeunityFhd', 'vixDirect', 'vixDirectFhd', 'vixProxy', 'vixProxyFhd'].includes(key)) {
 					const isChecked = (typeof (elem as any).default === 'boolean') && ((elem as any).default as boolean);
@@ -447,24 +435,6 @@ function landingTemplate(manifest: any) {
 					const _raw = manifest.__resolvedAddonBase; const _host = _raw.replace(/^https?:\/\//, ''); const _isFallback = /streamvix\.hayd\.uk/.test(_raw); return `<div id="svxAddonBaseBadge" style="text-align:center; margin:-0.25rem 0 1.1rem 0;">
 					<span style=\"display:inline-block; padding:0.35rem 0.75rem; background:rgba(0,0,0,0.45); border:1px solid rgba(140,82,255,0.65); border-radius:14px; font-size:0.70rem; letter-spacing:0.05em; font-weight:600; color:#c9b3ff;\" title=\"Addon Base URL risolta all'avvio\">Addon Base URL per Vix FHD: <span style='color:#00c16e;'>${_host}</span><a href=\"https://github.com/qwertyuiop8899/StreamViX/blob/main/README.md\" target=\"_blank\" style=\"text-decoration:none; margin-left:6px; color:#8c52ff;\">📖 README</a></span>
 				</div>` })() : ''}
-				<div class="form-element" style="margin-top:0.5rem;">
-					<div class="toggle-row" data-toggle-row="fastMode">
-						<span class="toggle-title">Modalità Veloce ⚡</span>
-						<div class="toggle-right">
-							<span class="toggle-off">OFF</span>
-							<label class="switch">
-								<input type="checkbox" id="fastMode" name="fastMode" data-config-key="fastMode" data-main-toggle="1"${fastModeDefault ? ' checked' : ''} />
-								<span class="slider"></span>
-							</label>
-							<span class="toggle-on">ON</span>
-							<button type="button" id="fastModeHelp" class="help-btn fast-inline">HELP</button>
-						</div>
-					</div>
-					<div id="fastModeToast" class="fast-toast">
-						<strong>Modalità Veloce</strong><br>
-						Priorità rigida: StreamingCommunity (SC), poi i provider successivi. Se SC non ha ITA, restituisce comunque SC insieme al primo provider disponibile.
-					</div>
-				</div>
 			</form>
 
 			<div class="separator"></div>
@@ -529,16 +499,6 @@ function landingTemplate(manifest: any) {
 						var input = row.querySelector('input[type="checkbox"][data-main-toggle="1"]');
 						if (input) input.addEventListener('change', function(){ setRowState(row); });
 					});
-					var fastHelpBtn = document.getElementById('fastModeHelp');
-					var fastToast = document.getElementById('fastModeToast');
-					var fastToastTimer;
-					var showFastToast = function(){
-						if (!fastToast) return;
-						fastToast.classList.add('show');
-						if (fastToastTimer) clearTimeout(fastToastTimer);
-						fastToastTimer = setTimeout(function(){ fastToast.classList.remove('show'); }, 4400);
-					};
-					if (fastHelpBtn) fastHelpBtn.addEventListener('click', function(){ showFastToast(); });
 
 				// (addonBase localStorage restore & listeners removed)
 

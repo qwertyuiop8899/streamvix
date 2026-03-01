@@ -164,46 +164,20 @@ async function extractLoadM(playerUrl: string, referer: string, mfpUrl?: string,
 
 async function searchGuardaflix(query: string, year: string): Promise<string | null> {
     try {
-        let $: cheerio.CheerioAPI | null = null;
+        // Usa ricerca diretta /?s=
+        const searchUrl = `${getTargetDomain()}/?s=${encodeURIComponent(query)}`;
+        console.log('[Guardaflix] Direct search:', searchUrl);
 
-        // 1) Try SearchWP live search via admin-ajax.php first (easystreams style)
-        try {
-            const ajaxUrl = `${getTargetDomain()}/wp-admin/admin-ajax.php`;
-            const body = new URLSearchParams();
-            body.set('s', query);
-            body.set('action', 'searchwp_live_search');
-            body.set('swpengine', 'default');
-            body.set('swpquery', query);
+        const res = await fetchWithCookies(searchUrl);
+        console.log('[GF][Direct] search html length', res.data.length);
 
-            console.log('[Guardaflix] Ajax search:', ajaxUrl);
-            const resAjax = await fetchWithCookies(ajaxUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-                body: body.toString()
-            });
-
-            if (resAjax.status === 200 && resAjax.data) {
-                console.log('[GF][Ajax] search html length', resAjax.data.length);
-                $ = cheerio.load(resAjax.data);
-            }
-        } catch (e) {
-            console.warn('[Guardaflix] Ajax search failed, falling back to direct search');
+        if (res.status === 403) {
+            console.error('[Guardaflix] Search failed with 403 Forbidden. Cloudflare block?');
+            // Could implement retry or more complex bypass here if needed
+            return null;
         }
 
-        // 2) Fallback to direct /?s= search
-        if (!$) {
-            const searchUrl = `${getTargetDomain()}/?s=${encodeURIComponent(query)}`;
-            console.log('[Guardaflix] Direct search:', searchUrl);
-
-            const res = await fetchWithCookies(searchUrl);
-            console.log('[GF][Direct] search html length', res.data.length);
-
-            if (res.status === 403) {
-                console.error('[Guardaflix] Search failed with 403 Forbidden. Cloudflare block?');
-                return null;
-            }
-            $ = cheerio.load(res.data);
-        }
+        const $ = cheerio.load(res.data);
 
         // Normalizza query per matching
         const queryLower = query.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -506,3 +480,4 @@ async function getGuardaflixStreamsCore(type: string, id: string, tmdbApiKey?: s
 }
 
 // End of file
+

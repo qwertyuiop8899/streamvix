@@ -5,15 +5,12 @@ import axios from 'axios';
 import { KitsuProvider } from './kitsu';
 import { getDomain } from '../utils/domains';
 import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
-import { AnimeResolvedTitle } from '../utils/animeTitleResolver';
 
-// Helper function to invoke the Python scraper with timeout & kill
+// Helper function to invoke the Python scraper
 // MFP config viene passata esplicitamente, con fallback a env vars per installazioni locali
 async function invokePythonScraper(args: string[], mfpConfig?: { mfpUrl?: string; mfpPassword?: string }): Promise<any> {
     const scriptPath = path.join(__dirname, 'animesaturn.py');
     const command = 'python3';
-    const timeoutMs = parseInt(process.env.ANIMESATURN_PY_TIMEOUT || '120000', 10);
-    const start = Date.now();
 
     // MFP dalla config passata, fallback a env vars per installazioni locali
     const mfpProxyUrl = mfpConfig?.mfpUrl || process.env.MFP_PROXY_URL || process.env.MFP_URL || '';
@@ -25,22 +22,10 @@ async function invokePythonScraper(args: string[], mfpConfig?: { mfpUrl?: string
         args.push('--mfp-proxy-password', mfpProxyPassword);
     }
 
-    console.log('[AnimeSaturn][PY] spawn', args.join(' '));
-
     return new Promise((resolve, reject) => {
         const pythonProcess = spawn(command, [scriptPath, ...args]);
         let stdout = '';
         let stderr = '';
-        let finished = false;
-
-        const killTimer = setTimeout(() => {
-            if (finished) return;
-            finished = true;
-            try { pythonProcess.kill('SIGKILL'); } catch {}
-            console.error(`[AnimeSaturn][PY] timeout after ${timeoutMs}ms for args:`, args.join(' '));
-            reject(new Error('AnimeSaturn python timeout'));
-        }, timeoutMs);
-
         pythonProcess.stdout.on('data', (data: Buffer) => {
             stdout += data.toString();
         });
@@ -48,36 +33,27 @@ async function invokePythonScraper(args: string[], mfpConfig?: { mfpUrl?: string
             stderr += data.toString();
         });
         pythonProcess.on('close', (code: number) => {
-            if (finished) return;
-            finished = true;
-            clearTimeout(killTimer);
-            const dur = Date.now() - start;
             if (code !== 0) {
-                console.error(`[AnimeSaturn][PY] Python script exited with code ${code}`);
+                console.error(`Python script exited with code ${code}`);
                 console.error(stderr);
                 return reject(new Error(`Python script error: ${stderr}`));
             }
             try {
-                console.log(`[AnimeSaturn][PY] success (${dur}ms)`);
                 resolve(JSON.parse(stdout));
             } catch (e) {
-                console.error('[AnimeSaturn][PY] Failed to parse Python script output:');
+                console.error('Failed to parse Python script output:');
                 console.error(stdout);
                 reject(new Error('Failed to parse Python script output.'));
             }
         });
         pythonProcess.on('error', (err: Error) => {
-            if (finished) return;
-            finished = true;
-            clearTimeout(killTimer);
-            console.error('[AnimeSaturn][PY] Failed to start Python script:', err);
+            console.error('Failed to start Python script:', err);
             reject(err);
         });
     });
 }
 
-/** @deprecated Usata solo come fallback legacy per handleImdbRequest/handleTmdbRequest.
- *  Il path principale ora usa resolveAnimeTitle() centralizzato via handlePreResolved(). */
+// Funzione universale per ottenere il titolo inglese da qualsiasi ID
 async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|'mal', tmdbApiKey?: string): Promise<string> {
   let malId: string | null = null;
   let tmdbId: string | null = null;
@@ -300,47 +276,6 @@ export class AnimeSaturnProvider {
     this.baseHost = getDomain('animesaturn') || 'animesaturn.cx';
   }
 
-  /**
-   * Usa il titolo pre-risolto dal resolver centralizzato (0 chiamate API).
-   * Chiamato da addon.ts per kitsu:, mal:, IMDB e TMDB IDs.
-   * Passa malId a handleTitleRequest per il filtro MAL-based di AnimeSaturn.
-   */
-  async handlePreResolved(resolved: AnimeResolvedTitle, rawId: string): Promise<{ streams: StreamForStremio[] }> {
-    if (!this.config.enabled) return { streams: [] };
-    try {
-      let seasonNumber: number | null = null;
-      let episodeNumber: number | null = null;
-      let isMovie = false;
-      if (rawId.startsWith('kitsu:')) {
-        ({ seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(rawId));
-      } else if (rawId.startsWith('mal:')) {
-        const parts = rawId.split(':');
-        if (parts.length === 2) isMovie = true;
-        else if (parts.length === 3) episodeNumber = parseInt(parts[2]);
-        else if (parts.length === 4) { seasonNumber = parseInt(parts[2]); episodeNumber = parseInt(parts[3]); }
-      } else if (rawId.startsWith('tt')) {
-        // IMDB: tt0388629:10:10 → season=10, episode=10
-        const parts = rawId.split(':');
-        if (parts.length === 1) isMovie = true;
-        else if (parts.length === 3) { seasonNumber = parseInt(parts[1]); episodeNumber = parseInt(parts[2]); }
-      } else if (rawId.startsWith('tmdb:')) {
-        // TMDB: tmdb:12345:2:5 → season=2, episode=5
-        const parts = rawId.split(':');
-        if (parts.length === 2) isMovie = true;
-        else if (parts.length === 4) { seasonNumber = parseInt(parts[2]); episodeNumber = parseInt(parts[3]); }
-      }
-
-      // Usa absoluteEpisode se disponibile (episodeMode === "absolute")
-      const effectiveEpisode = resolved.absoluteEpisode ?? episodeNumber;
-
-      console.log(`[AnimeSaturn] handlePreResolved: "${resolved.englishTitle}" (malId=${resolved.malId || '-'}, kitsuId=${resolved.kitsuId || '-'}, mode=${resolved.episodeMode || '-'}) S${seasonNumber}E${episodeNumber}${resolved.absoluteEpisode ? ` → absEp ${resolved.absoluteEpisode}` : ''} movie=${isMovie}`);
-      return this.handleTitleRequest(resolved.englishTitle, seasonNumber, effectiveEpisode, isMovie, resolved.malId, resolved.titleHints);
-    } catch (error) {
-      console.error('[AnimeSaturn] Error in handlePreResolved:', error);
-      return { streams: [] };
-    }
-  }
-
   // Ricerca tutte le versioni (AnimeSaturn non distingue SUB/ITA/CR, ma puoi inferirlo dal titolo)
   // Made public for catalog search
   async searchAllVersions(title: string, malId?: string): Promise<{ version: AnimeSaturnResult; language_type: string }[]> {
@@ -514,13 +449,13 @@ export class AnimeSaturnProvider {
   }
 
   // Funzione generica per gestire la ricerca dato un titolo
-  async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false, malId?: string, titleHints?: string[]): Promise<{ streams: StreamForStremio[] }> {
+  async handleTitleRequest(title: string, seasonNumber: number | null, episodeNumber: number | null, isMovie = false, malId?: string): Promise<{ streams: StreamForStremio[] }> {
     const universalTitle = applyUniversalAnimeTitleNormalization(title);
     if (universalTitle !== title) {
       console.log(`[UniversalTitle][Applied] ${title} -> ${universalTitle}`);
     }
     const normalizedTitle = normalizeTitleForSearch(universalTitle);
-    console.log(`[AnimeSaturn] Titolo normalizzato per ricerca: ${normalizedTitle}${titleHints?.length ? ` (+ ${titleHints.length} titleHints)` : ''}`);
+    console.log(`[AnimeSaturn] Titolo normalizzato per ricerca: ${normalizedTitle}`);
     console.log(`[AnimeSaturn] MAL ID passato a searchAllVersions:`, malId ? malId : '(nessuno)');
   console.log('[AnimeSaturn] Query inviata allo scraper (post-normalize):', normalizedTitle);
     let animeVersions = await this.searchAllVersions(normalizedTitle, malId);
@@ -531,93 +466,75 @@ export class AnimeSaturnProvider {
       animeVersions = await this.searchAllVersions(normalizedTitle);
       animeVersions = filterAnimeResults(animeVersions, normalizedTitle);
     }
-    // Fallback: prova titleHints dal resolver unificato (animemapping API)
-    if (!animeVersions.length && titleHints && titleHints.length > 0) {
-      for (const hint of titleHints) {
-        if (hint && hint !== normalizedTitle && hint !== title) {
-          console.log(`[AnimeSaturn] Trying titleHint: "${hint}"`);
-          animeVersions = await this.searchAllVersions(hint, malId);
-          animeVersions = filterAnimeResults(animeVersions, hint, malId);
-          if (animeVersions.length) {
-            console.log(`[AnimeSaturn] titleHint "${hint}" found ${animeVersions.length} results`);
-            break;
-          }
-        }
-      }
-    }
     if (!animeVersions.length) {
       console.warn('[AnimeSaturn] Nessun risultato trovato per il titolo:', normalizedTitle);
       return { streams: [] };
     }
-    // OPT 3: Process all anime versions in PARALLEL (was sequential for loop)
-    const versionResults = await Promise.allSettled(animeVersions.map(async ({ version, language_type }): Promise<StreamForStremio | null> => {
-      try {
-        const episodes: AnimeSaturnEpisode[] = await invokePythonScraper(['get_episodes', '--anime-url', version.url]);
-        if (!episodes || episodes.length === 0) {
-          console.warn(`[AnimeSaturn] Nessun episodio ottenuto per ${version.title} (URL=${version.url}). Skip versione.`);
-          return null;
-        }
-        console.log(`[AnimeSaturn] Episodi trovati per ${version.title}:`, episodes.map(e => e.title));
-        let targetEpisode: AnimeSaturnEpisode | undefined;
-        if (isMovie) {
-          targetEpisode = episodes[0];
-          console.log(`[AnimeSaturn] Selezionato primo episodio (movie):`, targetEpisode?.title);
-        } else if (episodeNumber != null) {
-          targetEpisode = episodes.find(ep => {
-            const match = ep.title.match(/E(\d+)/i);
+    const streams: StreamForStremio[] = [];
+    for (const { version, language_type } of animeVersions) {
+      const episodes: AnimeSaturnEpisode[] = await invokePythonScraper(['get_episodes', '--anime-url', version.url]);
+      if (!episodes || episodes.length === 0) {
+        console.warn(`[AnimeSaturn] Nessun episodio ottenuto per ${version.title} (URL=${version.url}). Skip versione.`);
+        continue;
+      }
+      console.log(`[AnimeSaturn] Episodi trovati per ${version.title}:`, episodes.map(e => e.title));
+      let targetEpisode: AnimeSaturnEpisode | undefined;
+      if (isMovie) {
+        targetEpisode = episodes[0];
+        console.log(`[AnimeSaturn] Selezionato primo episodio (movie):`, targetEpisode?.title);
+      } else if (episodeNumber != null) {
+        // Pattern semplice originale: cerca E<number>, altrimenti include del numero
+        targetEpisode = episodes.find(ep => {
+          const match = ep.title.match(/E(\d+)/i);
             if (match) {
               return parseInt(match[1]) === episodeNumber;
             }
             return ep.title.includes(String(episodeNumber));
-          });
-          console.log(`[AnimeSaturn] Episodio selezionato per E${episodeNumber}:`, targetEpisode?.title);
-        } else {
-          targetEpisode = episodes[0];
-          console.log(`[AnimeSaturn] Selezionato primo episodio (default):`, targetEpisode?.title);
-        }
-        if (!targetEpisode) {
-          console.warn(`[AnimeSaturn] Nessun episodio trovato per la richiesta: S${seasonNumber}E${episodeNumber}`);
-          return null;
-        }
-        const scrapperArgs = ['get_stream', '--episode-url', targetEpisode.url];
-        if (this.config.mfpProxyUrl) {
-          scrapperArgs.push('--mfp-proxy-url', this.config.mfpProxyUrl);
-        }
-        if (this.config.mfpProxyPassword) {
-          scrapperArgs.push('--mfp-proxy-password', this.config.mfpProxyPassword);
-        }
-        const streamResult = await invokePythonScraper(scrapperArgs);
-        let streamUrl = streamResult.url;
-        let streamHeaders = streamResult.headers || undefined;
-        const cleanName = version.title
-          .replace(/\s*\(ITA\)/i, '')
-          .replace(/\s*\(CR\)/i, '')
-          .replace(/ITA/gi, '')
-          .replace(/CR/gi, '')
-          .trim();
-        const sNum = seasonNumber || 1;
-        const langLabel = language_type === 'ITA' ? 'ITA' : 'SUB';
-        let streamTitle = `${capitalize(cleanName)} ▪ ${langLabel} ▪ S${sNum}`;
-        if (episodeNumber) {
-          streamTitle += `E${episodeNumber}`;
-        }
-        return {
-          title: streamTitle,
-          url: streamUrl,
-          behaviorHints: {
-            notWebReady: true,
-            ...(streamHeaders ? { headers: streamHeaders } : {})
-          }
-        };
-      } catch (err) {
-        console.error(`[AnimeSaturn] Error processing version ${version.title}:`, (err as any)?.message || err);
-        return null;
+        });
+        console.log(`[AnimeSaturn] Episodio selezionato per E${episodeNumber}:`, targetEpisode?.title);
+      } else {
+        targetEpisode = episodes[0];
+        console.log(`[AnimeSaturn] Selezionato primo episodio (default):`, targetEpisode?.title);
       }
-    }));
-    const streams: StreamForStremio[] = versionResults
-      .filter((r): r is PromiseFulfilledResult<StreamForStremio | null> => r.status === 'fulfilled')
-      .map(r => r.value)
-      .filter((s): s is StreamForStremio => s !== null);
+      if (!targetEpisode) {
+        console.warn(`[AnimeSaturn] Nessun episodio trovato per la richiesta: S${seasonNumber}E${episodeNumber}`);
+        continue;
+      }
+      // Preparare gli argomenti per lo scraper Python
+      const scrapperArgs = ['get_stream', '--episode-url', targetEpisode.url];
+
+      // Aggiungi parametri MFP per lo streaming m3u8 se disponibili
+      if (this.config.mfpProxyUrl) {
+        scrapperArgs.push('--mfp-proxy-url', this.config.mfpProxyUrl);
+      }
+      if (this.config.mfpProxyPassword) {
+        scrapperArgs.push('--mfp-proxy-password', this.config.mfpProxyPassword);
+      }
+
+      const streamResult = await invokePythonScraper(scrapperArgs);
+      let streamUrl = streamResult.url;
+      let streamHeaders = streamResult.headers || undefined;
+      const cleanName = version.title
+        .replace(/\s*\(ITA\)/i, '')
+        .replace(/\s*\(CR\)/i, '')
+        .replace(/ITA/gi, '')
+        .replace(/CR/gi, '')
+        .trim();
+  const sNum = seasonNumber || 1;
+  const langLabel = language_type === 'ITA' ? 'ITA' : 'SUB';
+  let streamTitle = `${capitalize(cleanName)} ▪ ${langLabel} ▪ S${sNum}`;
+      if (episodeNumber) {
+        streamTitle += `E${episodeNumber}`;
+      }
+      streams.push({
+        title: streamTitle,
+        url: streamUrl,
+        behaviorHints: {
+          notWebReady: true,
+          ...(streamHeaders ? { headers: streamHeaders } : {})
+        }
+      });
+    }
     return { streams };
   }
 }

@@ -1,6 +1,6 @@
 // Helper to decide if an external ID refers to an Anime title.
 // Strategy:
-// 1) Prefer Haglund mappings for MAL or Kitsu: if present -> isAnime=true.
+// 1) Prefer Haglund mappings for MAL or Kitsu: if present -> isAnime=true. 
 // 2) Soft fallback (configurable via env ANIME_GATE_TMDB_FALLBACK, default true):
 //    call TMDB and consider anime if genres include Animation (id 16) and country is JP
 //    (via production_countries/origin_country/original_language).
@@ -14,37 +14,6 @@ export interface AnimeGateResult {
   hasMal: boolean;
   hasKitsu: boolean;
   reason: string;
-}
-
-// ─── Cache per checkIsAnimeById ─────────────────────────────────────
-// Il genere di un titolo non cambia, quindi 24h è sicuro.
-const GATE_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 ore
-const GATE_CACHE_MAX = 2000;
-const gateCache = new Map<string, { result: AnimeGateResult; expiresAt: number }>();
-
-function getGateCached(key: string): AnimeGateResult | null {
-  const entry = gateCache.get(key);
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
-    gateCache.delete(key);
-    return null;
-  }
-  return entry.result;
-}
-
-function setGateCache(key: string, result: AnimeGateResult): void {
-  if (gateCache.size >= GATE_CACHE_MAX) {
-    const now = Date.now();
-    for (const [k, v] of gateCache) {
-      if (now > v.expiresAt) gateCache.delete(k);
-      if (gateCache.size < GATE_CACHE_MAX) break;
-    }
-    if (gateCache.size >= GATE_CACHE_MAX) {
-      const oldest = gateCache.keys().next().value;
-      if (oldest !== undefined) gateCache.delete(oldest);
-    }
-  }
-  gateCache.set(key, { result, expiresAt: Date.now() + GATE_CACHE_TTL });
 }
 
 async function getTmdbIdFromImdb(imdbId: string, tmdbKey: string): Promise<string | null> {
@@ -108,20 +77,10 @@ export async function checkIsAnimeById(
   tmdbApiKey?: string,
   mediaHint?: 'movie' | 'tv'
 ): Promise<AnimeGateResult> {
-  // ── Cache check ──
-  const gateCacheKey = `${type}:${id}`;
-  const cached = getGateCached(gateCacheKey);
-  if (cached) {
-    console.log(`[AnimeGate] Cache HIT: ${gateCacheKey} → isAnime=${cached.isAnime} (${cached.reason})`);
-    return cached;
-  }
-
   const tmdbKey = tmdbApiKey || process.env.TMDB_API_KEY || '';
   if (!tmdbKey) {
     // Without TMDB key we can only say "unknown"; be permissive (treat as anime) to avoid blocking
-    const result: AnimeGateResult = { isAnime: true, hasMal: false, hasKitsu: false, reason: 'no-tmdb-key' };
-    setGateCache(gateCacheKey, result);
-    return result;
+    return { isAnime: true, hasMal: false, hasKitsu: false, reason: 'no-tmdb-key' };
   }
   let tmdbId: string | null = null;
   if (type === 'imdb') {
@@ -130,34 +89,24 @@ export async function checkIsAnimeById(
     tmdbId = id;
   }
   if (!tmdbId) {
-    const result: AnimeGateResult = { isAnime: false, hasMal: false, hasKitsu: false, reason: 'no-tmdb-id' };
-    // Non cacheare 'no-tmdb-id' — potrebbe essere un problema transitorio di rete
-    return result;
+    return { isAnime: false, hasMal: false, hasKitsu: false, reason: 'no-tmdb-id' };
   }
   const map = await fetchHaglundMappings(tmdbId);
   const hasMal = !!map?.mal;
   const hasKitsu = !!map?.kitsu;
   if (hasMal || hasKitsu) {
-    const result: AnimeGateResult = { isAnime: true, hasMal, hasKitsu, reason: 'haglund-mapping' };
-    setGateCache(gateCacheKey, result);
-    return result;
+    return { isAnime: true, hasMal, hasKitsu, reason: 'haglund-mapping' };
   }
   // Fallback via TMDB
   const allowTmdbFallback = (process.env.ANIME_GATE_TMDB_FALLBACK || 'true') !== 'false';
   if (!allowTmdbFallback) {
-    const result: AnimeGateResult = { isAnime: false, hasMal, hasKitsu, reason: 'no-mapping-and-fallback-disabled' };
-    setGateCache(gateCacheKey, result);
-    return result;
+    return { isAnime: false, hasMal, hasKitsu, reason: 'no-mapping-and-fallback-disabled' };
   }
   const details = await fetchTmdbDetailsAny(tmdbId, tmdbKey, mediaHint);
   if (tmdbLooksAnime(details)) {
-    const result: AnimeGateResult = { isAnime: true, hasMal, hasKitsu, reason: 'tmdb-fallback' };
-    setGateCache(gateCacheKey, result);
-    return result;
+    return { isAnime: true, hasMal, hasKitsu, reason: 'tmdb-fallback' };
   }
-  const result: AnimeGateResult = { isAnime: false, hasMal, hasKitsu, reason: 'no-mapping-and-not-animation-jp' };
-  setGateCache(gateCacheKey, result);
-  return result;
+  return { isAnime: false, hasMal, hasKitsu, reason: 'no-mapping-and-not-animation-jp' };
 }
 
 // =============================================================
