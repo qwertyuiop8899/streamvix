@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 
 """Live.py
 
 Genera il file JSON dinamico (config/dynamic_channels.json) per l'addon StreamViX
