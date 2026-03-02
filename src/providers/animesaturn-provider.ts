@@ -1,56 +1,294 @@
-import { spawn } from 'child_process';
 import { AnimeSaturnConfig, AnimeSaturnResult, AnimeSaturnEpisode, StreamForStremio } from '../types/animeunity';
-import * as path from 'path';
 import axios from 'axios';
+import * as cheerio from 'cheerio';
 import { KitsuProvider } from './kitsu';
 import { getDomain } from '../utils/domains';
 import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
+import {
+  createCaches,
+  fetchResource,
+  getProviderUrl,
+  resolveLookupRequest,
+  fetchMappingPayload,
+  extractProviderPaths,
+  extractTmdbIdFromMappingPayload,
+  resolveEpisodeFromMappingPayloadExtended,
+} from './anime-core';
 
-// Helper function to invoke the Python scraper
-// MFP config viene passata esplicitamente, con fallback a env vars per installazioni locali
-async function invokePythonScraper(args: string[], mfpConfig?: { mfpUrl?: string; mfpPassword?: string }): Promise<any> {
-    const scriptPath = path.join(__dirname, 'animesaturn.py');
-    const command = 'python3';
+const AS_FETCH_TIMEOUT = Number.parseInt(process.env.ANIMESATURN_FETCH_TIMEOUT_MS || '10000', 10) || 10000;
+const asCaches = createCaches();
 
-    // MFP dalla config passata, fallback a env vars per installazioni locali
-    const mfpProxyUrl = mfpConfig?.mfpUrl || process.env.MFP_PROXY_URL || process.env.MFP_URL || '';
-    const mfpProxyPassword = mfpConfig?.mfpPassword || process.env.MFP_PROXY_PASSWORD || process.env.MFP_PSW || '';
+function getSaturnBaseUrl(): string {
+  const configured = getProviderUrl('animesaturn', ['ANIMESATURN_BASE_URL', 'AS_BASE_URL']);
+  if (configured) return configured.replace(/\/+$/, '');
+  const host = getDomain('animesaturn') || 'animesaturn.cx';
+  return `https://www.${host}`;
+}
 
-    // Aggiungi gli argomenti proxy MFP se presenti
-    if (mfpProxyUrl && mfpProxyPassword) {
-        args.push('--mfp-proxy-url', mfpProxyUrl);
-        args.push('--mfp-proxy-password', mfpProxyPassword);
+function normalizeAnimeSaturnPath(pathOrUrl: string | null | undefined): string | null {
+  if (!pathOrUrl) return null;
+  let value = String(pathOrUrl).trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      value = new URL(value).pathname;
+    } catch {
+      return null;
     }
+  }
+  if (!value.startsWith('/')) value = `/${value}`;
+  value = value.replace(/\/+$/, '');
+  const match = value.match(/^\/anime\/[^/?#]+/i);
+  return match ? match[0] : null;
+}
 
-    return new Promise((resolve, reject) => {
-        const pythonProcess = spawn(command, [scriptPath, ...args]);
-        let stdout = '';
-        let stderr = '';
-        pythonProcess.stdout.on('data', (data: Buffer) => {
-            stdout += data.toString();
-        });
-        pythonProcess.stderr.on('data', (data: Buffer) => {
-            stderr += data.toString();
-        });
-        pythonProcess.on('close', (code: number) => {
-            if (code !== 0) {
-                console.error(`Python script exited with code ${code}`);
-                console.error(stderr);
-                return reject(new Error(`Python script error: ${stderr}`));
-            }
-            try {
-                resolve(JSON.parse(stdout));
-            } catch (e) {
-                console.error('Failed to parse Python script output:');
-                console.error(stdout);
-                reject(new Error('Failed to parse Python script output.'));
-            }
-        });
-        pythonProcess.on('error', (err: Error) => {
-            console.error('Failed to start Python script:', err);
-            reject(err);
-        });
+function normalizeEpisodePath(pathOrUrl: string | null | undefined): string | null {
+  if (!pathOrUrl) return null;
+  let value = String(pathOrUrl).trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      value = new URL(value).pathname;
+    } catch {
+      return null;
+    }
+  }
+  if (!value.startsWith('/')) value = `/${value}`;
+  value = value.replace(/\/+$/, '');
+  const match = value.match(/^\/ep\/[^/?#]+/i);
+  return match ? match[0] : null;
+}
+
+function buildSaturnUrl(pathOrUrl: string | null | undefined): string | null {
+  const text = String(pathOrUrl || '').trim();
+  if (!text) return null;
+  if (/^https?:\/\//i.test(text)) return text;
+  if (text.startsWith('/')) return `${getSaturnBaseUrl()}${text}`;
+  return `${getSaturnBaseUrl()}/${text}`;
+}
+
+function parseAsEpisodeNumber(value: any, fallbackNum: number): number {
+  const raw = String(value || '').trim();
+  if (!raw) return fallbackNum;
+  const byHref = raw.match(/-ep-(\d+)/i);
+  if (byHref) return Number.parseInt(byHref[1], 10);
+  const byLabel = raw.match(/episodio\s*(\d+)/i);
+  if (byLabel) return Number.parseInt(byLabel[1], 10);
+  const byAny = raw.match(/(\d{1,4})/);
+  if (byAny) return Number.parseInt(byAny[1], 10);
+  return fallbackNum;
+}
+
+function normalizePlayableMediaUrl(rawUrl: string | null | undefined, depth = 0): string | null {
+  if (!rawUrl) return null;
+  let absolute: string;
+  try {
+    absolute = new URL(String(rawUrl).trim(), getSaturnBaseUrl()).toString();
+  } catch {
+    return null;
+  }
+  if (/\.(?:mp4|m3u8)(?:[?#].*)?$/i.test(absolute)) return absolute;
+  if (depth >= 1) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(absolute);
+  } catch {
+    return null;
+  }
+  const nestedKeys = ['url', 'src', 'file', 'link', 'stream', 'id'];
+  for (const key of nestedKeys) {
+    const nested = parsed.searchParams.get(key);
+    if (!nested) continue;
+    let decoded = nested;
+    try {
+      decoded = decodeURIComponent(nested);
+    } catch {
+      decoded = nested;
+    }
+    const nestedUrl = normalizePlayableMediaUrl(decoded, depth + 1);
+    if (nestedUrl) return nestedUrl;
+  }
+  return null;
+}
+
+function extractWatchUrlsFromHtml(html: string, expectedFileId: string | null = null): string[] {
+  const text = String(html || '');
+  const values = new Set<string>();
+  let match: RegExpExecArray | null;
+  const absoluteRegex = /https?:\/\/[^\s"'<>\\]+\/watch\?file=[^"'<>\\\s]+/gi;
+  while ((match = absoluteRegex.exec(text)) !== null) values.add(match[0]);
+  const relativeRegex = /\/watch\?file=[^"'<>\\\s]+/gi;
+  while ((match = relativeRegex.exec(text)) !== null) values.add(`${getSaturnBaseUrl()}${match[0]}`);
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  values.forEach((candidate) => {
+    try {
+      const parsed = new URL(candidate, getSaturnBaseUrl());
+      if (parsed.pathname !== '/watch') return;
+      const fileParam = parsed.searchParams.get('file');
+      if (!fileParam) return;
+      if (expectedFileId && fileParam !== expectedFileId) return;
+      const abs = parsed.toString();
+      if (!seen.has(abs)) {
+        seen.add(abs);
+        out.push(abs);
+      }
+      if (!parsed.searchParams.has('s')) {
+        parsed.searchParams.set('s', 'alt');
+        const alt = parsed.toString();
+        if (!seen.has(alt)) {
+          seen.add(alt);
+          out.push(alt);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  });
+  return out;
+}
+
+function collectMediaLinksFromWatchHtml(html: string): string[] {
+  const $ = cheerio.load(String(html || ''));
+  const links: string[] = [];
+  const seen = new Set<string>();
+  const add = (href: string | null | undefined) => {
+    const playable = normalizePlayableMediaUrl(href || null);
+    if (!playable || seen.has(playable)) return;
+    seen.add(playable);
+    links.push(playable);
+  };
+  $('source[src], video source[src]').each((_, el) => add($(el).attr('src')));
+  const raw = String(html || '');
+  const variants = [raw, raw.replace(/\\\//g, '/')];
+  for (const text of variants) {
+    let match: RegExpExecArray | null;
+    const directRegex = /https?:\/\/[^\s"'<>\\]+(?:\.mp4|\.m3u8)(?:[^\s"'<>\\]*)?/gi;
+    while ((match = directRegex.exec(text)) !== null) add(match[0]);
+    const sourceRegex = /(?:file|src|url|link)\s*[:=]\s*["']([^"']+)["']/gi;
+    while ((match = sourceRegex.exec(text)) !== null) add(match[1]);
+  }
+  return links;
+}
+
+async function asSearch(query: string): Promise<AnimeSaturnResult[]> {
+  const q = encodeURIComponent(String(query || '').trim());
+  if (!q) return [];
+  const urls = [
+    `${getSaturnBaseUrl()}/?search=${q}`,
+    `${getSaturnBaseUrl()}/anime?search=${q}`,
+  ];
+  const out: AnimeSaturnResult[] = [];
+  const seen = new Set<string>();
+  for (const url of urls) {
+    let html = '';
+    try {
+      html = await fetchResource(url, asCaches, { ttlMs: 2 * 60 * 1000, cacheKey: `as-search:${url}`, timeoutMs: AS_FETCH_TIMEOUT });
+    } catch {
+      continue;
+    }
+    const $ = cheerio.load(String(html || ''));
+    $('a[href*="/anime/"]').each((_, el) => {
+      const href = String($(el).attr('href') || '').trim();
+      const path = normalizeAnimeSaturnPath(href);
+      if (!path || seen.has(path)) return;
+      seen.add(path);
+      const title = String($(el).attr('title') || $(el).text() || path).replace(/\s+/g, ' ').trim();
+      out.push({ title, url: buildSaturnUrl(path) || `${getSaturnBaseUrl()}${path}` });
     });
+    if (out.length) break;
+  }
+  return out;
+}
+
+async function asGetEpisodes(animeUrl: string): Promise<AnimeSaturnEpisode[]> {
+  const animePath = normalizeAnimeSaturnPath(animeUrl);
+  const finalUrl = animePath ? buildSaturnUrl(animePath) : animeUrl;
+  if (!finalUrl) return [];
+  let html = '';
+  try {
+    html = await fetchResource(finalUrl, asCaches, { ttlMs: 5 * 60 * 1000, cacheKey: `as-anime:${finalUrl}`, timeoutMs: AS_FETCH_TIMEOUT });
+  } catch {
+    return [];
+  }
+  const $ = cheerio.load(String(html || ''));
+  const episodes: AnimeSaturnEpisode[] = [];
+  const seen = new Set<string>();
+  $('a[href*="/ep/"]').each((index, el) => {
+    const href = normalizeEpisodePath($(el).attr('href') || null);
+    if (!href || seen.has(href)) return;
+    seen.add(href);
+    const probe = `${href} ${$(el).text() || ''} ${$(el).attr('title') || ''}`;
+    episodes.push({
+      title: String($(el).text() || $(el).attr('title') || `Episodio ${index + 1}`).trim(),
+      url: buildSaturnUrl(href) || `${getSaturnBaseUrl()}${href}`,
+    });
+  });
+  if (!episodes.length) {
+    const watch = extractWatchUrlsFromHtml(String(html || ''));
+    if (watch.length) {
+      episodes.push({ title: 'Episodio 1', url: watch[0] });
+    }
+  }
+  return episodes;
+}
+
+async function asGetStream(episodeUrl: string): Promise<{ url: string | null; headers?: any }> {
+  const epPath = normalizeEpisodePath(episodeUrl);
+  const entryUrl = epPath ? (buildSaturnUrl(epPath) || episodeUrl) : episodeUrl;
+  if (!entryUrl) return { url: null };
+
+  let html = '';
+  try {
+    html = await fetchResource(entryUrl, asCaches, { ttlMs: 5 * 60 * 1000, cacheKey: `as-ep:${entryUrl}`, timeoutMs: AS_FETCH_TIMEOUT });
+  } catch {
+    return { url: null };
+  }
+
+  const initialWatch = extractWatchUrlsFromHtml(String(html || ''));
+  const queue = [...initialWatch];
+  const visited = new Set<string>();
+  let processed = 0;
+  while (queue.length && processed < 6) {
+    const watchUrl = queue.shift();
+    if (!watchUrl || visited.has(watchUrl)) continue;
+    visited.add(watchUrl);
+    processed += 1;
+    let watchHtml = '';
+    try {
+      watchHtml = await fetchResource(watchUrl, asCaches, { ttlMs: 5 * 60 * 1000, cacheKey: `as-watch:${watchUrl}`, timeoutMs: AS_FETCH_TIMEOUT });
+    } catch {
+      continue;
+    }
+    const media = collectMediaLinksFromWatchHtml(String(watchHtml || ''));
+    if (media.length) return { url: media[0] };
+    const extra = extractWatchUrlsFromHtml(String(watchHtml || ''));
+    for (const candidate of extra) if (!visited.has(candidate)) queue.push(candidate);
+  }
+
+  return { url: null };
+}
+
+// Adapter drop-in: preserva chiamate legacy invokePythonScraper ma in pure TypeScript.
+async function invokePythonScraper(args: string[], _mfpConfig?: { mfpUrl?: string; mfpPassword?: string }): Promise<any> {
+  const cmd = String(args?.[0] || '');
+  if (cmd === 'search') {
+    const qIdx = args.indexOf('--query');
+    const query = qIdx >= 0 ? String(args[qIdx + 1] || '') : '';
+    return asSearch(query);
+  }
+  if (cmd === 'get_episodes') {
+    const uIdx = args.indexOf('--anime-url');
+    const animeUrl = uIdx >= 0 ? String(args[uIdx + 1] || '') : '';
+    return asGetEpisodes(animeUrl);
+  }
+  if (cmd === 'get_stream') {
+    const uIdx = args.indexOf('--episode-url');
+    const episodeUrl = uIdx >= 0 ? String(args[uIdx + 1] || '') : '';
+    return asGetStream(episodeUrl);
+  }
+  throw new Error(`AnimeSaturn adapter command non supportato: ${cmd}`);
 }
 
 // Funzione universale per ottenere il titolo inglese da qualsiasi ID
@@ -150,10 +388,7 @@ function filterAnimeResults(
   englishTitle: string,
   malId?: string
 ) {
-  if (malId) {
-    // Se la ricerca Python è stata fatta con MAL ID, accetta tutti i risultati
-    return results;
-  }
+  // Anche con MAL ID, filtra sempre per titolo per evitare risultati irrilevanti
   const norm = (s: string) => normalizeApostrophes(normalizeUnicodeToAscii(s.toLowerCase().replace(/\s+/g, ' ').trim()));
   const clean = (s: string) => s.replace(/\s*\(.*?\)/g, '').replace(/\s*ita|\s*cr|\s*sub/gi, '').trim();
   const baseRaw = norm(englishTitle);
@@ -324,6 +559,127 @@ export class AnimeSaturnProvider {
     });
   }
 
+  private async extractStreamsFromMappedPath(
+    animePath: string,
+    requestedEpisode: number,
+    seasonNumber: number | null,
+    isMovie: boolean,
+    titleFallback: string
+  ): Promise<StreamForStremio[]> {
+    const normalizedPath = normalizeAnimeSaturnPath(animePath);
+    if (!normalizedPath) return [];
+    const animeUrl = buildSaturnUrl(normalizedPath);
+    if (!animeUrl) return [];
+
+    const episodes: AnimeSaturnEpisode[] = await invokePythonScraper(['get_episodes', '--anime-url', animeUrl]).catch(() => []);
+    if (!episodes.length) return [];
+
+    let targetEpisode: AnimeSaturnEpisode | undefined;
+    if (isMovie) targetEpisode = episodes[0];
+    else targetEpisode = episodes.find((ep) => {
+      const match = String(ep.title || '').match(/E(\d+)/i);
+      if (match) return parseInt(match[1], 10) === requestedEpisode;
+      return String(ep.title || '').includes(String(requestedEpisode));
+    }) || episodes[0];
+    if (!targetEpisode) return [];
+
+    const streamResult = await invokePythonScraper(['get_stream', '--episode-url', targetEpisode.url]).catch(() => ({ url: null }));
+    const streamUrl = String(streamResult?.url || '').trim();
+    if (!streamUrl) return [];
+
+    const cleanName = String(titleFallback || '').replace(/\s+/g, ' ').trim() || 'AnimeSaturn';
+    const sNum = seasonNumber || 1;
+    let streamTitle = `${capitalize(cleanName)} ▪ SUB ▪ S${sNum}`;
+    if (!isMovie && requestedEpisode) streamTitle += `E${requestedEpisode}`;
+
+    return [{
+      title: streamTitle,
+      url: streamUrl,
+      behaviorHints: {
+        notWebReady: true,
+        ...(streamResult?.headers ? { headers: streamResult.headers } : {}),
+      },
+    }];
+  }
+
+  private async getStreamsFromMapping(
+    id: string,
+    seasonNumber: number | null,
+    episodeNumber: number | null,
+    isMovie: boolean,
+    providerContext: { kitsuId?: string; tmdbId?: string; imdbId?: string } | null,
+    titleFallback: string
+  ): Promise<StreamForStremio[]> {
+    const lookup = resolveLookupRequest(id, seasonNumber, episodeNumber, providerContext);
+    if (!lookup) return [];
+
+    let mappingPayload = await fetchMappingPayload(lookup, asCaches, 'AnimeSaturn');
+    let animePaths = extractProviderPaths(mappingPayload, 'animesaturn', normalizeAnimeSaturnPath as any);
+
+    if (animePaths.length === 0 && String(lookup.provider || '').toLowerCase() === 'imdb') {
+      const tmdbFromContext = providerContext?.tmdbId && /^\d+$/.test(String(providerContext.tmdbId))
+        ? String(providerContext.tmdbId)
+        : null;
+      const tmdbFromPayload = extractTmdbIdFromMappingPayload(mappingPayload);
+      const fallbackTmdbId = tmdbFromContext || tmdbFromPayload;
+      if (fallbackTmdbId) {
+        const tmdbLookup = {
+          provider: 'tmdb' as const,
+          externalId: fallbackTmdbId,
+          season: lookup.season,
+          episode: lookup.episode,
+        };
+        const tmdbPayload = await fetchMappingPayload(tmdbLookup, asCaches, 'AnimeSaturn');
+        const tmdbPaths = extractProviderPaths(tmdbPayload, 'animesaturn', normalizeAnimeSaturnPath as any);
+        if (tmdbPaths.length > 0) {
+          mappingPayload = tmdbPayload;
+          animePaths = tmdbPaths;
+        }
+      }
+    }
+
+    if (!animePaths.length) return [];
+    const requestedEpisode = resolveEpisodeFromMappingPayloadExtended(mappingPayload, lookup.episode);
+
+    const streams: StreamForStremio[] = [];
+    const seen = new Set<string>();
+    for (const path of animePaths) {
+      const perPath = await this.extractStreamsFromMappedPath(path, requestedEpisode, seasonNumber, isMovie, titleFallback);
+      for (const st of perPath) {
+        const key = String(st.url || '').trim();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        streams.push(st);
+      }
+    }
+    return streams;
+  }
+
+  private async handleLookupWithTitleFallback(
+    lookupId: string,
+    title: string,
+    seasonNumber: number | null,
+    episodeNumber: number | null,
+    isMovie: boolean,
+    providerContext: { kitsuId?: string; tmdbId?: string; imdbId?: string } | null,
+    malId?: string
+  ): Promise<{ streams: StreamForStremio[] }> {
+    const fromMapping = await this.getStreamsFromMapping(
+      lookupId,
+      seasonNumber,
+      episodeNumber,
+      isMovie,
+      providerContext,
+      title
+    );
+    if (fromMapping.length) {
+      console.log('[AnimeSaturn] Mapping API hit: uso stream da mapping path.');
+      return { streams: fromMapping };
+    }
+    console.log('[AnimeSaturn] Mapping API miss: fallback a ricerca per titolo.');
+    return this.handleTitleRequest(title, seasonNumber, episodeNumber, isMovie, malId);
+  }
+
   // Uniformità: accetta sia Kitsu che MAL
   async handleKitsuRequest(kitsuIdString: string): Promise<{ streams: StreamForStremio[] }> {
     if (!this.config.enabled) {
@@ -331,15 +687,37 @@ export class AnimeSaturnProvider {
     }
     try {
       const { kitsuId, seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(kitsuIdString);
-      const englishTitle = await getEnglishTitleFromAnyId(kitsuId, 'kitsu', this.config.tmdbApiKey);
-      // Recupera anche l'id MAL
+      // Two quick Kitsu calls in PARALLEL: canonical title + MAL ID
+      // Heavy resolution (Jikan) deferred to fallback path only
+      let quickTitle = kitsuId;
       let malId: string | undefined = undefined;
       try {
-        const mappingsResp = await (await fetch(`https://kitsu.io/api/edge/anime/${kitsuId}/mappings`)).json();
-        const malMapping = mappingsResp.data?.find((m: any) => m.attributes.externalSite === 'myanimelist/anime');
-        malId = malMapping?.attributes?.externalId?.toString() || undefined;
+        const [metaResp, mappingsResp] = await Promise.all([
+          fetch(`https://kitsu.io/api/edge/anime/${kitsuId}`),
+          fetch(`https://kitsu.io/api/edge/anime/${kitsuId}/mappings`),
+        ]);
+        if (metaResp.ok) {
+          const j: any = await metaResp.json();
+          const attr = j?.data?.attributes || {};
+          quickTitle = attr.titles?.en || attr.titles?.en_jp || attr.canonicalTitle || kitsuId;
+        }
+        if (mappingsResp.ok) {
+          const j: any = await mappingsResp.json();
+          const malMapping = j.data?.find((m: any) => m.attributes.externalSite === 'myanimelist/anime');
+          malId = malMapping?.attributes?.externalId?.toString() || undefined;
+        }
       } catch {}
-      console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
+      // Try mapping API first — no expensive title/Jikan resolution yet
+      const fromMapping = await this.getStreamsFromMapping(
+        `kitsu:${kitsuId}`, seasonNumber, episodeNumber, isMovie, { kitsuId }, quickTitle
+      );
+      if (fromMapping.length) {
+        console.log('[AnimeSaturn] Mapping hit (Kitsu): skipped heavy title resolution.');
+        return { streams: fromMapping };
+      }
+      // Mapping miss → full title resolution (Jikan) for title search fallback
+      console.log('[AnimeSaturn] Mapping miss (Kitsu): resolving full English title...');
+      const englishTitle = await getEnglishTitleFromAnyId(kitsuId, 'kitsu', this.config.tmdbApiKey);
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie, malId);
     } catch (error) {
       console.error('Error handling Kitsu request:', error);
@@ -391,20 +769,29 @@ export class AnimeSaturnProvider {
         }
   // Placeholder stream removed; warning now via icon prefix in stream titles
       }
+  const imdbIdClean = imdbId.split(':')[0];
+  // Try mapping API first — defer expensive title resolution to fallback path only
+  const fromMappingImdb = await this.getStreamsFromMapping(
+    imdbIdClean, seasonNumber, episodeNumber, isMovie, { imdbId: imdbIdClean }, ''
+  );
+  if (fromMappingImdb.length) {
+    console.log('[AnimeSaturn] Mapping hit (IMDB): skipped title resolution.');
+    const streams = fromMappingImdb.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
+    return { streams };
+  }
+  // Mapping miss → full title + MAL ID for title search fallback
   const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
       // Recupera anche l'id MAL tramite Haglund
       let malId: string | undefined = undefined;
       try {
         const tmdbKey = this.config.tmdbApiKey || process.env.TMDB_API_KEY || '';
-        const imdbIdOnly = imdbId.split(':')[0];
         const { getTmdbIdFromImdbId } = await import('../extractor');
-        const tmdbId = await getTmdbIdFromImdbId(imdbIdOnly, tmdbKey, 'tv');
+        const tmdbId = await getTmdbIdFromImdbId(imdbIdClean, tmdbKey, 'tv');
         if (tmdbId) {
           const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
           malId = haglundResp[0]?.myanimelist?.toString() || undefined;
         }
       } catch {}
-      console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
   const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie, malId);
   // Prefix warning icon for non-Kitsu/MAL origin (IMDB)
   res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
@@ -430,6 +817,16 @@ export class AnimeSaturnProvider {
         }
   // Placeholder stream removed; warning now via icon prefix in stream titles
       }
+  // Try mapping API first — defer expensive title resolution to fallback path only
+  const fromMappingTmdb = await this.getStreamsFromMapping(
+    `tmdb:${tmdbId}`, seasonNumber, episodeNumber, isMovie, { tmdbId }, ''
+  );
+  if (fromMappingTmdb.length) {
+    console.log('[AnimeSaturn] Mapping hit (TMDB): skipped title resolution.');
+    const streams = fromMappingTmdb.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
+    return { streams };
+  }
+  // Mapping miss → full title + MAL ID for title search fallback
   const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
       // Recupera anche l'id MAL tramite Haglund
       let malId: string | undefined = undefined;
@@ -438,7 +835,6 @@ export class AnimeSaturnProvider {
         const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
         malId = haglundResp[0]?.myanimelist?.toString() || undefined;
       } catch {}
-      console.log(`[AnimeSaturn] Ricerca con titolo inglese: ${englishTitle}`);
   const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie, malId);
   res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
   return res;
