@@ -983,14 +983,12 @@ export class AnimeUnityProvider {
   );
   if (fromMappingImdb.length) {
     console.log('[AnimeUnity] Mapping hit (IMDB): skipped title resolution.');
-    const streams = fromMappingImdb.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
-    return { streams };
+    return { streams: fromMappingImdb };
   }
   // Mapping miss → resolve full English title for search fallback
   const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
   console.log(`[AnimeUnity] Mapping miss (IMDB): ricerca con titolo inglese: ${englishTitle}`);
   const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
-  res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
   return res;
     } catch (error) {
       console.error('Error handling IMDB request:', error);
@@ -1018,14 +1016,12 @@ export class AnimeUnityProvider {
   );
   if (fromMappingTmdb.length) {
     console.log('[AnimeUnity] Mapping hit (TMDB): skipped title resolution.');
-    const streams = fromMappingTmdb.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
-    return { streams };
+    return { streams: fromMappingTmdb };
   }
   // Mapping miss → resolve full English title for search fallback
   const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
   console.log(`[AnimeUnity] Mapping miss (TMDB): ricerca con titolo inglese: ${englishTitle}`);
   const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
-  res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
   return res;
     } catch (error) {
       console.error('Error handling TMDB request:', error);
