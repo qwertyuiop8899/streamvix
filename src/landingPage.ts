@@ -18,11 +18,25 @@ body {
 }
 
 html {
-	background-size: auto 100%;
-	background-size: cover;
-	background-position: center center;
-	background-repeat: no-repeat;
-	box-shadow: inset 0 0 0 2000px rgb(0 0 0 / 60%);
+	background: linear-gradient(135deg, #3d1f5c 0%, #2d1544 50%, #1a0d2e 100%);
+	background-attachment: fixed;
+	min-height: 100vh;
+	animation: gradientShift 8s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+	0%, 100% { background-position: 0% 50%; }
+	50% { background-position: 100% 50%; }
+}
+
+@keyframes floatingSoft {
+	0%, 100% { transform: translateY(0px); }
+	50% { transform: translateY(-10px); }
+}
+
+@keyframes glow {
+	0%, 100% { opacity: 0.3; }
+	50% { opacity: 0.6; }
 }
 
 body {
@@ -184,7 +198,7 @@ button:active {
 #addon {
 	/* Make the main container responsive and single-column */
 	width: 100%;
-	max-width: 720px;
+	max-width: 1100px;
 	margin: auto;
 }
 
@@ -305,6 +319,105 @@ function landingTemplate(manifest: any) {
 	let script = ''
 	let fastModeDefault = false
 
+	// ── GUIDED INSTALLATION SECTION ──
+	const guidedInstallationHTML = `
+		<div id="guidedInstallerSection" style="margin: 2rem 0; width: 100%; box-sizing: border-box; padding: 2rem; border-radius: 12px; background: rgba(20, 15, 35, 0.85); border: 1px solid rgba(140, 82, 255, 0.5);">
+			<h3 style="text-align: center; margin-bottom: 1.5rem; font-size: 1.3rem; color: #c9b3ff; text-shadow: 0 0 8px rgba(140, 82, 255, 0.6);">
+				⚙️ Scegli la tua Configurazione
+			</h3>
+			
+			<!-- Preset Grid -->
+			<div id="presetGrid">
+
+					<!-- OPZIONI GLOBALI PRESET -->
+					<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.2rem; padding: 0.65rem 1rem; background: rgba(140,82,255,0.07); border-radius: 8px; border: 1px solid rgba(140,82,255,0.25);">
+						<span style="font-size: 0.78rem; color: #aaa; font-weight: 600; letter-spacing: 0.04em;">Opzioni per tutti i preset:</span>
+						<label style="display: inline-flex; align-items: center; gap: 0.55rem; cursor: pointer; user-select: none;">
+							<span style="font-size: 0.8rem; color: #c9b3ff; font-weight: 700;">🎬▶️ Trailer TMDB</span>
+							<label class="switch" style="margin:0;">
+								<input type="checkbox" id="guidedTrailerToggle">
+								<span class="slider"></span>
+							</label>
+							<span id="guidedTrailerLabel" style="font-size: 0.72rem; font-weight: 700; color: #ff3b3b; min-width: 2.2rem;">OFF</span>
+						</label>
+					</div>
+				<!-- SENZA PROXY -->
+				<div style="margin-bottom: 1.5rem; padding: 1.2rem 1.2rem 0.8rem; border: 1px solid rgba(160, 160, 180, 0.25); border-radius: 10px; background: rgba(255,255,255,0.03);">
+					<div style="font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #aaa; text-transform: uppercase; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">🔓 Senza Proxy</div>
+					<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.85rem;">
+						<div class="preset-card" data-preset="film-serie-nomfp" style="padding: 1rem; border: 2px solid rgba(140, 82, 255, 0.4); border-radius: 10px; background: rgba(45, 21, 68, 0.7); cursor: pointer; transition: all 0.3s ease;">
+							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix</div>
+						</div>
+						<div class="preset-card" data-preset="film-serie-anime-nomfp" style="padding: 1rem; border: 2px solid rgba(140, 82, 255, 0.4); border-radius: 10px; background: rgba(45, 21, 68, 0.7); cursor: pointer; transition: all 0.3s ease;">
+							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + Anime</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, Loonex, AnimeSaturn, AnimeUnity FHD, AnimeWorld</div>
+						</div>
+						<div class="preset-card" data-preset="film-serie-tv-nomfp" style="padding: 1rem; border: 2px solid rgba(140, 82, 255, 0.4); border-radius: 10px; background: rgba(45, 21, 68, 0.7); cursor: pointer; transition: all 0.3s ease;">
+							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + TV Live</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix, Live TV, Vavoo NO MFP</div>
+						</div>
+						<div class="preset-card" data-preset="film-serie-anime-tv-nomfp" style="padding: 1rem; border: 2px solid rgba(140, 82, 255, 0.4); border-radius: 10px; background: rgba(45, 21, 68, 0.7); cursor: pointer; transition: all 0.3s ease;">
+							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + Anime + TV Live</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix, Loonex, AnimeSaturn, AnimeUnity FHD, AnimeWorld, Live TV, Vavoo NO MFP</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- CON PROXY -->
+				<div style="margin-bottom: 2rem; padding: 1.2rem 1.2rem 0.8rem; border: 1px solid rgba(0, 193, 110, 0.3); border-radius: 10px; background: rgba(0, 193, 110, 0.04);">
+					<div style="font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #00c16e; text-transform: uppercase; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">☂️ Con Proxy (EasyProxy o MediaFlowProxy)</div>
+					<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.85rem;">
+						<div class="preset-card" data-preset="film-serie-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
+							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix</div>
+						</div>
+						<div class="preset-card" data-preset="film-serie-anime-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
+							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + Anime</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix, Loonex, ToonItalia, AnimeSaturn, AnimeUnity FHD, AnimeWorld</div>
+						</div>
+						<div class="preset-card" data-preset="film-serie-tv-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
+							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + TV Live</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix, Live TV, Vavoo</div>
+						</div>
+						<div class="preset-card" data-preset="film-serie-anime-tv-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
+							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + Anime + TV Live</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix, Loonex, ToonItalia, AnimeSaturn, AnimeUnity FHD, AnimeWorld, Live TV, Vavoo</div>
+						</div>
+					</div>
+				</div>
+
+			</div>
+			
+			<!-- Preset Details Panel -->
+			<div id="presetDetailsPanel" style="display: none; background: rgba(10, 10, 25, 0.9); padding: 1.5rem; border-radius: 10px; border: 1px solid rgba(140, 82, 255, 0.6); margin-bottom: 1.5rem;">
+				<h4 id="presetName" style="color: #c9b3ff; margin-bottom: 1rem; font-size: 1.1rem;"></h4>
+				<div id="presetProviders" style="color: #aaa; font-size: 0.85rem; line-height: 1.8; margin-bottom: 1rem;"></div>
+				<div id="mfpPromptContainer" style="display: none; margin-top: 1rem; padding: 1rem; background: rgba(45, 21, 68, 0.7); border-radius: 8px;">
+					<p style="color: #c9b3ff; margin: 0 0 0.75rem 0; font-weight: 600;">📍 Proxy URL (obbligatorio)</p>
+					<input type="text" id="guidedMfpUrl" placeholder="https://mfp.example.com" style="width: 100%; padding: 0.5rem; margin-bottom: 0.5rem; border: 1px solid rgba(140, 82, 255, 0.5); border-radius: 6px; background: rgba(20, 15, 35, 0.9); color: #fff;">
+					<p style="color: #aaa; margin: 0.5rem 0; font-size: 0.75rem;">Password (opzionale)</p>
+					<input type="password" id="guidedMfpPwd" placeholder="Password (opzionale)" style="width: 100%; padding: 0.5rem; border: 1px solid rgba(140, 82, 255, 0.5); border-radius: 6px; background: rgba(20, 15, 35, 0.9); color: #fff;">
+				</div>
+				<div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+					<button id="confirmPresetBtn" type="button" style="padding: 0.7rem 1.5rem; background: #00c16e; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s ease;">
+						Continua con questo Preset
+					</button>
+					<button id="cancelPresetBtn" type="button" style="padding: 0.7rem 1.5rem; background: rgba(140, 82, 255, 0.4); color: #fff; border: 1px solid rgba(140, 82, 255, 0.6); border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s ease;">
+						Indietro
+					</button>
+				</div>
+			</div>
+			
+			<div style="text-align: center; margin-top: 0.5rem;">
+				<p style="font-size: 0.8rem; color: #aaa; margin-bottom: 0.75rem;">Oppure configura manualmente con la modalità personalizzata</p>
+				<button id="switchToCustomBtn" type="button" style="display: inline-block; padding: 0.75rem 2rem; background: linear-gradient(135deg, rgba(140,82,255,0.25), rgba(100,50,200,0.35)); color: #e0ccff; border: 1.5px solid rgba(180,130,255,0.7); border-radius: 30px; cursor: pointer; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.03em; box-shadow: 0 0 14px rgba(140,82,255,0.45), 0 0 30px rgba(140,82,255,0.2); transition: all 0.25s ease;">
+					➜ Passa a Installazione Personalizzata
+				</button>
+			</div>
+		</div>
+	`;
+
 	if ((manifest.config || []).length) {
 		let options = ''
 		// We'll collect auto-generated options, but skip tmdbApiKey & personalTmdbKey here to custom place them at top later
@@ -331,6 +444,11 @@ function landingTemplate(manifest: any) {
 			} else if (elem.type === 'checkbox') {
 				// Skip only personalTmdbKey (custom placement); mediaflowMaster & localMode will be moved later
 				if (key === 'personalTmdbKey') return; // removed from UI
+				// fastMode: handled by custom toggle below, skip here to avoid duplicating
+				if (key === 'fastMode') {
+					fastModeDefault = !!(elem as any).default;
+					return;
+				}
 				// Sub-menu items: create hidden inputs to store their values from manifest
 				if (['animeunityAuto', 'animeunityFhd', 'vixDirect', 'vixDirectFhd', 'vixProxy', 'vixProxyFhd'].includes(key)) {
 					const isChecked = (typeof (elem as any).default === 'boolean') && ((elem as any).default as boolean);
@@ -462,7 +580,7 @@ function landingTemplate(manifest: any) {
 					</div>
 					<div id="fastModeToast" class="fast-toast">
 						<strong>Modalità Veloce</strong><br>
-						Priorità rigida: StreamingCommunity (SC), poi i provider successivi. Se SC non ha ITA, restituisce comunque SC insieme al primo provider disponibile.
+						Priorità a StreamingCommunity (SC), poi i provider successivi se SC non presente. Se SC non ha ITA, restituisce comunque SC insieme al primo provider disponibile. Per gli anime, mostra il primo che risponde sia ITA che SUB 
 					</div>
 				</div>
 			</form>
@@ -470,7 +588,9 @@ function landingTemplate(manifest: any) {
 			<div class="separator"></div>
 			`
 			script += `
-			console.log('[SVX] Main form logic init');
+			console.log('[SVX] Custom form logic init');
+			`
+			script += `
 			var installLink = document.getElementById('installLink');
 			var mainForm = document.getElementById('mainForm');
 			if (installLink && mainForm) {
@@ -731,6 +851,7 @@ function landingTemplate(manifest: any) {
 							if (dvrRow) dvrRow.classList.remove('dimmed');
 							dvrEl.disabled = !canEnableWithUrl;
 							if (canEnableWithUrl) {
+								// Lascia libero arbitrio all'utente: non forzare l'attivazione
 								if (storedDvrState !== null) { dvrEl.checked = storedDvrState; storedDvrState = null; }
 							} else {
 								if (storedDvrState === null) storedDvrState = dvrEl.checked;
@@ -1031,7 +1152,7 @@ function landingTemplate(manifest: any) {
 	const resolvedAddonBaseEsc = (manifest.__resolvedAddonBase || '').replace(/`/g, '\\`').replace(/\$/g, '$$');
 	return `
 	<!DOCTYPE html>
-	<html style="background-image: url(${background});">
+	<html>
 
 	<head>
 		<meta charset="utf-8">
@@ -1119,7 +1240,22 @@ function landingTemplate(manifest: any) {
 
 			<div class="separator"></div>
 
-			${formHTML}
+			<!-- GUIDED INSTALLATION (default visible) -->
+			${guidedInstallationHTML}
+
+			<!-- CUSTOM INSTALLATION (default hidden) -->
+			<div id="customInstallerSection" style="display: none; margin: 2rem 0; width: 100%; box-sizing: border-box; padding: 2rem; border-radius: 12px; background: rgba(20, 15, 35, 0.85); border: 1px solid rgba(140, 82, 255, 0.5);">
+				<h3 style="text-align: center; margin-bottom: 1.5rem; font-size: 1.3rem; color: #c9b3ff; text-shadow: 0 0 8px rgba(140, 82, 255, 0.6);">🛠️ Configurazione Personalizzata</h3>
+
+				<div style="text-align: center; margin-bottom: 2rem;">
+					<button id="switchToGuidedBtn" type="button" style="display: inline-block; padding: 0.75rem 2rem; background: linear-gradient(135deg, rgba(140,82,255,0.25), rgba(100,50,200,0.35)); color: #e0ccff; border: 1.5px solid rgba(180,130,255,0.7); border-radius: 30px; cursor: pointer; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.03em; box-shadow: 0 0 14px rgba(140,82,255,0.45), 0 0 30px rgba(140,82,255,0.2); transition: all 0.25s ease;">
+						⬅ Torna a Installazione Guidata
+					</button>
+				</div>
+
+				<div style="max-width: 860px; margin: 0 auto; padding: 1.5rem; border-radius: 10px; background: rgba(10, 8, 25, 0.7); border: 1px solid rgba(140, 82, 255, 0.3);">
+					${formHTML}
+				</div>
 
 			<div class="actions-row">
 				<a id="installLink" class="install-link" href="#">
@@ -1144,6 +1280,268 @@ function landingTemplate(manifest: any) {
 					if (installLink) installLink.setAttribute('href', 'stremio://' + window.location.host + '/manifest.json');
 				}
 			} catch (e) { /* no-op */ }
+
+			// ── GUIDED / CUSTOM TOGGLE LOGIC ──
+			(function(){
+				var guidedSection = document.getElementById('guidedInstallerSection');
+				var customSection = document.getElementById('customInstallerSection');
+				var switchToCustomBtn = document.getElementById('switchToCustomBtn');
+				var switchToGuidedBtn = document.getElementById('switchToGuidedBtn');
+				var actionsRow = document.querySelector('.actions-row');
+				var kofiRow = document.querySelector('.kofi-support');
+
+				function showGuided(){
+					if(guidedSection) guidedSection.style.display='block';
+					if(customSection) customSection.style.display='none';
+					if(actionsRow) actionsRow.style.display='none';
+					if(kofiRow) kofiRow.style.display='none';
+				}
+				function showCustom(){
+					if(guidedSection) guidedSection.style.display='none';
+					if(customSection) customSection.style.display='block';
+					if(actionsRow) actionsRow.style.display='flex';
+					if(kofiRow) kofiRow.style.display='block';
+				}
+				if(switchToCustomBtn) switchToCustomBtn.addEventListener('click', showCustom);
+				if(switchToGuidedBtn) switchToGuidedBtn.addEventListener('click', showGuided);
+
+				// Start in guided mode
+				showGuided();
+
+				// ── PRESET DEFINITIONS ──
+				var presets = {
+					// ── SENZA PROXY ──
+					'film-serie-nomfp': {
+						name: '🎬 Film + Serie (Senza Proxy)',
+						mfp: false,
+						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'GuardaSerie', 'Guardoserie', 'Guardaflix'],
+						config: { disableVixsrc:false, vixDirectFhd:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:true, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:true, animeunityEnabled:false, animeunityFhd:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, loonexEnabled:false, toonitaliaEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:false, trailerEnabled:false }
+					},
+					'film-serie-anime-nomfp': {
+						name: '🎬 Film + Serie + Anime (Senza Proxy)',
+						mfp: false,
+						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'Loonex', 'AnimeSaturn', 'AnimeUnity FHD', 'AnimeWorld'],
+						config: { disableVixsrc:false, vixDirectFhd:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:false, guardaflixEnabled:false, disableLiveTv:true, animeunityEnabled:true, animeunityFhd:true, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, loonexEnabled:true, toonitaliaEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:false, trailerEnabled:false }
+					},
+					'film-serie-tv-nomfp': {
+						name: '🎬 Film + Serie + TV Live (Senza Proxy)',
+						mfp: false,
+						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'GuardaSerie', 'Guardoserie', 'Guardaflix', 'Live TV', 'Vavoo NO MFP'],
+						config: { disableVixsrc:false, vixDirectFhd:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:true, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:false, animeunityFhd:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, loonexEnabled:false, toonitaliaEnabled:false, vavooNoMfpEnabled:true, mediaflowMaster:false, trailerEnabled:false }
+					},
+					'film-serie-anime-tv-nomfp': {
+						name: '🎬 Film + Serie + Anime + TV Live (Senza Proxy)',
+						mfp: false,
+						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'GuardaSerie', 'Guardoserie', 'Guardaflix', 'Loonex', 'AnimeSaturn', 'AnimeUnity FHD', 'AnimeWorld', 'Live TV', 'Vavoo NO MFP'],
+						config: { disableVixsrc:false, vixDirectFhd:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:true, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:true, animeunityFhd:true, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, loonexEnabled:true, toonitaliaEnabled:false, vavooNoMfpEnabled:true, mediaflowMaster:false, trailerEnabled:false }
+					},
+					// ── con proxy (EP o MFP) ──
+					'film-serie-mfp': {
+						name: '🎬 Film + Serie (Con Proxy MFP)',
+						mfp: true,
+						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'GuardaSerie', 'Guardoserie', 'Guardaflix'],
+						config: { disableVixsrc:false, vixDirectFhd:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:true, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:true, animeunityEnabled:false, animeunityFhd:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, loonexEnabled:false, toonitaliaEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
+					},
+					'film-serie-anime-mfp': {
+						name: '🎬 Film + Serie + Anime (Con Proxy MFP)',
+						mfp: true,
+						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'GuardaSerie', 'Guardoserie', 'Guardaflix', 'Loonex', 'ToonItalia', 'AnimeSaturn', 'AnimeUnity FHD', 'AnimeWorld'],
+						config: { disableVixsrc:false, vixDirectFhd:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:true, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:true, animeunityEnabled:true, animeunityFhd:true, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, loonexEnabled:true, toonitaliaEnabled:true, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
+					},
+					'film-serie-tv-mfp': {
+						name: '🎬 Film + Serie + TV Live (Con Proxy MFP)',
+						mfp: true,
+						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'GuardaSerie', 'Guardoserie', 'Guardaflix', 'Live TV', 'Vavoo'],
+						config: { disableVixsrc:false, vixDirectFhd:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:true, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:false, animeunityFhd:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, loonexEnabled:false, toonitaliaEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
+					},
+					'film-serie-anime-tv-mfp': {
+						name: '🎬 Film + Serie + Anime + TV Live (Con Proxy MFP)',
+						mfp: true,
+						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'GuardaSerie', 'Guardoserie', 'Guardaflix', 'Live TV', 'Vavoo', 'Loonex', 'ToonItalia', 'AnimeSaturn', 'AnimeUnity FHD', 'AnimeWorld'],
+						config: { disableVixsrc:false, vixDirectFhd:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:true, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:true, animeunityFhd:true, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, loonexEnabled:true, toonitaliaEnabled:true, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
+					}
+				};
+
+				// Wire up trailer toggle label
+				var guidedTrailerToggle = document.getElementById('guidedTrailerToggle');
+				var guidedTrailerLabel = document.getElementById('guidedTrailerLabel');
+				if(guidedTrailerToggle && guidedTrailerLabel){
+					function updateTrailerLabel(){
+						if(guidedTrailerToggle.checked){
+							guidedTrailerLabel.textContent = 'ON';
+							guidedTrailerLabel.style.color = '#00c16e';
+						} else {
+							guidedTrailerLabel.textContent = 'OFF';
+							guidedTrailerLabel.style.color = '#ff3b3b';
+						}
+					}
+					guidedTrailerToggle.addEventListener('change', updateTrailerLabel);
+					updateTrailerLabel();
+				}
+
+				// ── PRESET CARD CLICK HANDLERS ──
+				var presetCards = document.querySelectorAll('.preset-card');
+				var detailsPanel = document.getElementById('presetDetailsPanel');
+				var presetNameEl = document.getElementById('presetName');
+				var presetProvidersEl = document.getElementById('presetProviders');
+				var mfpPromptContainer = document.getElementById('mfpPromptContainer');
+				var guidedMfpUrl = document.getElementById('guidedMfpUrl');
+				var guidedMfpPwd = document.getElementById('guidedMfpPwd');
+				var confirmPresetBtn = document.getElementById('confirmPresetBtn');
+				var cancelPresetBtn = document.getElementById('cancelPresetBtn');
+				var presetGrid = document.getElementById('presetGrid');
+				var selectedPresetKey = null;
+
+				presetCards.forEach(function(card){
+					card.addEventListener('click', function(){
+						var key = card.getAttribute('data-preset');
+						var preset = presets[key];
+						if(!preset) return;
+						selectedPresetKey = key;
+
+						// Highlight active card
+						presetCards.forEach(function(c){ c.style.borderColor='rgba(140,82,255,0.4)'; c.style.background='rgba(45,21,68,0.7)'; });
+						card.style.borderColor='#00c16e';
+						card.style.background='rgba(0,193,110,0.15)';
+
+						// Show details panel
+						if(presetNameEl) presetNameEl.textContent = preset.name;
+						if(presetProvidersEl) presetProvidersEl.innerHTML = preset.providers.map(function(p){ return '<span style="display:inline-block; padding:0.25rem 0.6rem; margin:0.2rem; background:rgba(140,82,255,0.2); border:1px solid rgba(140,82,255,0.4); border-radius:6px; font-size:0.8rem;">' + p + '</span>'; }).join('');
+
+						// Show/hide MFP inputs
+						if(mfpPromptContainer) mfpPromptContainer.style.display = preset.mfp ? 'block' : 'none';
+
+						if(detailsPanel) detailsPanel.style.display = 'block';
+						if(presetGrid) presetGrid.style.display = 'none';
+					});
+				});
+
+				// Cancel preset: back to grid
+				if(cancelPresetBtn) cancelPresetBtn.addEventListener('click', function(){
+					if(detailsPanel) detailsPanel.style.display = 'none';
+					if(presetGrid) presetGrid.style.display = 'grid';
+					selectedPresetKey = null;
+					presetCards.forEach(function(c){ c.style.borderColor='rgba(140,82,255,0.4)'; c.style.background='rgba(45,21,68,0.7)'; });
+				});
+
+				// Confirm preset → FastMode popup → Install
+				if(confirmPresetBtn) confirmPresetBtn.addEventListener('click', function(){
+					var preset = presets[selectedPresetKey];
+					if(!preset) return;
+
+					// Validate MFP URL if needed
+					if(preset.mfp && guidedMfpUrl){
+						var url = guidedMfpUrl.value.trim();
+						if(!url){
+							guidedMfpUrl.style.borderColor='#ff3b3b';
+							guidedMfpUrl.focus();
+							return;
+						}
+						guidedMfpUrl.style.borderColor='rgba(140,82,255,0.5)';
+					}
+
+					// Build config
+					var config = JSON.parse(JSON.stringify(preset.config));
+					// Apply trailer toggle
+					var trailerTog = document.getElementById('guidedTrailerToggle');
+					config.trailerEnabled = trailerTog ? trailerTog.checked : false;
+					if(preset.mfp){
+						config.mediaFlowProxyUrl = guidedMfpUrl ? guidedMfpUrl.value.trim() : '';
+						config.mediaFlowProxyPassword = guidedMfpPwd ? guidedMfpPwd.value.trim() : '';
+					}
+
+					// Show FastMode popup
+					showFastModePopup(config);
+				});
+
+				// ── FASTMODE POPUP ──
+				function showFastModePopup(config){
+					// Create overlay
+					var overlay = document.createElement('div');
+					overlay.id = 'fastModeOverlay';
+					overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;';
+					overlay.innerHTML = '<div style="background:rgba(20,15,35,0.97);border:1px solid rgba(140,82,255,0.6);border-radius:12px;padding:2rem;max-width:420px;width:90%;text-align:center;">'
+						+ '<h3 style="color:#c9b3ff;margin:0 0 1rem 0;">⚡ Modalità Veloce?</h3>'
+						+ '<p style="color:#aaa;font-size:0.85rem;line-height:1.5;margin:0 0 1.5rem 0;">Priorità a StreamingCommunity, poi i provider successivi se SC non presente. Se SC non ha ITA, restituisce comunque SC insieme al primo provider disponibile. Per anime, mostra il primo che risponde (ITA + SUB).</p>'
+						+ '<div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">'
+						+ '<button id="fastModeYes" type="button" style="padding:0.7rem 1.5rem;background:#00c16e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Sì, attiva ⚡</button>'
+						+ '<button id="fastModeNo" type="button" style="padding:0.7rem 1.5rem;background:rgba(140,82,255,0.4);color:#fff;border:1px solid rgba(140,82,255,0.6);border-radius:8px;cursor:pointer;font-weight:600;">No, normale</button>'
+						+ '</div></div>';
+					document.body.appendChild(overlay);
+
+					document.getElementById('fastModeYes').addEventListener('click', function(){
+						config.fastMode = true;
+						overlay.remove();
+						showInstallPanel(config);
+					});
+					document.getElementById('fastModeNo').addEventListener('click', function(){
+						config.fastMode = false;
+						overlay.remove();
+						showInstallPanel(config);
+					});
+				}
+
+				// ── INSTALL PANEL (after preset confirmed) ──
+				function showInstallPanel(config){
+					var configStr = JSON.stringify(config);
+					var encodedConfig = btoa(configStr);
+					var manifestUrl = window.location.protocol + '//' + window.location.host + '/' + encodedConfig + '/manifest.json';
+					var stremioUrl = 'stremio://' + window.location.host + '/' + encodedConfig + '/manifest.json';
+
+					// Hide details panel, show install
+					if(detailsPanel) detailsPanel.style.display = 'none';
+					if(presetGrid) presetGrid.style.display = 'none';
+
+					// Create install panel inside guided section
+					var existingInstall = document.getElementById('guidedInstallPanel');
+					if(existingInstall) existingInstall.remove();
+
+					var panel = document.createElement('div');
+					panel.id = 'guidedInstallPanel';
+					panel.style.cssText = 'text-align:center;padding:1.5rem;';
+					panel.innerHTML = '<h3 style="color:#00c16e;margin:0 0 1rem 0;">✅ Configurazione Pronta!</h3>'
+						+ '<p style="color:#aaa;font-size:0.85rem;margin-bottom:1.5rem;">'
+						+ (config.fastMode ? '⚡ Modalità Veloce attiva' : 'Modalità normale')
+						+ '</p>'
+						+ '<div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-bottom:1rem;">'
+						+ '<a href="' + stremioUrl + '" style="text-decoration:none;"><button type="button" style="padding:0.8rem 2rem;background:#8A5AAB;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:1rem;">INSTALLA SU STREMIO</button></a>'
+						+ '<button id="guidedCopyBtn" type="button" style="padding:0.8rem 2rem;background:#4d2d66;color:#fff;border:1px solid rgba(140,82,255,0.6);border-radius:8px;cursor:pointer;font-weight:700;font-size:1rem;">COPIA MANIFEST URL</button>'
+						+ '</div>'
+						+ '<div style="text-align:center;margin-top:1.5rem;"><button id="guidedBackBtn" type="button" style="display:inline-block;padding:0.75rem 2rem;background:linear-gradient(135deg,rgba(140,82,255,0.25),rgba(100,50,200,0.35));color:#e0ccff;border:1.5px solid rgba(180,130,255,0.7);border-radius:30px;cursor:pointer;font-weight:700;font-size:0.95rem;letter-spacing:0.03em;box-shadow:0 0 14px rgba(140,82,255,0.45),0 0 30px rgba(140,82,255,0.2);transition:all 0.25s ease;">⬅ Riconfigura</button></div>';
+
+					// Show existing Ko-fi widget
+					if(kofiRow) kofiRow.style.display='block';
+
+					var guidedSec = document.getElementById('guidedInstallerSection');
+					if(guidedSec) guidedSec.appendChild(panel);
+
+					// Copy button
+					var copyBtn = document.getElementById('guidedCopyBtn');
+					if(copyBtn){
+						copyBtn.addEventListener('click', function(){
+							try {
+								navigator.clipboard.writeText(manifestUrl).then(function(){
+									copyBtn.textContent='COPIATO!';
+									copyBtn.style.background='#1f8b4c';
+									setTimeout(function(){ copyBtn.textContent='COPIA MANIFEST URL'; copyBtn.style.background='#4d2d66'; },1600);
+								});
+							} catch(e) { alert('Copia manualmente: ' + manifestUrl); }
+						});
+					}
+
+					// Back button
+					var backBtn = document.getElementById('guidedBackBtn');
+					if(backBtn){
+						backBtn.addEventListener('click', function(){
+							panel.remove();
+							if(kofiRow) kofiRow.style.display='none';
+							if(presetGrid) presetGrid.style.display = 'grid';
+							selectedPresetKey = null;
+							presetCards.forEach(function(c){ c.style.borderColor='rgba(140,82,255,0.4)'; c.style.background='rgba(45,21,68,0.7)'; });
+						});
+					}
+				}
+			})();
 		</script>
 	</body>
 
