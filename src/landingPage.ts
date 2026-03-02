@@ -275,6 +275,34 @@ button:active {
 .actions-row #copyManifestLink {
 	margin: 0; /* override global button margin */
 }
+.actions-row .install-link button {
+	padding: 0.85rem 2.2rem;
+	background: linear-gradient(135deg, #7c3aff, #a855f7);
+	color: #fff;
+	border: 2px solid #c084fc;
+	border-radius: 10px;
+	cursor: pointer;
+	font-weight: 800;
+	font-size: 1.05rem;
+	letter-spacing: 0.05em;
+	box-shadow: 0 0 18px rgba(168,85,247,0.9), 0 0 40px rgba(168,85,247,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
+	text-shadow: 0 0 8px rgba(255,255,255,0.6);
+	transition: all 0.2s ease;
+}
+.actions-row #copyManifestLink {
+	padding: 0.85rem 2.2rem;
+	background: linear-gradient(135deg, #1e3a8a, #2563eb);
+	color: #fff;
+	border: 2px solid #60a5fa;
+	border-radius: 10px;
+	cursor: pointer;
+	font-weight: 800;
+	font-size: 1.05rem;
+	letter-spacing: 0.05em;
+	box-shadow: 0 0 18px rgba(96,165,250,0.9), 0 0 40px rgba(96,165,250,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
+	text-shadow: 0 0 8px rgba(255,255,255,0.6);
+	transition: all 0.2s ease;
+}
 
 @keyframes pulse {
 	0% { box-shadow: 0 0 0 0 rgba(140, 82, 255, 0.3); }
@@ -1263,10 +1291,7 @@ function landingTemplate(manifest: any) {
 				</a>
 				<button id="copyManifestLink">COPIA MANIFEST URL</button>
 			</div>
-			<div class="kofi-support" style="margin:1.2rem 0 0; text-align:center;">
-				<script type='text/javascript' src='https://storage.ko-fi.com/cdn/widget/Widget_2.js'></script>
-				<script type='text/javascript'>kofiwidget2.init('Un Grog per noi 🍻', '#00b521', 'G2G41MG3ZN');kofiwidget2.draw();</script>
-			</div>
+			<div id="customKofiSlot" style="margin:1.2rem 0 0; text-align:center;"></div>
 			${contactHTML}
 		</div>
 		<script>
@@ -1288,20 +1313,39 @@ function landingTemplate(manifest: any) {
 				var switchToCustomBtn = document.getElementById('switchToCustomBtn');
 				var switchToGuidedBtn = document.getElementById('switchToGuidedBtn');
 				var actionsRow = document.querySelector('.actions-row');
-				var kofiRow = document.querySelector('.kofi-support');
+
+				function buildKofiBtn(){
+					var a = document.createElement('a');
+					a.href = 'https://ko-fi.com/G2G41MG3ZN';
+					a.target = '_blank';
+					a.rel = 'noopener';
+					a.style.cssText = 'display:inline-flex;align-items:center;gap:0.5rem;padding:0.55rem 1.4rem;background:#00b521;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;box-shadow:0 2px 12px rgba(0,181,33,0.45);transition:opacity 0.2s,box-shadow 0.2s;';
+					a.addEventListener('mouseover', function(){ a.style.boxShadow='0 2px 20px rgba(0,181,33,0.8)'; a.style.opacity='0.9'; });
+					a.addEventListener('mouseout',  function(){ a.style.boxShadow='0 2px 12px rgba(0,181,33,0.45)'; a.style.opacity='1'; });
+					var img = document.createElement('img');
+					img.src = 'https://storage.ko-fi.com/cdn/cup-border.png';
+					img.alt = '';
+					img.style.cssText = 'height:22px;border:0;';
+					var txt = document.createTextNode('Un Grog per noi \uD83C\uDF7B');
+					a.appendChild(img);
+					a.appendChild(txt);
+					return a;
+				}
 
 				function showGuided(){
 					if(guidedSection) guidedSection.style.display='block';
 					if(customSection) customSection.style.display='none';
 					if(actionsRow) actionsRow.style.display='none';
-					if(kofiRow) kofiRow.style.display='none';
 				}
 				function showCustom(){
 					if(guidedSection) guidedSection.style.display='none';
 					if(customSection) customSection.style.display='block';
 					if(actionsRow) actionsRow.style.display='flex';
-					if(kofiRow) kofiRow.style.display='block';
 				}
+
+				// Populate custom Ko-fi slot immediately
+				var customKofiSlot = document.getElementById('customKofiSlot');
+				if(customKofiSlot && !customKofiSlot.hasChildNodes()) customKofiSlot.appendChild(buildKofiBtn());
 				if(switchToCustomBtn) switchToCustomBtn.addEventListener('click', showCustom);
 				if(switchToGuidedBtn) switchToGuidedBtn.addEventListener('click', showGuided);
 
@@ -1513,13 +1557,9 @@ function landingTemplate(manifest: any) {
 					var guidedSec = document.getElementById('guidedInstallerSection');
 					if(guidedSec) guidedSec.appendChild(panel);
 
-					// Move the already-rendered ko-fi widget into the install panel slot
+					// Fill the ko-fi slot with the shared button builder
 					var kofiSlot = document.getElementById('guidedKofiSlot');
-					if(kofiSlot && kofiRow){
-						kofiRow.style.display = 'block';
-						kofiSlot.parentNode.insertBefore(kofiRow, kofiSlot);
-						kofiSlot.parentNode.removeChild(kofiSlot);
-					}
+					if(kofiSlot && !kofiSlot.hasChildNodes()) kofiSlot.appendChild(buildKofiBtn());
 
 					// Copy button
 					var copyBtn = document.getElementById('guidedCopyBtn');
@@ -1547,7 +1587,6 @@ function landingTemplate(manifest: any) {
 					if(backBtn){
 						backBtn.addEventListener('click', function(){
 							panel.remove();
-							if(kofiRow) kofiRow.style.display='none';
 							if(presetGrid) presetGrid.style.display = 'grid';
 							selectedPresetKey = null;
 							presetCards.forEach(function(c){ c.style.borderColor='rgba(140,82,255,0.4)'; c.style.background='rgba(45,21,68,0.7)'; });
