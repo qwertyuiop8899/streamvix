@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.16.28](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.27...v1.16.28) (2026-03-02)
+
+
+### Bug Fixes
+
+* addon ([47e80d3](https://github.com/qwertyuiop8899/streamvix/commit/47e80d3d283447cca2424d84bcc956082b19f95a))
+* landing ([f4c933c](https://github.com/qwertyuiop8899/streamvix/commit/f4c933c915e8739b1739f04079ec655a8e822441))
+* landing ([2d69d72](https://github.com/qwertyuiop8899/streamvix/commit/2d69d7290b3d0826a2f518c97446d8dbf3c0318d))
+* landingPage.ts ([a836499](https://github.com/qwertyuiop8899/streamvix/commit/a836499a67562d2f90c43aa398531834120491b7))
+* new ui ([c48d588](https://github.com/qwertyuiop8899/streamvix/commit/c48d5887970e3f31e7d434c1d31efbfd2ac35ee2))
+
 ## [1.16.27](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.26...v1.16.27) (2026-03-02)
 
 
