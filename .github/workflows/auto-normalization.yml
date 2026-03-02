@@ -15,12 +15,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Skip se label non valida o è AnimeUnity
+      - name: Skip se label non valida o è AnimeUnity/AnimeWorld
         if: |
           (!contains(github.event.issue.labels.*.name, 'normalizzazione') &&
            !contains(github.event.issue.labels.*.name, 'richiesta')) ||
           contains(github.event.issue.labels.*.name, 'normalizzazione-animeunity') ||
-          contains(github.event.issue.labels.*.name, 'normalizzazione-animeunity')
+          contains(github.event.issue.labels.*.name, 'normalizzazione-animeworld')
         run: |
           echo "Label non applicabile a workflow AnimeSaturn: step saltato (success)."
           echo "skip=true" >> $GITHUB_ENV
