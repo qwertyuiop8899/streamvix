@@ -188,7 +188,7 @@ async function searchGuardoserie(query: string, year: string): Promise<string | 
         // Normalizza query per matching
         const queryLower = query.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-        // Cerca tutti i link che potrebbero essere risultati
+        // Cerca tutti i link che potrebbero essere risultati serie
         const allLinks: { href: string, text: string }[] = [];
         $('a[href*="/serie/"]').each((_, el) => {
             const href = $(el).attr('href');
@@ -407,7 +407,7 @@ export async function getGuardoserieStreams(type: string, id: string, tmdbApiKey
 }
 
 async function getGuardoserieStreamsCore(type: string, id: string, tmdbApiKey?: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
-    if (type !== 'series' && type !== 'movie') return [];
+    if (type !== 'series') return [];
 
     console.log(`[Guardoserie] Requesting: ${id} (${type}) [proxy=${useProxyFallback}]`);
 
