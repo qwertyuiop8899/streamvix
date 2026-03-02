@@ -1349,8 +1349,15 @@ function landingTemplate(manifest: any) {
 				if(switchToCustomBtn) switchToCustomBtn.addEventListener('click', showCustom);
 				if(switchToGuidedBtn) switchToGuidedBtn.addEventListener('click', showGuided);
 
-				// Always start in guided mode
-				showGuided();
+				// If URL has existing config (e.g. /<base64>/configure) → open custom mode
+				// Otherwise open guided/preset mode
+				var _pp = window.location.pathname.split('/').filter(function(s){ return s.length > 0; });
+				var _hasCfg = _pp.length >= 2 && _pp[_pp.length - 1] === 'configure' && _pp[_pp.length - 2].length > 10;
+				if (_hasCfg) {
+					showCustom();
+				} else {
+					showGuided();
+				}
 
 				// ── PRESET DEFINITIONS ──
 				var presets = {
