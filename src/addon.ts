@@ -753,7 +753,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "10.3.23",
+    version: "10.5.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -6669,6 +6669,18 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
                 !(c && (c as any).id === 'streamvix_dvr')
             );
         }
+
+        // ── Dynamic name icons based on user config ──
+        {
+            const effectiveFast = (cfgFromUrl as any)?.fastMode ?? (configCache as any)?.fastMode;
+            const effectiveProxy = (cfgFromUrl as any)?.mediaFlowProxyUrl ?? (configCache as any)?.mediaFlowProxyUrl;
+            let icons = '';
+            if (effectiveFast) icons += ' ⚡';
+            if (effectiveProxy && String(effectiveProxy).trim()) icons += ' 🌐';
+            if (!effectiveDisable) icons += ' 📺';
+            if (icons) (filtered as any).name = ((filtered as any).name || '') + icons;
+        }
+
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
