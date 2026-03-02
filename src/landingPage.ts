@@ -1305,15 +1305,8 @@ function landingTemplate(manifest: any) {
 				if(switchToCustomBtn) switchToCustomBtn.addEventListener('click', showCustom);
 				if(switchToGuidedBtn) switchToGuidedBtn.addEventListener('click', showGuided);
 
-				// Auto-switch to custom mode if there is an existing config in the URL
-				// URL pattern: /{base64config}/configure — the first path segment is the config
-				var pathParts = window.location.pathname.split('/').filter(Boolean);
-				var hasExistingConfig = pathParts.length >= 2 && pathParts[pathParts.length - 1] === 'configure' && pathParts[0].length > 10;
-				if(hasExistingConfig) {
-					showCustom();
-				} else {
-					showGuided();
-				}
+				// Always start in guided mode
+				showGuided();
 
 				// ── PRESET DEFINITIONS ──
 				var presets = {
@@ -1514,11 +1507,19 @@ function landingTemplate(manifest: any) {
 						+ '<a href="' + stremioUrl + '" style="text-decoration:none;"><button type="button" style="padding:0.85rem 2.2rem;background:linear-gradient(135deg,#7c3aff,#a855f7);color:#fff;border:2px solid #c084fc;border-radius:10px;cursor:pointer;font-weight:800;font-size:1.05rem;letter-spacing:0.05em;box-shadow:0 0 18px rgba(168,85,247,0.9),0 0 40px rgba(168,85,247,0.45),inset 0 1px 0 rgba(255,255,255,0.15);text-shadow:0 0 8px rgba(255,255,255,0.6);transition:all 0.2s ease;">🎬 INSTALLA SU STREMIO</button></a>'
 						+ '<button id="guidedCopyBtn" type="button" style="padding:0.85rem 2.2rem;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:2px solid #60a5fa;border-radius:10px;cursor:pointer;font-weight:800;font-size:1.05rem;letter-spacing:0.05em;box-shadow:0 0 18px rgba(96,165,250,0.9),0 0 40px rgba(96,165,250,0.45),inset 0 1px 0 rgba(255,255,255,0.15);text-shadow:0 0 8px rgba(255,255,255,0.6);transition:all 0.2s ease;">📋 COPIA MANIFEST URL</button>'
 						+ '</div>'
-						+ '<div style="margin:1.2rem 0;text-align:center;"><a href="https://ko-fi.com/G2G41MG3ZN" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;"><img src="https://storage.ko-fi.com/cdn/kofi3.png?v=6" alt="Un Grog per noi 🍻" style="height:40px;border:0;filter:drop-shadow(0 0 8px rgba(0,181,33,0.7));transition:filter 0.2s;" onmouseover="this.style.filter=\'drop-shadow(0 0 14px rgba(0,181,33,1))\'" onmouseout="this.style.filter=\'drop-shadow(0 0 8px rgba(0,181,33,0.7))\'"></a></div>'
+						+ '<div id="guidedKofiSlot" style="margin:1.2rem 0;text-align:center;"></div>'
 						+ '<div style="text-align:center;margin-top:1rem;"><button id="guidedBackBtn" type="button" style="display:inline-block;padding:0.75rem 2rem;background:linear-gradient(135deg,rgba(140,82,255,0.25),rgba(100,50,200,0.35));color:#e0ccff;border:1.5px solid rgba(180,130,255,0.7);border-radius:30px;cursor:pointer;font-weight:700;font-size:0.95rem;letter-spacing:0.03em;box-shadow:0 0 14px rgba(140,82,255,0.45),0 0 30px rgba(140,82,255,0.2);transition:all 0.25s ease;">⬅ Riconfigura</button></div>';
 
 					var guidedSec = document.getElementById('guidedInstallerSection');
 					if(guidedSec) guidedSec.appendChild(panel);
+
+					// Move the already-rendered ko-fi widget into the install panel slot
+					var kofiSlot = document.getElementById('guidedKofiSlot');
+					if(kofiSlot && kofiRow){
+						kofiRow.style.display = 'block';
+						kofiSlot.parentNode.insertBefore(kofiRow, kofiSlot);
+						kofiSlot.parentNode.removeChild(kofiSlot);
+					}
 
 					// Copy button
 					var copyBtn = document.getElementById('guidedCopyBtn');
