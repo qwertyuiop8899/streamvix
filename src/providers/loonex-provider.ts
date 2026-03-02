@@ -4,6 +4,7 @@ import { Stream } from 'stremio-addon-sdk';
 import { getLoonexTitle } from '../config/loonexTitleMap';
 
 const BASE_URL = 'https://loonex.eu';
+const CATALOG_URL = 'https://loonex.eu/cartoni/';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 interface LoonexSeries {
@@ -30,6 +31,47 @@ function normalizeTitle(title: string): string {
 }
 
 /**
+ * Estrae il numero di episodio dal titolo in tutti i formati usati da Loonex:
+ * "1 - nome", "Episodio 01", "1x01", "episodio 1x01", "puntata 1", ecc.
+ */
+function extractEpisodeNumber(title: string): number | null {
+    const t = title.trim();
+
+    // "1x01", "S1E01", "episodio 1x01" → prende la parte DOPO x/E
+    let m = t.match(/(?:^|\s|[xXeE])\d+[xX](\d+)/);
+    if (m) return parseInt(m[1]);
+
+    m = t.match(/[Ss]\d+[Ee](\d+)/);
+    if (m) return parseInt(m[1]);
+
+    // "Episodio 01", "episodio 1", "puntata 1", "Ep. 3"
+    m = t.match(/(?:episodio|puntata|ep\.?)\s*(\d+)/i);
+    if (m) return parseInt(m[1]);
+
+    // "1 - Titolo episodio" → numero all'inizio seguito da trattino
+    m = t.match(/^(\d+)\s*[-–]/);
+    if (m) return parseInt(m[1]);
+
+    // Numero nudo all'inizio (es: "01", "1")
+    m = t.match(/^(\d+)(?:\s|$)/);
+    if (m) return parseInt(m[1]);
+
+    return null;
+}
+
+/**
+ * Estrae il numero di stagione dal testo del bottone accordion.
+ * Gestisce: "Stagione 1", "Season 2", "Stagione1", "Tutti gli episodi" (→ null = stagione unica)
+ */
+function extractSeasonNumber(seasonTitle: string): number | null {
+    const t = seasonTitle.toLowerCase();
+    // Salta sezioni extra/speciali
+    if (/extra|special|speciali|hype|bonus/.test(t)) return -1;
+    const m = t.match(/(?:stagione|season)\s*(\d+)/);
+    return m ? parseInt(m[1]) : null; // null = stagione unica ("Tutti gli episodi")
+}
+
+/**
  * Cerca una serie su Loonex
  */
 async function searchSeries(searchTitle: string, imdbId?: string, tmdbId?: string): Promise<LoonexSeries | null> {
@@ -45,8 +87,8 @@ async function searchSeries(searchTitle: string, imdbId?: string, tmdbId?: strin
         const normalizedSearch = normalizeTitle(targetTitle);
         console.log(`[Loonex] Searching for: "${searchTitle}" (normalized: "${normalizedSearch}")`);
 
-        // 2. Scarica la homepage
-        const response = await axios.get(BASE_URL, {
+        // 2. Scarica il catalogo cartoni (homepage spostata su /cartoni/)
+        const response = await axios.get(CATALOG_URL, {
             headers: { 'User-Agent': USER_AGENT },
             timeout: 10000
         });
@@ -54,26 +96,30 @@ async function searchSeries(searchTitle: string, imdbId?: string, tmdbId?: strin
         const $ = cheerio.load(response.data);
         const series: LoonexSeries[] = [];
 
-        // 3. Estrai tutte le serie dalla homepage (Nuova struttura 2025)
-        $('.lx-cartoon-col').each((_, element) => {
+        // 3. Estrai tutte le serie usando data-title (attributo funzionale, immune ai redesign CSS)
+        // Ogni card del catalogo ha data-title="..." e un <a href="?cartone=..."> interno
+        $('[data-title]').each((_, element) => {
             const $item = $(element);
+            const title = ($item.attr('data-title') || '').trim();
 
-            // Il titolo è dentro .lx-search-title
-            // Nota: .text() potrebbe includere spazi extra, quindi trim() è essenziale
-            const title = $item.find('.lx-search-title').text().trim();
+            // href relativo tipo "?cartone=over-the-garden-wall-1772122256"
+            const rawHref = $item.find('a[href]').attr('href') || '';
+            if (!title || !rawHref) return;
 
-            // Il link è l'elemento <a> principale, spesso figlio diretto o padre della card
-            // In questo caso struttura è: <div class="lx-cartoon-col"> <a href="..."> <div class="card"> ...
-            const href = $item.find('a').attr('href');
-
-            if (title && href) {
-                // Rimuovi query params se presenti per pulizia (opzionale) o mantieni tutto
-                series.push({
-                    title,
-                    url: href,
-                    normalizedTitle: normalizeTitle(title)
-                });
+            let href: string;
+            if (rawHref.startsWith('http')) {
+                href = rawHref;
+            } else if (rawHref.startsWith('?')) {
+                href = CATALOG_URL + rawHref;
+            } else {
+                href = BASE_URL + (rawHref.startsWith('/') ? '' : '/') + rawHref;
             }
+
+            series.push({
+                title,
+                url: href,
+                normalizedTitle: normalizeTitle(title)
+            });
         });
 
         console.log(`[Loonex] Found ${series.length} series on homepage`);
@@ -111,32 +157,33 @@ async function getEpisodes(seriesUrl: string): Promise<LoonexEpisode[]> {
         const $ = cheerio.load(response.data);
         const episodes: LoonexEpisode[] = [];
 
-        // Trova tutte le stagioni
-        $('.season-header').each((_, seasonElement) => {
-            const $season = $(seasonElement);
-            const seasonTitle = $season.find('.season-title').text().trim();
-
-            // Prendi il target del collapse per trovare gli episodi
-            const target = $season.attr('data-bs-target');
+        // Struttura reale: ogni stagione ha un <button data-bs-target="#collapseN">Stagione X</button>
+        // e un <div id="collapseN"> con i link agli episodi /guarda/...
+        $('button[data-bs-target]').each((_, btnElement) => {
+            const $btn = $(btnElement);
+            const seasonTitle = $btn.text().trim().replace(/\s+/g, ' ');
+            const target = $btn.attr('data-bs-target');
             if (!target) return;
 
-            // Trova il contenitore degli episodi
-            const $episodeContainer = $(target);
+            const $container = $(target);
 
-            // Estrai tutti i link "GUARDA" in questa stagione
-            $episodeContainer.find('.btn-watch').each((_, btnElement) => {
-                const $btn = $(btnElement);
-                const episodeUrl = $btn.attr('href');
+            // Cerca tutti i link a /guarda/ dentro il collapse
+            $container.find('a[href*="/guarda/"]').each((_, linkEl) => {
+                const $link = $(linkEl);
+                const episodeUrl = $link.attr('href') || '';
+                // Il titolo episodio è nel testo del link o in un <span> vicino
+                const episodeTitle = $link.text().trim() ||
+                    $link.closest('div').find('span').first().text().trim() ||
+                    'Episodio';
 
-                // Trova il titolo dell'episodio: è nel primo .d-flex > span del parent
-                const parentDiv = $btn.closest('.d-flex').parent();
-                const firstDFlex = parentDiv.find('.d-flex').first();
-                const episodeTitle = firstDFlex.find('span').first().text().trim();
-
-                if (episodeUrl && episodeUrl.includes('/guarda/')) {
+                if (episodeUrl) {
+                    // Rendi assoluto se necessario
+                    const absUrl = episodeUrl.startsWith('http')
+                        ? episodeUrl
+                        : BASE_URL + (episodeUrl.startsWith('/') ? '' : '/') + episodeUrl;
                     episodes.push({
-                        title: episodeTitle || 'Episodio',
-                        episodeUrl,
+                        title: episodeTitle,
+                        episodeUrl: absUrl,
                         seasonTitle
                     });
                 }
@@ -164,9 +211,29 @@ async function getM3U8Url(episodeUrl: string): Promise<string | null> {
             timeout: 10000
         });
 
-        const $ = cheerio.load(response.data);
+        const html: string = response.data;
 
-        // Cerca il tag <source> con l'M3U8
+        // L'URL M3U8 è base64-encoded in una variabile JS:
+        // var encodedStr = "BASE64...";
+        // var videoSrc = atob(encodedStr);
+        const b64Match = html.match(/var\s+encodedStr\s*=\s*["']([A-Za-z0-9+/=]+)["']/);
+        if (b64Match) {
+            try {
+                const decoded = Buffer.from(b64Match[1], 'base64').toString('utf-8');
+                if (decoded && decoded.startsWith('http') && !decoded.includes('nontrovato')) {
+                    // URL-encoda spazi e caratteri speciali mantenendo il protocollo/struttura
+                    const encoded = decoded
+                        .split('/')
+                        .map((seg, i) => i < 3 ? seg : encodeURIComponent(seg))
+                        .join('/');
+                    console.log(`[Loonex] Found M3U8 (base64): ${encoded}`);
+                    return encoded;
+                }
+            } catch { /* fallthrough */ }
+        }
+
+        // Fallback: cerca direttamente .m3u8 nell'HTML
+        const $ = cheerio.load(html);
         const m3u8Url = $('#video-source').attr('src') ||
             $('source[type="application/x-mpegURL"]').attr('src') ||
             $('source').filter((_, el) => {
@@ -174,9 +241,16 @@ async function getM3U8Url(episodeUrl: string): Promise<string | null> {
                 return src.includes('.m3u8');
             }).attr('src');
 
-        if (m3u8Url) {
-            console.log(`[Loonex] Found M3U8: ${m3u8Url}`);
+        if (m3u8Url && !m3u8Url.includes('1-second-blank-video')) {
+            console.log(`[Loonex] Found M3U8 (tag): ${m3u8Url}`);
             return m3u8Url;
+        }
+
+        // Fallback regex generica su qualsiasi .m3u8 nell'HTML
+        const rawMatch = html.match(/https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/);
+        if (rawMatch && !rawMatch[0].includes('1-second-blank-video')) {
+            console.log(`[Loonex] Found M3U8 (regex): ${rawMatch[0]}`);
+            return rawMatch[0];
         }
 
         console.log('[Loonex] No M3U8 found in episode page');
@@ -307,12 +381,35 @@ export async function getLoonexStreams(
 
         console.log(`[Loonex] Searching for S${season}E${episode} among ${episodes.length} episodes`);
 
-        // Usa direttamente l'indice: episode 1 = indice 0, episode 2 = indice 1, ecc.
-        const targetIndex = episode - 1;
+        // Filtra per stagione usando extractSeasonNumber
+        // null = stagione unica ("Tutti gli episodi") → accetta qualunque season richiesta
+        // -1 = Extra/Speciali → escludi sempre per episodi normali
+        const seasonEpisodes = episodes.filter(ep => {
+            const sn = extractSeasonNumber(ep.seasonTitle);
+            if (sn === -1) return false;          // Salta Extra/Speciali
+            if (sn === null) return true;          // Stagione unica
+            return sn === season;
+        });
 
-        if (targetIndex >= 0 && targetIndex < episodes.length) {
-            const targetEpisode = episodes[targetIndex];
-            console.log(`[Loonex] Trying episode at index ${targetIndex}: ${targetEpisode.episodeUrl}`);
+        const episodeList = seasonEpisodes.length > 0 ? seasonEpisodes : episodes.filter(ep => extractSeasonNumber(ep.seasonTitle) !== -1);
+        console.log(`[Loonex] Season filter: ${seasonEpisodes.length} eps for S${season}, using ${episodeList.length} total`);
+
+        // Prova prima a trovare l'episodio per numero estratto dal titolo
+        let targetEpisode = episodeList.find(ep => extractEpisodeNumber(ep.title) === episode);
+
+        // Fallback: usa l'indice posizionale (episode 1 = indice 0)
+        if (!targetEpisode) {
+            const targetIndex = episode - 1;
+            console.log(`[Loonex] No title match for E${episode}, trying index ${targetIndex}`);
+            targetEpisode = (targetIndex >= 0 && targetIndex < episodeList.length)
+                ? episodeList[targetIndex]
+                : undefined;
+        } else {
+            console.log(`[Loonex] Matched E${episode} by title: "${targetEpisode.title}"`);
+        }
+
+        if (targetEpisode) {
+            console.log(`[Loonex] Fetching stream for: ${targetEpisode.episodeUrl}`);
 
             const m3u8Url = await getM3U8Url(targetEpisode.episodeUrl);
             if (m3u8Url) {
@@ -332,12 +429,20 @@ export async function getLoonexStreams(
                     title: streamDescription,
                     url: m3u8Url,
                     behaviorHints: {
-                        bingeGroup: `loonex-${imdbId || tmdbId || 'unknown'}`
-                    }
+                        notWebReady: true,
+                        bingeGroup: `loonex-${imdbId || tmdbId || 'unknown'}`,
+                        proxyHeaders: {
+                            request: {
+                                'Origin': 'https://loonex.eu',
+                                'Referer': 'https://loonex.eu/',
+                                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
+                            }
+                        }
+                    } as any
                 });
             }
         } else {
-            console.log(`[Loonex] Episode index ${targetIndex} out of range (0-${episodes.length - 1})`);
+            console.log(`[Loonex] Episode E${episode} not found in ${episodeList.length} available episodes`);
         }
 
         console.log(`[Loonex] Returning ${streams.length} stream(s)`);
