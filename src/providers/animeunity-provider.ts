@@ -1,62 +1,55 @@
-import { spawn } from 'child_process';
 import { KitsuProvider } from './kitsu';
 import { getDomain } from '../utils/domains';
 import { formatMediaFlowUrl } from '../utils/mediaflow';
 import { AnimeUnityConfig, StreamForStremio } from '../types/animeunity';
-import * as path from 'path';
 import axios from 'axios';
+import * as cheerio from 'cheerio';
 import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
 import { extractFromUrl } from '../extractors';
+import {
+  createCaches,
+  fetchResource,
+  getProviderUrl,
+  mapLimit,
+  normalizeEpisodesList,
+  normalizeRequestedEpisode,
+  parseEpisodeNumber,
+  parsePositiveInt,
+  pickEpisodeEntry,
+  resolveLookupRequest,
+  fetchMappingPayload,
+  extractProviderPaths,
+  extractTmdbIdFromMappingPayload,
+  resolveEpisodeFromMappingPayload,
+  toAbsoluteUrl,
+  inferSourceTag,
+  collectMediaLinksFromEmbedHtml,
+  sanitizeAnimeTitle,
+} from './anime-core';
 
-// Helper function to invoke the Python scraper
-async function invokePythonScraper(args: string[]): Promise<any> {
-    const scriptPath = path.join(__dirname, 'animeunity_scraper.py');
+const USER_AGENT =
+  process.env.AU_USER_AGENT ||
+  process.env.AS_USER_AGENT ||
+  process.env.AW_USER_AGENT ||
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
 
-    // Use python3, ensure it's in the system's PATH
-    const command = 'python3';
+const FETCH_TIMEOUT = Number.parseInt(process.env.ANIMEUNITY_FETCH_TIMEOUT_MS || '10000', 10) || 10000;
+const TTL = {
+  http: 5 * 60 * 1000,
+  animePage: 15 * 60 * 1000,
+  streamPage: 5 * 60 * 1000,
+  mapping: 2 * 60 * 1000,
+};
 
-    return new Promise((resolve, reject) => {
-        const pythonProcess = spawn(command, [scriptPath, ...args]);
+const caches = createCaches();
 
-        let stdout = '';
-        let stderr = '';
-
-        pythonProcess.stdout.on('data', (data: Buffer) => {
-            stdout += data.toString();
-        });
-
-        pythonProcess.stderr.on('data', (data: Buffer) => {
-            stderr += data.toString();
-            // Log stderr immediatamente per errori AnimeUnity
-            const stderrLine = data.toString().trim();
-            if (stderrLine.includes('[AnimeUnity][ERROR]') || stderrLine.includes('[AnimeUnity][WARN]')) {
-                console.error(stderrLine);
-            }
-        });
-
-        pythonProcess.on('close', (code: number) => {
-            if (code !== 0) {
-                console.error(`[AnimeUnity][PY] Python script exited with code ${code}`);
-                if (stderr) {
-                    console.error(`[AnimeUnity][PY] Error details: ${stderr}`);
-                }
-                return reject(new Error(`Python script error: ${stderr}`));
-            }
-            try {
-                resolve(JSON.parse(stdout));
-            } catch (e) {
-                console.error('[AnimeUnity][PY] Failed to parse Python script output:');
-                console.error(stdout);
-                reject(new Error('Failed to parse Python script output.'));
-            }
-        });
-
-        pythonProcess.on('error', (err: Error) => {
-            console.error('[AnimeUnity][PY] Failed to start Python script:', err);
-            reject(err);
-        });
-    });
+interface AnimeUnitySession {
+  csrfToken: string;
+  cookieHeader: string;
+  expiresAt: number;
 }
+
+let sessionCache: AnimeUnitySession | null = null;
 
 interface AnimeUnitySearchResult {
     id: number;
@@ -69,14 +62,261 @@ interface AnimeUnitySearchResult {
 
 interface AnimeUnityEpisode {
     id: number;
-    number: string;
+    number: string | number;
     name?: string;
 }
 
 interface AnimeUnityStreamData {
-    episode_page: string;
-    embed_url: string;
-    mp4_url: string;
+    episode_page: string | null;
+    embed_url: string | null;
+    mp4_url: string | null;
+}
+
+function getUnityBaseUrl(): string {
+  const configured = getProviderUrl('animeunity', ['ANIMEUNITY_BASE_URL', 'AU_BASE_URL']);
+  if (configured) return configured.replace(/\/+$/, '');
+  const host = getDomain('animeunity') || 'animeunity.so';
+  return `https://www.${host}`.replace(/\/+$/, '');
+}
+
+function normalizeAnimePath(pathOrUrl: string | null | undefined): string | null {
+  if (!pathOrUrl) return null;
+  let value = String(pathOrUrl).trim();
+  if (!value) return null;
+
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      value = new URL(value).pathname;
+    } catch {
+      return null;
+    }
+  }
+
+  if (!value.startsWith('/')) value = `/${value}`;
+  value = value.replace(/\/+$/, '');
+
+  const match = value.match(/^\/(?:anime\/\d+(?:-[^/?#]+)?|play\/[^/?#]+)/i);
+  return match ? match[0] : null;
+}
+
+function buildUnityUrl(pathOrUrl: string | null | undefined): string | null {
+  const text = String(pathOrUrl || '').trim();
+  if (!text) return null;
+  if (/^https?:\/\//i.test(text)) return text;
+  if (text.startsWith('/')) return `${getUnityBaseUrl()}${text}`;
+  return `${getUnityBaseUrl()}/${text}`;
+}
+
+function parseVideoPlayerJson(rawValue: string | undefined | null, fallback: any) {
+  const text = String(rawValue || '').trim();
+  if (!text) return fallback;
+  const attempts = [
+    text,
+    text
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>'),
+  ];
+  for (const candidate of attempts) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // continue
+    }
+  }
+  return fallback;
+}
+
+function extractAnimeIdSlugFromPath(animePath: string): { animeId: number | null; animeSlug: string | null } {
+  const match = String(animePath || '').match(/^\/anime\/(\d+)(?:-([^/?#]+))?/i);
+  return {
+    animeId: parsePositiveInt(match?.[1]),
+    animeSlug: match?.[2] ? String(match[2]).trim() : null,
+  };
+}
+
+async function getSessionData(): Promise<AnimeUnitySession | null> {
+  if (sessionCache && sessionCache.expiresAt > Date.now()) return sessionCache;
+  try {
+    const response = await axios.get(`${getUnityBaseUrl()}/`, {
+      timeout: FETCH_TIMEOUT,
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+      },
+    });
+
+    const html = String(response.data || '');
+    const $ = cheerio.load(html);
+    const csrfToken = $('meta[name="csrf-token"]').attr('content') || '';
+    const setCookies: string[] = Array.isArray(response.headers['set-cookie']) ? response.headers['set-cookie'] : [];
+    const cookieHeader = setCookies.map((cookie) => String(cookie).split(';')[0]).filter(Boolean).join('; ');
+    if (!csrfToken) return null;
+
+    sessionCache = {
+      csrfToken,
+      cookieHeader,
+      expiresAt: Date.now() + TTL.http,
+    };
+    return sessionCache;
+  } catch (error: any) {
+    console.warn('[AnimeUnity] session bootstrap failed:', error?.message || error);
+    return null;
+  }
+}
+
+async function searchEndpoint(query: string, dubbed = false): Promise<AnimeUnitySearchResult[]> {
+  const session = await getSessionData();
+  if (!session) return [];
+
+  const headers = {
+    'User-Agent': USER_AGENT,
+    'X-Requested-With': 'XMLHttpRequest',
+    'Content-Type': 'application/json;charset=utf-8',
+    'X-CSRF-Token': session.csrfToken,
+    Referer: getUnityBaseUrl(),
+    Cookie: session.cookieHeader,
+  };
+
+  const seen = new Set<number>();
+  const out: AnimeUnitySearchResult[] = [];
+
+  const requests = [
+    axios.post(
+      `${getUnityBaseUrl()}/livesearch`,
+      { title: query },
+      { timeout: FETCH_TIMEOUT, headers }
+    ).catch(() => null),
+    axios.post(
+      `${getUnityBaseUrl()}/archivio/get-animes`,
+      {
+        title: query,
+        type: false,
+        year: false,
+        order: 'Lista A-Z',
+        status: false,
+        genres: false,
+        season: false,
+        offset: 0,
+        dubbed,
+      },
+      { timeout: FETCH_TIMEOUT, headers }
+    ).catch(() => null),
+  ];
+
+  const responses = await Promise.all(requests);
+  for (const response of responses) {
+    const records = response?.data?.records;
+    if (!Array.isArray(records)) continue;
+    for (const record of records) {
+      const id = Number(record?.id);
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const nameIt = String(record?.title_it || '').trim();
+      const nameEng = String(record?.title_eng || '').trim();
+      const fallbackName = String(record?.title || '').trim();
+      const display = nameIt || nameEng || fallbackName;
+      if (!display) continue;
+      out.push({
+        id,
+        slug: String(record?.slug || '').trim(),
+        name: display,
+        name_it: nameIt,
+        name_eng: nameEng,
+        episodes_count: Number(record?.episodes_count || 0),
+      });
+    }
+  }
+
+  return out;
+}
+
+async function fetchEpisodesRangeFromApi(animeId: number, requestedEpisode: number, animeUrl: string): Promise<AnimeUnityEpisode[]> {
+  const startRange = Math.floor((requestedEpisode - 1) / 120) * 120 + 1;
+  const endRange = startRange + 119;
+
+  try {
+    const payload = await fetchResource(
+      `${getUnityBaseUrl()}/info_api/${animeId}/1?start_range=${startRange}&end_range=${endRange}`,
+      caches,
+      {
+        as: 'json',
+        ttlMs: TTL.animePage,
+        cacheKey: `au-info:${animeId}:${startRange}:${endRange}`,
+        timeoutMs: FETCH_TIMEOUT,
+        headers: {
+          'x-requested-with': 'XMLHttpRequest',
+          referer: animeUrl,
+        },
+      }
+    );
+    const rows = Array.isArray(payload?.episodes) ? payload.episodes : [];
+    return rows.map((entry: any, index: number) => ({
+      id: Number(entry?.id || 0),
+      number: parseEpisodeNumber(entry?.number || entry?.link, index + 1),
+      name: String(entry?.name || '').trim() || undefined,
+    })).filter((entry: AnimeUnityEpisode) => !!entry.id);
+  } catch (error: any) {
+    console.warn('[AnimeUnity] info_api request failed:', error?.message || error);
+    return [];
+  }
+}
+
+async function getStreamData(animeId: number, animeSlug: string, episodeId: number): Promise<AnimeUnityStreamData> {
+  const episodePage = `${getUnityBaseUrl()}/anime/${animeId}-${animeSlug}/${episodeId}`;
+
+  try {
+    const html = await fetchResource(episodePage, caches, {
+      ttlMs: TTL.streamPage,
+      cacheKey: `au-ep:${animeId}:${episodeId}`,
+      timeoutMs: FETCH_TIMEOUT,
+    });
+
+    const $ = cheerio.load(String(html || ''));
+    const vp = $('video-player').first();
+    let embedUrl = toAbsoluteUrl(vp.attr('embed_url') || null, getUnityBaseUrl());
+
+    if (!embedUrl) {
+      const iframeSrc = $('iframe[src*="vixcloud"]').first().attr('src');
+      embedUrl = toAbsoluteUrl(iframeSrc || null, getUnityBaseUrl());
+    }
+
+    let mp4Url: string | null = null;
+    if (embedUrl) {
+      try {
+        const embedHtml = await fetchResource(embedUrl, caches, {
+          ttlMs: TTL.streamPage,
+          cacheKey: `au-embed:${embedUrl}`,
+          timeoutMs: FETCH_TIMEOUT,
+          headers: {
+            referer: episodePage,
+            'user-agent': USER_AGENT,
+          },
+        });
+        const mediaLinks = collectMediaLinksFromEmbedHtml(String(embedHtml || ''), getUnityBaseUrl());
+        const preferred = mediaLinks.find((entry) => /\.mp4(?:[?#].*)?$/i.test(entry.href)) || mediaLinks[0];
+        mp4Url = preferred?.href || null;
+      } catch {
+        mp4Url = null;
+      }
+    }
+
+    return {
+      episode_page: episodePage,
+      embed_url: embedUrl,
+      mp4_url: mp4Url,
+    };
+  } catch (error: any) {
+    console.warn('[AnimeUnity] getStreamData failed:', error?.message || error);
+    return {
+      episode_page: episodePage,
+      embed_url: null,
+      mp4_url: null,
+    };
+  }
 }
 
 // Funzione universale per ottenere il titolo inglese da qualsiasi ID
@@ -317,11 +557,312 @@ export class AnimeUnityProvider {
 
   private get baseHost(): string { return getDomain('animeunity') || 'animeunity.so'; }
 
+  private async extractStreamsFromAnimePath(
+    animePath: string,
+    requestedEpisodeInput: number | null,
+    seasonNumber: number | null,
+    isMovie: boolean,
+    titleOverride?: string,
+    languageOverride?: string
+  ): Promise<StreamForStremio[]> {
+    const normalizedPath = normalizeAnimePath(animePath);
+    if (!normalizedPath) return [];
+
+    const animeUrl = buildUnityUrl(normalizedPath);
+    if (!animeUrl) return [];
+
+    const html = await fetchResource(animeUrl, caches, {
+      ttlMs: TTL.animePage,
+      cacheKey: `au-anime:${normalizedPath}`,
+      timeoutMs: FETCH_TIMEOUT,
+    }).catch(() => '');
+
+    if (!html) return [];
+
+    const $ = cheerio.load(String(html));
+    const vp = $('video-player').first();
+    const animeData = parseVideoPlayerJson(vp.attr('anime'), {});
+    const episodesData = parseVideoPlayerJson(vp.attr('episodes'), []);
+    const pageTitle =
+      $('meta[property="og:title"]').attr('content') ||
+      $('title').first().text().trim() ||
+      null;
+
+    const displayTitle = titleOverride || sanitizeAnimeTitle(
+      animeData?.title_it || animeData?.title_eng || animeData?.title || pageTitle
+    ) || 'Unknown Title';
+
+    const sourceTag = inferSourceTag(displayTitle, normalizedPath);
+    const langLabel = languageOverride || (sourceTag === 'ITA' ? 'ITA' : 'SUB');
+    const requestedEpisode = normalizeRequestedEpisode(requestedEpisodeInput);
+
+    const parsedPath = extractAnimeIdSlugFromPath(normalizedPath);
+    const animeId = parsedPath.animeId || parsePositiveInt(animeData?.id);
+    const animeSlug = parsedPath.animeSlug || String(animeData?.slug || '').trim();
+    if (!animeId || !animeSlug) return [];
+
+    let normalizedEpisodes = normalizeEpisodesList(
+      (Array.isArray(episodesData) ? episodesData : []).map((entry: any, index: number) => ({
+        num: parseEpisodeNumber(entry?.number || entry?.link, index + 1),
+        episodeId: entry?.id,
+        scwsId: entry?.scws_id,
+        fileName: entry?.file_name || entry?.link,
+        link: entry?.link || entry?.file_name,
+        embedUrl: entry?.embed_url || null,
+      })),
+      getUnityBaseUrl()
+    );
+
+    if (!normalizedEpisodes.length) {
+      const fetched = await fetchEpisodesRangeFromApi(animeId, requestedEpisode, animeUrl);
+      normalizedEpisodes = normalizeEpisodesList(
+        fetched.map((entry, index) => ({
+          num: parseEpisodeNumber(entry.number, index + 1),
+          episodeId: entry.id,
+          link: null,
+          fileName: null,
+          embedUrl: null,
+        })),
+        getUnityBaseUrl()
+      );
+    }
+
+    const selected = pickEpisodeEntry(normalizedEpisodes, requestedEpisode, isMovie ? 'movie' : 'tv');
+    if (!selected?.episodeId) return [];
+
+    const streamResult = await getStreamData(animeId, animeSlug, selected.episodeId);
+    const streams: StreamForStremio[] = [];
+    const seenLinks = new Set<string>();
+
+    const sNum = seasonNumber || 1;
+    let baseTitle = `${capitalize(displayTitle)} ▪ ${langLabel} ▪ S${sNum}`;
+    const resolvedEpisodeNum = parsePositiveInt(selected.num) || requestedEpisode;
+    if (resolvedEpisodeNum) baseTitle += `E${resolvedEpisodeNum}`;
+
+    const preferMp4 = /^(1|true|on)$/i.test(String(process.env.ANIMEUNITY_PREFER_MP4 || '0'));
+    let added = false;
+    let hls403 = false;
+
+    if (!preferMp4 && streamResult.embed_url) {
+      try {
+        const hlsRes = await extractFromUrl(streamResult.embed_url, {
+          referer: streamResult.episode_page || animeUrl,
+          mfpUrl: this.config.mfpUrl,
+          mfpPassword: this.config.mfpPassword,
+          titleHint: baseTitle,
+        });
+        if (hlsRes.streams && hlsRes.streams.length) {
+          for (const st of hlsRes.streams) {
+            if (!st || !st.url) continue;
+            if (seenLinks.has(st.url)) continue;
+            streams.push(st as StreamForStremio);
+            seenLinks.add(st.url);
+            added = true;
+
+            try {
+              const masterUrl = st.url;
+              const respPl = await fetch(masterUrl, { headers: (st as any)?.behaviorHints?.requestHeaders || {} });
+              if (respPl.ok) {
+                const playlistText = await respPl.text();
+                if (/EXT-X-STREAM-INF/i.test(playlistText)) {
+                  interface VariantEntry { line: string; url: string; height: number; bandwidth?: number; }
+                  const lines = playlistText.split(/\r?\n/);
+                  const variants: VariantEntry[] = [];
+                  for (let i = 0; i < lines.length; i += 1) {
+                    const line = lines[i];
+                    if (/^#EXT-X-STREAM-INF:/i.test(line)) {
+                      const nextUrl = lines[i + 1] || '';
+                      if (nextUrl.startsWith('#') || !nextUrl.trim()) continue;
+                      let height = 0;
+                      const resMatch = line.match(/RESOLUTION=\d+x(\d+)/i);
+                      if (resMatch) height = parseInt(resMatch[1], 10);
+                      const bwMatch = line.match(/BANDWIDTH=(\d+)/i);
+                      const bw = bwMatch ? parseInt(bwMatch[1], 10) : undefined;
+                      variants.push({ line, url: nextUrl.trim(), height, bandwidth: bw });
+                    }
+                  }
+                  if (variants.length) {
+                    variants.sort((a, b) => (b.height - a.height) || ((b.bandwidth || 0) - (a.bandwidth || 0)));
+                    const best = variants[0];
+                    let variantUrl = best.url;
+                    if (!/^https?:\/\//i.test(variantUrl)) {
+                      try {
+                        variantUrl = new URL(variantUrl, masterUrl).toString();
+                      } catch {
+                        // keep as is
+                      }
+                    }
+                    variantUrl = variantUrl.replace(/(\/playlist\/(\d+))(?!\.m3u8)(?=[^\w]|$)/, '$1.m3u8');
+                    if (!seenLinks.has(variantUrl)) {
+                      const markAsFhd = best.height >= 720;
+                      const behaviorHints: any = {
+                        ...((st as any).behaviorHints || {}),
+                        animeunityQuality: markAsFhd ? 'FHD' : 'HQ',
+                        animeunityResolution: best.height,
+                        animeunityNameSuffix: markAsFhd ? ' 🅵🅷🅳' : '',
+                      };
+                      if ((st as any)?.behaviorHints?.requestHeaders) {
+                        behaviorHints.requestHeaders = (st as any).behaviorHints.requestHeaders;
+                      }
+                      streams.push({
+                        title: (st as any).title,
+                        url: variantUrl,
+                        behaviorHints,
+                        isSyntheticFhd: markAsFhd,
+                      });
+                      seenLinks.add(variantUrl);
+                    }
+                  }
+                }
+              }
+            } catch (fhde: any) {
+              console.warn('[AnimeUnity][FHDVariant] errore generazione variante FHD:', fhde?.message || fhde);
+            }
+          }
+        }
+      } catch (error: any) {
+        const msg = error?.message || String(error);
+        if (/403/.test(msg)) {
+          hls403 = true;
+          console.warn('[AnimeUnity] HLS extractor 403 – consentito fallback MP4 (se MFP configurato)');
+        } else {
+          console.warn('[AnimeUnity] HLS extractor fallito (non 403):', msg);
+        }
+      }
+    }
+
+    const mfpConfigured = !!this.config.mfpUrl;
+    const allowMp4 = preferMp4 || (hls403 && !added);
+    if (allowMp4 && streamResult.mp4_url) {
+      if (!preferMp4 && hls403 && !mfpConfigured) {
+        console.log('[AnimeUnity] MP4 non mostrato: HLS 403 ma MFP non configurato');
+      } else {
+        try {
+          const mediaFlowUrl = formatMediaFlowUrl(
+            streamResult.mp4_url,
+            this.config.mfpUrl,
+            this.config.mfpPassword
+          );
+          if (!seenLinks.has(mediaFlowUrl)) {
+            streams.push({
+              title: baseTitle + (added ? ' (MP4)' : (preferMp4 ? ' (MP4 Preferred)' : ' (MP4 Fallback)')),
+              url: mediaFlowUrl,
+              behaviorHints: { notWebReady: true },
+            });
+            seenLinks.add(mediaFlowUrl);
+          }
+        } catch (e: any) {
+          console.warn('[AnimeUnity] Errore fallback MP4:', e?.message || e);
+        }
+      }
+    }
+
+    const autoFlag = this.config.animeunityAuto === true;
+    const fhdFlag = this.config.animeunityFhd === true;
+    const autoWanted = autoFlag || (!autoFlag && !fhdFlag);
+    const fhdWanted = fhdFlag;
+    const filtered = streams.filter((st) => {
+      const qual = st.behaviorHints?.animeunityQuality;
+      if (qual === 'FHD') return fhdWanted;
+      return autoWanted;
+    });
+
+    if (fhdWanted) {
+      filtered.forEach((st) => {
+        if (st.behaviorHints?.animeunityQuality === 'FHD') {
+          st.behaviorHints.animeunityIsFhd = true;
+        }
+      });
+    }
+
+    return filtered;
+  }
+
+  private async getStreamsFromMapping(
+    id: string,
+    seasonNumber: number | null,
+    episodeNumber: number | null,
+    isMovie: boolean,
+    providerContext: { kitsuId?: string; tmdbId?: string; imdbId?: string } | null,
+    titleFallback: string
+  ): Promise<StreamForStremio[]> {
+    const lookup = resolveLookupRequest(id, seasonNumber, episodeNumber, providerContext);
+    if (!lookup) return [];
+
+    let mappingPayload = await fetchMappingPayload(lookup, caches, 'AnimeUnity');
+    let animePaths = extractProviderPaths(mappingPayload, 'animeunity', normalizeAnimePath);
+
+    if (animePaths.length === 0 && String(lookup.provider || '').toLowerCase() === 'imdb') {
+      const tmdbFromContext = providerContext?.tmdbId && /^\d+$/.test(String(providerContext.tmdbId))
+        ? String(providerContext.tmdbId)
+        : null;
+      const tmdbFromPayload = extractTmdbIdFromMappingPayload(mappingPayload);
+      const fallbackTmdbId = tmdbFromContext || tmdbFromPayload;
+      if (fallbackTmdbId) {
+        const tmdbLookup = {
+          provider: 'tmdb' as const,
+          externalId: fallbackTmdbId,
+          season: lookup.season,
+          episode: lookup.episode,
+        };
+        const tmdbPayload = await fetchMappingPayload(tmdbLookup, caches, 'AnimeUnity');
+        const tmdbPaths = extractProviderPaths(tmdbPayload, 'animeunity', normalizeAnimePath);
+        if (tmdbPaths.length > 0) {
+          mappingPayload = tmdbPayload;
+          animePaths = tmdbPaths;
+        }
+      }
+    }
+
+    if (!animePaths.length) return [];
+
+    const requestedEpisode = resolveEpisodeFromMappingPayload(mappingPayload, lookup.episode);
+    const chunks = await mapLimit(animePaths, 3, (path) =>
+      this.extractStreamsFromAnimePath(path, requestedEpisode, seasonNumber, isMovie, titleFallback)
+    );
+    const merged = chunks.flat().filter((stream) => stream && stream.url);
+
+    const deduped: StreamForStremio[] = [];
+    const seen = new Set<string>();
+    for (const stream of merged) {
+      const key = String(stream.url).trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(stream);
+    }
+
+    return deduped;
+  }
+
+  private async handleLookupWithTitleFallback(
+    lookupId: string,
+    title: string,
+    seasonNumber: number | null,
+    episodeNumber: number | null,
+    isMovie: boolean,
+    providerContext: { kitsuId?: string; tmdbId?: string; imdbId?: string } | null
+  ): Promise<{ streams: StreamForStremio[] }> {
+    const fromMapping = await this.getStreamsFromMapping(
+      lookupId,
+      seasonNumber,
+      episodeNumber,
+      isMovie,
+      providerContext,
+      title
+    );
+    if (fromMapping.length) {
+      console.log('[AnimeUnity] Mapping API hit: uso stream da mapping path.');
+      return { streams: fromMapping };
+    }
+    console.log('[AnimeUnity] Mapping API miss: fallback a ricerca per titolo.');
+    return this.handleTitleRequest(title, seasonNumber, episodeNumber, isMovie);
+  }
+
   // Made public for catalog search
   async searchAllVersions(title: string): Promise<{ version: AnimeUnitySearchResult; language_type: string }[]> {
       try {
-        const subPromise = invokePythonScraper(['search', '--query', title]).catch(() => []);
-        const dubPromise = invokePythonScraper(['search', '--query', title, '--dubbed']).catch(() => []);
+        const subPromise = searchEndpoint(title, false).catch(() => []);
+        const dubPromise = searchEndpoint(title, true).catch(() => []);
 
         const [subResults, dubResults]: [AnimeUnitySearchResult[], AnimeUnitySearchResult[]] = await Promise.all([subPromise, dubPromise]);
         const results: { version: AnimeUnitySearchResult; language_type: string }[] = [];
@@ -359,11 +900,30 @@ export class AnimeUnityProvider {
     if (!this.config.enabled) {
       return { streams: [] };
     }
-
     try {
       const { kitsuId, seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(kitsuIdString);
+      // Single quick Kitsu call for canonical title (stream label only)
+      // Heavy resolution (mappings, include=mappings, Jikan) deferred to fallback path only
+      let quickTitle = kitsuId;
+      try {
+        const metaResp = await fetch(`https://kitsu.io/api/edge/anime/${kitsuId}`);
+        if (metaResp.ok) {
+          const j: any = await metaResp.json();
+          const attr = j?.data?.attributes || {};
+          quickTitle = attr.titles?.en || attr.titles?.en_jp || attr.canonicalTitle || kitsuId;
+        }
+      } catch {}
+      // Try mapping API first — no expensive title resolution yet
+      const fromMapping = await this.getStreamsFromMapping(
+        `kitsu:${kitsuId}`, seasonNumber, episodeNumber, isMovie, { kitsuId }, quickTitle
+      );
+      if (fromMapping.length) {
+        console.log('[AnimeUnity] Mapping hit (Kitsu): skipped heavy title resolution.');
+        return { streams: fromMapping };
+      }
+      // Mapping miss → now do full title resolution for the title search fallback
       const englishTitle = await getEnglishTitleFromAnyId(kitsuId, 'kitsu', this.config.tmdbApiKey);
-      console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
+      console.log(`[AnimeUnity] Mapping miss (Kitsu): ricerca con titolo inglese: ${englishTitle}`);
       return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
     } catch (error) {
       console.error('Error handling Kitsu request:', error);
@@ -416,8 +976,19 @@ export class AnimeUnityProvider {
         }
   // Removed placeholder injection; icon added directly to titles
       }
+  const imdbIdClean = imdbId.split(':')[0];
+  // Try mapping API first — defer expensive title resolution to fallback path only
+  const fromMappingImdb = await this.getStreamsFromMapping(
+    imdbIdClean, seasonNumber, episodeNumber, isMovie, { imdbId: imdbIdClean }, ''
+  );
+  if (fromMappingImdb.length) {
+    console.log('[AnimeUnity] Mapping hit (IMDB): skipped title resolution.');
+    const streams = fromMappingImdb.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
+    return { streams };
+  }
+  // Mapping miss → resolve full English title for search fallback
   const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
-  console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
+  console.log(`[AnimeUnity] Mapping miss (IMDB): ricerca con titolo inglese: ${englishTitle}`);
   const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
   res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
   return res;
@@ -441,8 +1012,18 @@ export class AnimeUnityProvider {
         }
   // Removed placeholder injection; icon added directly to titles
       }
+  // Try mapping API first — defer expensive title resolution to fallback path only
+  const fromMappingTmdb = await this.getStreamsFromMapping(
+    tmdbId, seasonNumber, episodeNumber, isMovie, { tmdbId }, ''
+  );
+  if (fromMappingTmdb.length) {
+    console.log('[AnimeUnity] Mapping hit (TMDB): skipped title resolution.');
+    const streams = fromMappingTmdb.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
+    return { streams };
+  }
+  // Mapping miss → resolve full English title for search fallback
   const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
-  console.log(`[AnimeUnity] Ricerca con titolo inglese: ${englishTitle}`);
+  console.log(`[AnimeUnity] Mapping miss (TMDB): ricerca con titolo inglese: ${englishTitle}`);
   const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
   res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
   return res;
@@ -557,197 +1138,31 @@ export class AnimeUnityProvider {
   const streams: StreamForStremio[] = [];
     const seenLinks = new Set();
     for (const { version, language_type } of animeVersions) {
-      const episodes: AnimeUnityEpisode[] = await invokePythonScraper(['get_episodes', '--anime-id', String(version.id)]);
-      // Filtra undefined e episodi nulli
-      const validEpisodes = (episodes || []).filter(e => e && e.id && e.number);
-      if (!validEpisodes.length) {
-        console.warn(`[AnimeUnity] Nessun episodio valido trovato per la richiesta: S${seasonNumber}E${episodeNumber} (${version.name})`);
-        continue;
-      }
-      let targetEpisode: AnimeUnityEpisode | undefined;
-      if (isMovie) {
-        targetEpisode = validEpisodes[0];
-        console.log(`[AnimeUnity] Selezionato primo episodio (movie):`, targetEpisode?.name);
-      } else if (episodeNumber != null) {
-        targetEpisode = validEpisodes.find(ep => String(ep.number) === String(episodeNumber));
-        console.log(`[AnimeUnity] Episodio selezionato per E${episodeNumber}:`, targetEpisode?.name);
-      } else {
-        targetEpisode = validEpisodes[0];
-        console.log(`[AnimeUnity] Selezionato primo episodio (default):`, targetEpisode?.name);
-      }
-      if (!targetEpisode) {
-        console.warn(`[AnimeUnity] Nessun episodio trovato per la richiesta: S${seasonNumber}E${episodeNumber} (${version.name})`);
-        continue;
-      }
-      const streamResult: AnimeUnityStreamData = await invokePythonScraper([
-        'get_stream',
-        '--anime-id', String(version.id),
-        '--anime-slug', version.slug,
-        '--episode-id', String(targetEpisode.id)
-      ]);
-  const preferMp4 = /^(1|true|on)$/i.test(String(process.env.ANIMEUNITY_PREFER_MP4||'0'));
-  let added = false;
-  let hls403 = false;
       const cleanName = version.name
         .replace(/\s*\(ITA\)/i, '')
         .replace(/\s*\(CR\)/i, '')
         .replace(/ITA/gi, '')
         .replace(/CR/gi, '')
         .trim();
-      const sNum = seasonNumber || 1;
       const langLabel = language_type === 'ITA' ? 'ITA' : 'SUB';
-      let baseTitle = `${capitalize(cleanName)} ▪ ${langLabel} ▪ S${sNum}`;
-      if (episodeNumber) baseTitle += `E${episodeNumber}`;
-      // 1. Prova HLS se non forzato MP4 e embed disponibile
-      if (!preferMp4 && streamResult.embed_url) {
-        try {
-          const hlsRes = await extractFromUrl(streamResult.embed_url, {
-            referer: streamResult.episode_page,
-            mfpUrl: this.config.mfpUrl,
-            mfpPassword: this.config.mfpPassword,
-            titleHint: baseTitle
-          });
-          if (hlsRes.streams && hlsRes.streams.length) {
-            for (const st of hlsRes.streams) {
-              if (!st || !st.url) continue;
-              if (seenLinks.has(st.url)) continue;
-              streams.push(st);
-              seenLinks.add(st.url);
-              added = true;
-
-              // === FHD VARIANT BRANCH (non invasivo) ===
-              // Genera una seconda variante solo 1080 (fallback 720 -> 480) se il master è multi-bitrate (#EXT-X-STREAM-INF)
-              // Mantiene logica attuale (AUTO) intatta. Prepara behaviorHints per futuri toggle (AUTO/FHD)
-              try {
-                const masterUrl = st.url;
-                // Scarica playlist master
-                const respPl = await fetch(masterUrl, { headers: (st as any)?.behaviorHints?.requestHeaders || {} });
-                if (respPl.ok) {
-                  const playlistText = await respPl.text();
-                  if (/EXT-X-STREAM-INF/i.test(playlistText)) {
-                    // Parse varianti
-                    interface VariantEntry { line: string; url: string; height: number; bandwidth?: number; }
-                    const lines = playlistText.split(/\r?\n/);
-                    const variants: VariantEntry[] = [];
-                    for (let i=0;i<lines.length;i++) {
-                      const line = lines[i];
-                      if (/^#EXT-X-STREAM-INF:/i.test(line)) {
-                        const nextUrl = lines[i+1] || '';
-                        if (nextUrl.startsWith('#') || !nextUrl.trim()) continue;
-                        let height = 0;
-                        const resMatch = line.match(/RESOLUTION=\d+x(\d+)/i);
-                        if (resMatch) height = parseInt(resMatch[1]);
-                        const bwMatch = line.match(/BANDWIDTH=(\d+)/i);
-                        const bw = bwMatch ? parseInt(bwMatch[1]) : undefined;
-                        variants.push({ line, url: nextUrl.trim(), height, bandwidth: bw });
-                      }
-                    }
-                    if (variants.length) {
-                      // Ordina per altezza desc, poi bandwidth
-                      variants.sort((a,b)=> (b.height - a.height) || ((b.bandwidth||0)-(a.bandwidth||0)) );
-                      const best = variants[0];
-                      console.log('[AnimeUnity][FHDVariant][Parse]', variants.map(v=>`${v.height}p`).join(','), 'best=', best.height);
-                      let variantUrl = best.url;
-                      // Rendi assoluto se relativo
-                      if (!/^https?:\/\//i.test(variantUrl)) {
-                        try {
-                          const mu = new URL(masterUrl);
-                          variantUrl = new URL(variantUrl, mu).toString();
-                        } catch {}
-                      }
-                      // Inserisci .m3u8 dopo /playlist/<num> se mancante
-                      variantUrl = variantUrl.replace(/(\/playlist\/(\d+))(?!\.m3u8)(?=[^\w]|$)/, '$1.m3u8');
-                      // Mantieni query string eventuale (regex sopra non la rimuove)
-                      if (!seenLinks.has(variantUrl)) {
-                        const markAsFhd = best.height >= 720; // badge per 720p o superiore
-                        if (!markAsFhd) console.log('[AnimeUnity][FHDVariant] Altezza migliore <720p, non marchio FHD:', best.height);
-                        // Manteniamo il titolo identico all'AUTO (niente 🅵🅷🅳 qui) e spostiamo il marker in un behaviorHint
-                        const fhdTitle = st.title; // niente suffisso nel titolo principale
-                        const behaviorHints: any = { ...(st.behaviorHints||{}), animeunityQuality: markAsFhd ? 'FHD' : 'HQ', animeunityResolution: best.height, animeunityNameSuffix: markAsFhd ? ' 🅵🅷🅳' : '' };
-                        // Copia headers se presenti
-                        if ((st as any)?.behaviorHints?.requestHeaders) {
-                          behaviorHints.requestHeaders = (st as any).behaviorHints.requestHeaders;
-                        }
-                        streams.push({
-                          title: fhdTitle,
-                          url: variantUrl,
-                          behaviorHints,
-                          isSyntheticFhd: markAsFhd
-                        });
-                        seenLinks.add(variantUrl);
-                        console.log('[AnimeUnity][FHDVariant] Aggiunta variante', variantUrl.substring(0,120), 'height=', best.height, 'flagFHD=', markAsFhd);
-                      }
-                    }
-                  }
-                }
-              } catch (fhde) {
-                console.warn('[AnimeUnity][FHDVariant] errore generazione variante FHD:', (fhde as any)?.message || fhde);
-              }
-              // === END FHD VARIANT BRANCH ===
-            }
-          }
-        } catch (e) {
-          const msg = (e as any)?.message || String(e);
-          if (/403/.test(msg)) {
-            hls403 = true;
-            console.warn('[AnimeUnity] HLS extractor 403 – consentito fallback MP4 (se MFP configurato)');
-          } else {
-            console.warn('[AnimeUnity] HLS extractor fallito (non 403):', msg);
-          }
-        }
-      }
-      // 2. Fallback MP4 policy:
-      //    - Sempre se preferMp4=true
-      //    - Oppure se HLS ha dato 403 (hls403) e non abbiamo stream HLS
-      //    - In caso hls403 richiede MFP URL configurato
-      const mfpConfigured = !!this.config.mfpUrl;
-      const allowMp4 = preferMp4 || (hls403 && !added);
-      if (allowMp4 && streamResult.mp4_url) {
-        if (!preferMp4 && hls403 && !mfpConfigured) {
-          console.log('[AnimeUnity] MP4 non mostrato: HLS 403 ma MFP non configurato');
-        } else {
-        try {
-          const mediaFlowUrl = formatMediaFlowUrl(
-            streamResult.mp4_url,
-            this.config.mfpUrl,
-            this.config.mfpPassword
-          );
-          if (!seenLinks.has(mediaFlowUrl)) {
-            streams.push({
-              title: baseTitle + (added ? ' (MP4)' : (preferMp4 ? ' (MP4 Preferred)' : ' (MP4 Fallback)')),
-              url: mediaFlowUrl,
-              behaviorHints: { notWebReady: true }
-            });
-            seenLinks.add(mediaFlowUrl);
-          }
-        } catch (e) {
-          console.warn('[AnimeUnity] Errore fallback MP4:', (e as any)?.message || e);
-        }
-        }
+      const path = normalizeAnimePath(`/anime/${version.id}-${version.slug}`);
+      if (!path) continue;
+      const perVersion = await this.extractStreamsFromAnimePath(
+        path,
+        episodeNumber,
+        seasonNumber,
+        isMovie,
+        cleanName,
+        langLabel
+      );
+      for (const st of perVersion) {
+        if (!st || !st.url) continue;
+        if (seenLinks.has(st.url)) continue;
+        streams.push(st);
+        seenLinks.add(st.url);
       }
     }
-    // Filtro finale: nessuna selezione => solo AUTO (master). AUTO implicito se nessun toggle.
-  const autoFlag = this.config.animeunityAuto === true;
-  const fhdFlag = this.config.animeunityFhd === true;
-  const autoWanted = autoFlag || (!autoFlag && !fhdFlag); // default AUTO if none selected
-  const fhdWanted = fhdFlag;
-    const filtered = streams.filter(st => {
-      const qual = st.behaviorHints?.animeunityQuality;
-      if (qual === 'FHD') return fhdWanted;
-      return autoWanted; // master (AUTO)
-    });
-    // Post-process: if FHD selected (or both), ensure provider label shows FHD by setting isFhdOrDual equivalent hint
-    try {
-      if (fhdWanted) {
-        filtered.forEach(st => {
-          if (st.behaviorHints?.animeunityQuality === 'FHD') {
-            // Provide a generic flag some naming layers may inspect
-            st.behaviorHints.animeunityIsFhd = true;
-          }
-        });
-      }
-    } catch(e) { /* no-op */ }
-    return { streams: filtered };
+    return { streams };
   }
 }
 
