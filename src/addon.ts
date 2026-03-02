@@ -2946,9 +2946,16 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // Se l'utente non ha MFP configurato, usa env vars come fallback (per installazioni locali)
                 // MAI dalla configCache globale (che era il bug - veniva contaminata da altri utenti)
                 let config: any = {};
-                if (requestConfig && Object.keys(requestConfig).length > 0) {
+                if (requestConfig && typeof requestConfig === 'string') {
+                    // Edge case: SDK passed config as raw string (base64/JSON) instead of parsed object
+                    try {
+                        const parsed = parseConfigFromArgs(requestConfig);
+                        if (Object.keys(parsed).length > 0) config = parsed;
+                    } catch { }
+                } else if (requestConfig && typeof requestConfig === 'object' && Object.keys(requestConfig).length > 0) {
                     config = { ...requestConfig };
                 }
+                console.log(`[CONFIG-DEBUG] requestConfig type=${typeof requestConfig}, loonexEnabled=${(requestConfig as any)?.loonexEnabled}, config.loonexEnabled=${config.loonexEnabled}`);
                 // === SPORTZX DEBUG ENDPOINT ===
 
 
@@ -5725,39 +5732,42 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 };
                 // New rule: enabled only when checkbox true (or env forces true)
                 // API Mode: enable by default for all providers
-                const animeUnityEnabled = envFlag('ANIMEUNITY_ENABLED') ?? (isDirectAPICall || config.animeunityEnabled === true);
-                const animeSaturnEnabled = envFlag('ANIMESATURN_ENABLED') ?? (isDirectAPICall || config.animesaturnEnabled === true);
-                const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (isDirectAPICall || config.animeworldEnabled === true);
-                const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (isDirectAPICall || config.guardaserieEnabled === true);
-                const guardaHdEnabled = envFlag('GUARDAHD_ENABLED') ?? (isDirectAPICall || config.guardahdEnabled === true);
-                const cb01Enabled = envFlag('CB01_ENABLED') ?? (isDirectAPICall || (config as any).cb01Enabled === true);
+                // BELT-AND-SUSPENDERS: also check requestConfig directly in case config spread failed
+                const rc = requestConfig as any;
+                const animeUnityEnabled = envFlag('ANIMEUNITY_ENABLED') ?? (isDirectAPICall || config.animeunityEnabled === true || rc?.animeunityEnabled === true);
+                const animeSaturnEnabled = envFlag('ANIMESATURN_ENABLED') ?? (isDirectAPICall || config.animesaturnEnabled === true || rc?.animesaturnEnabled === true);
+                const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (isDirectAPICall || config.animeworldEnabled === true || rc?.animeworldEnabled === true);
+                const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (isDirectAPICall || config.guardaserieEnabled === true || rc?.guardaserieEnabled === true);
+                const guardaHdEnabled = envFlag('GUARDAHD_ENABLED') ?? (isDirectAPICall || config.guardahdEnabled === true || rc?.guardahdEnabled === true);
+                const cb01Enabled = envFlag('CB01_ENABLED') ?? (isDirectAPICall || (config as any).cb01Enabled === true || rc?.cb01Enabled === true);
                 // Eurostreaming: default ON unless explicitly disabled (config false) or env sets true/false
                 const eurostreamingEnv = envFlag('EUROSTREAMING_ENABLED');
                 const eurostreamingEnabled = eurostreamingEnv !== undefined
                     ? eurostreamingEnv
-                    : (isDirectAPICall || config.eurostreamingEnabled !== false); // default true
+                    : (isDirectAPICall || (config.eurostreamingEnabled !== false && rc?.eurostreamingEnabled !== false)); // default true
                 // Loonex: default OFF (nuovo provider) - API mode enables it
-                const loonexEnabled = envFlag('LOONEX_ENABLED') ?? (isDirectAPICall || config.loonexEnabled === true);
+                const loonexEnabled = envFlag('LOONEX_ENABLED') ?? (isDirectAPICall || config.loonexEnabled === true || rc?.loonexEnabled === true);
+                console.log(`[DEBUG-LOONEX] flag=${loonexEnabled} | config.loonexEnabled=${config.loonexEnabled} | rc.loonexEnabled=${rc?.loonexEnabled} | isDirectAPI=${isDirectAPICall}`);
                 // ToonItalia: default OFF (nuovo provider) - API mode enables it
-                const toonitaliaEnabled = envFlag('TOONITALIA_ENABLED') ?? (isDirectAPICall || config.toonitaliaEnabled === true);
+                const toonitaliaEnabled = envFlag('TOONITALIA_ENABLED') ?? (isDirectAPICall || config.toonitaliaEnabled === true || rc?.toonitaliaEnabled === true);
                 console.log(`[ToonItalia] Flag status: ${toonitaliaEnabled} (env: ${envFlag('TOONITALIA_ENABLED')}, config: ${config.toonitaliaEnabled})`);
                 // Nuovo flag per inserire VixSrc nell'esecuzione parallela (prima era fuori e poteva saltare)
                 // FIX: usa config dell'utente, NON configCache globale
                 const vixsrcEnabled = (() => {
                     try {
-                        if ((config as any).disableVixsrc === true) return false;
+                        if ((config as any).disableVixsrc === true || rc?.disableVixsrc === true) return false;
                     } catch { }
                     return true; // default ON (also in API mode)
                 })();
                 let vixsrcScheduled = false; // per evitare doppia esecuzione nel blocco sequenziale più sotto
 
                 // API Mode: enable Guardoserie and Guardaflix by default
-                const guardoserieEnabled = isDirectAPICall || (config.guardoserieEnabled === true);
-                const guardaflixEnabled = isDirectAPICall || (config.guardaflixEnabled === true);
+                const guardoserieEnabled = isDirectAPICall || (config.guardoserieEnabled === true) || (rc?.guardoserieEnabled === true);
+                const guardaflixEnabled = isDirectAPICall || (config.guardaflixEnabled === true) || (rc?.guardaflixEnabled === true);
 
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld + Loonex
                 // IMPORTANTE: includere trailerEnabled per permettere trailer standalone
-                const trailerEnabled = (config as any).trailerEnabled !== false;
+                const trailerEnabled = (config as any).trailerEnabled !== false && rc?.trailerEnabled !== false;
                 const fastModeEnabled = (config as any).fastMode === true;
                 if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled)) {
                     const animeUnityConfig: AnimeUnityConfig = {
