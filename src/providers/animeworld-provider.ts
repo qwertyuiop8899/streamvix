@@ -900,13 +900,11 @@ export class AnimeWorldProvider {
   );
   if (fromMappingImdb.length) {
     console.log('[AnimeWorld] Mapping hit (IMDB): skipped title resolution.');
-    const streams = fromMappingImdb.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
-    return { streams };
+    return { streams: fromMappingImdb };
   }
   // Mapping miss → resolve full English title for title search fallback
   const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
   const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
-  res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
   return res;
     } catch(e){ console.error('[AnimeWorld] imdb handler error', e); return { streams: [] }; }
   }
@@ -928,13 +926,11 @@ export class AnimeWorldProvider {
   );
   if (fromMappingTmdb.length) {
     console.log('[AnimeWorld] Mapping hit (TMDB): skipped title resolution.');
-    const streams = fromMappingTmdb.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
-    return { streams };
+    return { streams: fromMappingTmdb };
   }
   // Mapping miss → resolve full English title for title search fallback
   const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
   const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
-  res.streams = res.streams.map(s => s.title.startsWith('⚠️') ? s : { ...s, title: `⚠️ ${s.title}` });
   return res;
     } catch(e){ console.error('[AnimeWorld] tmdb handler error', e); return { streams: [] }; }
   }
