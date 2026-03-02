@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.16.27](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.26...v1.16.27) (2026-03-02)
+
+
+### Bug Fixes
+
+* ad ([a6c2030](https://github.com/qwertyuiop8899/streamvix/commit/a6c20304ddcb52cb017a93628644d9dc81bf5cdf))
+* domains update ([5aec21d](https://github.com/qwertyuiop8899/streamvix/commit/5aec21d9c1dfba37830fcac3c82811f6ce89d57b))
+* fx ([17d6ff5](https://github.com/qwertyuiop8899/streamvix/commit/17d6ff521aa5cc38a3376b02c15fd4008f9027cd))
+* mv ([6e49891](https://github.com/qwertyuiop8899/streamvix/commit/6e49891264a9a04eb72a4f5b6fbd8b768669d26c))
+
 ## [1.16.26](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.25...v1.16.26) (2026-03-01)
 
 
