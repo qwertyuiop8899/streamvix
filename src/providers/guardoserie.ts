@@ -72,6 +72,35 @@ function getClient() {
 }
 
 
+// --- UQLOAD VIA MFP (EasyProxy) ---
+function buildUqloadMfpStream(uqloadUrl: string, mfpUrl: string, mfpPsw?: string, isSub: boolean = false): Stream {
+    const extractorUrl = `${mfpUrl.replace(/\/+$/, '')}/extractor/video`;
+    const params = new URLSearchParams();
+    params.append('host', 'Uqload');
+    params.append('d', uqloadUrl);
+    params.append('redirect_stream', 'true');
+    if (mfpPsw) params.append('api_password', mfpPsw);
+
+    const finalUrl = `${extractorUrl}?${params.toString()}`;
+    console.log(`[Guardoserie] Uqload via MFP: ${finalUrl}`);
+
+    return {
+        name: providerLabel('guardoserie'),
+        title: buildUnifiedStreamName({
+            baseTitle: 'Uqload',
+            isSub: isSub,
+            proxyOn: true,
+            provider: 'guardoserie',
+            playerName: 'Uqload',
+            hideProviderInTitle: true
+        }),
+        url: finalUrl,
+        behaviorHints: {
+            notWebReady: true
+        }
+    };
+}
+
 // --- LOADM EXTRACTOR ---
 const KEY = Buffer.from('kiemtienmua911ca', 'utf-8');
 const IV = Buffer.from('1234567890oiuytr', 'utf-8');
@@ -296,6 +325,10 @@ async function resolvePageStream(pageUrl: string, mfpUrl?: string, mfpPsw?: stri
                     const stream = await extractLoadM(src, pageUrl, mfpUrl, mfpPsw, isSub);
                     if (stream) streams.push(stream);
                 }
+                else if (src.includes('uqload') && mfpUrl) {
+                    const stream = buildUqloadMfpStream(src, mfpUrl, mfpPsw, isSub);
+                    streams.push(stream);
+                }
             }
         }
 
@@ -309,6 +342,10 @@ async function resolvePageStream(pageUrl: string, mfpUrl?: string, mfpPsw?: stri
                 if (src.includes('loadm.cam') || src.includes('loadm')) {
                     const stream = await extractLoadM(src, pageUrl, mfpUrl, mfpPsw, false);
                     if (stream) streams.push(stream);
+                }
+                else if (src.includes('uqload') && mfpUrl) {
+                    const stream = buildUqloadMfpStream(src, mfpUrl, mfpPsw, false);
+                    streams.push(stream);
                 }
             }
         }
