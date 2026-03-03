@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.33](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.32...v1.16.33) (2026-03-03)
+
+
+### Bug Fixes
+
+* remove live ([772e108](https://github.com/qwertyuiop8899/streamvix/commit/772e1082abf43e6163de7405034ac3aba2944f56))
+
 ## [1.16.32](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.31...v1.16.32) (2026-03-03)
 
 
