@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.31](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.30...v1.16.31) (2026-03-03)
+
+
+### Bug Fixes
+
+* loon ([82ffff0](https://github.com/qwertyuiop8899/streamvix/commit/82ffff0b89596808dc8de6e3ded83f9a2fec3af8))
+
 ## [1.16.30](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.29...v1.16.30) (2026-03-03)
 
 
