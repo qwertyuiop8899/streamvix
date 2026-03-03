@@ -1702,6 +1702,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 );
             }
 
+            // ENV: DISABLE_LIVE_EVENTS — rimuovi solo Live + Eventi, lascia TV statica
+            if (process.env.DISABLE_LIVE_EVENTS === 'true' || process.env.DISABLE_LIVE_EVENTS === '1') {
+                filtered.catalogs = (filtered.catalogs || []).filter((c: any) =>
+                    !(c && ((c as any).id === 'streamvix_live' || (c as any).id === 'streamvix_eventi' || (c as any).id === 'streamvix_live_search' || (c as any).id === 'streamvix_eventi_search'))
+                );
+            }
+
             // Rimuovi catalogo DVR quando dvrEnabled non è attivo
             if (!initialConfig || !(initialConfig as any).dvrEnabled) {
                 filtered.catalogs = (filtered.catalogs || []).filter((c: any) =>
@@ -2311,16 +2318,45 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             console.log(`✅ Returning ${tvChannelsWithPrefix.length} TV channels for catalog ${id}${isPlaceholder ? ' (placeholder, cacheMaxAge=0)' : ''}`);
             return isPlaceholder
                 ? { metas: tvChannelsWithPrefix, cacheMaxAge: 0 }
-                : { metas: tvChannelsWithPrefix };
+                : { metas: tvChannelsWithPrefix, cacheMaxAge: 3600 };
         }
         console.log(`❌ No catalog found for type=${type}, id=${id}`);
         return { metas: [] };
     });
 
+    // === SERVER-SIDE META CACHE per TV ===
+    // Riduce drasticamente il tempo di risposta per meta TV: la prima richiesta
+    // calcola e cacha, le successive (anche di altri utenti) rispondono istantaneamente.
+    // Questo abbassa il "window" in cui le connessioni restano aperte verso il reverse proxy.
+    const tvMetaCache = new Map<string, { data: any; ts: number }>();
+    const TV_META_CACHE_TTL = 1800_000; // 30 min in ms
+
     // === HANDLER META ===
     builder.defineMetaHandler(async ({ type, id, config: requestConfig }: { type: string; id: string; config?: any }) => {
         console.log(`📺 META REQUEST: type=${type}, id=${id}`);
         if (type === "tv") {
+            // Server-side cache check (user-independent, EPG-enriched)
+            const cached = tvMetaCache.get(id);
+            if (cached && (Date.now() - cached.ts) < TV_META_CACHE_TTL) {
+                console.log(`⚡ META CACHE HIT: ${id}`);
+                return cached.data;
+            }
+
+            // Helper: cacha il risultato prima di restituirlo
+            const cacheAndReturn = (result: any) => {
+                if (result && result.meta) {
+                    tvMetaCache.set(id, { data: result, ts: Date.now() });
+                    // Cleanup: rimuovi entries vecchie ogni 100 inserimenti
+                    if (tvMetaCache.size > 500) {
+                        const now = Date.now();
+                        for (const [k, v] of tvMetaCache) {
+                            if (now - v.ts > TV_META_CACHE_TTL) tvMetaCache.delete(k);
+                        }
+                    }
+                }
+                return result;
+            };
+
             // Gestisci tutti i possibili formati di ID che Stremio può inviare
             let cleanId = id;
             if (id.startsWith('tv:')) {
@@ -2398,7 +2434,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         : [size, date].filter(Boolean).join(' | ');
 
                     console.log(`📹 DVR meta: Returning meta for ${recordingId}`);
-                    return {
+                    return cacheAndReturn({
                         meta: {
                             id: `dvr:${recordingId}`,
                             type: 'tv',
@@ -2408,8 +2444,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             background: 'https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/logo.png',
                             description: details,
                             genres: ['DVR']
-                        }
-                    };
+                        },
+                        cacheMaxAge: 300
+                    });
 
                 } catch (error) {
                     console.error('📹 DVR meta error:', error);
@@ -2433,7 +2470,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const sportzxChannel = getSportzxChannels().find((c: any) => c.id === cleanId);
                 if (sportzxChannel) {
                     console.log(`✅ Found SportzX channel for meta: ${sportzxChannel.name}`);
-                    return {
+                    return cacheAndReturn({
                         meta: {
                             id: `tv:${sportzxChannel.id}`,
                             type: 'tv',
@@ -2444,8 +2481,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             description: sportzxChannel.description || 'SportzX Live Stream',
                             genres: ['SportzX', 'Live', 'Sport'],
                             releaseInfo: 'Live Event'
-                        }
-                    };
+                        },
+                        cacheMaxAge: 600
+                    });
                 }
             }
 
@@ -2455,7 +2493,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const sports99Channel = getSports99Channels().find((c: any) => c.id === cleanId);
                 if (sports99Channel) {
                     console.log(`✅ Found Sports99 channel for meta: ${sports99Channel.name}`);
-                    return {
+                    return cacheAndReturn({
                         meta: {
                             id: `tv:${sports99Channel.id}`,
                             type: 'tv',
@@ -2466,8 +2504,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             description: sports99Channel.description || 'Sports99 Live Stream',
                             genres: ['Sports99', 'Live', 'Sport'],
                             releaseInfo: 'Live Event'
-                        }
-                    };
+                        },
+                        cacheMaxAge: 600
+                    });
                 }
             }
 
@@ -2477,7 +2516,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const mhChannel = getMediaHostingChannels().find((c: any) => c.id === cleanId);
                 if (mhChannel) {
                     console.log(`✅ Found MediaHosting channel for meta: ${mhChannel.name}`);
-                    return {
+                    return cacheAndReturn({
                         meta: {
                             id: `tv:${mhChannel.id}`,
                             type: 'tv',
@@ -2488,8 +2527,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             description: mhChannel.description || 'MediaHosting Live Stream',
                             genres: ['MediaHosting', 'Live', 'Sport'],
                             releaseInfo: 'Live'
-                        }
-                    };
+                        },
+                        cacheMaxAge: 600
+                    });
                 }
             }
 
@@ -2499,7 +2539,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const fsChannel = getFreeshotChannels().find((c: any) => c.id === cleanId);
                 if (fsChannel) {
                     console.log(`✅ Found Freeshot channel for meta: ${fsChannel.name}`);
-                    return {
+                    return cacheAndReturn({
                         meta: {
                             id: `tv:${fsChannel.id}`,
                             type: 'tv',
@@ -2510,8 +2550,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             description: fsChannel.description || 'Freeshot Live Stream',
                             genres: ['Freeshot', 'Live', 'Sport'],
                             releaseInfo: 'Live'
-                        }
-                    };
+                        },
+                        cacheMaxAge: 600
+                    });
                 }
             }
 
@@ -2567,7 +2608,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     country: "IT",
                     language: "it"
                 };
-                return { meta };
+                return cacheAndReturn({ meta, cacheMaxAge: 600 });
             }
 
             // Se non è ThisNot, continua con la logica normale
@@ -2676,7 +2717,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                 }
 
-                return { meta: metaWithPrefix };
+                return cacheAndReturn({ meta: metaWithPrefix, cacheMaxAge: 3600 });
             } else {
                 // Fallback per placeholder non persistiti in tvChannels
                 if (cleanId.startsWith('placeholder-')) {
@@ -2705,7 +2746,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         placeholderVideo
                     } as any;
                     console.log(`🧩 Generated dynamic placeholder meta for missing channel ${cleanId}`);
-                    return { meta };
+                    return cacheAndReturn({ meta, cacheMaxAge: 3600 });
                 }
                 console.log(`❌ No meta found for channel ID: ${id}`);
                 return { meta: null };
@@ -6672,6 +6713,13 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
             );
         }
 
+        // ENV: DISABLE_LIVE_EVENTS — rimuovi solo Live + Eventi, lascia TV statica
+        if (process.env.DISABLE_LIVE_EVENTS === 'true' || process.env.DISABLE_LIVE_EVENTS === '1') {
+            filtered.catalogs = (filtered.catalogs || []).filter((c: any) =>
+                !(c && ((c as any).id === 'streamvix_live' || (c as any).id === 'streamvix_eventi' || (c as any).id === 'streamvix_live_search' || (c as any).id === 'streamvix_eventi_search'))
+            );
+        }
+
         // Rimuovi catalogo DVR quando dvrEnabled non è attivo
         const effectiveDvr = (cfgFromUrl as any)?.dvrEnabled ?? (configCache as any)?.dvrEnabled;
         if (!effectiveDvr) {
@@ -6994,9 +7042,19 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 
 // ============ TVTAP RESOLVE ENDPOINT ============
+// Cache in-memory per i link risolti (TTL 2 minuti)
+const tvtapStreamCache = new Map<string, { url: string, expires: number }>();
+
 // Endpoint per risolvere i link TVTap in tempo reale
 app.get('/tvtap-resolve/:channelId', async (req: Request, res: Response) => {
     const { channelId } = req.params;
+    // Check cache
+    const cached = tvtapStreamCache.get(channelId);
+    if (cached && cached.expires > Date.now()) {
+        console.log(`[TVTap] Cache hit per canale ID: ${channelId}`);
+        return res.redirect(cached.url);
+    }
+
     console.log(`[TVTap] Richiesta risoluzione per canale ID: ${channelId}`);
 
     try {
@@ -7034,6 +7092,9 @@ app.get('/tvtap-resolve/:channelId', async (req: Request, res: Response) => {
 
             const streamUrl = stdout.trim();
             console.log(`[TVTap] Resolved channel ${channelId} to: ${streamUrl.substring(0, 50)}...`);
+
+            // Cache result (2 mins)
+            tvtapStreamCache.set(channelId, { url: streamUrl, expires: Date.now() + 120000 });
 
             // Redirigi al link stream
             res.redirect(streamUrl);
