@@ -746,7 +746,9 @@ export class AnimeWorldProvider {
       .replace(/ITA/gi, '')
       .replace(/\s+/g, ' ')
       .trim();
-    const langLabel = /(?:^|[-_])ita(?:[-_]|$)/i.test(slug) ? 'ITA' : 'SUB';
+    // Use active lang detection via probe because AnimeWorld slugs (e.g. naruto.2B7E8) do not reliably indicate ITA
+    const langType = await this.inferLanguageFromPlayPage(slug);
+    const langLabel = langType === 'ITA' ? 'ITA' : 'SUB';
     const sNum = seasonNumber || 1;
     const epNum = isMovie ? Number(target.number || 1) : requestedEpisode;
     let titleStream = `${capitalize(cleanName || titleFallback)} ▪ ${langLabel} ▪ S${sNum}`;

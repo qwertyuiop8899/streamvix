@@ -589,7 +589,8 @@ export class AnimeSaturnProvider {
 
     const cleanName = String(titleFallback || '').replace(/\s+/g, ' ').trim() || 'AnimeSaturn';
     const sNum = seasonNumber || 1;
-    let streamTitle = `${capitalize(cleanName)} ▪ SUB ▪ S${sNum}`;
+    const langLabel = /(?:^|[-_])ita(?:[-_]|$)/i.test(animePath) ? 'ITA' : 'SUB';
+    let streamTitle = `${capitalize(cleanName)} ▪ ${langLabel} ▪ S${sNum}`;
     if (!isMovie && requestedEpisode) streamTitle += `E${requestedEpisode}`;
 
     return [{
