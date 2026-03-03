@@ -1,0 +1,3433 @@
+[
+  {
+    "id": "rai1",
+    "type": "tv",
+    "name": "Rai 1",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rai1.png",
+    "description": "Rai 1 - Canale pubblico italiano",
+    "category": "rai",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/rai1/browser-HLS8/rai1.m3u8",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=850",
+    "vavooNames": [
+      "RAI 1"
+    ],
+    "epgChannelIds": [
+      "rai1.it"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=850"
+  },
+  {
+    "id": "rai2",
+    "type": "tv",
+    "name": "Rai 2",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rai2.png",
+    "description": "Rai 2 - Canale pubblico italiano",
+    "category": "rai",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/rai2/browser-HLS8/rai2.m3u8",
+    "vavooNames": [
+      "RAI 2"
+    ],
+    "epgChannelIds": [
+      "rai2.it"
+    ]
+  },
+  {
+    "id": "rai3",
+    "type": "tv",
+    "name": "Rai 3",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rai3.png",
+    "description": "Rai 3 - Canale pubblico italiano",
+    "category": "rai",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/rai3/browser-HLS8/rai3.m3u8",
+    "vavooNames": [
+      "RAI 3"
+    ],
+    "epgChannelIds": [
+      "rai3.it"
+    ]
+  },
+  {
+    "id": "rete4",
+    "type": "tv",
+    "name": "Rete 4",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rete4.png",
+    "description": "Rete 4 - Mediaset",
+    "category": "mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-r4/r4-clr.isml/index.m3u8",
+    "vavooNames": [
+      "RETE 4"
+    ],
+    "epgChannelIds": [
+      "rete.4.it"
+    ]
+  },
+  {
+    "id": "canale5",
+    "type": "tv",
+    "name": "Canale 5",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/canale5.png",
+    "description": "Canale 5 - Mediaset",
+    "category": "mediaset",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/canale5/browser-HLS8/canale5.m3u8",
+    "vavooNames": [
+      "CANALE 5"
+    ],
+    "epgChannelIds": [
+      "canale.5.it"
+    ]
+  },
+  {
+    "id": "italia1",
+    "type": "tv",
+    "name": "Italia 1",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/italia1.png",
+    "description": "Italia 1 - Mediaset",
+    "category": "mediaset",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/italia1/browser-HLS8/italia1.m3u8",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=854",
+    "vavooNames": [
+      "ITALIA 1"
+    ],
+    "epgChannelIds": [
+      "italia1.it"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=854"
+  },
+  {
+    "id": "la7",
+    "type": "tv",
+    "name": "LA7",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/LA7.png?raw=true",
+    "description": "LA7 - Canale privato italiano",
+    "category": "general",
+    "staticUrlF": "https://viamotionhsi.netplus.ch/live/eds/la7/browser-HLS8/la7.m3u8",
+    "vavooNames": [
+      "LA7"
+    ],
+    "epgChannelIds": [
+      "la7.it"
+    ]
+  },
+  {
+    "id": "tv8",
+    "type": "tv",
+    "name": "TV8",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/tv8.png",
+    "description": "TV8 - Sky",
+    "category": "sky",
+    "staticUrlF": "https://hlslive-web-gcdn-skycdn-it.akamaized.net/TACT/11223/tv8web/master.m3u8?hdnea=st=1701861650~exp=1765449000~acl=/*~hmac=84c9f3f71e57b13c3a67afa8b29a8591ea9ed84bf786524399545d94be1ec04d",
+    "vavooNames": [
+      "TV8"
+    ],
+    "epgChannelIds": [
+      "Tv8.it"
+    ]
+  },
+  {
+    "id": "nove",
+    "type": "tv",
+    "name": "NOVE",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/nove.png",
+    "description": "NOVE - Warner Bros Discovery",
+    "staticUrlF": "https://amg16146-wbdi-amg16146c1-samsung-it-1831.playouts.now.amagi.tv/playlist/amg16146-warnerbrosdiscoveryitalia-nove-samsungit/playlist.m3u8",
+    "vavooNames": [
+      "NOVE"
+    ],
+    "epgChannelIds": [
+      "Nove.it"
+    ],
+    "category": [
+      "general",
+      "discovery"
+    ]
+  },
+  {
+    "id": "20mediaset",
+    "type": "tv",
+    "name": "20 Mediaset",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/20mediaset.png",
+    "description": "20 Mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-lb/lb-clr.isml/index.m3u8",
+    "vavooNames": [
+      "20 MEDIASET"
+    ],
+    "epgChannelIds": [
+      "20Mediaset.it"
+    ],
+    "category": "mediaset"
+  },
+  {
+    "id": "rai4",
+    "type": "tv",
+    "name": "Rai 4",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rai4.png",
+    "description": "Rai 4 - Canale pubblico italiano",
+    "staticUrlF": "http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=746966&output=7&forceUserAgent=raiplayappletv",
+    "vavooNames": [
+      "RAI 4"
+    ],
+    "epgChannelIds": [
+      "Rai4.it"
+    ],
+    "category": "rai"
+  },
+  {
+    "id": "iris",
+    "type": "tv",
+    "name": "Iris",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/iris.png",
+    "description": "Iris - Mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-ki/ki-clr.isml/index.m3u8",
+    "vavooNames": [
+      "IRIS"
+    ],
+    "epgChannelIds": [
+      "Iris.it"
+    ],
+    "category": "mediaset"
+  },
+  {
+    "id": "rai5",
+    "type": "tv",
+    "name": "Rai 5",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rai5.png",
+    "description": "Rai 5 - Canale pubblico italiano",
+    "staticUrlF": "http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=395276&output=7&forceUserAgent=raiplayappletv",
+    "vavooNames": [
+      "RAI 5"
+    ],
+    "epgChannelIds": [
+      "Rai5.it"
+    ],
+    "category": "rai"
+  },
+  {
+    "id": "raimovie",
+    "type": "tv",
+    "name": "Rai Movie",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/raimovie.png",
+    "description": "Rai Movie - Canale pubblico italiano",
+    "staticUrlF": "http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=747002&output=7&forceUserAgent=raiplayappletv",
+    "vavooNames": [
+      "RAI MOVIE"
+    ],
+    "epgChannelIds": [
+      "RaiMovie.it"
+    ],
+    "category": "rai"
+  },
+  {
+    "id": "raipremium",
+    "type": "tv",
+    "name": "Rai Premium",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/raipremium.png",
+    "description": "Rai Premium - Canale pubblico italiano",
+    "staticUrlF": "http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=746992&output=7&forceUserAgent=raiplayappletv",
+    "vavooNames": [
+      "RAI PREMIUM"
+    ],
+    "epgChannelIds": [
+      "RaiPremium.it"
+    ],
+    "category": "rai"
+  },
+  {
+    "id": "cielo",
+    "type": "tv",
+    "name": "Cielo",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/cielo.png",
+    "description": "Cielo - Sky",
+    "staticUrlF": "https://hlslive-web-gcdn-skycdn-it.akamaized.net/TACT/11219/cieloweb/master.m3u8?hdnea=st=1701861650~exp=1765449000~acl=/*~hmac=84c9f3f71e57b13c3a67afa8b29a8591ea9ed84bf786524399545d94be1ec04d",
+    "vavooNames": [
+      "CIELO"
+    ],
+    "epgChannelIds": [
+      "Cielo.it"
+    ],
+    "category": "sky"
+  },
+  {
+    "id": "twentyseven",
+    "type": "tv",
+    "name": "Twenty Seven",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/twentyseven.png",
+    "description": "Twenty Seven - Mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-ts/ts-clr.isml/index.m3u8",
+    "vavooNames": [
+      "TWENTY SEVEN"
+    ],
+    "epgChannelIds": [
+      "TwentySeven.it"
+    ],
+    "category": "mediaset"
+  },
+  {
+    "id": "tv2000",
+    "type": "tv",
+    "name": "TV2000",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/tv2000.png",
+    "description": "TV2000 - Canale religioso",
+    "staticUrlF": "https://hls-live-tv2000.akamaized.net/hls/live/2028510/tv2000/master.m3u8",
+    "vavooNames": [
+      "TV2000"
+    ],
+    "epgChannelIds": [
+      "TV2000.it"
+    ],
+    "category": "general"
+  },
+  {
+    "id": "la7d",
+    "type": "tv",
+    "name": "LA7d",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/la7d.png",
+    "description": "LA7d - Canale privato italiano",
+    "staticUrlF": "https://d15umi5iaezxgx.cloudfront.net/LA7D/CLN/HLS-B/Live_1280x720_.m3u8",
+    "vavooNames": [
+      "LA7D"
+    ],
+    "epgChannelIds": [
+      "LA7D.it"
+    ],
+    "category": "general"
+  },
+  {
+    "id": "la5",
+    "type": "tv",
+    "name": "La 5",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/la5.png",
+    "description": "La 5 - Mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-ka/ka-clr.isml/index.m3u8",
+    "vavooNames": [
+      "LA 5"
+    ],
+    "epgChannelIds": [
+      "LA5.it"
+    ],
+    "category": "mediaset"
+  },
+  {
+    "id": "realtime",
+    "type": "tv",
+    "name": "Real Time",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/realtime.png",
+    "description": "Real Time - Warner Bros Discovery",
+    "staticUrlF": "https://amg16146-wbdi-amg16146c2-samsung-it-1835.playouts.now.amagi.tv/playlist/amg16146-warnerbrosdiscoveryitalia-realtime-samsungit/playlist.m3u8",
+    "vavooNames": [
+      "REAL TIME"
+    ],
+    "epgChannelIds": [
+      "real.time.it"
+    ],
+    "category": [
+      "general",
+      "discovery"
+    ]
+  },
+  {
+    "id": "foodnetwork",
+    "type": "tv",
+    "name": "Food Network",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/foodnetwork.png",
+    "description": "Food Network - Warner Bros Discovery",
+    "staticUrlF": "https://amg16146-wbdi-amg16146c3-samsung-it-1836.playouts.now.amagi.tv/playlist/amg16146-warnerbrosdiscoveryitalia-foodnetwork-samsungit/playlist.m3u8",
+    "vavooNames": [
+      "FOOD NETWORK"
+    ],
+    "epgChannelIds": [
+      "food.network.it"
+    ],
+    "category": [
+      "discovery",
+      "general"
+    ]
+  },
+  {
+    "id": "cine34",
+    "type": "tv",
+    "name": "Cine34",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/cine34.png",
+    "description": "Cine34 - Mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-b6/b6-clr.isml/index.m3u8",
+    "vavooNames": [
+      "CINE34"
+    ],
+    "epgChannelIds": [
+      "Cine34.it"
+    ],
+    "category": "mediaset"
+  },
+  {
+    "id": "focus",
+    "type": "tv",
+    "name": "FOCUS",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/focus.png",
+    "description": "FOCUS - Mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-fu/fu-clr.isml/index.m3u8",
+    "vavooNames": [
+      "FOCUS"
+    ],
+    "epgChannelIds": [
+      "Focus.it"
+    ],
+    "category": [
+      "mediaset",
+      "documentari"
+    ]
+  },
+  {
+    "id": "rtl1025tv",
+    "type": "tv",
+    "name": "RTL 102.5",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rtl1025tv.png",
+    "description": "RTL 102.5 - Canale radio-TV",
+    "staticUrlF": "https://streamcdng9-dd782ed59e2a4e86aabf6fc508674b59.msvdn.net/live/S97044836/tbbP8T1ZRPBL/chunklist_b2816000.m3u8",
+    "vavooNames": [
+      "RTL 102.5"
+    ],
+    "epgChannelIds": [
+      "RTL102.5TV.it"
+    ],
+    "category": "general"
+  },
+  {
+    "id": "warnertv",
+    "type": "tv",
+    "name": "Warner TV",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/warnertv.png",
+    "description": "Warner TV - Warner Bros Discovery",
+    "staticUrlF": "https://amg16146-wbdi-amg16146c4-samsung-it-1837.playouts.now.amagi.tv/playlist/amg16146-warnerbrosdiscoveryitalia-warnertv-samsungit/playlist.m3u8",
+    "vavooNames": [
+      "WARNER TV"
+    ],
+    "epgChannelIds": [
+      "warner.tv.it"
+    ],
+    "category": [
+      "discovery",
+      "cinema"
+    ]
+  },
+  {
+    "id": "giallo",
+    "type": "tv",
+    "name": "Giallo",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/giallo.png",
+    "description": "Giallo - Warner Bros Discovery",
+    "staticUrlF": "https://amg16146-wbdi-amg16146c5-samsung-it-1838.playouts.now.amagi.tv/playlist/amg16146-warnerbrosdiscoveryitalia-giallo-samsungit/playlist.m3u8",
+    "vavooNames": [
+      "GIALLO"
+    ],
+    "epgChannelIds": [
+      "GialloTV.it"
+    ],
+    "category": [
+      "mediaset",
+      "general"
+    ]
+  },
+  {
+    "id": "topcrime",
+    "type": "tv",
+    "name": "Top Crime",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/topcrime.png",
+    "description": "Top Crime - Mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-lt/lt-clr.isml/index.m3u8",
+    "vavooNames": [
+      "TOP CRIME"
+    ],
+    "epgChannelIds": [
+      "TopCrime.it"
+    ],
+    "category": "mediaset"
+  },
+  {
+    "id": "boing",
+    "type": "tv",
+    "name": "Boing",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/boing.png",
+    "description": "Boing - Mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-kb/kb-clr.isml/index.m3u8",
+    "vavooNames": [
+      "BOING"
+    ],
+    "epgChannelIds": [
+      "Boing.it"
+    ],
+    "category": [
+      "mediaset",
+      "kids"
+    ]
+  },
+  {
+    "id": "k2",
+    "type": "tv",
+    "name": "K2",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/k2.png",
+    "description": "K2 - Warner Bros Discovery",
+    "staticUrlF": "https://amg16146-wbdi-amg16146c6-samsung-it-1839.playouts.now.amagi.tv/playlist/amg16146-warnerbrosdiscoveryitalia-k2-samsungit/playlist.m3u8",
+    "vavooNames": [
+      "K2"
+    ],
+    "epgChannelIds": [
+      "K2.it"
+    ],
+    "category": "kids"
+  },
+  {
+    "id": "raigulp",
+    "type": "tv",
+    "name": "Rai Gulp",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/raigulp.png",
+    "description": "Rai Gulp - Canale pubblico italiano",
+    "staticUrlF": "http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=746953&output=7&forceUserAgent=raiplayappletv",
+    "vavooNames": [
+      "RAI GULP"
+    ],
+    "epgChannelIds": [
+      "RaiGulp.it"
+    ],
+    "category": [
+      "rai",
+      "kids"
+    ]
+  },
+  {
+    "id": "raiyoyo",
+    "type": "tv",
+    "name": "Rai Yoyo",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/raiyoyo.png",
+    "description": "Rai Yoyo - Canale pubblico italiano",
+    "staticUrlF": "http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=746899&output=7&forceUserAgent=raiplayappletv",
+    "vavooNames": [
+      "RAI YOYO"
+    ],
+    "epgChannelIds": [
+      "RaiYoyo.it"
+    ],
+    "category": [
+      "rai",
+      "kids"
+    ]
+  },
+  {
+    "id": "frisbee",
+    "type": "tv",
+    "name": "Frisbee",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/frisbee.png",
+    "description": "Frisbee - Warner Bros Discovery",
+    "staticUrlF": "https://amg16146-wbdi-amg16146c7-samsung-it-1840.playouts.now.amagi.tv/playlist/amg16146-warnerbrosdiscoveryitalia-frisbee-samsungit/playlist.m3u8",
+    "vavooNames": [
+      "FRISBEE"
+    ],
+    "epgChannelIds": [
+      "Frisbee.it"
+    ],
+    "category": "kids"
+  },
+  {
+    "id": "cartoonito",
+    "type": "tv",
+    "name": "Cartoonito",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/cartoonito.png",
+    "description": "Cartoonito - Mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-la/la-clr.isml/index.m3u8",
+    "vavooNames": [
+      "CARTOONITO"
+    ],
+    "epgChannelIds": [
+      "Cartoonito.it"
+    ],
+    "category": "kids"
+  },
+  {
+    "id": "super",
+    "type": "tv",
+    "name": "Super!",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/super.png",
+    "description": "Super! - Canale gratuito",
+    "staticUrlF": "https://vimnitaly.akamaized.net/hls/live/2094034/super/master.m3u8",
+    "vavooNames": [
+      "SUPER"
+    ],
+    "epgChannelIds": [
+      "Super.it"
+    ],
+    "category": "kids"
+  },
+  {
+    "id": "rainews24",
+    "type": "tv",
+    "name": "Rai News 24",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rainews24.png",
+    "description": "Rai News 24 - Canale pubblico italiano",
+    "staticUrlF": "http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=1&output=7&forceUserAgent=raiplayappletv",
+    "vavooNames": [
+      "RAI NEWS 24"
+    ],
+    "epgChannelIds": [
+      "RaiNews24.it"
+    ],
+    "category": "news"
+  },
+  {
+    "id": "italia2",
+    "type": "tv",
+    "name": "Italia 2",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/italia2.png",
+    "description": "Italia 2 - Mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-i2/i2-clr.isml/index.m3u8",
+    "vavooNames": [
+      "ITALIA 2"
+    ],
+    "epgChannelIds": [
+      "Italia2.it"
+    ],
+    "category": "mediaset"
+  },
+  {
+    "id": "skytg24",
+    "type": "tv",
+    "name": "Sky TG24",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/skytg24.png",
+    "description": "Sky TG24 - Sky",
+    "staticUrlF": "https://hlslive-web-gcdn-skycdn-it.akamaized.net/TACT/12221/web/master.m3u8?hdnts=st=1701861650~exp=1765449000~acl=/*~hmac=84c9f3f71e57b13c3a67afa8b29a8591ea9ed84bf786524399545d94be1ec04d",
+    "vavooNames": [
+      "SKY TG24"
+    ],
+    "epgChannelIds": [
+      "SkyTG24.it"
+    ],
+    "category": [
+      "sky",
+      "news"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDA1X2Z+MF9nfjFfc34yNjlhNzg1My05NzljLTQzZjItODQ2Ny03OGI2NGIyNzUwYmZfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTBfeH40Mjk5YzcwMmU5NmY5NGZiYzM1OGExNmI1OTg0MTQwMy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwodGcyNCkvbWFzdGVyXzJoci1hYWMubXBkP2tleV9pZD0xMTE1ZGY4ZDY3Mjc4MDc3ODdlOThjMGNlYWUxZWU2YyZrZXk9ZjRiOWU1MmUzZjMxZjFmYTQxODUwZGU0Nzk5Y2E0ZTM="
+  },
+  {
+    "id": "tgcom24",
+    "type": "tv",
+    "name": "TGCOM 24",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/tgcom24.png",
+    "description": "TGCOM 24 - Mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-kf/kf-clr.isml/index.m3u8",
+    "vavooNames": [
+      "TGCOM 24"
+    ],
+    "epgChannelIds": [
+      "TGCom24.it"
+    ],
+    "category": [
+      "mediaset",
+      "news"
+    ]
+  },
+  {
+    "id": "dmax",
+    "type": "tv",
+    "name": "DMAX",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/dmax.png",
+    "description": "DMAX - Warner Bros Discovery",
+    "staticUrlF": "https://amg16146-wbdi-amg16146c8-samsung-it-1841.playouts.now.amagi.tv/playlist/amg16146-warnerbrosdiscoveryitalia-dmax-samsungit/playlist.m3u8",
+    "vavooNames": [
+      "DMAX"
+    ],
+    "epgChannelIds": [
+      "DMAX.it"
+    ],
+    "category": [
+      "discovery",
+      "general"
+    ]
+  },
+  {
+    "id": "raistoria",
+    "type": "tv",
+    "name": "Rai Storia",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/raistoria.png",
+    "description": "Rai Storia - Canale pubblico italiano",
+    "staticUrlF": "http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=746990&output=7&forceUserAgent=raiplayappletv",
+    "vavooNames": [
+      "RAI STORIA"
+    ],
+    "epgChannelIds": [
+      "RaiStoria.it"
+    ],
+    "category": "rai"
+  },
+  {
+    "id": "mediasetextra",
+    "type": "tv",
+    "name": "Mediaset Extra",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/mediasetextra.png",
+    "description": "Mediaset Extra - Mediaset",
+    "staticUrlF": "https://live02-seg.msf.cdn.mediaset.net/live/ch-kq/kq-clr.isml/index.m3u8",
+    "vavooNames": [
+      "MEDIASET EXTRA"
+    ],
+    "epgChannelIds": [
+      "MediasetExtra.it"
+    ],
+    "category": "mediaset"
+  },
+  {
+    "id": "hgtv",
+    "type": "tv",
+    "name": "HGTV - Home&Garden",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/homegardentv.png",
+    "description": "HGTV - Home&Garden - Warner Bros Discovery",
+    "staticUrlF": "https://amg16146-wbdi-amg16146c9-samsung-it-1842.playouts.now.amagi.tv/playlist/amg16146-warnerbrosdiscoveryitalia-hgtv-samsungit/playlist.m3u8",
+    "vavooNames": [
+      "HGTV"
+    ],
+    "epgChannelIds": [
+      "Home&GardenTV.it"
+    ],
+    "category": [
+      "general",
+      "discovery"
+    ]
+  },
+  {
+    "id": "raiscuola",
+    "type": "tv",
+    "name": "Rai Scuola",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/raiscuola.png",
+    "description": "Rai Scuola - Canale pubblico italiano",
+    "staticUrlF": "http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=747011&output=7&forceUserAgent=raiplayappletv",
+    "vavooNames": [
+      "RAI SCUOLA"
+    ],
+    "epgChannelIds": [
+      "RaiScuola.it"
+    ],
+    "category": "rai"
+  },
+  {
+    "id": "raisport",
+    "type": "tv",
+    "name": "Rai Sport + HD",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/raisport+hd.png",
+    "description": "Rai Sport + HD - Canale pubblico italiano",
+    "staticUrlF": "http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=358025&output=7&forceUserAgent=raiplayappletv",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=882",
+    "vavooNames": [
+      "RAI SPORT"
+    ],
+    "epgChannelIds": [
+      "RaiSport+HD.it"
+    ],
+    "category": "rai",
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=882"
+  },
+  {
+    "id": "motortrend",
+    "type": "tv",
+    "name": "Motor Trend",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/motortrend.png",
+    "description": "Motor Trend - Warner Bros Discovery",
+    "staticUrlF": "https://amg16146-wbdi-amg16146c10-samsung-it-1843.playouts.now.amagi.tv/playlist/amg16146-warnerbrosdiscoveryitalia-motortrend-samsungit/playlist.m3u8",
+    "vavooNames": [
+      "MOTOR TREND"
+    ],
+    "epgChannelIds": [
+      "MotorTrendTV.it"
+    ],
+    "category": [
+      "general",
+      "discovery"
+    ]
+  },
+  {
+    "id": "sportitalia",
+    "type": "tv",
+    "name": "Sportitalia",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/sportitalia.png",
+    "description": "Sportitalia - Canale sportivo",
+    "staticUrlF": "https://sportitaliaamd.akamaized.net/live/Sportitalia/hls/F59D8EB0332E783633CDDE8E265844975635D24F/index.m3u8",
+    "vavooNames": [
+      "SPORTITALIA"
+    ],
+    "epgChannelIds": [
+      "Sportitalia.it"
+    ],
+    "category": [
+      "mediaset",
+      "sport"
+    ]
+  },
+  {
+    "id": "supertennis",
+    "type": "tv",
+    "name": "Supertennis",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/supertennis.png",
+    "description": "Supertennis - Canale sportivo",
+    "staticUrlF": "https://live-embed.supertennix.hiway.media/restreamer/supertennix_client/gpu-a-c0-16/restreamer/rtmp/hls/h24_supertennix/manifest.m3u8",
+    "vavooNames": [
+      "SUPERTENNIS"
+    ],
+    "epgChannelIds": [
+      "SuperTennis.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "rai4k",
+    "type": "tv",
+    "name": "Rai 4K (HbbTV)",
+    "poster": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rai4k.png",
+    "description": "Rai 4K (HbbTV) - Canale pubblico italiano",
+    "staticUrlF": "https://raievent10-elem-live.akamaized.net/hls/live/619189/raievent10/raievent10/playlist.m3u8",
+    "vavooNames": [
+      "RAI 4K"
+    ],
+    "epgChannelIds": [
+      "Rai4K.it"
+    ],
+    "category": "rai"
+  },
+  {
+    "id": "skycinemauno",
+    "type": "tv",
+    "name": "Sky Cinema Uno",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-uno-it.png",
+    "description": "Sky Cinema Uno",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=860",
+    "vavooNames": [
+      "SKY CINEMA UNO"
+    ],
+    "epgChannelIds": [
+      "sky.cinema.uno.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=860",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDA5X2Z+MF9nfjFfc344ZTdlODM0Mi1hMWIzLTQyOTktODk0ZS1lNTVkZTg5NTU0NDhfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NThfeH4yMWUwOGI4NzFiNWQ3ZjE3YjljMjhkZTIzOWJjMTNjZi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hdW5vKS9tYXN0ZXJfMmhyLWFhYy5tcGQ/a2V5X2lkPTExMTU3MTY3NWQ4MTgzZWQxNjk3MjU1NjRjZGVkNmQ5JmtleT1lMDc3ZGVkZjM4M2M4YWVkNzNkMzg1NjdhOGU2YTA0Ng=="
+  },
+  {
+    "id": "skycinemadue",
+    "type": "tv",
+    "name": "Sky Cinema Stories",
+    "poster": "https://pixel.disco.nowtv.it/logo/skychb_564_lightnow/LOGO_CHANNEL_DARK/4000?language=it-IT&proposition=NOWOTT",
+    "description": "Sky Cinema Stories - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=866",
+    "vavooNames": [
+      "SKY CINEMA DUE"
+    ],
+    "epgChannelIds": [
+      "sky.cinema.due.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=866",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDIxX2Z+MF9nfjFfc35mMzIyM2I3YS01MjI3LTQ1ZjMtOGU1ZS0yMTA4MmIzNDZiN2VfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NThfeH4yMmI2MjljNDI1ZTA0ZjYxYzQyNGQzZjE5MzcxMjllYi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hZHVlKS9tYXN0ZXJfMmhyLWFhYy5tcGQ/a2V5X2lkPTExMTUyYzRlYTFhM2JmZmRkMjc3Y2UzMzNlNTQ2MzFhJmtleT0xN2YwYzAyODgwMGRiY2IyOTRiOWFlYmJhZTFmN2UwYw=="
+  },
+  {
+    "id": "skycinemacomedy",
+    "type": "tv",
+    "name": "Sky Cinema Comedy",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-comedy-it.png",
+    "description": "Sky Cinema Comedy - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=862",
+    "vavooNames": [
+      "SKY CINEMA COMEDY"
+    ],
+    "epgChannelIds": [
+      "sky.cinema.comedy.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=862",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDE0X2Z+MF9nfjFfc34wYzRlZWRhYS05N2I1LTQxODQtYTllYi1mNTljZWI1MjNiZGFfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjFfeH41ZDY1ODkzZTg2NGUxMjI2ZDI5N2RjNzE5NzNhZDhhZi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hY29tZWR5KS9tYXN0ZXJfMmhyLWFhYy5tcGQ/a2V5X2lkPTExMTU2NzZlY2E3OTIzM2YyOTE5YjUzZjFhMTcwOWI4JmtleT03MjI5OGEzMWIxYjAxNWI1MmFkYzAzYWIyMjI0OTRjMg=="
+  },
+  {
+    "id": "skycinemaaction",
+    "type": "tv",
+    "name": "Sky Cinema Action",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-action-it.png",
+    "description": "Sky Cinema Action - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=861",
+    "vavooNames": [
+      "SKY CINEMA ACTION"
+    ],
+    "epgChannelIds": [
+      "sky.cinema.action.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=861",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDIwX2Z+MF9nfjFfc34xMThiZWEwNC0yN2M3LTQxYTUtOWQzZi1lNjdjYzJhYWI5MTJfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjFfeH4yYTIxMmZjYTgyZDUxZGIxODE1MWRiMjczNTEwMWE4OS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hYWN0aW9uKS9tYXN0ZXJfMmhyLWFhYy5tcGQ/a2V5X2lkPTExMTUwNDQzODgzZGE0ZGYyN2UyNTExMGQxMGZjYTMxJmtleT04M2I2MzkwNDcxYTA4M2UwMGY4ZjNhZmYyYTI3MWJlOQ=="
+  },
+  {
+    "id": "skycinemafamily",
+    "type": "tv",
+    "name": "Sky Cinema Family",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-family-it.png",
+    "description": "Sky Cinema Family - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=865",
+    "vavooNames": [
+      "SKY CINEMA FAMILY"
+    ],
+    "epgChannelIds": [
+      "sky.cinema.family.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=865",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDI0X2Z+MF9nfjFfc343MDY2MDk5Zi0yMGYxLTRlYTEtYTc5Mi1hZjNmNWY4OGU1OWVfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjFfeH45Nzk4ZTM3NmU2YjRhYjJhZTkzNDI3YTI4ODZlNDU2Yi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hZmFtaWx5KS9tYXN0ZXJfMmhyLWFhYy5tcGQ/a2V5X2lkPTExMTUwNzQwNjU4MzJmNzRhZjdlMjc5ZTEyMDNhZGNlJmtleT0yMGVjZTQxMzFmYmVjODJhYzdmZjA1NjgzODUxMjE0Mw=="
+  },
+  {
+    "id": "skycinemacollection",
+    "type": "tv",
+    "name": "Sky Cinema Collection",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-collection-it.png",
+    "description": "Sky Cinema Collection - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=859",
+    "vavooNames": [
+      "SKY CINEMA COLLECTION"
+    ],
+    "epgChannelIds": [
+      "sky.cinema.collection.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=859",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDEzX2Z+MF9nfjFfc34zZmVhMzBmZC1jNmI0LTQ2Y2MtODM4Ni1mN2MyZjM0YzRjMzVfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjVfeH43ZGE5MjYyZDM3MDM1ZmQ1YmE4OTZkOGRhMGZjY2FhYy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hY29sbGVjdGlvbikvbWFzdGVyXzJoci1hYWMubXBkP2tleV9pZD0xMTE1NWQ4YTFmZTBiMjExMTM3YzIwNjM1NGUxNmQyYSZrZXk9N2YwN2QwZWY2OTM4OTNhODQxNjJkNTFjMWM3MjU5ZjM="
+  },
+  {
+    "id": "skycinemadrama",
+    "type": "tv",
+    "name": "Sky Cinema Drama",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-drama-it.png",
+    "description": "Sky Cinema Drama - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=867",
+    "vavooNames": [
+      "SKY CINEMA DRAMA"
+    ],
+    "epgChannelIds": [
+      "sky.cinema.drama.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=867",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDI1X2Z+MF9nfjFfc35mOWIyMjEyMS02NTg2LTQ2OGEtOTExNC03NDhmNGEwZmJkOTFfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjBfeH43MjZjYWFhODgzOWZmZTQwZGE3MmM4NDgzZTExYTRkOS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hZHJhbWEpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNTVhZDgwN2I5MGI5NTcwZmI4Y2NlMDY3ZjYxNjYma2V5PTc0YzQ0MzBlZDgxNDIxOTBlNTJkNGIzMDMyODY2OTZm"
+  },
+  {
+    "id": "skycinemasuspense",
+    "type": "tv",
+    "name": "Sky Cinema Suspense",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-suspense-it.png",
+    "description": "Sky Cinema Suspense - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=868",
+    "vavooNames": [
+      "SKY CINEMA SUSPENSE"
+    ],
+    "epgChannelIds": [
+      "sky.cinema.suspense.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=868",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDI4X2Z+MF9nfjFfc340NTVhZDU3Yi1kNDMwLTQ4YzUtOTc5MS1lMDVkZWQ5Zjk1MGZfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjNfeH5lMDg1Mjg3Mjg0YjBjNmJiYTM3ODExMGQ3NTIyZjYxZC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hc3VzcGVuc2UpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNWQwNDU2MmExYzMyOGE4NGIyZGFiNDEyNDRjYmEma2V5PTVjZjhjNjVkNDE3NzM0OTMwOGQ3MDQzMzg0ODgwNjU5"
+  },
+  {
+    "id": "skycinemaromance",
+    "type": "tv",
+    "name": "Sky Cinema Romance",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-romance-it.png",
+    "description": "Sky Cinema Romance - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=864",
+    "vavooNames": [
+      "SKY CINEMA ROMANCE"
+    ],
+    "epgChannelIds": [
+      "sky.cinema.romance.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=864",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDI4X2Z+MF9nfjFfc34xYjIyMjY1ZC05ZGRiLTRmOWYtODU4ZC0yZWZjNDZlM2RlNjlfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjJfeH5hMWMxNTE2MjNiNmY4MWRkZDRlZDdjNmU5N2I2Mzc2OS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y2luZW1hcm9tYW5jZSkvbWFzdGVyXzJoci1hYWMubXBkP2tleV9pZD0xMTE1ZGJlZWE1N2QyZmFkZWRjMjc4OTU2YmNiZmIwMiZrZXk9M2VlZTIzZjk3YWU0OWE4MWMwMzM1NjU5OWE2MTRmY2E="
+  },
+  {
+    "id": "skyuno",
+    "type": "tv",
+    "name": "Sky Uno",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-uno-it.png",
+    "description": "Sky Uno - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=881",
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=881",
+    "vavooNames": [
+      "SKY UNO"
+    ],
+    "epgChannelIds": [
+      "sky.uno.it"
+    ],
+    "category": "sky",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDA3X2Z+MF9nfjFfc35kMDljOTcwNS0zNjM0LTQyNjMtOTFlMy0yOTJmMWVmNmRiYTlfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTJfeH41N2I5OGRhMDYxYzQ0MDQxNDQzNzBhY2JiM2EzNDBlYy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5dW5vKS9tYXN0ZXJfMmhyLWFhYy5tcGQ/a2V5X2lkPTExMTU3Y2Q1Yjk0OWYxNWZlZDYzYTI3ZWRhZWFkOGU1JmtleT1mMzA3Y2M5MjBlMDc2MzY1MzAwNWU0YTg2MzBiZDhmYw=="
+  },
+  {
+    "id": "skyunoplus",
+    "type": "tv",
+    "name": "Sky Uno+",
+    "poster": "https://pixel.disco.nowtv.it/logo/skychb_432_darknow/LOGO_CHANNEL_LIGHT/4000?language=it-IT&proposition=NOWOTT",
+    "description": "Sky Uno+ - Sky",
+    "vavooNames": [
+      "SKY UNO PLUS"
+    ],
+    "epgChannelIds": [
+      "sky.uno.plus.it"
+    ],
+    "category": "sky"
+  },
+  {
+    "id": "skyserie",
+    "type": "tv",
+    "name": "Sky Serie",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-serie-it.png",
+    "description": "Sky Serie - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=880",
+    "vavooNames": [
+      "SKY SERIE"
+    ],
+    "epgChannelIds": [
+      "sky.serie.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=880",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDE0X2Z+MF9nfjFfc35iNTZmNWFiYS05ZTg2LTQ2M2MtODI4OS04ZmFjNjY2YjE1MzFfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTRfeH41NDU1ZjIyMzk4YzZjODZkNzYyNzRkNGExOGY0NDBlYi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c2VyaWUpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNWJmMDFhZWFkY2UzMmZjZWM2YTIyMDM3NWEzZmEma2V5PTlkZjM2MGEyYTIyNDExODk3Y2Q4YjFiYzQ4YzBhZmMw"
+  },
+  {
+    "id": "skycollection",
+    "type": "tv",
+    "name": "Sky Collection",
+    "poster": "https://i.imgur.com/2chmed4.png",
+    "description": "Sky Collection - Sky",
+    "vavooNames": [
+      "SKY COLLECTION"
+    ],
+    "epgChannelIds": [
+      "sky.serie.maratone.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDE2X2Z+MF9nfjFfc344OGMxM2I5Yy1lYWUyLTQ4YmItYWI5MS1mZTIyZjZiMTNjMDRfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTlfeH4wZjUwNmM5ZmY1YWEwZjg2YWYyNDFlOWZhMzFlOGFhNC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y29sbGVjdGlvbikvbWFzdGVyXzJoci1hYWMubXBkP2tleV9pZD0xMTE1MjQwM2JjMmMzMmRkYmU2ZGJjNWZkZTZkYjU5YyZrZXk9ZmZlNjYzZWM3MGU0MDAxNmRkYWQxYjc0YzEzMGU1NmI="
+  },
+  {
+    "id": "skyatlantic",
+    "type": "tv",
+    "name": "Sky Atlantic",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-atlantic-it.png",
+    "description": "Sky Atlantic - Sky",
+    "vavooNames": [
+      "SKY ATLANTIC"
+    ],
+    "epgChannelIds": [
+      "sky.atlantic.it"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDA4X2Z+MF9nfjFfc35jZDM5ZWMwOS1mYTM0LTRhM2QtYjE2OS02N2MyMWNkNGE2MzBfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH4zNTk3NTdjNGRmM2ZmYWQ5OTlmNTgxYWRmODllYjY3Yi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5YXRsYW50aWMpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNWYwMjg2MjU3NmIzNGI0NjdhZDRjNTRhMDljZmMma2V5PWJhYzQyZTgwMGE1YzQzN2I2MDZlMmFmNWIyOTFjNjA3"
+  },
+  {
+    "id": "skycrime",
+    "type": "tv",
+    "name": "Sky Crime",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-crime-it.png",
+    "description": "Sky Crime - Sky",
+    "vavooNames": [
+      "SKY CRIME"
+    ],
+    "epgChannelIds": [
+      "sky.crime.it"
+    ],
+    "category": "sky",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDI1X2Z+MF9nfjFfc35mMjUwMGI4Mi1lYzU1LTQzMTEtODU5YS1mOGZhNDc0ZWVlMDVfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTRfeH5hNDhmZDQwMTZlZDQ5M2Y0MDdmZTg5OThkYjg5YmUzNS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5Y3JpbWUpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNWFhNDdjZmExOGNmNzNjYjZmOTM2Y2ZmMWY4ZWUma2V5PWEyN2U3MzgzZDQ4MTU5NmNjMzQzMzQzMzZkM2U3MjE5"
+  },
+  {
+    "id": "skyinvestigation",
+    "type": "tv",
+    "name": "Sky Investigation",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-investigation-it.png",
+    "description": "Sky Investigation - Sky",
+    "vavooNames": [
+      "SKY INVESTIGATION"
+    ],
+    "epgChannelIds": [
+      "sky.investigation.it"
+    ],
+    "category": [
+      "sky",
+      "documentari"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDE1X2Z+MF9nfjFfc35hNWI4OWJjZC01MWRlLTQ2YjMtODRlNy00M2NiODUyZmY4OWJfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjJfeH5kNGYxYTg5MmM2MDBkNmIxMzdmNmEwYWNmYWZiMGRjMi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5aW52ZXN0aWdhdGlvbikvbWFzdGVyXzJoci1hYWMubXBkP2tleV9pZD0xMTE1M2RkOGRlNjNmOTc0ODI1MjEwNGFmZDZiNzQwNSZrZXk9MjU1ZTBjNWJiODFiZGU5NjAyZDg3NDYwODA0OTZlMDQ="
+  },
+  {
+    "id": "skydocumentaries",
+    "type": "tv",
+    "name": "Sky Documentaries",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-documentaries-it.png",
+    "description": "Sky Documentaries - Sky",
+    "vavooNames": [
+      "SKY DOCUMENTARIES"
+    ],
+    "epgChannelIds": [
+      "sky.documentaries.it"
+    ],
+    "category": [
+      "sky",
+      "documentari"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDIxX2Z+MF9nfjFfc35mOTI0ZWNhZC02M2YyLTRmOWItYTAzNy0yYjNiNGZlMWM2OWZfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjJfeH40M2M2MzE1YWFhMjVjOGNmMDVkYjhlOTU5MmRhNWI2My9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5ZG9jdW1lbnRhcmllcykvbWFzdGVyXzJoci1hYWMubXBkP2tleV9pZD0xMTE1NTZhZmEzYWMzNjJiYmY2ZDYyMzdhMDA5Njc5MyZrZXk9YjgwNjI3NTUwNTIxZTg1ZDA5OTdlMzQ0NzI0NWY3ZmY="
+  },
+  {
+    "id": "skynature",
+    "type": "tv",
+    "name": "Sky Nature",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-nature-it.png",
+    "description": "Sky Nature - Sky",
+    "vavooNames": [
+      "SKY NATURE"
+    ],
+    "epgChannelIds": [
+      "sky.nature.it"
+    ],
+    "category": [
+      "sky",
+      "documentari"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDMwX2Z+MF9nfjFfc341YTBhZGEyMS1hMzFhLTRhMjEtYjdmMS0zOGQwYzVlNDc0NjVfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTVfeH4wZDc0MTliNmU2Njg1NDI0Mzk2MWExZjU0NTgyNGMyYy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5bmF0dXJlKS9tYXN0ZXJfMmhyLWFhYy5tcGQ/a2V5X2lkPTExMTU1M2EyZmY3NGVmZjIzMGM4YmI3MmVmYzA1MDRjJmtleT04MGVjMmM3ZjY0Yjk3MDk4ZjRmNjVhMTVkODI4Y2U2YQ=="
+  },
+  {
+    "id": "history",
+    "type": "tv",
+    "name": "History Channel",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/history-channel-it.png",
+    "description": "History Channel - Sky",
+    "vavooNames": [
+      "HISTORY CHANNEL"
+    ],
+    "epgChannelIds": [
+      "history.it"
+    ],
+    "category": [
+      "sky",
+      "documentari"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDI5X2Z+MF9nfjFfc34yZDYyNWU1ZC05ZmY3LTQ1NGItYTc3OS1mZmU3MTRlZjI1OTRfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjBfeH44MGUyODFlOWJiYzdmZGQxZjJlYmMzZjc2YTc3ZjU0MC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoaGlzdG9yeWNoYW5uZWwpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNThkYjlhMjUyMjY0MmM4ZGE1NjQxNmQ5NGM2YTMma2V5PWVkYjZhNTYyNjZkZGU1M2YwMTNkMTcwZDQ2YjBiMjY1"
+  },
+  {
+    "id": "skyarte",
+    "type": "tv",
+    "name": "Sky Arte",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-arte-it.png",
+    "description": "Sky Arte - Sky",
+    "vavooNames": [
+      "SKY ARTE"
+    ],
+    "epgChannelIds": [
+      "sky.arte.it"
+    ],
+    "category": [
+      "sky",
+      "documentari"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDMwX2Z+MF9nfjFfc34zMzFmN2EwZS02MTI2LTQ4YWYtODQ5NC0yZmJjYjhiZjY1NDRfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTNfeH5jMzQ1MWFmZTBlOTZiMTYyZjdkZDA5NjJiMjY5MTA0Yi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5YXJ0ZSkvbWFzdGVyXzJoci1hYWMubXBkP2tleV9pZD0xMTE1OGQ2MTE1Nzg5M2M2NjVjNWVjOTQyNTI4ZDAyMCZrZXk9MmQ0YjczNDNkZDkyOWFmYmJkNjFlZjBhYTM3MzY2ZDk="
+  },
+  {
+    "id": "mtv",
+    "type": "tv",
+    "name": "MTV",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/mtv-it.png",
+    "description": "MTV - Sky",
+    "vavooNames": [
+      "MTV"
+    ],
+    "epgChannelIds": [
+      "mtv.it"
+    ],
+    "category": "sky",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDM0X2Z+MF9nfjFfc34xNGU0YWQ1Ni0xOTcyLTQ5NjAtOWFjZC05MWJjMjU0MGQ1ODhfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NDlfeH5jYjBlNDZhNTJkNmJhMjBhMDg1NzEzYWFlYWEzZTcwMS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwobXR2KS9tYXN0ZXJfMmhyLWFhYy5tcGQ/a2V5X2lkPTExMTU1OWI1ZTUwYTRiZTEyOTAxZTQ1NjAzNDI4NWEzJmtleT0yZmVkZDRjOWMzYmUxYjdmOTBlODZjN2JjNDQxMzFmOA=="
+  },
+  {
+    "id": "comedycentral",
+    "type": "tv",
+    "name": "Comedy Central",
+    "poster": "https://logos-world.net/wp-content/uploads/2022/06/Comedy-Central-Productions-Symbol-700x394.png",
+    "description": "Comedy Central - Sky",
+    "vavooNames": [
+      "COMEDY CENTRAL"
+    ],
+    "epgChannelIds": [
+      "comedy.central.it"
+    ],
+    "category": "sky",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDM1X2Z+MF9nfjFfc35lMDgwMWViMC0wNzNiLTRkNGQtYTIxZC04MTEyYWU1YzgyMTlfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTlfeH45OWZiMjEwYzE2ZDc1YzlkZDVjNzg4MDI1YWMxMDkyOC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoY29tZWR5Y2VudHJhbCkvbWFzdGVyXzJoci1hYWMubXBkP2tleV9pZD0xMTE1NTc3OGRjOWI3ZGRlMWUzOTZhOTExMGYwOTIwOCZrZXk9YzAzMGNmOTc4Y2JkYzRhNGM4NGZjNjhhYjQ2Nzk0MmI="
+  },
+  {
+    "id": "skyadventure",
+    "type": "tv",
+    "name": "Sky Adventure",
+    "poster": "https://pixel.disco.nowtv.it/logo/skychb_961_lightnow/LOGO_CHANNEL_DARK/4000?language=it-IT&proposition=NOWOTT",
+    "description": "Sky Adventure - Sky",
+    "vavooNames": [
+      "SKY ADVENTURE"
+    ],
+    "epgChannelIds": [
+      "sky.adventure.it"
+    ],
+    "category": [
+      "sky",
+      "documentari"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDMxX2Z+MF9nfjFfc35hOGQyMzE3OC0wMTg0LTQzZDctOTNlNC1hOWFiNjZkZmQyMjBfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NThfeH5iNDM1NWQ3NTViZWM3M2QxMjEwYzZmNmQ1ZTM5MTA0My9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5YWR2ZW50dXJlKS9tYXN0ZXJfMmhyLWFhYy5tcGQ/a2V5X2lkPTExMTU4MDM1ZmZiZjE3ZWViZDAyMDI3ZTk2MzgzMTYxJmtleT03ZTFlYTEwNDI4ZThjNWNkZmRhYzZjNTViMjMwMThkMg=="
+  },
+  {
+    "id": "skysport24",
+    "type": "tv",
+    "name": "Sky Sport 24",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-24-it.png",
+    "description": "Sky Sport 24 - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=869",
+    "vavooNames": [
+      "SKY SPORT 24"
+    ],
+    "epgChannelIds": [
+      "sky.sport.24.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=869",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDA2X2Z+MF9nfjFfc35kZmRmM2U4ZS03NzE1LTQ0MWYtOTA1ZS01MjcxMGIxMzczOWVfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTZfeH40YjdiNjIxMzk0MWQyMzIwMDgxMWE3MmIwMzA5MGRkMy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNCkvbWFzdGVyXzJoci1hYWMubXBkP2tleV9pZD0xMTE1YTc1MWRlZjkxYmY5MWZmYTVkMDFjNzA3NTMxYiZrZXk9ZTkxZTY2YTA5OTRiMDdjYTJhNjdlNzQ3NDc4NTA1NDU="
+  },
+  {
+    "id": "skysportuno",
+    "type": "tv",
+    "name": "Sky Sport Uno",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-uno-it.png",
+    "description": "Sky Sport Uno - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=461",
+    "vavooNames": [
+      "SKY SPORT UNO"
+    ],
+    "epgChannelIds": [
+      "sky.sport.uno.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=461",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDA4X2Z+MF9nfjFfc34xNjczMTU0MC00MTU2LTQwMzgtODhkOS0zOTBhYTkzN2E2YjdfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH43NDZiNjQ5ZTFkM2ZkYWQ5Y2JjODMwYzhhZWM2YzRiNy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnR1bm8pL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNTZiY2ZjNzAwZWQyZDU0MzBiNGUzMWNiZmI1YjQma2V5PWVjYWEwMWFmYWNmNTJkYWM4YTgzZDE0NmFhYjM3ZmJh"
+  },
+  {
+    "id": "skysportf1",
+    "type": "tv",
+    "name": "Sky Sport F1",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-f1-it.png",
+    "description": "Sky Sport F1 - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=577",
+    "vavooNames": [
+      "SKY SPORT F1"
+    ],
+    "epgChannelIds": [
+      "sky.sport.f1.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=577",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDEwX2Z+MF9nfjFfc35hZWMxODFkMy0wZjhjLTQzODYtOTQ3NC1lMTNhZDJmOGIxNTBfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTZfeH42ODMwNWVkNTVmMWZkMjM4ZjUxMjA1NmU3OWQzYWMzOC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRmMSkvbWFzdGVyXzJoci1hYWMubXBkP2tleV9pZD0xMTE1OGJmOWU3OTU5ODEyZGUyNTQxY2M5YzQ0M2VlYyZrZXk9OTAxZjBlMzgyYmU5M2VjMjU2NDMzNjJmNmMxMDAwNzI="
+  },
+  {
+    "id": "skysportcalcio",
+    "type": "tv",
+    "name": "Sky Sport Calcio",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-calcio-it.png",
+    "description": "Sky Sport Calcio - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=870",
+    "vavooNames": [
+      "SKY SPORT CALCIO"
+    ],
+    "epgChannelIds": [
+      "sky.sport.calcio.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=870",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDExX2Z+MF9nfjFfc35lNWNlYmJhMi03MzY5LTQwOTYtYjFiNC01MTliMTYxNWNiYjZfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjBfeH41N2UxMjIzMzY5NGJjZjk0NTdjMTQ0MjBiMzBiYzY5MS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRjYWxjaW8pL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNTcyZWQwNDg2NTJkNWY5YzJkOTJlZGQ5OWQ0MWIma2V5PTRhZmVhZTgyMjRmYjYyMzQ4YTg4YjljZDNmYmJkYWE4"
+  },
+  {
+    "id": "skysporttennis",
+    "type": "tv",
+    "name": "Sky Sport Tennis",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-tennis-it.png",
+    "description": "Sky Sport Tennis - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=576",
+    "vavooNames": [
+      "SKY SPORT TENNIS"
+    ],
+    "epgChannelIds": [
+      "sky.sport.tennis.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=576",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDExX2Z+MF9nfjFfc342NGYwMjQ3ZC1kYjNkLTQzMzQtYWNhYi01NTNmOGNlMzViNjlfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjBfeH5mNmExNzMzNzJjZmFjOGJkY2ZmM2M4OWY4MjYyMWExOS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnR0ZW5uaXMpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNTQ1MzEwMDM3YWIzMTk3NGYwNzBlNzRmMWI5MGYma2V5PTE2MTQ1M2VhODg0YmM3ODMwNDlhODkwOWRlNDQ1MjFm"
+  },
+  {
+    "id": "skysportmotogp",
+    "type": "tv",
+    "name": "Sky Sport MotoGP",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-motogp-it.png",
+    "description": "Sky Sport MotoGP - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=575",
+    "vavooNames": [
+      "SKY SPORT MOTOGP"
+    ],
+    "epgChannelIds": [
+      "sky.sport.motogp.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=575",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDEyX2Z+MF9nfjFfc34zNDMwMzhlYy0zNDUzLTRmYzAtYWMxYi1mYWIwMzk1Y2E1YWVfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjBfeH41NTZmYmY3MjYxM2U3ZTA2NjRjMDhlZjA5ZTNmOWZhZi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRtb3RvZ3ApL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNWU1Y2EzOGVmMDRhZmIzOTgyNTA0YzZkYmZmZTgma2V5PTRjNTJiOTc1ZTEyMGQwYWI0OWMzNjBmZDMyMDI2OGU4"
+  },
+  {
+    "id": "skysportarena",
+    "type": "tv",
+    "name": "Sky Sport Arena",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-arena-it.png",
+    "description": "Sky Sport Arena - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=462",
+    "vavooNames": [
+      "SKY SPORT ARENA"
+    ],
+    "epgChannelIds": [
+      "sky.sport.arena.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=462",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDE2X2Z+MF9nfjFfc34yYjNkMjk0NS1lYzMzLTRhNjQtYjkyYS1mODU5OGYxODk1MTVfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTlfeH44MjI2Y2RkMWYzOTMzZDdiNTYzYzNlMjdlM2Y2MWI4MC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRhcmVuYSkvbWFzdGVyXzJoci1hYWMubXBkP2tleV9pZD0xMTE1ZjZiNDI3OWI5YTljYzQxNjQwYmRiOTU0NDJjNCZrZXk9NThiN2E5YzJlMGZiZjgwODU5MDVmOWQxNTZjYzViNzQ="
+  },
+  {
+    "id": "skysportmax",
+    "type": "tv",
+    "name": "Sky Sport Max",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-max-it.png",
+    "description": "Sky Sport Max - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=460",
+    "vavooNames": [
+      "SKY SPORT MAX"
+    ],
+    "epgChannelIds": [
+      "sky.sport.max.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=460",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDE3X2Z+MF9nfjFfc34xYjI3N2RhMC02M2Q2LTQyMWMtYTY2OS05OGE3NjA5MzQ4M2FfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH5mYzA3MGEzNzQyYWFlODI3MmVjMTBjYWZiYTQ0ZTc1Mi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRtYXgpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNTRhZDIwODdkYWRlNWYzYWU5MjA2NzkyMzUwYTkma2V5PTE5NTg5NWM1ZTBlMjA2MTNjM2U0NmUwNGY3ODU4ZjM4"
+  },
+  {
+    "id": "skysportbasket",
+    "type": "tv",
+    "name": "Sky Sport Basket",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-nba-it.png",
+    "description": "Sky Sport Basket - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=875",
+    "vavooNames": [
+      "SKY SPORT NBA"
+    ],
+    "epgChannelIds": [
+      "sky.sport.nba.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDE4X2Z+MF9nfjFfc35iNGVhYWMxMC00ZWFmLTRiNDItYTcwYS1jYzBjNzFiZGFlZmJfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjBfeH41NzlmZTg5ODI3MDFiYjU3YjNkZmM3ZjgwNWEwYzA0My9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRiYXNrZXQpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNTUyZTA5N2JiZGYwOTcwMTQ1ZGI0ZDc3ZWVlZDIma2V5PWE2ZGQxMTRlM2E4OTc2NWQ3MjFmZGE4YjQyZGNlYzQz"
+  },
+  {
+    "id": "skysportgolf",
+    "type": "tv",
+    "name": "Sky Sport Golf",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-golf-it.png",
+    "description": "Sky Sport Golf - Sky",
+    "vavooNames": [
+      "SKY SPORT GOLF"
+    ],
+    "epgChannelIds": [
+      "sky.sport.golf.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDM0X2Z+MF9nfjFfc344NTYxN2E1YS00NzhmLTQ5YjMtOGM3My05NGIzMGE0OTAzMTJfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NThfeH45NzhmNDhlYTk3ZTgwNDhiY2UwMTA1NjRmYWE0NTdkMS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRnb2xmKS9tYXN0ZXJfMmhyLWFhYy5tcGQ/a2V5X2lkPTExMTVhMmY2ZjlmNDA1MTZjMDMyM2NkYThhZjY3YzcwJmtleT0wZTI3YWEwN2E0YWI0Zjc5OGE2ZmY3NWY2MmYxNDEwYQ=="
+  },
+  {
+    "id": "daznppv1",
+    "type": "tv",
+    "name": "Dazn ppv1",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv1",
+    "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgwL3N0cmVhbS5tcGQma2V5X2lkPThhYjQ3NzQxOTMwYzQ3Njc4MDUxNWY5YTAwZGVjYjBhJmtleT03YWI0YjlhZTVhNDhhYTUyNmU1MTFhOTEzYjgzMjc2OQ==",
+    "category": "sport"
+  },
+  {
+    "id": "daznppv2",
+    "type": "tv",
+    "name": "Dazn ppv2",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv2",
+    "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgxL3N0cmVhbS5tcGQma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
+    "category": "sport"
+  },
+  {
+    "id": "daznppv3",
+    "type": "tv",
+    "name": "Dazn ppv3",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv3",
+    "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgyL3N0cmVhbS5tcGQma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
+    "category": "sport"
+  },
+  {
+    "id": "daznppv4",
+    "type": "tv",
+    "name": "Dazn ppv4",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv4",
+    "staticUrlMpd": "aHR0cDovL2Rjay1hYy1saXZlLmNkbi5pbmRhem4uY29tL2Rhc2gvZGF6bi1saW5lYXItNTgzL3N0cmVhbS5tcGQma2V5X2lkPWNmYjVlMmI3M2JlZjRmM2M4NzhmMjVhYjg2YTc0NTFmJmtleT0wZDY3MTJiZjJhODRlZGNjOTNkMDAxYTk2MTNmNmZlYw==",
+    "category": "sport"
+  },
+  {
+    "id": "daznppv5",
+    "type": "tv",
+    "name": "Dazn ppv5",
+    "poster": "https://github.com/qwertyuiop8899/logo/blob/main/dasonppv.png?raw=true",
+    "description": "Dazn ppv5",
+    "staticUrlMpd": "aHR0cHM6Ly9kY2stYWMtbGl2ZS5jZG4uaW5kYXpuLmNvbS9kYXNoL2Rhem4tbGluZWFyLTU4NC9zdHJlYW0ubXBkJmtleV9pZD04YWI0Nzc0MTkzMGM0NzY3ODA1MTVmOWEwMGRlY2IwYSZrZXk9N2FiNGI5YWU1YTQ4YWE1MjZlNTExYTkxM2I4MzI3Njk=",
+    "category": "sport"
+  },
+  {
+    "id": "eurosport1",
+    "type": "tv",
+    "name": "Eurosport 1",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/spain/eurosport-1-es.png",
+    "description": "Eurosport 1",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MSkvbWFuaWZlc3QubXBkJmtleV9pZD00NmU1NTljMmY5ZjY0NWNlOGQ4MGM3ZmEyMDQ0NmJkYiZrZXk9NTk3ZDIxNGQ2NjM0MmVlMDQyYmNjZmZlYjE2NWU3NTA=",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=878",
+    "vavooNames": [
+      "EUROSPORT 1"
+    ],
+    "epgChannelIds": [
+      "eurosport.1.it"
+    ],
+    "category": "sport",
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=878"
+  },
+  {
+    "id": "eurosport2",
+    "type": "tv",
+    "name": "Eurosport 2",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/spain/eurosport-1-es.png",
+    "description": "Eurosport 2",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MikvbWFuaWZlc3QubXBkJmtleV9pZD1lODM3MjI4M2E1MjM0NDRjODQ2NDZjNDE3MmIxYmMwZiZrZXk9OTY5YTkwZTFhMWE2NDI0YTY4ZmU0YjVkNzc2MzY4ZWM=",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=879",
+    "vavooNames": [
+      "EUROSPORT 2"
+    ],
+    "epgChannelIds": [
+      "eurosport.2.it"
+    ],
+    "category": "sport",
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=879"
+  },
+  {
+    "id": "eurosport3",
+    "type": "tv",
+    "name": "Eurosport 3",
+    "poster": "https://www.monpetitforfait.com/comparateur-box-internet/wp-content/uploads/2021/05/eurosport-3-300x300.png",
+    "description": "Eurosport 3",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0MykvbWFuaWZlc3QubXBkJmtleV9pZD0xZTIzOThiMGVlYjA0ODI5YjQ3MTFlMTRiNGE5MTI0NCZrZXk9MTFlMjY2NTllYmZlY2Y2YTIyZWQ1NmRhMzQwNDQ4Y2Q=",
+    "epgChannelIds": [
+      "eurosport3.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "eurosport4",
+    "type": "tv",
+    "name": "Eurosport 4",
+    "poster": "https://www.monpetitforfait.com/comparateur-box-internet/wp-content/uploads/2021/05/eurosport-4-300x300.png",
+    "description": "Eurosport 4",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NCkvbWFuaWZlc3QubXBkJmtleV9pZD05ZGQ3YmU3OWU0NGY0ZDA4YTkxZWM1ZDE1NTNmMTdiOCZrZXk9OGE2MjM2OWY4MWE0YjZlNWYyZDQ4NDZmN2JkNWU3ZDE=",
+    "epgChannelIds": [
+      "eurosport4.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "eurosport5",
+    "type": "tv",
+    "name": "Eurosport 5",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_5.png",
+    "description": "Eurosport 5",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NSkvbWFuaWZlc3QubXBkJmtleV9pZD1iNDhlN2U2ZDk2ZGE0NzlkYTY1ZTQzNWNlNjVmYWViMSZrZXk9NDhjNzAzODc5Y2U0ZGVlZGI1YTIxMjRhMzBhMTNiYzQ==",
+    "epgChannelIds": [
+      "eurosport5.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "eurosport6",
+    "type": "tv",
+    "name": "Eurosport 6",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/refs/heads/main/Eurosport_6.png",
+    "description": "Eurosport 6",
+    "staticUrlMpd": "aHR0cHM6Ly90aW1saXZldHUwLmNiLnRpY2RuLml0L0NvbnRlbnQvREFTSC9MaXZlL2NoYW5uZWwoZXVyb3Nwb3J0NikvbWFuaWZlc3QubXBkJmtleV9pZD1lYWQxYzU2N2EzZGY0ODYxOTc5OWIyZTc4YjE4ZmRmYSZrZXk9MWRlOWQ5YWY1NjUxMjk2YWE2NzkxMzk3OWFkOGM2OTQ==",
+    "epgChannelIds": [
+      "eurosport6.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "skysportlegend",
+    "type": "tv",
+    "name": "Sky Sport Legend",
+    "poster": "https://pixel.disco.nowtv.it/logo/skychb_578_lightnow/LOGO_CHANNEL_DARK/4000?language=it-IT&proposition=NOWOTT",
+    "description": "Sky Sport Legend - Sky",
+    "vavooNames": [
+      "SKY SPORT LEGEND"
+    ],
+    "epgChannelIds": [
+      "skysportlegend.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDE4X2Z+MF9nfjFfc35jNzE1OWIyYS0xMmI4LTQxYmMtYjE1OC0xZjdmNzQwNTgwNzBfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NjBfeH40MGY1MDY1MTg3YTE2Y2U2NzY5NTM2NzJmNTAxMWEzNi9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRsZWdlbmQpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNTBkZTUwMDM2NWY1M2E3NmRhYWIwYWM0NzVjNTYma2V5PTgzM2FlZjAxMDAxMzc5Yzc4NDk1NWMyZjYwMzE1ZDc5"
+  },
+  {
+    "id": "skysportmix",
+    "type": "tv",
+    "name": "Sky Sport Mix",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-sport-mix-it.png",
+    "description": "Sky Sport Mix - Sky",
+    "vavooNames": [
+      "SKY SPORT MIX"
+    ],
+    "epgChannelIds": [
+      "sky.sport.mix.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDE5X2Z+MF9nfjFfc340M2Q4YTdjZC05OWVkLTQxMWQtOTJjMy03NTA3M2FkMGQ2OGFfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH43NmQwZDUyYjcxNjc5Y2U4YzQ2ZGE5ZmE3ZDg1NTNhZC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnRtaXgpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNTMzOTU3NzQ5ZTBkZWEwM2U5ODQ2ZGEyYzZlN2Mma2V5PWUyNTY0MzE5MzZlODQ5MzU2ODU3YjYxOTJjZWIwMTk3"
+  },
+  {
+    "id": "skysport251",
+    "type": "tv",
+    "name": "Sky Sport 251",
+    "poster": "https://i.imgur.com/ge0fdw9.png",
+    "description": "Sky Sport 251 - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=871",
+    "vavooNames": [
+      "SKY SPORT 251"
+    ],
+    "epgChannelIds": [
+      "sky.sport..251.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=871",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDIyX2Z+MF9nfjFfc35lMWZlMWRkZC0yZGYzLTRlNDUtYmY5Mi1hNmM0MGIxN2IzZGNfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH5lOWU5MTU1MDQxYTAyN2E3OGY2MGFlMDQxZmYzZTQ3ZC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTEpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNTQwMDZkNjc4NmJiYmQyODNkNzhlOTliMDZmZWMma2V5PTViMTEyMGU3MGU2YWZhMzU3MTFlZWZjZjM2NzRjMjUw"
+  },
+  {
+    "id": "skysport252",
+    "type": "tv",
+    "name": "Sky Sport 252",
+    "poster": "https://i.imgur.com/z9CsC3U.png",
+    "description": "Sky Sport 252 - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=872",
+    "vavooNames": [
+      "SKY SPORT 252"
+    ],
+    "epgChannelIds": [
+      "sky.sport..252.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=872",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDIzX2Z+MF9nfjFfc34wMWFkNzE4OC1lMmMwLTQ4N2MtYjMxMS1lOGZhZjZlZmFiMGNfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH4yZGYwNjc1YjVlY2NiZGVkODJkNTI2ZWU5NmYwZjA4Ni9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTIpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNWEyZGMxZGQ2MDM4ZWRhZTFkMWJhZjAyNDZmNzYma2V5PWM4NWI5ODk2Mzk1NWYzYjQ1MzgyYThjMDE1NDFiZGM2"
+  },
+  {
+    "id": "skysport253",
+    "type": "tv",
+    "name": "Sky Sport 253",
+    "poster": "https://i.imgur.com/MdNKRWQ.png",
+    "description": "Sky Sport 253 - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=873",
+    "vavooNames": [
+      "SKY SPORT 253"
+    ],
+    "epgChannelIds": [
+      "sky.sport..253.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=873",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDIzX2Z+MF9nfjFfc35hOTdiZjllNy1lM2RiLTQwZjctODEzZC0xNDlmNzM3YTE1YTNfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH43MDc3Zjk2M2RmYzI1NWE3NWExNjZjOTEwYmIxNTVjNy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTMpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNWU4MGVhN2QyODBjNzZkOGY4MDc3Zjk3ODNmMDMma2V5PWQwYWFmMWY2OGIwNWUzYzk0YzEyOTMyMGZhNzE2MGNm"
+  },
+  {
+    "id": "skysport254",
+    "type": "tv",
+    "name": "Sky Sport 254",
+    "poster": "https://i.imgur.com/G0xjSIe.png",
+    "description": "Sky Sport 254 - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=874",
+    "vavooNames": [
+      "SKY SPORT 254"
+    ],
+    "epgChannelIds": [
+      "sky.sport..254.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=874",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDI2X2Z+MF9nfjFfc340YWU1NzhmZS0xNGQ1LTRkOWEtOGY2My1hYzFjNzhiN2U5MGVfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH43NTBhNzU1NGRkZTdhOWI1MjJiMTUyMzAwNjcxNWQxYy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTQpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNWE4NmYyNTlkNDA1MDc2ZTFhNjQyNWQ2NmIzMTcma2V5PWViZTc5YjQ5NzhjNjRmZjMzZmI3YWViNWNhYzgzMWM3"
+  },
+  {
+    "id": "skysport255",
+    "type": "tv",
+    "name": "Sky Sport 255",
+    "poster": "https://i.imgur.com/C2BKXje.png",
+    "description": "Sky Sport 255 - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=875",
+    "vavooNames": [
+      "SKY SPORT 255"
+    ],
+    "epgChannelIds": [
+      "sky.sport..255.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=875",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDI2X2Z+MF9nfjFfc34zYTk3N2E3YS1lZjMxLTQyNDEtYTYwMi02MTlhZDgwZDI4ZmFfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH5iODc1N2U0ODllNjUwMTFmNzY5NDFmMDIwNDY0OWY1Ni9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTUpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNWU0Y2Y4Mzc2ODRkMjY2NWI3OWQ3NTYzNmIzMWMma2V5PTY2ZWNhNjRmYTdlNzczNzc1NmRjM2ExZDIxZWQ1YjJk"
+  },
+  {
+    "id": "skysport256",
+    "type": "tv",
+    "name": "Sky Sport 256",
+    "poster": "https://i.imgur.com/q2WAtgI.png",
+    "description": "Sky Sport 256 - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=876",
+    "vavooNames": [
+      "SKY SPORT 256"
+    ],
+    "epgChannelIds": [
+      "sky.sport..256.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=876",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDI3X2Z+MF9nfjFfc34xNzI4NzliYi03MTVjLTQ2YTQtOTdhYy0zNmQxZTA5MzVhMGRfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH40MmQwMzg1MTA1NzkyOGZkMmI5NjM0OTMzZjIyMTRjYy9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTYpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNTNjOWQzMzkxMDdkMjIwMWJkNWI1MWJhOTNjYTEma2V5PTJjZTAwYzY0NWYyYTk3YmNjMjdhN2NhZjA1ZjY0Mzhm"
+  },
+  {
+    "id": "skysport257",
+    "type": "tv",
+    "name": "Sky Sport 257",
+    "poster": "https://i.imgur.com/o9qzl9U.png",
+    "description": "Sky Sport 257 - Sky",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=877",
+    "vavooNames": [
+      "SKY SPORT 257"
+    ],
+    "epgChannelIds": [
+      "sky.sport..257.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=877",
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDMyX2Z+MF9nfjFfc341ZGZlMWIzZC1hYWVhLTRkYmItOTU3OC1mOWU5MzVmNjY2ZjZfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH4xZGU1MzBmNDU3NGM0ZTU4NmY5MTMxZjY1ZmVjZDc4MC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTcpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNWE2MzA2OTFhNzk1ZTNiZWQwYjY0OTk4ZDM0OWMma2V5PTY1ZTllNzE0OTBkMzViMGJlYzRiMTJiYjZjNTExNzlk"
+  },
+  {
+    "id": "skysport258",
+    "type": "tv",
+    "name": "Sky Sport 258",
+    "poster": "https://i.imgur.com/kC1a7oJ.png",
+    "description": "Sky Sport 258 - Sky",
+    "staticUrl2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC14YS5wY2RuMDcuY3Nzb3R0MDIuY29tL25vd2l0bGluMS9Db250ZW50L0NNQUZfQ1RSX0gxL0xpdmUvY2hhbm5lbChza3lzcG9ydDI1OCkvbWFzdGVyXzJoci1hbGwubXBkJmtleV9pZD0xMTE4ZmYyZDA3YTg2NGUyMDI2NjY0ZjViMWFlYjkwNiZrZXk9YTEzNjhmMWI1YTNlNjdkNDAzZDNlMmIyYmY1NDczZDM=",
+    "vavooNames": [
+      "SKY SPORT 258"
+    ],
+    "epgChannelIds": [
+      "sky.sport..258.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDMyX2Z+MF9nfjFfc35lN2RjNjA1Ni04Mzg0LTQzYTgtOTZiMC1jMmIyZjI1NjU5NjJfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH40MmE1M2RiNWM3M2QwY2JkMzFkNjZhZTE3ODMzMDc3OC9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTgpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNWJiMDA0MGM2ZDA0YjgyMmRhOWFlMWFmODk3N2Qma2V5PWM4MGJhNTZmZGVlNzc4MjMxM2EzMzY5MWU5Y2MyMTQ2"
+  },
+  {
+    "id": "skysport259",
+    "type": "tv",
+    "name": "Sky Sport 259",
+    "poster": "https://i.imgur.com/2kMwtFK.png",
+    "description": "Sky Sport 259 - Sky",
+    "staticUrl2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC14YS5wY2RuMDcuY3Nzb3R0MDIuY29tL25vd2l0bGluMS9Db250ZW50L0NNQUZfQ1RSX0gxL0xpdmUvY2hhbm5lbChza3lzcG9ydDI1OSkvbWFzdGVyXzJoci1hbGwubXBkJmtleV9pZD0xMTE4YjQ4ZjU2ZjI5OTc4NGE0OTVkMWM4ZmZlNzVkNiZrZXk9ZDdlZTFkMWQxZDc1Y2UxOGUzNzlhMjc1MWQ4OWJjMWY=",
+    "vavooNames": [
+      "SKY SPORT 259"
+    ],
+    "epgChannelIds": [
+      "sky.sport..259.it"
+    ],
+    "category": [
+      "sky",
+      "sport"
+    ],
+    "staticUrlMpd2": "aHR0cHM6Ly9nMDA2LWxpbi1pdC1jbWFmLXByZC1jZi5wY2RuMDcuY3Nzb3R0MDIuY29tL3Z+MS0wLTBfZX4xNzY0NjI2NDMzX2Z+MF9nfjFfc34wYThiZjE2Mi0yNGNmLTRmM2UtOGZmZS02MDY5YjJmNjUyNTFfdX43Mjk3YzdjNjIxNDVhYzcxZjRkMWUwZDc1NGU2YWU4NTMxMzZhN2I5MmJhYzY3YTFlN2JlOWE2OGM5MDlhMzZhMmRmMWNiMjY2OGE1MjgxNjcwNzI2ZGFlNDJhZmM1NjRfa35BX2x+NTdfeH44ZjVjZjQ4YWUyOTA0ZDE5N2Q1ODg2MGI0MWU3OTE4MS9ub3dpdGxpbjEvQ29udGVudC9DTUFGX0NUUl9TMS9MaXZlL2NoYW5uZWwoc2t5c3BvcnQyNTkpL21hc3Rlcl8yaHItYWFjLm1wZD9rZXlfaWQ9MTExNTg2MjcyOTRmY2JkNWU3MjRlMmI1MjFjODdhZWIma2V5PWMyNmJjNmUzM2U4ZjM5ZGM3NDhmNjY4ODU5MzVhNjNm"
+  },
+  {
+    "id": "dazn1",
+    "type": "tv",
+    "name": "Dazn 1",
+    "poster": "https://i.pinimg.com/736x/7e/78/4b/7e784b0cacc3ed5732b937ad8c466a77.jpg",
+    "description": "Dazn 1",
+    "staticUrlD": "https://dlhd.dad/watch.php?id=877",
+    "vavooNames": [
+      "DAZN 1"
+    ],
+    "epgChannelIds": [
+      "dazn1.it"
+    ],
+    "category": "sport",
+    "staticUrlD_CF": "https://proxy.stremio.dpdns.org/manifest.m3u8?id=877"
+  },
+  {
+    "id": "dazn2",
+    "type": "tv",
+    "name": "Dazn 2",
+    "poster": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Tv-channel-%E2%94%82-dazn-2.png",
+    "description": "Dazn 2",
+    "epgChannelIds": [
+      "dazn2.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "dazn",
+    "type": "tv",
+    "name": "Dazn",
+    "poster": "https://upload.wikimedia.org/wikipedia/commons/d/d6/Dazn-logo.png",
+    "description": "Dazn",
+    "vavooNames": [
+      "DAZN"
+    ],
+    "epgChannelIds": [
+      "dazn.it"
+    ],
+    "category": "sport"
+  },
+  {
+    "id": "deakids",
+    "type": "tv",
+    "name": "DeAKids",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/dea-kids-it.png",
+    "description": "DeAKids - Sky",
+    "vavooNames": [
+      "DEAKIDS"
+    ],
+    "epgChannelIds": [
+      "DeAKids.it"
+    ],
+    "category": [
+      "sky",
+      "kids"
+    ]
+  },
+  {
+    "id": "nickjr",
+    "type": "tv",
+    "name": "Nick Jr",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/nick-jr-it.png",
+    "description": "Nick Jr - Sky",
+    "vavooNames": [
+      "NICK JR"
+    ],
+    "epgChannelIds": [
+      "NickJr.it"
+    ],
+    "category": [
+      "sky",
+      "kids"
+    ]
+  },
+  {
+    "id": "nickelodeon",
+    "type": "tv",
+    "name": "Nickelodeon",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/nickelodeon-it.png",
+    "description": "Nickelodeon - Sky",
+    "vavooNames": [
+      "NICKELODEON"
+    ],
+    "epgChannelIds": [
+      "Nickelodeon.it"
+    ],
+    "category": [
+      "sky",
+      "kids"
+    ]
+  },
+  {
+    "id": "cartoonnetwork",
+    "type": "tv",
+    "name": "Cartoon Network",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/cartoon-network-it.png",
+    "description": "Cartoon Network - Sky",
+    "vavooNames": [
+      "CARTOON NETWORK"
+    ],
+    "epgChannelIds": [
+      "CartoonNetwork.it"
+    ],
+    "category": [
+      "sky",
+      "kids"
+    ]
+  },
+  {
+    "id": "boomerang",
+    "type": "tv",
+    "name": "Boomerang",
+    "poster": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/boomerang-it.png",
+    "description": "Boomerang - Sky",
+    "vavooNames": [
+      "BOOMERANG"
+    ],
+    "epgChannelIds": [
+      "Boomerang.it"
+    ],
+    "category": [
+      "sky",
+      "kids"
+    ]
+  },
+  {
+    "id": "primafila1",
+    "type": "tv",
+    "name": "Sky Primafila 1",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 1"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila2",
+    "type": "tv",
+    "name": "Sky Primafila 2",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 2"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila3",
+    "type": "tv",
+    "name": "Sky Primafila 3",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 3"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila4",
+    "type": "tv",
+    "name": "Sky Primafila 4",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 4"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila5",
+    "type": "tv",
+    "name": "Sky Primafila 5",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 5"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila6",
+    "type": "tv",
+    "name": "Sky Primafila 6",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 6"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila7",
+    "type": "tv",
+    "name": "Sky Primafila 7",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 7"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila8",
+    "type": "tv",
+    "name": "Sky Primafila 8",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 8"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila9",
+    "type": "tv",
+    "name": "Sky Primafila 9",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 9"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila10",
+    "type": "tv",
+    "name": "Sky Primafila 10",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 10"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila11",
+    "type": "tv",
+    "name": "Sky Primafila 11",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 11"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila12",
+    "type": "tv",
+    "name": "Sky Primafila 12",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 12"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila13",
+    "type": "tv",
+    "name": "Sky Primafila 13",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 13"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila14",
+    "type": "tv",
+    "name": "Sky Primafila 14",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 14"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila15",
+    "type": "tv",
+    "name": "Sky Primafila 15",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 15"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila16",
+    "type": "tv",
+    "name": "Sky Primafila 16",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 16"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila17",
+    "type": "tv",
+    "name": "Sky Primafila 17",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 17"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "primafila18",
+    "type": "tv",
+    "name": "Sky Primafila 18",
+    "poster": "https://pbs.twimg.com/profile_images/1266328113014808578/NFxgHDql_400x400.jpg",
+    "description": "Sky Primafila Vavoo",
+    "vavooNames": [
+      "SKY PRIMAFILA 18"
+    ],
+    "category": [
+      "sky",
+      "movies"
+    ]
+  },
+  {
+    "id": "topgear",
+    "type": "tv",
+    "name": "TopGear",
+    "poster": "https://images.pluto.tv/channels/64c109a4798def0008a6e03e/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "64c109a4798def0008a6e03e"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/64c109a4798def0008a6e03e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvalbertosordi",
+    "type": "tv",
+    "name": "Pluto TV Alberto Sordi",
+    "poster": "https://images.pluto.tv/channels/661f8f01801af800083d9d81/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "661f8f01801af800083d9d81"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/661f8f01801af800083d9d81/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "southpark",
+    "type": "tv",
+    "name": "South Park",
+    "poster": "https://images.pluto.tv/channels/62bc1f502b70e3000706298e/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "62bc1f502b70e3000706298e"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62bc1f502b70e3000706298e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "casepazzesche",
+    "type": "tv",
+    "name": "Case Pazzesche",
+    "poster": "https://images.pluto.tv/channels/626bb07a58b8dd0007e9f36e/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "626bb07a58b8dd0007e9f36e"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/626bb07a58b8dd0007e9f36e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "extrememakeoverhomeedition",
+    "type": "tv",
+    "name": "Extreme Makeover Home Edition",
+    "poster": "https://images.pluto.tv/channels/6661739641af6400080cd8f1/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6661739641af6400080cd8f1"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6661739641af6400080cd8f1/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "16annieincinta",
+    "type": "tv",
+    "name": "16 Anni e Incinta",
+    "poster": "https://images.pluto.tv/channels/60940a07d88ba90007b9cb71/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "60940a07d88ba90007b9cb71"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/60940a07d88ba90007b9cb71/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "iltestimone",
+    "type": "tv",
+    "name": "Il Testimone",
+    "poster": "https://images.pluto.tv/channels/61fbd3f0733df400076c9a2d/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "61fbd3f0733df400076c9a2d"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/61fbd3f0733df400076c9a2d/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "catfish",
+    "type": "tv",
+    "name": "Catfish",
+    "poster": "https://images.pluto.tv/channels/6093f9ed2c75660007322bb7/colorLogoPNG_1750862971704.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6093f9ed2c75660007322bb7"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6093f9ed2c75660007322bb7/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "teenmom",
+    "type": "tv",
+    "name": "Teen Mom",
+    "poster": "https://images.pluto.tv/channels/62e7fc8c0d061100083946a9/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "62e7fc8c0d061100083946a9"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62e7fc8c0d061100083946a9/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvdocumentari",
+    "type": "tv",
+    "name": "Pluto TV Documentari",
+    "poster": "https://images.pluto.tv/channels/608aa8a5709d6b0007b132fe/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608aa8a5709d6b0007b132fe"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa8a5709d6b0007b132fe/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvstoria",
+    "type": "tv",
+    "name": "Pluto TV Storia",
+    "poster": "https://images.pluto.tv/channels/65253fdf3fd33c00080214a3/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "65253fdf3fd33c00080214a3"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65253fdf3fd33c00080214a3/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "naturescape",
+    "type": "tv",
+    "name": "Naturescape",
+    "poster": "https://images.pluto.tv/channels/610a9ebe8c2ac2000734776e/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "610a9ebe8c2ac2000734776e"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/610a9ebe8c2ac2000734776e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvnatura",
+    "type": "tv",
+    "name": "Pluto TV Natura",
+    "poster": "https://images.pluto.tv/channels/60802b37709d6b0007b0c549/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "60802b37709d6b0007b0c549"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/60802b37709d6b0007b0c549/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "euronews",
+    "type": "tv",
+    "name": "Euronews",
+    "poster": "https://images.pluto.tv/channels/61b86ea479a4390007c6d5fc/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "61b86ea479a4390007c6d5fc"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/61b86ea479a4390007c6d5fc/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "cbsnews247",
+    "type": "tv",
+    "name": "CBS News 24/7",
+    "poster": "https://images.pluto.tv/channels/6231ec4b62cd1f0007093c7b/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6231ec4b62cd1f0007093c7b"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6231ec4b62cd1f0007093c7b/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "isolitiidioti",
+    "type": "tv",
+    "name": "I soliti idioti",
+    "poster": "https://images.pluto.tv/channels/6602acadb2abe500081cf28a/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6602acadb2abe500081cf28a"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6602acadb2abe500081cf28a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvscherzierisate",
+    "type": "tv",
+    "name": "Pluto TV Scherzi e risate",
+    "poster": "https://images.pluto.tv/channels/609404b0a8ec810007d8de9d/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "609404b0a8ec810007d8de9d"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/609404b0a8ec810007d8de9d/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "failarmy",
+    "type": "tv",
+    "name": "FailArmy",
+    "poster": "https://images.pluto.tv/channels/608014d19a26320007c92ab6/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608014d19a26320007c92ab6"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608014d19a26320007c92ab6/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "justforlaughsgags",
+    "type": "tv",
+    "name": "Just for Laughs GAGS",
+    "poster": "https://images.pluto.tv/channels/6093f48c95132a00075fd859/colorLogoPNG_1745912777006.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6093f48c95132a00075fd859"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6093f48c95132a00075fd859/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "ijefferson",
+    "type": "tv",
+    "name": "I Jefferson",
+    "poster": "https://images.pluto.tv/channels/62442f28afe626000747f195/colorLogoPNG-1652710570039.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "62442f28afe626000747f195"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62442f28afe626000747f195/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "baywatch",
+    "type": "tv",
+    "name": "Baywatch",
+    "poster": "https://images.pluto.tv/channels/660fc6630cd4630008fae92f/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "660fc6630cd4630008fae92f"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/660fc6630cd4630008fae92f/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvtoto",
+    "type": "tv",
+    "name": "Pluto TV Totò",
+    "poster": "https://images.pluto.tv/channels/65253f9881f942000833ccd5/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "65253f9881f942000833ccd5"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65253f9881f942000833ccd5/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "settimocielo",
+    "type": "tv",
+    "name": "Settimo Cielo",
+    "poster": "https://images.pluto.tv/channels/6245d3792792150007e20634/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6245d3792792150007e20634"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6245d3792792150007e20634/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvserie",
+    "type": "tv",
+    "name": "Pluto TV Serie",
+    "poster": "https://images.pluto.tv/channels/60b9ff2722bfa400072676ef/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "60b9ff2722bfa400072676ef"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/60b9ff2722bfa400072676ef/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "bbcdrama",
+    "type": "tv",
+    "name": "BBC Drama",
+    "poster": "https://images.pluto.tv/channels/62e7fa5ab5062e0007dcf97d/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "62e7fa5ab5062e0007dcf97d"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62e7fa5ab5062e0007dcf97d/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "maidiresi",
+    "type": "tv",
+    "name": "Mai dire sì",
+    "poster": "https://images.pluto.tv/channels/6349279ed5023700078f2bc2/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6349279ed5023700078f2bc2"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6349279ed5023700078f2bc2/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "topserie",
+    "type": "tv",
+    "name": "Top Serie",
+    "poster": "https://images.pluto.tv/channels/654c955683595c00081d9d87/colorLogoPNG_1748417004383.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "654c955683595c00081d9d87"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/654c955683595c00081d9d87/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "sulletraccedelcrimine",
+    "type": "tv",
+    "name": "Sulle tracce del crimine",
+    "poster": "https://images.pluto.tv/channels/66d9a98961dbf00008efb5fc/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "66d9a98961dbf00008efb5fc"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66d9a98961dbf00008efb5fc/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvseriecrime",
+    "type": "tv",
+    "name": "Pluto TV Serie Crime",
+    "poster": "https://images.pluto.tv/channels/608aa777b907770007e5d05d/colorLogoPNG_1750402183051.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608aa777b907770007e5d05d"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa777b907770007e5d05d/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "cincin",
+    "type": "tv",
+    "name": "Cin Cin",
+    "poster": "https://images.pluto.tv/channels/65cb78b83a116800079e2e35/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "65cb78b83a116800079e2e35"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65cb78b83a116800079e2e35/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "loveboat",
+    "type": "tv",
+    "name": "Love Boat",
+    "poster": "https://images.pluto.tv/channels/65cb76723a116800079e1fc3/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "65cb76723a116800079e1fc3"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65cb76723a116800079e1fc3/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "missionimpossible",
+    "type": "tv",
+    "name": "Mission Impossible",
+    "poster": "https://images.pluto.tv/channels/65cb77853ba51e00084cba02/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "65cb77853ba51e00084cba02"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65cb77853ba51e00084cba02/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "renegade",
+    "type": "tv",
+    "name": "Renegade",
+    "poster": "https://images.pluto.tv/channels/634926e4b51d2d00077819a2/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "634926e4b51d2d00077819a2"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/634926e4b51d2d00077819a2/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "macgyver",
+    "type": "tv",
+    "name": "MacGyver",
+    "poster": "https://images.pluto.tv/channels/6245d4511358320007029cdf/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6245d4511358320007029cdf"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6245d4511358320007029cdf/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvfilm",
+    "type": "tv",
+    "name": "Pluto TV Film",
+    "poster": "https://images.pluto.tv/channels/608aa17fb9f4490007e6419a/colorLogoPNG_1733013735186.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608aa17fb9f4490007e6419a"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa17fb9f4490007e6419a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvsalacinema",
+    "type": "tv",
+    "name": "Pluto TV Sala Cinema",
+    "poster": "https://images.pluto.tv/channels/67b368ca60720de3cd6f8f46/colorLogoPNG_1745818749515.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "67b368ca60720de3cd6f8f46"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/67b368ca60720de3cd6f8f46/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvfilmazione",
+    "type": "tv",
+    "name": "Pluto TV Film Azione",
+    "poster": "https://images.pluto.tv/channels/608aa20a2e7f270007c4878d/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608aa20a2e7f270007c4878d"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa20a2e7f270007c4878d/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvhorror",
+    "type": "tv",
+    "name": "Pluto TV Horror",
+    "poster": "https://images.pluto.tv/channels/61c09e3ac210ed0007606620/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "61c09e3ac210ed0007606620"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/61c09e3ac210ed0007606620/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvfilmthriller",
+    "type": "tv",
+    "name": "Pluto TV Film Thriller",
+    "poster": "https://images.pluto.tv/channels/608aa5e995132a00075f7005/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608aa5e995132a00075f7005"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa5e995132a00075f7005/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvlegamiletali",
+    "type": "tv",
+    "name": "Pluto TV Legami Letali",
+    "poster": "https://images.pluto.tv/channels/64808a8c536e0c0008a276d1/colorLogoPNG_1747395859514.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "64808a8c536e0c0008a276d1"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/64808a8c536e0c0008a276d1/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvfilmromantici",
+    "type": "tv",
+    "name": "Pluto TV Film Romantici",
+    "poster": "https://images.pluto.tv/channels/608aa4a4cc92820007b663af/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608aa4a4cc92820007b663af"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa4a4cc92820007b663af/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvfilmcommedia",
+    "type": "tv",
+    "name": "Pluto TV Film Commedia",
+    "poster": "https://images.pluto.tv/channels/608aa512d67fd900072323db/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608aa512d67fd900072323db"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa512d67fd900072323db/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvcinemaemozione",
+    "type": "tv",
+    "name": "Pluto TV Cinema Emozione",
+    "poster": "https://images.pluto.tv/channels/608aa42b5c2b8f0007197529/colorLogoPNG_1746815914026.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608aa42b5c2b8f0007197529"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa42b5c2b8f0007197529/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvfilmclassici",
+    "type": "tv",
+    "name": "Pluto TV Film Classici",
+    "poster": "https://images.pluto.tv/channels/608aa3c446d73500075f0e24/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608aa3c446d73500075f0e24"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa3c446d73500075f0e24/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvwestern",
+    "type": "tv",
+    "name": "Pluto TV Western",
+    "poster": "https://images.pluto.tv/channels/62e7fb67478a5b0007e6c50c/colorLogoPNG_1732029652283.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "62e7fb67478a5b0007e6c50c"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62e7fb67478a5b0007e6c50c/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvrobotwars",
+    "type": "tv",
+    "name": "Pluto Robot Wars",
+    "poster": "https://images.pluto.tv/channels/651581ba6a84140008593586/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "651581ba6a84140008593586"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/651581ba6a84140008593586/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvcinemaitaliano",
+    "type": "tv",
+    "name": "Pluto TV Cinema Italiano",
+    "poster": "https://images.pluto.tv/channels/608aa7d8359b270007861489/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608aa7d8359b270007861489"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa7d8359b270007861489/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "cinemapoliziottesco",
+    "type": "tv",
+    "name": "Cinema Poliziottesco",
+    "poster": "https://images.pluto.tv/channels/671754d8e482950008962aaf/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "671754d8e482950008962aaf"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/671754d8e482950008962aaf/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotveros",
+    "type": "tv",
+    "name": "Pluto TV Eros",
+    "poster": "https://images.pluto.tv/channels/66335489307fa300082bd6e4/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "66335489307fa300082bd6e4"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66335489307fa300082bd6e4/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvcinemaorientale",
+    "type": "tv",
+    "name": "Pluto TV Cinema Orientale",
+    "poster": "https://images.pluto.tv/channels/6786235bd648bf0008c2780a/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6786235bd648bf0008c2780a"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6786235bd648bf0008c2780a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "duriamorire",
+    "type": "tv",
+    "name": "Duri a Morire",
+    "poster": "https://images.pluto.tv/channels/65f865a62873090008d06382/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "65f865a62873090008d06382"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65f865a62873090008d06382/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "gliimmortalivandammevslundgren",
+    "type": "tv",
+    "name": "Gli Immortali | Van Damme vs Lundgren",
+    "poster": "https://images.pluto.tv/channels/6536608b4f123d000876b78b/colorLogoPNG_1748416779748.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6536608b4f123d000876b78b"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6536608b4f123d000876b78b/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "cinethriller",
+    "type": "tv",
+    "name": "CineThriller",
+    "poster": "https://images.pluto.tv/channels/653660b4295b840008a70ba3/colorLogoPNG_1749022092472.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "653660b4295b840008a70ba3"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/653660b4295b840008a70ba3/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvsharkattack",
+    "type": "tv",
+    "name": "Pluto TV Shark Attack",
+    "poster": "https://images.pluto.tv/channels/67e3b11a432a0e406fd1d55f/colorLogoPNG_1751458394679.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "67e3b11a432a0e406fd1d55f"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/67e3b11a432a0e406fd1d55f/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvvampiri",
+    "type": "tv",
+    "name": "Pluto TV Vampiri",
+    "poster": "https://images.pluto.tv/channels/6633551323e24f00084744aa/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6633551323e24f00084744aa"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6633551323e24f00084744aa/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvzombie",
+    "type": "tv",
+    "name": "Pluto TV Zombie",
+    "poster": "https://images.pluto.tv/channels/663354f3cd43940008602115/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "663354f3cd43940008602115"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/663354f3cd43940008602115/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvsplatter",
+    "type": "tv",
+    "name": "Pluto TV Splatter",
+    "poster": "https://images.pluto.tv/channels/66335533307fa300082bd80a/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "66335533307fa300082bd80a"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66335533307fa300082bd80a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "horrorclub",
+    "type": "tv",
+    "name": "Horror Club",
+    "poster": "https://images.pluto.tv/channels/66c35c0c92b1af0008c8e83a/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "66c35c0c92b1af0008c8e83a"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66c35c0c92b1af0008c8e83a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvparanormal",
+    "type": "tv",
+    "name": "Pluto TV Paranormal",
+    "poster": "https://images.pluto.tv/channels/66c70033b1a34600087bb09a/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "66c70033b1a34600087bb09a"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66c70033b1a34600087bb09a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "startrektheoriginalseries",
+    "type": "tv",
+    "name": "Star Trek: The Original Series",
+    "poster": "https://images.pluto.tv/channels/6581a09edfed030008e12b39/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6581a09edfed030008e12b39"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6581a09edfed030008e12b39/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "startrekvoyager",
+    "type": "tv",
+    "name": "Star Trek: Voyager",
+    "poster": "https://images.pluto.tv/channels/65cb73d33ba51e00084cabad/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "65cb73d33ba51e00084cabad"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65cb73d33ba51e00084cabad/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "startrekdeepspacenine",
+    "type": "tv",
+    "name": "Star Trek: Deep Space Nine",
+    "poster": "https://images.pluto.tv/channels/65cb783b3af63d00087bedda/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "65cb783b3af63d00087bedda"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65cb783b3af63d00087bedda/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvseriescifi",
+    "type": "tv",
+    "name": "Pluto TV Serie Sci-Fi",
+    "poster": "https://images.pluto.tv/channels/67ed14aaf7c5d70b9089c3bf/colorLogoPNG_1750259768860.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "67ed14aaf7c5d70b9089c3bf"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/67ed14aaf7c5d70b9089c3bf/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvscifi",
+    "type": "tv",
+    "name": "Pluto TV Sci-Fi",
+    "poster": "https://images.pluto.tv/channels/61728bb9ee3773000840c1fa/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "61728bb9ee3773000840c1fa"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/61728bb9ee3773000840c1fa/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "andromeda",
+    "type": "tv",
+    "name": "Andromeda",
+    "poster": "https://images.pluto.tv/channels/60802d37ee238e0007c94e64/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "60802d37ee238e0007c94e64"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/60802d37ee238e0007c94e64/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvtruecrime",
+    "type": "tv",
+    "name": "Pluto TV True Crime",
+    "poster": "https://images.pluto.tv/channels/66d9ab4bf0f17500084e9b7e/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "66d9ab4bf0f17500084e9b7e"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66d9ab4bf0f17500084e9b7e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "storiecriminali",
+    "type": "tv",
+    "name": "Storie Criminali",
+    "poster": "https://images.pluto.tv/channels/66177d18c8311c0008d077d0/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "66177d18c8311c0008d077d0"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66177d18c8311c0008d077d0/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "ilbancodeipugni",
+    "type": "tv",
+    "name": "Il Banco dei Pugni",
+    "poster": "https://images.pluto.tv/channels/60e4507a06171800072339a3/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "60e4507a06171800072339a3"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/60e4507a06171800072339a3/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "affarefatto",
+    "type": "tv",
+    "name": "Affare Fatto",
+    "poster": "https://images.pluto.tv/channels/64ec5c6644fe100009d114ae/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "64ec5c6644fe100009d114ae"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/64ec5c6644fe100009d114ae/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "wickedtuna",
+    "type": "tv",
+    "name": "Wicked Tuna",
+    "poster": "https://images.pluto.tv/channels/67c832cc9b53325ee16fb899/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "67c832cc9b53325ee16fb899"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/67c832cc9b53325ee16fb899/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "geordieshore",
+    "type": "tv",
+    "name": "Geordie Shore",
+    "poster": "https://images.pluto.tv/channels/619263ee9541940007d20d60/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "619263ee9541940007d20d60"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/619263ee9541940007d20d60/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvshore",
+    "type": "tv",
+    "name": "Pluto TV Shore",
+    "poster": "https://images.pluto.tv/channels/67e3b0d2443f0671bc8a1297/colorLogoPNG_1747721158520.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "67e3b0d2443f0671bc8a1297"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/67e3b0d2443f0671bc8a1297/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvreality",
+    "type": "tv",
+    "name": "Pluto TV Reality",
+    "poster": "https://images.pluto.tv/channels/61925f874b1ec000075e700a/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "61925f874b1ec000075e700a"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/61925f874b1ec000075e700a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "pimpmyride",
+    "type": "tv",
+    "name": "Pimp My Ride",
+    "poster": "https://images.pluto.tv/channels/636a4eaf77279a0007f14861/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "636a4eaf77279a0007f14861"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/636a4eaf77279a0007f14861/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "fifa",
+    "type": "tv",
+    "name": "FIFA+",
+    "poster": "https://images.pluto.tv/channels/660bfc4424e1d000085b5f93/colorLogoPNG_1750064819565.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "660bfc4424e1d000085b5f93"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/660bfc4424e1d000085b5f93/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "worldpokertour",
+    "type": "tv",
+    "name": "World Poker Tour",
+    "poster": "https://images.pluto.tv/channels/608016e446d73500075ea7e0/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608016e446d73500075ea7e0"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608016e446d73500075ea7e0/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "tritonpoker",
+    "type": "tv",
+    "name": "Triton Poker",
+    "poster": "https://images.pluto.tv/channels/6616a51124e1d00008761a7e/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6616a51124e1d00008761a7e"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6616a51124e1d00008761a7e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "billiardtv",
+    "type": "tv",
+    "name": "Billiard TV",
+    "poster": "https://images.pluto.tv/channels/65df0b428b24c80008eec0b6/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "65df0b428b24c80008eec0b6"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65df0b428b24c80008eec0b6/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "theboatshow",
+    "type": "tv",
+    "name": "The Boat Show",
+    "poster": "https://images.pluto.tv/channels/63eb58aa60bc8f0008caa8f8/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "63eb58aa60bc8f0008caa8f8"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/63eb58aa60bc8f0008caa8f8/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvsport",
+    "type": "tv",
+    "name": "Pluto TV Sport",
+    "poster": "https://images.pluto.tv/channels/608030eff4b6f70007e1684c/colorLogoPNG_1746816937164.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608030eff4b6f70007e1684c"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608030eff4b6f70007e1684c/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "ufc",
+    "type": "tv",
+    "name": "UFC",
+    "poster": "https://images.pluto.tv/channels/679203d4bc03978b9b4b79a6/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "679203d4bc03978b9b4b79a6"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/679203d4bc03978b9b4b79a6/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "monsterjam",
+    "type": "tv",
+    "name": "Monster Jam",
+    "poster": "https://images.pluto.tv/channels/65bce7f1d77d450008b3a430/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "65bce7f1d77d450008b3a430"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65bce7f1d77d450008b3a430/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "modussuperseriesdarts",
+    "type": "tv",
+    "name": "MODUS Super Series Darts",
+    "poster": "https://images.pluto.tv/channels/671655b2daad7f00085d202d/colorLogoPNG_1732093506297.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "671655b2daad7f00085d202d"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/671655b2daad7f00085d202d/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "superspongebob",
+    "type": "tv",
+    "name": "Super! SpongeBob",
+    "poster": "https://images.pluto.tv/channels/6093f9281db477000759fce0/colorLogoPNG_1749451468739.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6093f9281db477000759fce0"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6093f9281db477000759fce0/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "supercartonianimati",
+    "type": "tv",
+    "name": "Super! Cartoni Animati",
+    "poster": "https://images.pluto.tv/channels/6093f6f8351eb0000754afb8/colorLogoPNG_1749626196712.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6093f6f8351eb0000754afb8"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6093f6f8351eb0000754afb8/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "superkidsclassics",
+    "type": "tv",
+    "name": "Super! Kids Classics",
+    "poster": "https://images.pluto.tv/channels/67f4f99729b03f18cb36647e/colorLogoPNG_1749212422489.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "67f4f99729b03f18cb36647e"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/67f4f99729b03f18cb36647e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "yugioh",
+    "type": "tv",
+    "name": "Yu-Gi-Oh!",
+    "poster": "https://images.pluto.tv/channels/63eb82e24e83e70008ab735f/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "63eb82e24e83e70008ab735f"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/63eb82e24e83e70008ab735f/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvanime",
+    "type": "tv",
+    "name": "Pluto TV Anime",
+    "poster": "https://images.pluto.tv/channels/65b90daed77d450008a43345/colorLogoPNG_1747395522672.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "65b90daed77d450008a43345"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65b90daed77d450008a43345/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "teenagemutantninjaturtles",
+    "type": "tv",
+    "name": "Teenage Mutant Ninja Turtles",
+    "poster": "https://images.pluto.tv/channels/62619405c733e8000732d1fe/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "62619405c733e8000732d1fe"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62619405c733e8000732d1fe/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "gormiti",
+    "type": "tv",
+    "name": "Gormiti",
+    "poster": "https://images.pluto.tv/channels/66a8c64814a2bb00084d09d6/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "66a8c64814a2bb00084d09d6"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66a8c64814a2bb00084d09d6/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "supericarly",
+    "type": "tv",
+    "name": "Super! iCarly",
+    "poster": "https://images.pluto.tv/channels/609401db8cf51c00084b592e/colorLogoPNG_1749451591847.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "609401db8cf51c00084b592e"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/609401db8cf51c00084b592e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "supervictorious",
+    "type": "tv",
+    "name": "Super! Victorious",
+    "poster": "https://images.pluto.tv/channels/63c012504faf1c0007abfa93/colorLogoPNG_1749480683796.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "63c012504faf1c0007abfa93"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/63c012504faf1c0007abfa93/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "superzoey101",
+    "type": "tv",
+    "name": "Super! Zoey 101",
+    "poster": "https://images.pluto.tv/channels/6304ed62410a4c00083c0291/colorLogoPNG_1749451764425.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6304ed62410a4c00083c0291"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6304ed62410a4c00083c0291/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "superbigtimerush",
+    "type": "tv",
+    "name": "Super! Big Time Rush",
+    "poster": "https://images.pluto.tv/channels/666174c9f999220008769012/colorLogoPNG_1749451832489.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "666174c9f999220008769012"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/666174c9f999220008769012/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "superpop",
+    "type": "tv",
+    "name": "Super! Pop",
+    "poster": "https://images.pluto.tv/channels/6093f7b5bb49b90007cecaad/colorLogoPNG_1749451949815.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6093f7b5bb49b90007cecaad"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6093f7b5bb49b90007cecaad/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "hellskitchen",
+    "type": "tv",
+    "name": "Hell's Kitchen",
+    "poster": "https://images.pluto.tv/channels/664f0ddbf78a8500092dcffa/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "664f0ddbf78a8500092dcffa"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/664f0ddbf78a8500092dcffa/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvcucina",
+    "type": "tv",
+    "name": "Pluto TV Cucina",
+    "poster": "https://images.pluto.tv/channels/608aa718a8ec810007d87fee/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "608aa718a8ec810007d87fee"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa718a8ec810007d87fee/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvreallife",
+    "type": "tv",
+    "name": "Pluto TV Real Life",
+    "poster": "https://images.pluto.tv/channels/60801976f92a750007a0699c/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "60801976f92a750007a0699c"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/60801976f92a750007a0699c/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvviaggi",
+    "type": "tv",
+    "name": "Pluto TV Viaggi",
+    "poster": "https://images.pluto.tv/channels/63c923944207be0007fd0887/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "63c923944207be0007fd0887"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/63c923944207be0007fd0887/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "plutotvasmr",
+    "type": "tv",
+    "name": "Pluto TV ASMR",
+    "poster": "https://images.pluto.tv/channels/66867b9919311200085313d9/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "66867b9919311200085313d9"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66867b9919311200085313d9/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "cnnheadlines",
+    "type": "tv",
+    "name": "CNN Headlines",
+    "poster": "https://images.pluto.tv/channels/66c45ba803e3b20008d8c294/colorLogoPNG_1745489409673.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "66c45ba803e3b20008d8c294"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66c45ba803e3b20008d8c294/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "desiplaytv",
+    "type": "tv",
+    "name": "Desi Play TV",
+    "poster": "https://images.pluto.tv/channels/66c3139c21a4740008466116/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "66c3139c21a4740008466116"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66c3139c21a4740008466116/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "vh1summervibes",
+    "type": "tv",
+    "name": "VH1+ Summer Vibes",
+    "poster": "https://images.pluto.tv/channels/626180ec537f210007e94b52/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "626180ec537f210007e94b52"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/626180ec537f210007e94b52/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "vh1musiclegends",
+    "type": "tv",
+    "name": "VH1+ Music Legends",
+    "poster": "https://images.pluto.tv/channels/62e8cc10ca869f00078efca8/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "62e8cc10ca869f00078efca8"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62e8cc10ca869f00078efca8/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "vh1backto90s",
+    "type": "tv",
+    "name": "VH1+ Back to 90's",
+    "poster": "https://images.pluto.tv/channels/6552085aab05240008b05f6c/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6552085aab05240008b05f6c"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6552085aab05240008b05f6c/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "vh1rock",
+    "type": "tv",
+    "name": "VH1+ Rock!",
+    "poster": "https://images.pluto.tv/channels/636a4173e34fd50007534542/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "636a4173e34fd50007534542"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/636a4173e34fd50007534542/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "vh1dance",
+    "type": "tv",
+    "name": "VH1+ Dance",
+    "poster": "https://images.pluto.tv/channels/65e5d9d2ec9fda0008c35f91/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "65e5d9d2ec9fda0008c35f91"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65e5d9d2ec9fda0008c35f91/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "vh1classici",
+    "type": "tv",
+    "name": "VH1+ Classici",
+    "poster": "https://images.pluto.tv/channels/6690f892d51259000880d1c4/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "6690f892d51259000880d1c4"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6690f892d51259000880d1c4/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  },
+  {
+    "id": "vh1canzoniitaliane",
+    "type": "tv",
+    "name": "VH1+ Canzoni Italiane",
+    "poster": "https://images.pluto.tv/channels/63724270c7c2360007b170e8/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "epgChannelIds": [
+      "63724270c7c2360007b170e8"
+    ],
+    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/63724270c7c2360007b170e8/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+  }
+]
