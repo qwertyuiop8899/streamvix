@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.16.30](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.29...v1.16.30) (2026-03-03)
+
+
+### Bug Fixes
+
+* configmode ([027af26](https://github.com/qwertyuiop8899/streamvix/commit/027af26dea579dbfdff770b3fe91bce1d402f8b6))
+* correct SUB/ITA language labels for AnimeWorld mapped streams ([44a87c4](https://github.com/qwertyuiop8899/streamvix/commit/44a87c45416888133a21036d8a5668963bebbf4a))
+* Dynamically determine stream title language labels for streams in AnimeSaturn and AnimeWorld providers. ([d39a15b](https://github.com/qwertyuiop8899/streamvix/commit/d39a15b6552dbfd6fa375a1ca671594ffd9426ba))
+* serie max ([27e6134](https://github.com/qwertyuiop8899/streamvix/commit/27e61343be30338aa58b94837a27090100ee19da))
+* tv_channels.json ([3f13c31](https://github.com/qwertyuiop8899/streamvix/commit/3f13c31c9143b2e8789f5493282256df59af9436))
+
 ## [1.16.29](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.28...v1.16.29) (2026-03-02)
 
 
