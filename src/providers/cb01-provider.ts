@@ -425,24 +425,59 @@ export class Cb01Provider {
         const ePad = epPad(episode);
         const sPad = epPad(season);
 
-        // MammaMia styles
-        // Style 1: S01E02.+?href='([^']+)
-        // Style 2: 1x02.+?href='([^']+)
-        // Style 3: 1&#215;02 &#8211; <a href=...
+        // Helper: given a row of HTML, collect all <a href="URL">TEXT</a> pairs,
+        // pick the one whose anchor TEXT says "mixdrop" (not "maxstream").
+        // All hrefs may be stayonline shortlinks — the anchor text tells which host they resolve to.
+        const pickPreferredLink = (rowHtml: string): string | null => {
+            const anchorRe = /<a[^>]+href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/a>/gi;
+            const anchors: { href: string; text: string }[] = [];
+            let am: RegExpExecArray | null;
+            while ((am = anchorRe.exec(rowHtml)) !== null) {
+                const href = am[1].trim();
+                const text = am[2].replace(/<[^>]*>/g, '').trim().toLowerCase();
+                if (href) anchors.push({ href, text });
+            }
+            if (!anchors.length) {
+                // Fallback: plain href extraction if no <a> tags matched
+                const hrefRe = /href=['"]([^'"]+)['"]/gi;
+                let hm: RegExpExecArray | null;
+                while ((hm = hrefRe.exec(rowHtml)) !== null) anchors.push({ href: hm[1], text: '' });
+            }
+            if (!anchors.length) return null;
+            log('pickPreferredLink anchors', anchors.map(a => ({ href: a.href.slice(0, 60), text: a.text })));
+            // 1. Anchor text says "mixdrop" (regardless of href domain — could be stayonline shortlink)
+            const mixdropLabeled = anchors.find(a => /mixdrop/i.test(a.text));
+            if (mixdropLabeled) { log('pickPreferredLink mixdrop-labeled', { href: mixdropLabeled.href }); return mixdropLabeled.href; }
+            // 2. Direct mixdrop URL in href
+            const directMixdrop = anchors.find(a => /mixdrop\./i.test(a.href));
+            if (directMixdrop) { log('pickPreferredLink direct mixdrop href', { href: directMixdrop.href }); return directMixdrop.href; }
+            // 3. Any anchor whose text does NOT say "maxstream"
+            const notMaxText = anchors.find(a => !/maxstream/i.test(a.text) && !/maxstream\./i.test(a.href));
+            if (notMaxText) { log('pickPreferredLink non-maxstream fallback', { href: notMaxText.href, text: notMaxText.text }); return notMaxText.href; }
+            // 4. Last resort (only maxstream available)
+            log('pickPreferredLink only maxstream available', { href: anchors[0].href });
+            return anchors[0].href;
+        };
+
+        // Extract the HTML row for the requested episode (from marker to next episode marker, max 800 chars)
+        const extractEpRow = (seg: string, epPattern: RegExp): string | null => {
+            const idx = seg.search(epPattern);
+            if (idx < 0) return null;
+            const after = seg.slice(idx);
+            const nextEpIdx = after.slice(10).search(/\d+&#215;\d+|S\d+E\d+|\d+x\d+/i);
+            return nextEpIdx > 0 ? after.slice(0, nextEpIdx + 10) : after.slice(0, 800);
+        };
 
         let candidate: string | null = null;
 
-        // Pattern 1 (MammaMia primary): {season}&#215;{episode} &#8211; ... href
-        const rx2 = new RegExp(`${season}&#215;${ePad}\\s*&#8211;.*?href=['"]([^'"]+)`, 'i');
-        const match2 = segment.match(rx2);
-        if (match2) candidate = match2[1];
+        // Pattern 1 (primary): {season}&#215;{episode} &#8211;
+        const row2 = extractEpRow(segment, new RegExp(`${season}&#215;${ePad}\\s*&#8211;`, 'i'));
+        if (row2) candidate = pickPreferredLink(row2);
 
-        // Pattern 2: SXXEXX or XXxXX
+        // Pattern 2: SXXEXX or XXxXX or SXXxXX
         if (!candidate) {
-            const pat1 = `(S${sPad}E${ePad}|${season}x${ePad}|${sPad}x${ePad})`;
-            const rx1 = new RegExp(`${pat1}.+?href=['"]([^'"]+)`, 'i');
-            const match1 = segment.match(rx1);
-            if (match1) candidate = match1[2];
+            const row1 = extractEpRow(segment, new RegExp(`S${sPad}E${ePad}|${season}x${ePad}|${sPad}x${ePad}`, 'i'));
+            if (row1) candidate = pickPreferredLink(row1);
         }
 
         if (!candidate) { log('series episode link not found', { imdbId, season, episode }); return null; }
