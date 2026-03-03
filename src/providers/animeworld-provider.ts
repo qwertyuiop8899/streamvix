@@ -746,7 +746,21 @@ export class AnimeWorldProvider {
       .replace(/ITA/gi, '')
       .replace(/\s+/g, ' ')
       .trim();
-    const langLabel = /(?:^|[-_])ita(?:[-_]|$)/i.test(slug) ? 'ITA' : 'SUB';
+    // Detect language from multiple signals (most reliable first):
+    // 1) MP4 URL: _SUB_ITA.mp4 → SUB, _ITA.mp4 (without SUB prefix) → ITA
+    // 2) Slug pattern: slug ending with -ita or _ita before the hash (e.g. "title-ita.ABcDe") → ITA
+    // NOTE: inferLanguageFromPlayPage is NOT used here because AnimeWorld play pages
+    //       list ALL versions (SUB+ITA) on the same page, making HTML-based DUB detection unreliable.
+    let langLabel = 'SUB'; // default
+    if (/[_\-]SUB[_\-]ITA/i.test(mp4)) {
+      langLabel = 'SUB';
+    } else if (/[_\-]ITA(?:\.|$)/i.test(mp4)) {
+      langLabel = 'ITA';
+    } else {
+      // Fallback: check slug base (part before the hash dot) for -ita / _ita suffix
+      const slugBase = slug.split('.')[0] || '';
+      if (/[-_]ita$/i.test(slugBase)) langLabel = 'ITA';
+    }
     const sNum = seasonNumber || 1;
     const epNum = isMovie ? Number(target.number || 1) : requestedEpisode;
     let titleStream = `${capitalize(cleanName || titleFallback)} ▪ ${langLabel} ▪ S${sNum}`;
