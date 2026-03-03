@@ -219,7 +219,11 @@ async function getM3U8Url(episodeUrl: string): Promise<string | null> {
         const b64Match = html.match(/var\s+encodedStr\s*=\s*["']([A-Za-z0-9+/=]+)["']/);
         if (b64Match) {
             try {
-                const decoded = Buffer.from(b64Match[1], 'base64').toString('utf-8');
+                let decoded = Buffer.from(b64Match[1], 'base64').toString('utf-8');
+                // Se il valore base64-decodificato è già URL-encoded (es. https%3A%2F%2F), decodificalo prima
+                if (decoded.includes('%3A') || decoded.includes('%2F')) {
+                    try { decoded = decodeURIComponent(decoded); } catch { /* ignore malformed */ }
+                }
                 if (decoded && decoded.startsWith('http') && !decoded.includes('nontrovato')) {
                     // URL-encoda spazi e caratteri speciali mantenendo il protocollo/struttura
                     const encoded = decoded
