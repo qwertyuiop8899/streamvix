@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.34](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.33...v1.16.34) (2026-03-03)
+
+
+### Bug Fixes
+
+* uqguardaflix.ts ([ac43bf1](https://github.com/qwertyuiop8899/streamvix/commit/ac43bf1f48ca104f55fcf535924ba47974ff960e))
+* uqload ([b610907](https://github.com/qwertyuiop8899/streamvix/commit/b6109072bd6fc5ba341dcc4a3e036c77e05b2232))
+
 ## [1.16.33](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.32...v1.16.33) (2026-03-03)
 
 
