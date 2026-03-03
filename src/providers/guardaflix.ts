@@ -414,15 +414,18 @@ async function getCinemetaMeta(type: string, paramId: string): Promise<{ name: s
 export async function getGuardaflixStreams(type: string, id: string, tmdbApiKey?: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
     // First attempt: without proxy
     useProxyFallback = false;
+    let networkError = false;
     try {
         const result = await getGuardaflixStreamsCore(type, id, tmdbApiKey, mfpUrl, mfpPsw);
-        if (result.length > 0) return result;
-    } catch (e) {
-        console.log(`[Guardaflix] First attempt failed: ${e}`);
+        return result; // Return even if empty — means content not found, not a network issue
+    } catch (e: any) {
+        const msg = String(e?.message || e).toLowerCase();
+        networkError = msg.includes('econnrefused') || msg.includes('econnreset') || msg.includes('etimedout') || msg.includes('enotfound') || msg.includes('socket') || msg.includes('proxy') || msg.includes('network') || msg.includes('connect');
+        console.log(`[Guardaflix] First attempt failed (network=${networkError}): ${e}`);
     }
 
-    // Fallback: with proxy (if available)
-    if (proxyDispatcher) {
+    // Fallback: with proxy ONLY on network errors (not on "content not found")
+    if (networkError && proxyDispatcher) {
         console.log('[Guardaflix] Retrying with proxy...');
         useProxyFallback = true;
         try {
