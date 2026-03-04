@@ -4,6 +4,8 @@ import { formatMediaFlowUrl } from '../utils/mediaflow';
 import { AnimeUnityConfig, StreamForStremio } from '../types/animeunity';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { SocksProxyAgent } from 'socks-proxy-agent';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
 import { extractFromUrl } from '../extractors';
 import {
@@ -42,6 +44,25 @@ const TTL = {
 };
 
 const caches = createCaches();
+
+const PROXY_URL = process.env.AU_PROXY || process.env.ANIME_PROXY || '';
+let proxyAgent: any = undefined;
+if (PROXY_URL) {
+  if (PROXY_URL.startsWith('socks')) {
+    proxyAgent = new SocksProxyAgent(PROXY_URL);
+  } else {
+    proxyAgent = new HttpsProxyAgent(PROXY_URL);
+  }
+}
+
+// Interceptor per iniettare l'agent in tutte le chiamate axios
+axios.interceptors.request.use(config => {
+  if (proxyAgent && config.url?.startsWith('https://www.animeunity')) {
+    config.httpsAgent = proxyAgent;
+    config.httpAgent = proxyAgent;
+  }
+  return config;
+});
 
 interface AnimeUnitySession {
   csrfToken: string;
