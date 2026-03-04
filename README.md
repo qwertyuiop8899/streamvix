@@ -88,18 +88,18 @@ Se Streamvix gira su una VPS / server cloud il cui IP viene bloccato da Cloudfla
 
 | Variabile | Provider | Descrizione |
 |-----------|----------|-------------|
-| `ANIME_PROXY` | Tutti | Proxy comune per AnimeUnity + AnimeSaturn + AnimeWorld |
-| `AU_PROXY` | AnimeUnity | Proxy specifico (ha precedenza su `ANIME_PROXY`) |
-| `AS_PROXY` | AnimeSaturn | Proxy specifico (ha precedenza su `ANIME_PROXY`) |
-| `AW_PROXY` | AnimeWorld | Proxy specifico (ha precedenza su `ANIME_PROXY`) |
+| `PROXY` | Tutti | Proxy generale (usato anche da CB01/GuardoSerie come fallback) |
+| `AU_PROXY` | AnimeUnity | Proxy specifico (priorità su `PROXY`) |
+| `AS_PROXY` | AnimeSaturn | Proxy specifico (priorità su `PROXY`) |
+| `AW_PROXY` | AnimeWorld | Proxy specifico (priorità su `PROXY`) |
 
 Formati accettati: `socks5h://host:port` · `socks5://host:port` · `http://host:port` · `https://host:port`
 
 Esempio con container **Cloudflare WARP** già presente nel tuo `docker-compose.yml`:
 ```env
-ANIME_PROXY=socks5h://warp:1080
+PROXY=socks5h://warp:1080
 ```
-Se tutto funziona puoi specificare il proxy solo per il provider che dà problemi:
+Se vuoi specificare il proxy solo per il provider che dà problemi:
 ```env
 AU_PROXY=socks5h://warp:1080
 ```

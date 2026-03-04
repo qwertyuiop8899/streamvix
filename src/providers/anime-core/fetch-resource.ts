@@ -118,11 +118,11 @@ export async function fetchResource(
     
     // Configura proxy dinamico in base al dominio target
     const proxyUrl = url.includes('animesaturn') 
-      ? (process.env.AS_PROXY || process.env.ANIME_PROXY || '')
+      ? (process.env.AS_PROXY || process.env.PROXY || '')
       : url.includes('animeworld')
-      ? (process.env.AW_PROXY || process.env.ANIME_PROXY || '')
+      ? (process.env.AW_PROXY || process.env.PROXY || '')
       : url.includes('animeunity')
-      ? (process.env.AU_PROXY || process.env.ANIME_PROXY || '')
+      ? (process.env.AU_PROXY || process.env.PROXY || '')
       : '';
 
     if (proxyUrl) {

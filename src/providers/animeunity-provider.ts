@@ -45,7 +45,7 @@ const TTL = {
 
 const caches = createCaches();
 
-const PROXY_URL = process.env.AU_PROXY || process.env.ANIME_PROXY || '';
+const PROXY_URL = process.env.AU_PROXY || process.env.PROXY || '';
 let proxyAgent: any = undefined;
 if (PROXY_URL) {
   if (PROXY_URL.startsWith('socks')) {
