@@ -1149,7 +1149,7 @@ function _loadStaticChannelsIfChanged(force = false) {
 (() => {
     try {
         // Always enable PPV unless explicitly disabled
-        let enableRaw = (process.env.PPV_ENABLE || '1').toString().toLowerCase();
+        let enableRaw = (process.env.PPV_ENABLE || '0').toString().toLowerCase();
         if (!['1', 'true', 'on', 'yes'].includes(enableRaw)) return;
 
         const pythonBin = process.env.PYTHON_BIN || 'python3';
