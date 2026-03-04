@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.35](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.34...v1.16.35) (2026-03-04)
+
+
+### Bug Fixes
+
+* ppv disable ([2ecef38](https://github.com/qwertyuiop8899/streamvix/commit/2ecef389ff342640c9e94fbdca5210a940d64dd0))
+
 ## [1.16.34](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.33...v1.16.34) (2026-03-03)
 
 
