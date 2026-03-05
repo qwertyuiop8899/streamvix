@@ -173,32 +173,62 @@ export class GuardaHdProvider {
 
     private extractEmbedUrls(html: string): string[] {
         const $ = cheerio.load(html);
-        const urls = $('[data-link!=""]').map((_: number, el: any) => {
-            const raw = ($(el).attr('data-link') || '').trim();
-            if (!raw) return null;
-            let u = raw.replace(/^(https:)?\/\//, 'https://');
-            if (!/^https?:/i.test(u)) return null;
-            return u;
-        }).toArray().filter(Boolean) as string[];
+        const results: string[] = [];
 
-        // Filter self/broken
-        const external = urls.filter(u => !/mostraguarda/gi.test(new URL(u).host));
-        const noStreamtape = external.filter(u => !/streamtape\.com/i.test(u));
+        // Main mirrors (direct children of _player-mirrors, NOT inside _hidden-mirrors) → 1080p
+        $('ul._player-mirrors > li[data-link]').each((_: number, el: any) => {
+            const raw = ($(el).attr('data-link') || '').trim();
+            if (!raw) return;
+            let u = raw.replace(/^(https:)?\/\//, 'https://');
+            if (!/^https?:/i.test(u)) return;
+            if (/mostraguarda/i.test(u)) return; // skip self links (Server 4K)
+            if (/streamtape\.com/i.test(u)) return;
+            results.push(`${u}#res=1080p`);
+        });
+
+        // Hidden/alternative mirrors (_hidden-mirrors) → 720p
+        $('._hidden-mirrors li[data-link]').each((_: number, el: any) => {
+            const raw = ($(el).attr('data-link') || '').trim();
+            if (!raw) return;
+            let u = raw.replace(/^(https:)?\/\//, 'https://');
+            if (!/^https?:/i.test(u)) return;
+            if (/mostraguarda/i.test(u)) return;
+            if (/streamtape\.com/i.test(u)) return;
+            results.push(`${u}#res=720p`);
+        });
+
+        // Fallback: if the new selectors found nothing, use old generic approach
+        if (results.length === 0) {
+            $('[data-link!=""]').each((_: number, el: any) => {
+                const raw = ($(el).attr('data-link') || '').trim();
+                if (!raw) return;
+                let u = raw.replace(/^(https:)?\/\//, 'https://');
+                if (!/^https?:/i.test(u)) return;
+                if (/mostraguarda/i.test(u)) return;
+                if (/streamtape\.com/i.test(u)) return;
+                results.push(u);
+            });
+        }
+
         // Dedup
-        return Array.from(new Set(noStreamtape)).slice(0, 40);
+        return Array.from(new Set(results)).slice(0, 40);
     }
 
     private async resolveEmbedStreams(embedUrls: string[], titleHint: string): Promise<StreamForStremio[]> {
         const out: StreamForStremio[] = [];
         const seen = new Set<string>();
 
-        // This resolves the embed URL using extractors (e.g. Mixdrop)
-        // AND applies the mfpUrl/mfpPassword passed in 'this.config'.
-        // This ensures the Proxy is applied *now*, not read from cache.
-        for (const eurl of embedUrls) {
+        for (const eurlRaw of embedUrls) {
             try {
-                // Determine if we should attempt resolution
-                // Note: extractFromUrl will invoke the extractor which fetches metadata and builds the proxy link
+                // Extract resolution hint from fragment (#res=1080p / #res=720p)
+                let resHint: string | undefined;
+                let eurl = eurlRaw;
+                const hashIdx = eurlRaw.indexOf('#res=');
+                if (hashIdx !== -1) {
+                    resHint = eurlRaw.substring(hashIdx + 5); // "1080p" or "720p"
+                    eurl = eurlRaw.substring(0, hashIdx);     // clean URL without fragment
+                }
+
                 const { streams } = await extractFromUrl(eurl, {
                     mfpUrl: this.config.mfpUrl,
                     mfpPassword: this.config.mfpPassword,
@@ -209,12 +239,20 @@ export class GuardaHdProvider {
                 for (const s of streams) {
                     if (seen.has(s.url)) continue;
                     seen.add(s.url);
-                    // Append title normalization
-                    const normalizedStream = {
-                        ...s,
-                        title: this.normalizeTitle(s.title || titleHint)
-                    } as StreamForStremio;
-                    out.push(normalizedStream);
+                    let title = this.normalizeTitle(s.title || titleHint);
+
+                    // Inject resolution hint into the second line (💾 line) if not already present
+                    if (resHint && !/\d{3,4}p/.test(title)) {
+                        if (title.includes('\n💾')) {
+                            // Add resolution before the provider name on the existing line
+                            title = title.replace(/\n💾\s*/, `\n💾 ${resHint} • `);
+                        } else {
+                            // No second line yet — create one
+                            title = `${title}\n💾 ${resHint}`;
+                        }
+                    }
+
+                    out.push({ ...s, title } as StreamForStremio);
                 }
             } catch { /* ignore single embed */ }
         }
