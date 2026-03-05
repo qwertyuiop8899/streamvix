@@ -57,7 +57,7 @@ if (PROXY_URL) {
 
 // Interceptor per iniettare l'agent in tutte le chiamate axios
 axios.interceptors.request.use(config => {
-  if (proxyAgent && config.url?.startsWith('https://www.animeunity')) {
+  if (proxyAgent && config.url && config.url.includes('animeunity')) {
     config.httpsAgent = proxyAgent;
     config.httpAgent = proxyAgent;
   }
@@ -73,24 +73,24 @@ interface AnimeUnitySession {
 let sessionCache: AnimeUnitySession | null = null;
 
 interface AnimeUnitySearchResult {
-    id: number;
-    slug: string;
-    name: string;
-    name_it?: string; // Titolo italiano (opzionale)
-    name_eng?: string; // Titolo inglese (opzionale)
-    episodes_count: number;
+  id: number;
+  slug: string;
+  name: string;
+  name_it?: string; // Titolo italiano (opzionale)
+  name_eng?: string; // Titolo inglese (opzionale)
+  episodes_count: number;
 }
 
 interface AnimeUnityEpisode {
-    id: number;
-    number: string | number;
-    name?: string;
+  id: number;
+  number: string | number;
+  name?: string;
 }
 
 interface AnimeUnityStreamData {
-    episode_page: string | null;
-    embed_url: string | null;
-    mp4_url: string | null;
+  episode_page: string | null;
+  embed_url: string | null;
+  mp4_url: string | null;
 }
 
 function getUnityBaseUrl(): string {
@@ -342,7 +342,7 @@ async function getStreamData(animeId: number, animeSlug: string, episodeId: numb
 
 // Funzione universale per ottenere il titolo inglese da qualsiasi ID
 // Aggiunto fallback Kitsu diretto (titles.en) se manca MAL mapping, come in AnimeSaturn
-async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|'mal', tmdbApiKey?: string): Promise<string> {
+async function getEnglishTitleFromAnyId(id: string, type: 'imdb' | 'tmdb' | 'kitsu' | 'mal', tmdbApiKey?: string): Promise<string> {
   let malId: string | null = null;
   let tmdbId: string | null = null;
   let fallbackTitle: string | null = null;
@@ -356,13 +356,13 @@ async function getEnglishTitleFromAnyId(id: string, type: 'imdb'|'tmdb'|'kitsu'|
     try {
       const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
       malId = haglundResp[0]?.myanimelist?.toString() || null;
-    } catch {}
+    } catch { }
   } else if (type === 'tmdb') {
     tmdbId = id;
     try {
       const haglundResp = await (await fetch(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}&include=kitsu,myanimelist`)).json();
       malId = haglundResp[0]?.myanimelist?.toString() || null;
-    } catch {}
+    } catch { }
   } else if (type === 'kitsu') {
     const mappingsResp = await (await fetch(`https://kitsu.io/api/edge/anime/${id}/mappings`)).json();
     const malMapping = mappingsResp.data?.find((m: any) => m.attributes.externalSite === 'myanimelist/anime');
@@ -432,7 +432,7 @@ function filterAnimeResults(results: { version: AnimeUnitySearchResult; language
   // Accetta varianti con (ITA), (CR), ecc. MA esclude sequel con numeri (es: "Title 2")
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
   const queryNorm = norm(searchQuery);
-  
+
   // Genera le varianti ammesse: base, base + (ita), base + (cr), base + (ita) (cr)
   // IMPORTANTE: NON rimuovere i numeri dalla query - fanno parte del titolo!
   const queryBase = queryNorm.replace(/\s*\([^)]*\)/g, '').trim();
@@ -443,7 +443,7 @@ function filterAnimeResults(results: { version: AnimeUnitySearchResult; language
     `${queryBase} (ITA) (CR)`,
     `${queryBase} (CR) (ITA)`
   ];
-  
+
   const filtered = results.filter(r => {
     // Raccogli tutti i titoli disponibili del risultato
     const titles = [
@@ -451,77 +451,68 @@ function filterAnimeResults(results: { version: AnimeUnitySearchResult; language
       r.version.name_it || '',
       r.version.name || ''
     ].filter(t => t.trim());
-    
+
     // Per ogni titolo disponibile, controlla se matcha con una delle varianti ammesse
     for (const title of titles) {
       const titleNorm = norm(title);
       // Rimuovi solo le parentesi per il confronto (mantieni i numeri!)
       const titleBase = titleNorm.replace(/\s*\([^)]*\)/g, '').trim();
-      
+
       // Match: il titolo base del risultato deve essere UGUALE al queryBase
       if (titleBase === queryBase) {
         return true;
       }
     }
-    
+
     return false;
   });
-  
+
   console.log(`[UniversalTitle][Filter][Legacy] Query ricerca (norm): "${queryNorm}" -> base: "${queryBase}"`);
   console.log(`[UniversalTitle][Filter][Legacy] Varianti ammesse:`, allowedVariants);
-  console.log(`[UniversalTitle][Filter][Legacy] Risultati prima del filtro:`, results.map(r => `${r.version.name} [it:"${r.version.name_it||'N/A'}" eng:"${r.version.name_eng||'N/A'}"]`));
+  console.log(`[UniversalTitle][Filter][Legacy] Risultati prima del filtro:`, results.map(r => `${r.version.name} [it:"${r.version.name_it || 'N/A'}" eng:"${r.version.name_eng || 'N/A'}"]`));
   console.log(`[UniversalTitle][Filter][Legacy] Risultati dopo il filtro:`, filtered.map(r => r.version.name));
   return filtered;
 }
 
 // ==== AUTO-NORMALIZATION-EXACT-MAP-START ====
-const exactMap: Record<string,string> = {
+const exactMap: Record<string, string> = {
 
-    "Attack on Titan: Final Season - The Final Chapters": "Attack on Titan Final Season THE FINAL CHAPTERS Special 1",
-    "Attack on Titan: The Final Season - Final Chapters Part 2": "Attack on Titan Final Season THE FINAL CHAPTERS Special 2",
+  "Attack on Titan: Final Season - The Final Chapters": "Attack on Titan Final Season THE FINAL CHAPTERS Special 1",
+  "Attack on Titan: The Final Season - Final Chapters Part 2": "Attack on Titan Final Season THE FINAL CHAPTERS Special 2",
 
-        "Attack on Titan OAD": "Attack on Titan OVA",
-
-
-        "Cat's\u2665Eye": "Occhi di gatto (2025)",
-    "Attack on Titan: Final Season": "Attack on Titan: The Final Season",
-    "Attack on Titan: Final Season Part 2": "Attack on Titan: The Final Season Part 2",
+  "Attack on Titan OAD": "Attack on Titan OVA",
 
 
-    "Ranma \u00bd (2024) Season 2": "Ranma \u00bd (2024) 2",
-    "Ranma1/2 (2024) Season 2": "Ranma \u00bd (2024) 2",
+  "Cat's\u2665Eye": "Occhi di gatto (2025)",
+  "Attack on Titan: Final Season": "Attack on Titan: The Final Season",
+  "Attack on Titan: Final Season Part 2": "Attack on Titan: The Final Season Part 2",
 
 
-        "Link Click Season 2": "Link Click 2",
+  "Ranma \u00bd (2024) Season 2": "Ranma \u00bd (2024) 2",
+  "Ranma1/2 (2024) Season 2": "Ranma \u00bd (2024) 2",
 
 
-
-        "K: SEVEN STORIES Lost Small World - Outside the Cage - ": "K: Seven Stories Movie 4 - Lost Small World - Ori no Mukou ni",
+  "Link Click Season 2": "Link Click 2",
 
 
 
-
-        "Nichijou - My Ordinary Life": "Nichijou",
+  "K: SEVEN STORIES Lost Small World - Outside the Cage - ": "K: Seven Stories Movie 4 - Lost Small World - Ori no Mukou ni",
 
 
 
 
-
-        "Case Closed Movie 01: The Time Bombed Skyscraper": "Detective Conan Movie 1: Fino alla fine del tempo",
-
-
-        "Jujutsu Kaisen: The Culling Game Part 1": "Jujutsu Kaisen 3: The Culling Game Part 1",
-
-        "My Hero Academia Final Season": "My Hero Academia Final Season",
+  "Nichijou - My Ordinary Life": "Nichijou",
 
 
 
 
 
+  "Case Closed Movie 01: The Time Bombed Skyscraper": "Detective Conan Movie 1: Fino alla fine del tempo",
 
 
+  "Jujutsu Kaisen: The Culling Game Part 1": "Jujutsu Kaisen 3: The Culling Game Part 1",
 
-        "[Oshi No Ko] Season 3": "Oshi No Ko 3",
+  "My Hero Academia Final Season": "My Hero Academia Final Season",
 
 
 
@@ -530,13 +521,22 @@ const exactMap: Record<string,string> = {
 
 
 
+  "[Oshi No Ko] Season 3": "Oshi No Ko 3",
 
-    // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
+
+
+
+
+
+
+
+
+  // << AUTO-INSERT-EXACT >> (non rimuovere questo commento)
 };
 // ==== AUTO-NORMALIZATION-EXACT-MAP-END ====
 
 // ==== AUTO-NORMALIZATION-GENERIC-MAP-START ====
-const genericMap: Record<string,string> = {
+const genericMap: Record<string, string> = {
 
 
   // << AUTO-INSERT-GENERIC >> (non rimuovere questo commento)
@@ -574,7 +574,7 @@ function normalizeTitleForSearch(title: string): string {
 export class AnimeUnityProvider {
   private kitsuProvider = new KitsuProvider();
 
-  constructor(private config: AnimeUnityConfig) {}
+  constructor(private config: AnimeUnityConfig) { }
 
   private get baseHost(): string { return getDomain('animeunity') || 'animeunity.so'; }
 
@@ -881,40 +881,40 @@ export class AnimeUnityProvider {
 
   // Made public for catalog search
   async searchAllVersions(title: string): Promise<{ version: AnimeUnitySearchResult; language_type: string }[]> {
-      try {
-        const subPromise = searchEndpoint(title, false).catch(() => []);
-        const dubPromise = searchEndpoint(title, true).catch(() => []);
+    try {
+      const subPromise = searchEndpoint(title, false).catch(() => []);
+      const dubPromise = searchEndpoint(title, true).catch(() => []);
 
-        const [subResults, dubResults]: [AnimeUnitySearchResult[], AnimeUnitySearchResult[]] = await Promise.all([subPromise, dubPromise]);
-        const results: { version: AnimeUnitySearchResult; language_type: string }[] = [];
+      const [subResults, dubResults]: [AnimeUnitySearchResult[], AnimeUnitySearchResult[]] = await Promise.all([subPromise, dubPromise]);
+      const results: { version: AnimeUnitySearchResult; language_type: string }[] = [];
 
-        console.log(`[AnimeUnity] Risultati SUB per "${title}":`, subResults?.length || 0);
-        console.log(`[AnimeUnity] Risultati DUB per "${title}":`, dubResults?.length || 0);
+      console.log(`[AnimeUnity] Risultati SUB per "${title}":`, subResults?.length || 0);
+      console.log(`[AnimeUnity] Risultati DUB per "${title}":`, dubResults?.length || 0);
 
-        // Unisci tutti i risultati (SUB e DUB), ma assegna ITA o CR se il nome contiene
-        const allResults = [...(subResults || []), ...(dubResults || [])];
-        // Filtra duplicati per nome e id
-        const seen = new Set();
-        for (const r of allResults) {
-          if (!r || !r.name || !r.id) continue;
-          const key = r.name + '|' + r.id;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          const nameLower = r.name.toLowerCase();
-          let language_type = 'SUB ITA';
-          if (nameLower.includes('cr')) {
-            language_type = 'CR ITA';
-          } else if (nameLower.includes('ita')) {
-            language_type = 'ITA';
-          }
-          results.push({ version: r, language_type });
+      // Unisci tutti i risultati (SUB e DUB), ma assegna ITA o CR se il nome contiene
+      const allResults = [...(subResults || []), ...(dubResults || [])];
+      // Filtra duplicati per nome e id
+      const seen = new Set();
+      for (const r of allResults) {
+        if (!r || !r.name || !r.id) continue;
+        const key = r.name + '|' + r.id;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const nameLower = r.name.toLowerCase();
+        let language_type = 'SUB ITA';
+        if (nameLower.includes('cr')) {
+          language_type = 'CR ITA';
+        } else if (nameLower.includes('ita')) {
+          language_type = 'ITA';
         }
-        console.log(`[AnimeUnity] Risultati totali dopo filtro duplicati:`, results.length);
-        return results;
-      } catch (error) {
-        console.error(`[AnimeUnity] Errore in searchAllVersions per "${title}":`, error);
-        return [];
+        results.push({ version: r, language_type });
       }
+      console.log(`[AnimeUnity] Risultati totali dopo filtro duplicati:`, results.length);
+      return results;
+    } catch (error) {
+      console.error(`[AnimeUnity] Errore in searchAllVersions per "${title}":`, error);
+      return [];
+    }
   }
 
   async handleKitsuRequest(kitsuIdString: string): Promise<{ streams: StreamForStremio[] }> {
@@ -933,7 +933,7 @@ export class AnimeUnityProvider {
           const attr = j?.data?.attributes || {};
           quickTitle = attr.titles?.en || attr.titles?.en_jp || attr.canonicalTitle || kitsuId;
         }
-      } catch {}
+      } catch { }
       // Try mapping API first — no expensive title resolution yet
       const fromMapping = await this.getStreamsFromMapping(
         `kitsu:${kitsuId}`, seasonNumber, episodeNumber, isMovie, { kitsuId }, quickTitle
@@ -995,22 +995,22 @@ export class AnimeUnityProvider {
           console.log(`[AnimeUnity] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for ${imdbId}`);
           return { streams: [] };
         }
-  // Removed placeholder injection; icon added directly to titles
+        // Removed placeholder injection; icon added directly to titles
       }
-  const imdbIdClean = imdbId.split(':')[0];
-  // Try mapping API first — defer expensive title resolution to fallback path only
-  const fromMappingImdb = await this.getStreamsFromMapping(
-    imdbIdClean, seasonNumber, episodeNumber, isMovie, { imdbId: imdbIdClean }, ''
-  );
-  if (fromMappingImdb.length) {
-    console.log('[AnimeUnity] Mapping hit (IMDB): skipped title resolution.');
-    return { streams: fromMappingImdb };
-  }
-  // Mapping miss → resolve full English title for search fallback
-  const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
-  console.log(`[AnimeUnity] Mapping miss (IMDB): ricerca con titolo inglese: ${englishTitle}`);
-  const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
-  return res;
+      const imdbIdClean = imdbId.split(':')[0];
+      // Try mapping API first — defer expensive title resolution to fallback path only
+      const fromMappingImdb = await this.getStreamsFromMapping(
+        imdbIdClean, seasonNumber, episodeNumber, isMovie, { imdbId: imdbIdClean }, ''
+      );
+      if (fromMappingImdb.length) {
+        console.log('[AnimeUnity] Mapping hit (IMDB): skipped title resolution.');
+        return { streams: fromMappingImdb };
+      }
+      // Mapping miss → resolve full English title for search fallback
+      const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
+      console.log(`[AnimeUnity] Mapping miss (IMDB): ricerca con titolo inglese: ${englishTitle}`);
+      const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+      return res;
     } catch (error) {
       console.error('Error handling IMDB request:', error);
       return { streams: [] };
@@ -1029,21 +1029,21 @@ export class AnimeUnityProvider {
           console.log(`[AnimeUnity] Skipping anime search: no MAL/Kitsu mapping (${gate.reason}) for TMDB ${tmdbId}`);
           return { streams: [] };
         }
-  // Removed placeholder injection; icon added directly to titles
+        // Removed placeholder injection; icon added directly to titles
       }
-  // Try mapping API first — defer expensive title resolution to fallback path only
-  const fromMappingTmdb = await this.getStreamsFromMapping(
-    tmdbId, seasonNumber, episodeNumber, isMovie, { tmdbId }, ''
-  );
-  if (fromMappingTmdb.length) {
-    console.log('[AnimeUnity] Mapping hit (TMDB): skipped title resolution.');
-    return { streams: fromMappingTmdb };
-  }
-  // Mapping miss → resolve full English title for search fallback
-  const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
-  console.log(`[AnimeUnity] Mapping miss (TMDB): ricerca con titolo inglese: ${englishTitle}`);
-  const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
-  return res;
+      // Try mapping API first — defer expensive title resolution to fallback path only
+      const fromMappingTmdb = await this.getStreamsFromMapping(
+        tmdbId, seasonNumber, episodeNumber, isMovie, { tmdbId }, ''
+      );
+      if (fromMappingTmdb.length) {
+        console.log('[AnimeUnity] Mapping hit (TMDB): skipped title resolution.');
+        return { streams: fromMappingTmdb };
+      }
+      // Mapping miss → resolve full English title for search fallback
+      const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
+      console.log(`[AnimeUnity] Mapping miss (TMDB): ricerca con titolo inglese: ${englishTitle}`);
+      const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+      return res;
     } catch (error) {
       console.error('Error handling TMDB request:', error);
       return { streams: [] };
@@ -1080,7 +1080,7 @@ export class AnimeUnityProvider {
             jikanResp.data?.title_english
           ].filter(Boolean);
         }
-      } catch {}
+      } catch { }
       // Prova fallback con titoli alternativi
       for (const fallbackTitle of fallbackTitles) {
         if (fallbackTitle && fallbackTitle !== normalizedTitle) {
@@ -1119,7 +1119,7 @@ export class AnimeUnityProvider {
       try {
         const before = animeVersions.length;
         console.log(`[AnimeUnity][ExactMap][StrictFilter] Risultati da filtrare (${before}):`);
-        
+
         // Estrai i nomi base (senza parentesi) di tutti i risultati
         const baseNames = animeVersions.map(v => {
           const base = v.version.name
@@ -1130,19 +1130,19 @@ export class AnimeUnityProvider {
           console.log(`  name="${v.version.name}" -> base="${base}"`);
           return base;
         });
-        
+
         // Trova il nome più corto (quello senza "Parte 2", "Part 2", ecc.)
         const sortedByLength = [...baseNames].sort((a, b) => a.length - b.length);
         const shortestBase = sortedByLength[0];
         console.log(`[AnimeUnity][ExactMap][StrictFilter] Nome base più corto (target): "${shortestBase}"`);
-        
+
         // Filtra: mantieni solo i risultati che matchano esattamente il nome più corto
         animeVersions = animeVersions.filter((v, idx) => {
           const match = baseNames[idx] === shortestBase;
           console.log(`  [${idx}] "${v.version.name}" -> match=${match}`);
           return match;
         });
-        
+
         console.log(`[AnimeUnity][ExactMap][StrictFilter] DOPO filtro: ${animeVersions.length} risultati rimasti`);
       } catch (e) {
         console.warn('[AnimeUnity][ExactMap][StrictFilter] errore:', (e as any)?.message || e);
@@ -1152,7 +1152,7 @@ export class AnimeUnityProvider {
       console.warn('[AnimeUnity] Nessun risultato trovato per il titolo:', normalizedTitle);
       return { streams: [] };
     }
-  const streams: StreamForStremio[] = [];
+    const streams: StreamForStremio[] = [];
     const seenLinks = new Set();
     for (const { version, language_type } of animeVersions) {
       const cleanName = version.name
