@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.0...v1.17.1) (2026-03-05)
+
+
+### Bug Fixes
+
+* au proxy? ([36b3997](https://github.com/qwertyuiop8899/streamvix/commit/36b39978f8e793f46ed765257505cc04fb2bba67))
+
 ## [1.17.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.35...v1.17.0) (2026-03-05)
 
 
