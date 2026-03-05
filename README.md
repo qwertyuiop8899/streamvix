@@ -82,6 +82,28 @@ StreamViX utilizza un **sistema di proxy unificato** che semplifica la configura
 - `DLHD_PROXY`: ENV pubblica proxy residenziale kubernetes - config maps
 - `PROXY`: ENV pubblico proxy personale kubernetes - config maps
 
+### 🔄 Proxy Anime (Opzionale, per VPS / Datacenter IP)
+
+Se Streamvix gira su una VPS / server cloud il cui IP viene bloccato da Cloudflare (errore 403 su AnimeUnity, AnimeSaturn o AnimeWorld), puoi instradare il traffico verso quei siti attraverso un proxy SOCKS5 o HTTPS.
+
+| Variabile | Provider | Descrizione |
+|-----------|----------|-------------|
+| `PROXY` | Tutti | Proxy generale (usato anche da CB01/GuardoSerie come fallback) |
+| `AU_PROXY` | AnimeUnity | Proxy specifico (priorità su `PROXY`) |
+| `AS_PROXY` | AnimeSaturn | Proxy specifico (priorità su `PROXY`) |
+| `AW_PROXY` | AnimeWorld | Proxy specifico (priorità su `PROXY`) |
+
+Formati accettati: `socks5h://host:port` · `socks5://host:port` · `http://host:port` · `https://host:port`
+
+Esempio con container **Cloudflare WARP** già presente nel tuo `docker-compose.yml`:
+```env
+PROXY=socks5h://warp:1080
+```
+Se vuoi specificare il proxy solo per il provider che dà problemi:
+```env
+AU_PROXY=socks5h://warp:1080
+```
+
 ### ⚙️ Configurazione Eventi Sportivi (Opzionale)
 - `SPON_PROG_URL`: URL custom per download prog.txt Sportzonline (default: auto)
 - `SPON_PROG_FALLBACKS`: URL fallback aggiuntivi separati da virgola

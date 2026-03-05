@@ -84,6 +84,28 @@ StreamViX uses a **unified proxy system** that simplifies configuration:
 - `Enable MPD Streams`: (true/false) Not working, leave false
 - `Enable Live TV`: Enable to view live TV and sports events (true/false)
 
+### 🔄 Anime Proxy (Optional, for VPS / Datacenter IPs)
+
+If Streamvix runs on a VPS or cloud server whose IP is blocked by Cloudflare (HTTP 403 on AnimeUnity, AnimeSaturn or AnimeWorld), you can route traffic to those sites through a SOCKS5 or HTTPS proxy.
+
+| Variable | Provider | Description |
+|----------|----------|-------------|
+| `PROXY` | All | General proxy (also used by CB01/GuardoSerie as fallback) |
+| `AU_PROXY` | AnimeUnity | Provider-specific (takes priority over `PROXY`) |
+| `AS_PROXY` | AnimeSaturn | Provider-specific (takes priority over `PROXY`) |
+| `AW_PROXY` | AnimeWorld | Provider-specific (takes priority over `PROXY`) |
+
+Accepted formats: `socks5h://host:port` · `socks5://host:port` · `http://host:port` · `https://host:port`
+
+Example using a **Cloudflare WARP** container already in your `docker-compose.yml`:
+```env
+PROXY=socks5h://warp:1080
+```
+If the issue is limited to one provider, you can target it specifically:
+```env
+AU_PROXY=socks5h://warp:1080
+```
+
 ### ⚙️ Sports Events Configuration (Optional)
 - `SPON_PROG_URL`: Custom URL for Sportzonline prog.txt download (default: auto)
 - `SPON_PROG_FALLBACKS`: Additional fallback URLs comma-separated

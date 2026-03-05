@@ -5,6 +5,9 @@
  */
 
 import { getCached, setCached, type CacheEntry } from './cache';
+import fetch from 'node-fetch';
+import { SocksProxyAgent } from 'socks-proxy-agent';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 export const DEFAULT_USER_AGENT =
   process.env.AU_USER_AGENT ||
@@ -42,6 +45,8 @@ export interface FetchResourceOptions {
   body?: string;
   /** Timeout in ms. Defaults to DEFAULT_FETCH_TIMEOUT. */
   timeoutMs?: number;
+  /** Proxy Agent */
+  agent?: any;
 }
 
 /**
@@ -50,18 +55,23 @@ export interface FetchResourceOptions {
  */
 export async function fetchWithTimeout(
   url: string,
-  options: RequestInit = {},
+  options: any = {},
   timeoutMs: number = DEFAULT_FETCH_TIMEOUT
-): Promise<Response> {
+): Promise<any> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  // Rimuovi agent e signal da options se presenti per gestirli manualmente
+  const { agent, ...restOptions } = options;
+
   try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
+    const response = await fetch(url, { ...restOptions, agent, signal: controller.signal as any });
     return response;
   } finally {
     clearTimeout(timeoutId);
   }
 }
+
 
 /**
  * Cached, deduplicated fetch.
@@ -104,6 +114,25 @@ export async function fetchResource(
 
   // 3. Execute fetch
   const task = (async () => {
+    let proxyAgent: any = undefined;
+    
+    // Configura proxy dinamico in base al dominio target
+    const proxyUrl = url.includes('animesaturn') 
+      ? (process.env.AS_PROXY || process.env.PROXY || '')
+      : url.includes('animeworld')
+      ? (process.env.AW_PROXY || process.env.PROXY || '')
+      : url.includes('animeunity')
+      ? (process.env.AU_PROXY || process.env.PROXY || '')
+      : '';
+
+    if (proxyUrl) {
+      if (proxyUrl.startsWith('socks')) {
+        proxyAgent = new SocksProxyAgent(proxyUrl);
+      } else {
+        proxyAgent = new HttpsProxyAgent(proxyUrl);
+      }
+    }
+
     const response = await fetchWithTimeout(
       url,
       {
@@ -114,6 +143,7 @@ export async function fetchResource(
           ...headers,
         },
         body,
+        agent: proxyAgent,
         redirect: 'follow',
       },
       timeoutMs
