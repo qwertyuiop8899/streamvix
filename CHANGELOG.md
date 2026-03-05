@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.17.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.35...v1.17.0) (2026-03-05)
+
+
+### Features
+
+* Anime proxy support via PROXY / AU_PROXY / AS_PROXY / AW_PROXY ([547d1a4](https://github.com/qwertyuiop8899/streamvix/commit/547d1a40899d21b5a3070755c13c7831bbd8efee))
+* Implement dynamic SOCKS/HTTPS proxy support for fetch and axios requests to various anime providers. ([089e5bc](https://github.com/qwertyuiop8899/streamvix/commit/089e5bc8da45c9bd55b32d22069c14b5399a5afd))
+
+
+### Bug Fixes
+
+* addon ([2ccd470](https://github.com/qwertyuiop8899/streamvix/commit/2ccd470123e1b93d1fb515816e342f4de435f30c))
+* gh ([ac57e8b](https://github.com/qwertyuiop8899/streamvix/commit/ac57e8b592ac6a79ad4c67cceaae3732ca1862bc))
+* mixdrop.ts ([1e1ec41](https://github.com/qwertyuiop8899/streamvix/commit/1e1ec41e3d73a229c1ca6b5f51af4383856bd707))
+* supervideo.ts ([8184f0c](https://github.com/qwertyuiop8899/streamvix/commit/8184f0c6d00321256abfe85db207d6be07992dd3))
+
 ## [1.16.35](https://github.com/qwertyuiop8899/streamvix/compare/v1.16.34...v1.16.35) (2026-03-04)
 
 
