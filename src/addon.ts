@@ -3471,51 +3471,51 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     const clientIp = getClientIpFromReq(reqObj);
                                     let vavooCleanResolved: { url: string; headers: Record<string, string> } | null = null;
                                     if (VAVOO_CLEAN) {
-                                    try {
-                                        const clean = await resolveVavooCleanUrl(vUrl, clientIp);
-                                        if (clean && clean.url) {
-                                            vavooCleanResolved = clean;
-                                            vdbg('Alias clean resolved', { alias, url: clean.url.substring(0, 140) });
-                                            const title2 = `🏠 ${alias} (Vavoo🔓) [ITA]`;
-                                            // stash headers via behaviorHints when pushing later
-                                            streams.unshift({ url: clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64'), title: title2 });
+                                        try {
+                                            const clean = await resolveVavooCleanUrl(vUrl, clientIp);
+                                            if (clean && clean.url) {
+                                                vavooCleanResolved = clean;
+                                                vdbg('Alias clean resolved', { alias, url: clean.url.substring(0, 140) });
+                                                const title2 = `🏠 ${alias} (Vavoo🔓) [ITA]`;
+                                                // stash headers via behaviorHints when pushing later
+                                                streams.unshift({ url: clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64'), title: title2 });
+                                            }
+                                        } catch (ee) {
+                                            const msg = (ee as any)?.message || ee;
+                                            vdbg('Alias clean resolve failed', { alias, error: msg });
+                                            console.log('[VAVOO] Clean resolve skipped/failed:', msg);
                                         }
-                                    } catch (ee) {
-                                        const msg = (ee as any)?.message || ee;
-                                        vdbg('Alias clean resolve failed', { alias, error: msg });
-                                        console.log('[VAVOO] Clean resolve skipped/failed:', msg);
-                                    }
                                     } else { vdbg('VAVOO_CLEAN=false, skip alias clean resolve'); }
                                     // Iniezione Vavoo/MFP: incapsula SEMPRE l'URL vavoo.to originale (come in Live TV), senza extractor
                                     if (VAVOO_PROXY) {
-                                    try {
-                                        if (mfpUrl) {
-                                            const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
-                                            const finalUrl2 = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(vUrl)}${passwordParam}`;
-                                            const title3 = `🌐 ${alias} (Vavoo/MFP) [ITA]`;
-                                            let insertAt = 0;
-                                            try { if (streams.length && /(\(Vavoo\))/i.test(streams[0].title)) insertAt = 1; } catch { }
-                                            try { streams.splice(insertAt, 0, { url: finalUrl2, title: title3 }); } catch { streams.push({ url: finalUrl2, title: title3 }); }
-                                            vdbg('Alias Vavoo/MFP injected (direct proxy/hls on vUrl)', { alias, url: finalUrl2.substring(0, 140) });
-                                        } else {
-                                            vdbg('Skip Vavoo/MFP injection: MFP config missing');
+                                        try {
+                                            if (mfpUrl) {
+                                                const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                                const finalUrl2 = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(vUrl)}${passwordParam}`;
+                                                const title3 = `🌐 ${alias} (Vavoo/MFP) [ITA]`;
+                                                let insertAt = 0;
+                                                try { if (streams.length && /(\(Vavoo\))/i.test(streams[0].title)) insertAt = 1; } catch { }
+                                                try { streams.splice(insertAt, 0, { url: finalUrl2, title: title3 }); } catch { streams.push({ url: finalUrl2, title: title3 }); }
+                                                vdbg('Alias Vavoo/MFP injected (direct proxy/hls on vUrl)', { alias, url: finalUrl2.substring(0, 140) });
+                                            } else {
+                                                vdbg('Skip Vavoo/MFP injection: MFP config missing');
+                                            }
+                                        } catch (e2) {
+                                            vdbg('Vavoo/MFP injection error', String((e2 as any)?.message || e2));
                                         }
-                                    } catch (e2) {
-                                        vdbg('Vavoo/MFP injection error', String((e2 as any)?.message || e2));
-                                    }
                                     } else { vdbg('VAVOO_PROXY=false, skip alias MFP injection'); }
                                     // Iniezione Vavoo Direct (raw URL) per eventi dinamici
                                     if (VAVOO_DIRECT) {
-                                    try {
-                                        const title4 = `🎯 ${alias} (Vavoo Direct) [ITA]`;
-                                        const directStream = { url: vUrl, title: title4, behaviorHints: { notWebReady: true } as any };
-                                        let insertAt = 0;
-                                        try { if (streams.length && /\(Vavoo\)/i.test(streams[0].title)) insertAt = 1; } catch { }
-                                        try { streams.splice(insertAt, 0, directStream); } catch { streams.push(directStream); }
-                                        vdbg('Alias Vavoo Direct injected', { alias, url: vUrl.substring(0, 140) });
-                                    } catch (e3) {
-                                        vdbg('Vavoo Direct injection error', String((e3 as any)?.message || e3));
-                                    }
+                                        try {
+                                            const title4 = `🎯 ${alias} (Vavoo Direct) [ITA]`;
+                                            const directStream = { url: vUrl, title: title4, behaviorHints: { notWebReady: true } as any };
+                                            let insertAt = 0;
+                                            try { if (streams.length && /\(Vavoo\)/i.test(streams[0].title)) insertAt = 1; } catch { }
+                                            try { streams.splice(insertAt, 0, directStream); } catch { streams.push(directStream); }
+                                            vdbg('Alias Vavoo Direct injected', { alias, url: vUrl.substring(0, 140) });
+                                        } catch (e3) {
+                                            vdbg('Vavoo Direct injection error', String((e3 as any)?.message || e3));
+                                        }
                                     } else { vdbg('VAVOO_DIRECT=false, skip alias direct injection'); }
                                     console.log(`✅ [VAVOO] Injected first stream from alias='${alias}' -> ${vUrl.substring(0, 60)}...`);
                                 } else {
@@ -4987,32 +4987,32 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 vavooFoundUrls.push(url);
                                 // For each found link, also prepare a clean variant labeled per index (➡️ V-1, V-2, ...)
                                 if (VAVOO_CLEAN) {
-                                const reqObj: any = (global as any).lastExpressRequest;
-                                let clientIpForClean = getClientIpFromReq(reqObj);
-                                // Fallback: use cached IP from middleware (tvvoo approach)
-                                if (!clientIpForClean && id) {
-                                    const cached = lastIpByStreamId.get(id);
-                                    if (cached && (Date.now() - cached.ts < 120000)) { // 2 minute TTL
-                                        clientIpForClean = cached.ip;
-                                        vdbg('Using cached IP for clean resolve', { id, ip: clientIpForClean });
-                                    }
-                                }
-                                vavooCleanPromises.push((async () => {
-                                    vdbg('Variant clean resolve attempt', { index: idx + 1, url: url.substring(0, 140) });
-                                    try {
-                                        const clean = await resolveVavooCleanUrl(url, clientIpForClean);
-                                        if (clean && clean.url) {
-                                            const title = `[🏠 V-${idx + 1}] ${channel.name} [ITA]`;
-                                            const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
-                                            vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
-                                            vdbg('Clean variant ASSIGNED', { index: idx, title, urlLen: urlWithHeaders.length });
-                                        } else {
-                                            vdbg('Clean variant NOT assigned - clean was null or had no url', { index: idx + 1, clean: clean ? 'exists' : 'null' });
+                                    const reqObj: any = (global as any).lastExpressRequest;
+                                    let clientIpForClean = getClientIpFromReq(reqObj);
+                                    // Fallback: use cached IP from middleware (tvvoo approach)
+                                    if (!clientIpForClean && id) {
+                                        const cached = lastIpByStreamId.get(id);
+                                        if (cached && (Date.now() - cached.ts < 120000)) { // 2 minute TTL
+                                            clientIpForClean = cached.ip;
+                                            vdbg('Using cached IP for clean resolve', { id, ip: clientIpForClean });
                                         }
-                                    } catch (err) {
-                                        vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
                                     }
-                                })());
+                                    vavooCleanPromises.push((async () => {
+                                        vdbg('Variant clean resolve attempt', { index: idx + 1, url: url.substring(0, 140) });
+                                        try {
+                                            const clean = await resolveVavooCleanUrl(url, clientIpForClean);
+                                            if (clean && clean.url) {
+                                                const title = `[🏠 V-${idx + 1}] ${channel.name} [ITA]`;
+                                                const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
+                                                vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
+                                                vdbg('Clean variant ASSIGNED', { index: idx, title, urlLen: urlWithHeaders.length });
+                                            } else {
+                                                vdbg('Clean variant NOT assigned - clean was null or had no url', { index: idx + 1, clean: clean ? 'exists' : 'null' });
+                                            }
+                                        } catch (err) {
+                                            vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
+                                        }
+                                    })());
                                 } // end VAVOO_CLEAN gate
                             });
                             console.log(`[VAVOO] RISULTATO: trovati ${foundVavooLinks.length} link, stream generati:`, streams.map(s => s.title));
@@ -5037,29 +5037,29 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     vavooFoundUrls.push(url);
                                     // Prepare clean variant per index as well
                                     if (VAVOO_CLEAN) {
-                                    const reqObj: any = (global as any).lastExpressRequest;
-                                    let clientIpForClean = getClientIpFromReq(reqObj);
-                                    // Fallback: use cached IP from middleware (tvvoo approach)
-                                    if (!clientIpForClean && id) {
-                                        const cached = lastIpByStreamId.get(id);
-                                        if (cached && (Date.now() - cached.ts < 120000)) { // 2 minute TTL
-                                            clientIpForClean = cached.ip;
-                                            vdbg('Using cached IP for clean resolve', { id, ip: clientIpForClean });
-                                        }
-                                    }
-                                    vavooCleanPromises.push((async () => {
-                                        vdbg('Variant clean resolve attempt', { index: idx + 1, url: url.substring(0, 140) });
-                                        try {
-                                            const clean = await resolveVavooCleanUrl(url, clientIpForClean);
-                                            if (clean && clean.url) {
-                                                const title = `[🏠 V-${idx + 1}] ${channel.name} [ITA]`;
-                                                const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
-                                                vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
+                                        const reqObj: any = (global as any).lastExpressRequest;
+                                        let clientIpForClean = getClientIpFromReq(reqObj);
+                                        // Fallback: use cached IP from middleware (tvvoo approach)
+                                        if (!clientIpForClean && id) {
+                                            const cached = lastIpByStreamId.get(id);
+                                            if (cached && (Date.now() - cached.ts < 120000)) { // 2 minute TTL
+                                                clientIpForClean = cached.ip;
+                                                vdbg('Using cached IP for clean resolve', { id, ip: clientIpForClean });
                                             }
-                                        } catch (err) {
-                                            vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
                                         }
-                                    })());
+                                        vavooCleanPromises.push((async () => {
+                                            vdbg('Variant clean resolve attempt', { index: idx + 1, url: url.substring(0, 140) });
+                                            try {
+                                                const clean = await resolveVavooCleanUrl(url, clientIpForClean);
+                                                if (clean && clean.url) {
+                                                    const title = `[🏠 V-${idx + 1}] ${channel.name} [ITA]`;
+                                                    const urlWithHeaders = clean.url + `#headers#` + Buffer.from(JSON.stringify(clean.headers)).toString('base64');
+                                                    vavooCleanPrepend[idx] = { title, url: urlWithHeaders };
+                                                }
+                                            } catch (err) {
+                                                vdbg('Variant clean failed', { index: idx + 1, error: (err as any)?.message || err });
+                                            }
+                                        })());
                                     } // end VAVOO_CLEAN gate
                                 });
                                 console.log(`[VAVOO] RISULTATO: fallback chiave esatta, trovati ${links.length} link, stream generati:`, streams.map(s => s.title));
@@ -5965,8 +5965,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             //  - behaviorHints.proxyHeaders flag
                             const proxyOn = /\/proxy\//i.test(url)
                                 || /api_password=/i.test(url)
-                                || /extractor\/video/i.test(url)
-                                || !!(st as any)?.behaviorHints?.proxyHeaders;
+                                || /extractor\/video/i.test(url);
                             // Player host detection (not for vixsrc)
                             let playerName: string | undefined;
                             let sizeHuman: string | undefined; // already formatted (e.g. 1.58Gb / 850MB)
