@@ -405,7 +405,7 @@ async function getCinemetaMeta(type: string, paramId: string): Promise<{ name: s
     try {
         const url = `https://v3-cinemeta.strem.io/meta/${type}/${imdbId}.json`;
         console.log(`[Guardoserie] Fetching Cinemeta from: ${url}`);
-        const res = await axios.get(url);
+        const res = await axios.get(url, { timeout: 5000 });
         if (res.data && res.data.meta) {
             return {
                 name: res.data.meta.name,
