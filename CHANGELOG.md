@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.1...v1.17.2) (2026-03-10)
+
+
+### Bug Fixes
+
+* domains update ([f2b9dc1](https://github.com/qwertyuiop8899/streamvix/commit/f2b9dc1ac1c901b9826382e563d00a0ac9a46a20))
+* gus domain ([d5dbf87](https://github.com/qwertyuiop8899/streamvix/commit/d5dbf873e3044613156bcb80e493bd391c6e2ee1))
+
 ## [1.17.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.0...v1.17.1) (2026-03-05)
 
 
