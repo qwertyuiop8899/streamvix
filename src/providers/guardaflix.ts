@@ -28,6 +28,22 @@ function getDispatcher() {
     return undefined; // No proxy initially
 }
 
+// Helper for fetch with timeout
+async function fetchWithTimeout(url: string, options: any = {}, timeoutMs: number = 10000): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        // @ts-ignore
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        return response;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
 // Helper to fetch with cookies and proxy
 async function fetchWithCookies(url: string, options: any = {}): Promise<{ data: string; status: number; headers: any }> {
     const cookieString = await jar.getCookieString(url);
@@ -41,50 +57,30 @@ async function fetchWithCookies(url: string, options: any = {}): Promise<{ data:
 
     console.log(`[Guardaflix] Fetching: ${url}`);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const response = await fetchWithTimeout(url, {
+        ...options,
+        headers,
+        dispatcher
+    }, 10000);
 
-    try {
-        // @ts-ignore
-        const response = await fetch(url, {
-            ...options,
-            headers,
-            dispatcher,
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        // Handle Set-Cookie
-        const setCookie = response.headers.get('set-cookie');
-        if (setCookie) {
-            // undici might return string or array of strings, or combined string. 
-            // Typically explicit handling for array needed if multiple. 
-            // For simplicity, we try to split or handle single.
-            // Node-fetch / undici often combine into one string with comma, but split is tricky with dates.
-            // tough-cookie handles single strings well.
-            // Ideally loop if we can access raw headers, but response.headers.get combines.
-            // We will try raw iterator if available or just attempt setCookie.
-            // Note: response.headers is Headers object.
-
-            // Basic attempt:
-            try {
-                if (Array.isArray(setCookie)) {
-                    for (const c of setCookie) await jar.setCookie(c, url);
-                } else {
-                    await jar.setCookie(setCookie, url);
-                }
-            } catch (e) { console.error('[Guardaflix] Cookie error:', e); }
-        }
-
-        const text = await response.text();
-        return {
-            data: text,
-            status: response.status,
-            headers: response.headers
-        };
-    } finally {
-        clearTimeout(timeoutId);
+    // Handle Set-Cookie
+    const setCookie = response.headers.get('set-cookie');
+    if (setCookie) {
+        try {
+            if (Array.isArray(setCookie)) {
+                for (const c of setCookie) await jar.setCookie(c, url);
+            } else {
+                await jar.setCookie(setCookie, url);
+            }
+        } catch (e) { console.error('[Guardaflix] Cookie error:', e); }
     }
+
+    const text = await response.text();
+    return {
+        data: text,
+        status: response.status,
+        headers: response.headers
+    };
 }
 
 // --- UQLOAD VIA MFP (EasyProxy) ---
@@ -417,8 +413,7 @@ async function getTmdbTitle(type: string, paramId: string, tmdbApiKey?: string):
         }
 
         console.log(`[Guardaflix] Fetching TMDB info from: ${url}`);
-        // @ts-ignore
-        const res = await fetch(url);
+        const res = await fetchWithTimeout(url, {}, 5000);
         const data: any = await res.json();
 
         if (paramId.startsWith('tmdb:')) {
@@ -448,8 +443,7 @@ async function getCinemetaMeta(type: string, paramId: string): Promise<{ name: s
     try {
         const url = `https://v3-cinemeta.strem.io/meta/${type}/${imdbId}.json`;
         console.log(`[Guardaflix] Fetching Cinemeta from: ${url}`);
-        // @ts-ignore
-        const res = await fetch(url);
+        const res = await fetchWithTimeout(url, {}, 5000);
         const data: any = await res.json();
         if (data && data.meta) {
             return {
