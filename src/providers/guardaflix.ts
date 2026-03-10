@@ -41,43 +41,51 @@ async function fetchWithCookies(url: string, options: any = {}): Promise<{ data:
 
     console.log(`[Guardaflix] Fetching: ${url}`);
 
-    // @ts-ignore
-    const response = await fetch(url, {
-        ...options,
-        headers,
-        dispatcher
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    // Handle Set-Cookie
-    const setCookie = response.headers.get('set-cookie');
-    if (setCookie) {
-        // undici might return string or array of strings, or combined string. 
-        // Typically explicit handling for array needed if multiple. 
-        // For simplicity, we try to split or handle single.
-        // Node-fetch / undici often combine into one string with comma, but split is tricky with dates.
-        // tough-cookie handles single strings well.
-        // Ideally loop if we can access raw headers, but response.headers.get combines.
-        // We will try raw iterator if available or just attempt setCookie.
-        // Note: response.headers is Headers object.
+    try {
+        // @ts-ignore
+        const response = await fetch(url, {
+            ...options,
+            headers,
+            dispatcher,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
 
-        // Basic attempt:
-        try {
-            if (Array.isArray(setCookie)) {
-                for (const c of setCookie) await jar.setCookie(c, url);
-            } else {
-                await jar.setCookie(setCookie, url);
-            }
-        } catch (e) { console.error('[Guardaflix] Cookie error:', e); }
+        // Handle Set-Cookie
+        const setCookie = response.headers.get('set-cookie');
+        if (setCookie) {
+            // undici might return string or array of strings, or combined string. 
+            // Typically explicit handling for array needed if multiple. 
+            // For simplicity, we try to split or handle single.
+            // Node-fetch / undici often combine into one string with comma, but split is tricky with dates.
+            // tough-cookie handles single strings well.
+            // Ideally loop if we can access raw headers, but response.headers.get combines.
+            // We will try raw iterator if available or just attempt setCookie.
+            // Note: response.headers is Headers object.
+
+            // Basic attempt:
+            try {
+                if (Array.isArray(setCookie)) {
+                    for (const c of setCookie) await jar.setCookie(c, url);
+                } else {
+                    await jar.setCookie(setCookie, url);
+                }
+            } catch (e) { console.error('[Guardaflix] Cookie error:', e); }
+        }
+
+        const text = await response.text();
+        return {
+            data: text,
+            status: response.status,
+            headers: response.headers
+        };
+    } finally {
+        clearTimeout(timeoutId);
     }
-
-    const text = await response.text();
-    return {
-        data: text,
-        status: response.status,
-        headers: response.headers
-    };
 }
-
 
 // --- UQLOAD VIA MFP (EasyProxy) ---
 function buildUqloadMfpStream(uqloadUrl: string, mfpUrl: string, mfpPsw?: string, isSub: boolean = false): Stream {
