@@ -120,6 +120,7 @@ function resolveDynamicFile(): string {
       return b.size - a.size;
     });
     const chosen = existing[0];
+    if (process.env.DISABLE_LIVE_EVENTS === 'true') return chosen.p;
     try { console.log('[DynamicChannels] Path selezionato:', chosen.p, 'size=', chosen.size, 'nested=', chosen.nested, 'tiny=', chosen.tiny); } catch { }
     return chosen.p;
   }
@@ -147,6 +148,9 @@ export function getDynamicFileStats(): { exists: boolean; size: number; mtimeMs:
 // Time helpers were moved to EPG manager (src/utils/epg.ts)
 
 export function loadDynamicChannels(force = false): DynamicChannel[] {
+  if (process.env.DISABLE_LIVE_EVENTS === 'true') {
+      return [];
+  }
   const now = Date.now();
   // Se richiesto, forza sempre il reload (no cache)
   if (NO_DYNAMIC_CACHE) {
