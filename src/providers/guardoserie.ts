@@ -10,18 +10,13 @@ import { buildUnifiedStreamName, providerLabel } from '../utils/unifiedNames';
 import { getDomain } from '../utils/domains';
 
 // Config constants - dynamic domain from domains.json
-const getTargetDomain = () => `https://${getDomain('guardoserie') || 'guardoserie.bar'}`;
+const getTargetDomain = () => `https://${getDomain('guardoserie') || 'guardoserie.digital'}`;
 
 const jar = new CookieJar();
 
-function createClient(useProxy: boolean) {
-    const proxyUrl = useProxy ? process.env.PROXY : undefined;
-    const httpsAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
-
+function createClient() {
     const config = {
         jar,
-        httpsAgent,
-        timeout: 10000,
         proxy: false as false,
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -30,76 +25,69 @@ function createClient(useProxy: boolean) {
         }
     };
 
-    const instance = axios.create(config);
-
-    if (httpsAgent) {
-        // Manual cookie handling because axios-cookiejar-support conflicts with httpsAgent
-        instance.interceptors.request.use(async (config) => {
-            const cookieString = await jar.getCookieString(config.url || '');
-            if (cookieString) {
-                config.headers.set('Cookie', cookieString);
-            }
-            return config;
-        });
-
-        instance.interceptors.response.use(async (response) => {
-            if (response.headers['set-cookie']) {
-                const cookies = response.headers['set-cookie'];
-                const url = response.config.url || '';
-                if (Array.isArray(cookies)) {
-                    for (const cookie of cookies) {
-                        try { await jar.setCookie(cookie, url); } catch { }
-                    }
-                } else {
-                    try { await jar.setCookie(cookies, url); } catch { }
-                }
-            }
-            return response;
-        });
-
-        return instance;
-    }
-
-    return wrapper(instance);
+    return wrapper(axios.create(config));
 }
 
-// Two clients: no-proxy first, proxy fallback
-const clientNoProxy = createClient(false);
-const clientWithProxy = process.env.PROXY ? createClient(true) : null;
-let useProxyFallback = false; // Switch to proxy after first failure
+// Main client (direct)
+const client = createClient();
 
 function getClient() {
-    return useProxyFallback && clientWithProxy ? clientWithProxy : clientNoProxy;
+    return client;
 }
 
+const PROXY2 = process.env.PROXY2;
 
-// --- UQLOAD VIA MFP (EasyProxy) ---
-function buildUqloadMfpStream(uqloadUrl: string, mfpUrl: string, mfpPsw?: string, isSub: boolean = false): Stream {
-    const extractorUrl = `${mfpUrl.replace(/\/+$/, '')}/extractor/video`;
-    const params = new URLSearchParams();
-    params.append('host', 'Uqload');
-    params.append('d', uqloadUrl);
-    params.append('redirect_stream', 'true');
-    if (mfpPsw) params.append('api_password', mfpPsw);
+// Helper to fetch with bypass
+async function fetchWithBypass(url: string, options: any = {}): Promise<any> {
+    try {
+        // 1. Try direct fetch with short timeout (2s)
+        return await getClient().get(url, { 
+            ...options, 
+            timeout: 2000 
+        });
+    } catch (e: any) {
+        // Check if it's a block (403/400) or a timeout/network error
+        if (e.response?.status === 403 || e.response?.status === 400 || !e.response || e.code === 'ECONNABORTED' || e.message === 'timeout exceeded') {
+            
+            if (!PROXY2) {
+                console.log(`[Guardoserie] Blocked or timeout on ${url}, but PROXY2 is not set. Aborting.`);
+                throw e;
+            }
 
-    const finalUrl = `${extractorUrl}?${params.toString()}`;
-    console.log(`[Guardoserie] Uqload via MFP: ${finalUrl}`);
+            console.log(`[Guardoserie] Blocked or timeout on ${url} (${e.response?.status || e.code || 'TIMEOUT'}), trying PROXY2 bypass...`);
+            
+            // Build the full URL including params
+            let finalTargetUrl = url;
+            try {
+                if (options.params) {
+                    const urlObj = new URL(url);
+                    for (const [key, value] of Object.entries(options.params)) {
+                        urlObj.searchParams.append(key, String(value));
+                    }
+                    finalTargetUrl = urlObj.toString();
+                }
+            } catch (urlErr) {
+                console.error('[Guardoserie] Error rebuilding URL with params:', urlErr);
+            }
 
-    return {
-        name: providerLabel('guardoserie'),
-        title: buildUnifiedStreamName({
-            baseTitle: 'Uqload',
-            isSub: isSub,
-            proxyOn: true,
-            provider: 'guardoserie',
-            playerName: 'Uqload',
-            hideProviderInTitle: true
-        }),
-        url: finalUrl,
-        behaviorHints: {
-            notWebReady: true
+            // 2. Try with PROXY2 (4s timeout)
+            try {
+                const proxyAgent = new HttpsProxyAgent(PROXY2);
+                const proxyRes = await axios.get(finalTargetUrl, {
+                    ...options,
+                    httpsAgent: proxyAgent,
+                    proxy: false,
+                    timeout: 4000
+                });
+                console.log(`[Guardoserie] PROXY2 bypass success for ${url}`);
+                return proxyRes;
+            } catch (proxyErr: any) {
+                console.error(`[Guardoserie] PROXY2 bypass failed for ${url}: ${proxyErr.message}. Aborting.`);
+                throw proxyErr;
+            }
         }
-    };
+        throw e;
+    }
 }
 
 // --- LOADM EXTRACTOR ---
@@ -113,7 +101,7 @@ async function extractLoadM(playerUrl: string, referer: string, mfpUrl?: string,
         const playerDomain = new URL(playerUrl).origin;
         const apiUrl = `${playerDomain}/api/v1/video`;
 
-        const response = await getClient().get(apiUrl, {
+        const response = await fetchWithBypass(apiUrl, {
             headers: { 'Referer': playerUrl },
             params: { id, w: '2560', h: '1440', r: referer },
             responseType: 'text'
@@ -141,18 +129,14 @@ async function extractLoadM(playerUrl: string, referer: string, mfpUrl?: string,
         if (hls) {
             let finalUrl = hls;
 
-            // Wrap in MFP if configured
             if (mfpUrl) {
                 const proxyUrl = `${mfpUrl.replace(/\/+$/, '')}/proxy/hls/manifest.m3u8`;
                 const params = new URLSearchParams();
                 params.append('d', hls);
                 if (mfpPsw) params.append('api_password', mfpPsw);
-
-                // Pass headers to MFP
                 params.append('h_Referer', playerUrl);
                 params.append('h_Origin', playerDomain);
                 params.append('h_User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
-
                 finalUrl = `${proxyUrl}?${params.toString()}`;
             }
 
@@ -187,270 +171,10 @@ async function extractLoadM(playerUrl: string, referer: string, mfpUrl?: string,
 
 // --- SEARCH & SCRAPE ---
 
-async function getDynamicNonce(): Promise<string | null> {
-    try {
-        console.log('[Guardoserie] Fetching homepage for nonce...');
-        const res = await getClient().get(getTargetDomain());
-        const html = res.data;
-        const match = html.match(/"nonce":"([a-z0-9]+)"/i) || html.match(/nonce["']\s*:\s*["']([a-z0-9]+)["']/i);
-        if (match) {
-            console.log('[Guardoserie] Found nonce:', match[1]);
-            return match[1];
-        }
-        return null;
-    } catch (e) {
-        console.error(`[Guardoserie] Failed to fetch nonce: ${e}`);
-        return null;
-    }
-}
-
-async function searchGuardoserie(query: string, year: string): Promise<string | null> {
-    try {
-        // Usa ricerca diretta /?s= invece di admin-ajax.php che restituisce 400
-        const searchUrl = `${getTargetDomain()}/?s=${encodeURIComponent(query)}`;
-        console.log('[Guardoserie] Direct search:', searchUrl);
-
-        const res = await getClient().get(searchUrl);
-        console.log('[GS][Direct] search html length', res.data.length);
-
-        const $ = cheerio.load(res.data);
-
-        // Normalizza query per matching
-        const queryLower = query.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-        // Cerca tutti i link che potrebbero essere risultati serie
-        const allLinks: { href: string, text: string }[] = [];
-        $('a[href*="/serie/"]').each((_, el) => {
-            const href = $(el).attr('href');
-            if (!href || href === '#') return;
-            // Filtra link generici (es. /serie/ senza slug)
-            if (/\/serie\/?$/.test(href)) return;
-            // Deve avere uno slug dopo /serie/
-            if (!/\/serie\/[a-z0-9-]+/i.test(href)) return;
-
-            const text = $(el).text().trim();
-            allLinks.push({ href, text });
-        });
-
-        console.log('[Guardoserie] Found', allLinks.length, 'candidate links');
-
-        // Prima cerca match esatto con query nel titolo o URL
-        for (const { href, text } of allLinks) {
-            const textLower = text.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const hrefLower = href.toLowerCase();
-
-            if (textLower.includes(queryLower) || hrefLower.includes(queryLower)) {
-                // Se abbiamo anno, controlla che corrisponda
-                if (year && (text.includes(year) || href.includes(year))) {
-                    console.log('[Guardoserie] Found with year match:', href);
-                    return href;
-                } else if (!year) {
-                    console.log('[Guardoserie] Found query match:', href);
-                    return href;
-                }
-            }
-        }
-
-        // Se nessun match con query, ritorna il primo link valido
-        if (allLinks.length > 0) {
-            console.log('[Guardoserie] Returning first valid link:', allLinks[0].href);
-            return allLinks[0].href;
-        }
-
-        console.log('[Guardoserie] No results found in search page');
-    } catch (e) {
-        console.error(`[Guardoserie] Search failed: ${e}`);
-    }
-    return null;
-}
-
-async function getEpisodeLink(seriesUrl: string, season: number, episode: number): Promise<string | null> {
-    try {
-        const res = await getClient().get(seriesUrl);
-        const $ = cheerio.load(res.data);
-
-        // MammaMia logic: div.les-content (one per season) -> a tags (episodes)
-        const seasons = $('div.les-content');
-        if (seasons.length < season) return null;
-
-        const seasonDiv = seasons.eq(season - 1);
-        const episodeLinks = seasonDiv.find('a');
-        if (episodeLinks.length < episode) return null;
-
-        const epLink = episodeLinks.eq(episode - 1).attr('href');
-        return epLink || null;
-    } catch (e) {
-        console.error(`[Guardoserie] Get episode failed: ${e}`);
-    }
-    return null;
-}
-
-async function resolvePageStream(pageUrl: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
-    const streams: Stream[] = [];
-    try {
-        const res = await getClient().get(pageUrl);
-        const $ = cheerio.load(res.data);
-
-        // Build tab-to-language mapping from .idTabs
-        // e.g., href="#tab1" -> "Server ITA" or "Server Sub-ITA"
-        const tabLangMap: Record<string, 'ITA' | 'SUB'> = {};
-        $('.idTabs .les-content a, .player_nav .les-content a').each((_, el) => {
-            const href = $(el).attr('href');
-            const text = $(el).text().toLowerCase();
-            if (href && href.startsWith('#tab')) {
-                const tabId = href.substring(1); // Remove #
-                if (text.includes('sub')) {
-                    tabLangMap[tabId] = 'SUB';
-                } else if (text.includes('ita')) {
-                    tabLangMap[tabId] = 'ITA';
-                }
-            }
-        });
-        console.log('[Guardoserie] Tab language mapping:', tabLangMap);
-
-        // Iterate over tabs and their iframes
-        const tabDivs = $('#player2 > div[id^="tab"]');
-        for (const tabDiv of tabDivs) {
-            const tabId = $(tabDiv).attr('id') || '';
-            const lang = tabLangMap[tabId] || 'ITA'; // Default to ITA if not found
-            const isSub = lang === 'SUB';
-
-            const iframes = $(tabDiv).find('iframe');
-            for (const iframe of iframes) {
-                let src = $(iframe).attr('data-src') || $(iframe).attr('src');
-                if (!src) continue;
-
-                if (src.startsWith('//')) src = 'https:' + src;
-
-                if (src.includes('loadm.cam') || src.includes('loadm')) {
-                    const stream = await extractLoadM(src, pageUrl, mfpUrl, mfpPsw, isSub);
-                    if (stream) streams.push(stream);
-                }
-                else if (src.includes('uqload') && mfpUrl) {
-                    const stream = buildUqloadMfpStream(src, mfpUrl, mfpPsw, isSub);
-                    streams.push(stream);
-                }
-            }
-        }
-
-        // Fallback: if no tabs found, try all iframes directly (legacy behavior)
-        if (streams.length === 0) {
-            const iframes = $('iframe');
-            for (const iframe of iframes) {
-                let src = $(iframe).attr('data-src') || $(iframe).attr('src');
-                if (!src) continue;
-                if (src.startsWith('//')) src = 'https:' + src;
-                if (src.includes('loadm.cam') || src.includes('loadm')) {
-                    const stream = await extractLoadM(src, pageUrl, mfpUrl, mfpPsw, false);
-                    if (stream) streams.push(stream);
-                }
-                else if (src.includes('uqload') && mfpUrl) {
-                    const stream = buildUqloadMfpStream(src, mfpUrl, mfpPsw, false);
-                    streams.push(stream);
-                }
-            }
-        }
-    } catch (e) {
-        console.error(`[Guardoserie] Resolve page failed: ${e}`);
-    }
-    return streams;
-}
-
-// --- HELPER: TMDB ---
-async function getTmdbTitle(type: string, paramId: string, tmdbApiKey?: string): Promise<{ name: string, year: string } | null> {
-    try {
-        const apiKey = tmdbApiKey || '40a9faa1f6741afb2c0c40238d85f8d0';
-        const imdbId = paramId.split(':')[0];
-
-        let url: string;
-        // Check if paramId is tmdb:... but usually it is imdb (tt...)
-        if (paramId.startsWith('tmdb:')) {
-            const tmdbId = paramId.replace('tmdb:', '');
-            url = `https://api.themoviedb.org/3/${type === 'series' ? 'tv' : 'movie'}/${tmdbId}?api_key=${apiKey}&language=it-IT`;
-        } else {
-            // Find by IMDB ID
-            url = `https://api.themoviedb.org/3/find/${imdbId}?api_key=${apiKey}&external_source=imdb_id&language=it-IT`;
-        }
-
-        console.log(`[Guardoserie] Fetching TMDB info from: ${url}`);
-        const res = await axios.get(url, { timeout: 5000 });
-
-        if (paramId.startsWith('tmdb:')) {
-            const data = res.data;
-            const name = data.title || data.name || data.original_title || data.original_name;
-            const date = data.release_date || data.first_air_date || '';
-            const year = date.split('-')[0];
-            return { name, year };
-        } else {
-            // Find results
-            const results = type === 'series' ? res.data.tv_results : res.data.movie_results;
-            if (results && results.length > 0) {
-                const data = results[0];
-                const name = data.title || data.name || data.original_title || data.original_name;
-                const date = data.release_date || data.first_air_date || '';
-                const year = date.split('-')[0];
-                return { name, year };
-            }
-        }
-
-    } catch (e) {
-        console.error(`[Guardoserie] TMDB fetch failed: ${e}`);
-    }
-    return null;
-}
-
-// --- HELPER: CINEMETA (Fallback) ---
-async function getCinemetaMeta(type: string, paramId: string): Promise<{ name: string, year: string } | null> {
-    const imdbId = paramId.split(':')[0]; // tt12345
-    try {
-        const url = `https://v3-cinemeta.strem.io/meta/${type}/${imdbId}.json`;
-        console.log(`[Guardoserie] Fetching Cinemeta from: ${url}`);
-        const res = await axios.get(url, { timeout: 5000 });
-        if (res.data && res.data.meta) {
-            return {
-                name: res.data.meta.name,
-                year: res.data.meta.year || (res.data.meta.releaseInfo || '').split('-')[0]
-            };
-        }
-    } catch (e) {
-        console.error(`[Guardoserie] Cinemeta fetch failed: ${e}`);
-    }
-    return null;
-}
-
-// --- PUBLIC INTERFACE ---
-
-export async function getGuardoserieStreams(type: string, id: string, tmdbApiKey?: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
-    // First attempt: without proxy
-    useProxyFallback = false;
-    let networkError = false;
-    try {
-        const result = await getGuardoserieStreamsCore(type, id, tmdbApiKey, mfpUrl, mfpPsw);
-        return result; // Return even if empty — means content not found, not a network issue
-    } catch (e: any) {
-        const msg = String(e?.message || e).toLowerCase();
-        networkError = msg.includes('econnrefused') || msg.includes('econnreset') || msg.includes('etimedout') || msg.includes('enotfound') || msg.includes('socket') || msg.includes('proxy') || msg.includes('network') || msg.includes('connect');
-        console.log(`[Guardoserie] First attempt failed (network=${networkError}): ${e}`);
-    }
-
-    // Fallback: with proxy ONLY on network errors (not on "content not found")
-    if (networkError && clientWithProxy) {
-        console.log('[Guardoserie] Retrying with proxy...');
-        useProxyFallback = true;
-        try {
-            return await getGuardoserieStreamsCore(type, id, tmdbApiKey, mfpUrl, mfpPsw);
-        } catch (e) {
-            console.log(`[Guardoserie] Proxy attempt also failed: ${e}`);
-        }
-    }
-
-    return [];
-}
-
 async function getGuardoserieStreamsCore(type: string, id: string, tmdbApiKey?: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
     if (type !== 'series') return [];
 
-    console.log(`[Guardoserie] Requesting: ${id} (${type}) [proxy=${useProxyFallback}]`);
+    console.log(`[Guardoserie] Requesting: ${id} (${type})`);
 
     let imdbId = id;
     let season = 1;
@@ -463,7 +187,6 @@ async function getGuardoserieStreamsCore(type: string, id: string, tmdbApiKey?: 
         episode = parseInt(p[2]);
     }
 
-    // Fetch Metadata (TMDB Priority for Italian Title)
     let name = '';
     let year = '';
 
@@ -473,7 +196,6 @@ async function getGuardoserieStreamsCore(type: string, id: string, tmdbApiKey?: 
         year = tmdbMeta.year;
         console.log(`[Guardoserie] TMDB (IT) found: ${name} (${year})`);
     } else {
-        // Fallback to Cinemeta
         const meta = await getCinemetaMeta(type, imdbId);
         if (meta) {
             name = meta.name;
@@ -491,7 +213,6 @@ async function getGuardoserieStreamsCore(type: string, id: string, tmdbApiKey?: 
     if (!seriesUrl) {
         console.log(`[Guardoserie] Not found on site (IT): ${name}`);
 
-        // Fallback: Try English title if we used TMDB (IT)
         if (tmdbMeta) {
             const engMeta = await getCinemetaMeta(type, imdbId);
             if (engMeta && engMeta.name !== name) {
@@ -522,3 +243,150 @@ async function getGuardoserieStreamsCore(type: string, id: string, tmdbApiKey?: 
     return await resolvePageStream(targetUrl, mfpUrl, mfpPsw);
 }
 
+export async function getGuardoserieStreams(type: string, id: string, tmdbApiKey?: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
+    return await getGuardoserieStreamsCore(type, id, tmdbApiKey, mfpUrl, mfpPsw);
+}
+
+async function searchGuardoserie(query: string, year: string): Promise<string | null> {
+    try {
+        const searchUrl = `${getTargetDomain()}/?s=${encodeURIComponent(query)}`;
+        console.log('[Guardoserie] Direct search:', searchUrl);
+
+        const res = await fetchWithBypass(searchUrl);
+        const $ = cheerio.load(res.data);
+
+        const queryLower = query.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        const allLinks: { href: string, text: string }[] = [];
+        $('a[href*="/serie/"]').each((_, el) => {
+            const href = $(el).attr('href');
+            if (!href || href === '#') return;
+            if (/\/serie\/?$/.test(href)) return;
+            if (!/\/serie\/[a-z0-9-]+/i.test(href)) return;
+
+            const text = $(el).text().trim();
+            allLinks.push({ href: href.startsWith('http') ? href : `${getTargetDomain()}${href}`, text });
+        });
+
+        for (const { href, text } of allLinks) {
+            const textLower = text.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const hrefLower = href.toLowerCase();
+
+            if (textLower.includes(queryLower) || hrefLower.includes(queryLower)) {
+                if (year && (text.includes(year) || href.includes(year))) {
+                    return href;
+                } else if (!year) {
+                    return href;
+                }
+            }
+        }
+
+        if (allLinks.length > 0) return allLinks[0].href;
+    } catch (e) {
+        console.error(`[Guardoserie] Search failed: ${e}`);
+    }
+    return null;
+}
+
+async function getEpisodeLink(seriesUrl: string, season: number, episode: number): Promise<string | null> {
+    try {
+        const res = await fetchWithBypass(seriesUrl);
+        const $ = cheerio.load(res.data);
+        const seasons = $('div.les-content');
+        if (seasons.length < season) return null;
+
+        const seasonDiv = seasons.eq(season - 1);
+        const episodeLinks = seasonDiv.find('a');
+        if (episodeLinks.length < episode) return null;
+
+        return episodeLinks.eq(episode - 1).attr('href') || null;
+    } catch (e) {
+        console.error(`[Guardoserie] Get episode failed: ${e}`);
+    }
+    return null;
+}
+
+async function resolvePageStream(pageUrl: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
+    const streams: Stream[] = [];
+    try {
+        const res = await fetchWithBypass(pageUrl);
+        const $ = cheerio.load(res.data);
+
+        const tabLangMap: Record<string, 'ITA' | 'SUB'> = {};
+        $('.idTabs .les-content a, .player_nav .les-content a').each((_, el) => {
+            const href = $(el).attr('href');
+            const text = $(el).text().toLowerCase();
+            if (href && href.startsWith('#tab')) {
+                const tabId = href.substring(1);
+                if (text.includes('sub')) tabLangMap[tabId] = 'SUB';
+                else if (text.includes('ita')) tabLangMap[tabId] = 'ITA';
+            }
+        });
+
+        const tabDivs = $('#player2 > div[id^="tab"]');
+        for (const tabDiv of tabDivs) {
+            const tabId = $(tabDiv).attr('id') || '';
+            const lang = tabLangMap[tabId] || 'ITA';
+            const isSub = lang === 'SUB';
+            const iframes = $(tabDiv).find('iframe');
+            for (const iframe of iframes) {
+                let src = $(iframe).attr('data-src') || $(iframe).attr('src');
+                if (src) {
+                    if (src.startsWith('//')) src = 'https:' + src;
+                    if (src.includes('loadm')) {
+                        const stream = await extractLoadM(src, pageUrl, mfpUrl, mfpPsw, isSub);
+                        if (stream) streams.push(stream);
+                    }
+                }
+            }
+        }
+
+        if (streams.length === 0) {
+            const iframes = $('iframe');
+            for (const iframe of iframes) {
+                let src = $(iframe).attr('data-src') || $(iframe).attr('src');
+                if (src) {
+                    if (src.startsWith('//')) src = 'https:' + src;
+                    if (src.includes('loadm')) {
+                        const stream = await extractLoadM(src, pageUrl, mfpUrl, mfpPsw, false);
+                        if (stream) streams.push(stream);
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error(`[Guardoserie] Resolve page failed: ${e}`);
+    }
+    return streams;
+}
+
+async function getTmdbTitle(type: string, imdbId: string, tmdbApiKey?: string): Promise<{ name: string, year: string } | null> {
+    try {
+        const apiKey = tmdbApiKey || '40a9faa1f6741afb2c0c40238d85f8d0';
+        const url = `https://api.themoviedb.org/3/find/${imdbId}?api_key=${apiKey}&external_source=imdb_id&language=it-IT`;
+        const res = await axios.get(url, { timeout: 5000 });
+        const results = type === 'series' ? res.data.tv_results : res.data.movie_results;
+        if (results && results.length > 0) {
+            const data = results[0];
+            return {
+                name: data.title || data.name || data.original_title || data.original_name,
+                year: (data.release_date || data.first_air_date || '').split('-')[0]
+            };
+        }
+    } catch (e) {}
+    return null;
+}
+
+async function getCinemetaMeta(type: string, imdbId: string): Promise<{ name: string, year: string } | null> {
+    try {
+        const url = `https://v3-cinemeta.strem.io/meta/${type}/${imdbId}.json`;
+        const res = await axios.get(url, { timeout: 5000 });
+        if (res.data && res.data.meta) {
+            return {
+                name: res.data.meta.name,
+                year: (res.data.meta.year || (res.data.meta.releaseInfo || '').split('-')[0] || '').toString()
+            };
+        }
+    } catch (e) {}
+    return null;
+}
