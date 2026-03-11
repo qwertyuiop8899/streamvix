@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.17.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.3...v1.17.4) (2026-03-11)
+
+
+### Bug Fixes
+
+* domains update ([da4b93a](https://github.com/qwertyuiop8899/streamvix/commit/da4b93ad5171d506193044190e57d11f5bdfa34b))
+* proxy gix ([899d4e3](https://github.com/qwertyuiop8899/streamvix/commit/899d4e34cbc815544f3d9d2857f773d52c77012b))
+* proxy gus ([49de6af](https://github.com/qwertyuiop8899/streamvix/commit/49de6af73e428d4c8efb168cb6f669b1692b0242))
+
 ## [1.17.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.2...v1.17.3) (2026-03-10)
 
 
