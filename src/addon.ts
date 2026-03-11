@@ -53,6 +53,7 @@ import { getTrailerStreams, isTrailerProviderAvailable } from './providers/trail
 import { getDvrStreamsForChannel, getDvrConfig, buildDvrRecordEntry } from './utils/easyproxyDvr';
 
 // ================= TYPES & INTERFACES =================
+const DISABLE_LIVE_EVENTS = process.env.DISABLE_LIVE_EVENTS === 'true';
 interface AddonConfig {
     tmdbApiKey?: string;
     mediaFlowProxyUrl?: string;
@@ -1098,47 +1099,46 @@ function _loadStaticChannelsIfChanged(force = false) {
     }
 }
 // WATCH UNIFICATO: controlla sia static (tv_channels.json) che dynamic (dynamic_channels.json)
-//   - Intervallo configurabile con WATCH_INTERVAL_MS (fallback: TV_STATIC_WATCH_INTERVAL_MS / DYNAMIC_WATCH_INTERVAL_MS / 300000)
-//   - Static: usa _loadStaticChannelsIfChanged (già fa hash/mtime e log solo se cambia)
-//   - Dynamic: calcola mtime+hash e se cambia invalida+reload
-(() => {
-    try {
-        const intervalMs = parseInt(process.env.WATCH_INTERVAL_MS || process.env.TV_STATIC_WATCH_INTERVAL_MS || process.env.DYNAMIC_WATCH_INTERVAL_MS || '300000', 10); // default 5m
-        let lastDynMtime = 0; let lastDynHash = '';
-        function checkDynamicOnce() {
-            try {
-                const p = getDynamicFilePath();
-                if (!p || !fs.existsSync(p)) return;
-                const st = fs.statSync(p);
-                const raw = fs.readFileSync(p);
-                const h = _computeHash(raw);
-                if (st.mtimeMs !== lastDynMtime || h !== lastDynHash) {
-                    const oldShort = lastDynHash.slice(0, 8);
-                    lastDynMtime = st.mtimeMs; lastDynHash = h;
-                    invalidateDynamicChannels();
-                    const dyn = loadDynamicChannels(true);
-                    console.log(`[WATCH][DYN] reload (changed) oldHash=${oldShort} newHash=${h.slice(0, 8)} count=${dyn.length}`);
+if (!DISABLE_LIVE_EVENTS) {
+    (() => {
+        try {
+            const intervalMs = parseInt(process.env.WATCH_INTERVAL_MS || process.env.TV_STATIC_WATCH_INTERVAL_MS || process.env.DYNAMIC_WATCH_INTERVAL_MS || '300000', 10); // default 5m
+            let lastDynMtime = 0; let lastDynHash = '';
+            function checkDynamicOnce() {
+                try {
+                    const p = getDynamicFilePath();
+                    if (!p || !fs.existsSync(p)) return;
+                    const st = fs.statSync(p);
+                    const raw = fs.readFileSync(p);
+                    const h = _computeHash(raw);
+                    if (st.mtimeMs !== lastDynMtime || h !== lastDynHash) {
+                        const oldShort = lastDynHash.slice(0, 8);
+                        lastDynMtime = st.mtimeMs; lastDynHash = h;
+                        invalidateDynamicChannels();
+                        const dyn = loadDynamicChannels(true);
+                        console.log(`[WATCH][DYN] reload (changed) oldHash=${oldShort} newHash=${h.slice(0, 8)} count=${dyn.length}`);
+                    }
+                } catch (e) {
+                    console.warn('[WATCH][DYN] errore controllo dynamic:', (e as any)?.message || e);
                 }
-            } catch (e) {
-                console.warn('[WATCH][DYN] errore controllo dynamic:', (e as any)?.message || e);
             }
-        }
-        function loop() {
-            try {
-                _loadStaticChannelsIfChanged(false);
-                checkDynamicOnce();
-            } finally {
-                // next tick gestito da setInterval
+            function loop() {
+                try {
+                    _loadStaticChannelsIfChanged(false);
+                    checkDynamicOnce();
+                } finally {
+                    // next tick gestito da setInterval
+                }
             }
+            // primo giro: forziamo static + dynamic
+            setTimeout(() => { _loadStaticChannelsIfChanged(true); checkDynamicOnce(); }, 1500);
+            setInterval(loop, Math.max(60000, intervalMs));
+            console.log(`[WATCH] unificato attivo ogni ${Math.max(60000, intervalMs)}ms (default 5m)`);
+        } catch (e) {
+            console.log('[WATCH] init failed', (e as any)?.message || e);
         }
-        // primo giro: forziamo static + dynamic
-        setTimeout(() => { _loadStaticChannelsIfChanged(true); checkDynamicOnce(); }, 1500);
-        setInterval(loop, Math.max(60000, intervalMs));
-        console.log(`[WATCH] unificato attivo ogni ${Math.max(60000, intervalMs)}ms (default 5m)`);
-    } catch (e) {
-        console.log('[WATCH] init failed', (e as any)?.message || e);
-    }
-})();
+    })();
+}
 
 // (RIMOSSO) watcher dinamico separato (ora unificato sopra)
 // === STREAMED playlist enrichment (RIMOSSO) ===
@@ -1146,52 +1146,54 @@ function _loadStaticChannelsIfChanged(force = false) {
 // === SPSO (SportsOnline) playlist enrichment (RIMOSSO) ===
 
 // === PPV playlist enrichment ===
-(() => {
-    try {
-        // Always enable PPV unless explicitly disabled
-        let enableRaw = (process.env.PPV_ENABLE || '0').toString().toLowerCase();
-        if (!['1', 'true', 'on', 'yes'].includes(enableRaw)) return;
+if (!DISABLE_LIVE_EVENTS) {
+    (() => {
+        try {
+            // Always enable PPV unless explicitly disabled
+            let enableRaw = (process.env.PPV_ENABLE || '0').toString().toLowerCase();
+            if (!['1', 'true', 'on', 'yes'].includes(enableRaw)) return;
 
-        const pythonBin = process.env.PYTHON_BIN || 'python3';
-        const scriptPath = path.join(__dirname, '..', 'ppv_streams.py');
-        if (!fs.existsSync(scriptPath)) { console.log('[PPV][INIT] script non trovato', scriptPath); return; }
+            const pythonBin = process.env.PYTHON_BIN || 'python3';
+            const scriptPath = path.join(__dirname, '..', 'ppv_streams.py');
+            if (!fs.existsSync(scriptPath)) { console.log('[PPV][INIT] script non trovato', scriptPath); return; }
 
-        // const intervalMs = Math.max(60000, parseInt(process.env.PPV_POLL_INTERVAL_MS || '300000', 10)); // default 5m
+            // const intervalMs = Math.max(60000, parseInt(process.env.PPV_POLL_INTERVAL_MS || '300000', 10)); // default 5m
 
-        function runOnce(tag: string) {
-            const env: any = { ...process.env };
-            const t0 = Date.now();
-            const child = spawn(pythonBin, [scriptPath], { env });
-            let out = ''; let err = '';
-            child.stdout.on('data', d => out += d.toString());
-            child.stderr.on('data', d => err += d.toString());
-            child.on('close', code => {
-                const ms = Date.now() - t0;
-                if (out.trim()) out.split(/\r?\n/).forEach(l => console.log('[PPV][OUT]', l));
-                if (err.trim()) err.split(/\r?\n/).forEach(l => console.warn('[PPV][ERR]', l));
-                console.log(`[PPV][RUN] done code=${code} ms=${ms}`);
-            });
+            function runOnce(tag: string) {
+                const env: any = { ...process.env };
+                const t0 = Date.now();
+                const child = spawn(pythonBin, [scriptPath], { env });
+                let out = ''; let err = '';
+                child.stdout.on('data', d => out += d.toString());
+                child.stderr.on('data', d => err += d.toString());
+                child.on('close', code => {
+                    const ms = Date.now() - t0;
+                    if (out.trim()) out.split(/\r?\n/).forEach(l => console.log('[PPV][OUT]', l));
+                    if (err.trim()) err.split(/\r?\n/).forEach(l => console.warn('[PPV][ERR]', l));
+                    console.log(`[PPV][RUN] done code=${code} ms=${ms}`);
+                });
+            }
+
+            // Initial run with delay
+            setTimeout(() => {
+                console.log('[PPV][INIT] Starting initial run...');
+                runOnce('init');
+            }, 10000);
+
+            // Scheduler: Run every 5 minutes to keep LIVE/NOT LIVE status fresh
+            // Since it only parses a remote M3U, it's lightweight.
+            const PPV_INTERVAL = 5 * 60 * 1000; // 5 minutes
+            setInterval(() => {
+                console.log(`[PPV][SCHEDULER] Triggering scheduled update...`);
+                runOnce('scheduled');
+            }, PPV_INTERVAL);
+
+            console.log(`[PPV][INIT] Scheduler attivo: aggiornamento ogni ${PPV_INTERVAL / 1000}s`);
+        } catch (e) {
+            console.log('[PPV][INIT] failed', e);
         }
-
-        // Initial run with delay
-        setTimeout(() => {
-            console.log('[PPV][INIT] Starting initial run...');
-            runOnce('init');
-        }, 10000);
-
-        // Scheduler: Run every 5 minutes to keep LIVE/NOT LIVE status fresh
-        // Since it only parses a remote M3U, it's lightweight.
-        const PPV_INTERVAL = 5 * 60 * 1000; // 5 minutes
-        setInterval(() => {
-            console.log(`[PPV][SCHEDULER] Triggering scheduled update...`);
-            runOnce('scheduled');
-        }, PPV_INTERVAL);
-
-        console.log(`[PPV][INIT] Scheduler attivo: aggiornamento ogni ${PPV_INTERVAL / 1000}s`);
-    } catch (e) {
-        console.log('[PPV][INIT] failed', e);
-    }
-})();
+    })();
+}
 
 
 
@@ -1531,8 +1533,9 @@ try {
             if (success) {
                 console.log(`✅ Cache Vavoo aggiornata con successo all'avvio`);
                 // Avvia Live.py subito dopo il successo della cache Vavoo (una volta, non bloccante)
-                try {
-                    const livePath = path.join(__dirname, '../Live.py');
+                if (!DISABLE_LIVE_EVENTS) {
+                    try {
+                        const livePath = path.join(__dirname, '../Live.py');
                     const fs = require('fs');
                     if (fs.existsSync(livePath)) {
                         try {
@@ -1575,8 +1578,11 @@ try {
                     console.log('[Live.py] errore avvio non bloccante:', (e as any)?.message || e);
                 }
             } else {
-                console.log(`⚠️ Aggiornamento cache Vavoo fallito all'avvio, verrà ritentato periodicamente`);
+                console.log('[Live.py] disabilitato da DISABLE_LIVE_EVENTS');
             }
+        } else {
+            console.log(`⚠️ Aggiornamento cache Vavoo fallito all'avvio, verrà ritentato periodicamente`);
+        }
         }).catch(error => {
             console.error(`❌ Errore durante l'aggiornamento cache Vavoo all'avvio:`, error);
         });
@@ -7126,6 +7132,7 @@ async function runIpProbe(force = false) {
 
 // GET /live[?forceIpCheck]
 app.get('/live', async (req: Request, res: Response) => {
+    if (DISABLE_LIVE_EVENTS) return res.status(404).send('Not Found');
     const force = 'forceIpCheck' in req.query;
     await runIpProbe(force);
     if (liveProbeBlocked > 0) {
@@ -7140,6 +7147,7 @@ app.get('/live', async (req: Request, res: Response) => {
 // ================= MANUAL LIVE UPDATE ENDPOINT =================
 // GET /live/update?token=XYZ (token optional if LIVE_UPDATE_TOKEN not set)
 app.get('/live/update', async (req: Request, res: Response) => {
+    if (DISABLE_LIVE_EVENTS) return res.status(404).send('Not Found');
     try {
         const requiredToken = process?.env?.LIVE_UPDATE_TOKEN;
         const provided = (req.query.token as string) || '';
@@ -7204,6 +7212,7 @@ app.get('/live/update', async (req: Request, res: Response) => {
 // ================= MANUAL RELOAD ENDPOINT =====================
 // Invalida la cache dinamica e forza una ricarica
 app.get('/live/reload', (_: Request, res: Response) => {
+    if (DISABLE_LIVE_EVENTS) return res.status(404).send('Not Found');
     try {
         invalidateDynamicChannels();
         const dyn = loadDynamicChannels(true);
@@ -7218,6 +7227,7 @@ app.get('/live/reload', (_: Request, res: Response) => {
 // ================= THISNOT RELOAD ENDPOINT ====================
 // Esegue manualmente l'aggiornamento dei canali ThisNot
 app.get('/tn/reload', async (_: Request, res: Response) => {
+    if (DISABLE_LIVE_EVENTS) return res.status(404).send('Not Found');
     try {
         console.log('🔄 [ThisNot] Reload manuale richiesto via endpoint /tn/reload');
 
@@ -7264,6 +7274,7 @@ app.get('/tn/reload', async (_: Request, res: Response) => {
 // GET /ppv/reload?token=XYZ
 // Esegue ppv_streams.py una volta
 app.get('/ppv/reload', async (req: Request, res: Response) => {
+    if (DISABLE_LIVE_EVENTS) return res.status(404).send('Not Found');
     try {
         const requiredToken = process?.env?.PPV_RELOAD_TOKEN;
         const provided = (req.query.token as string) || '';
@@ -7402,6 +7413,7 @@ app.get('/static/reload', (req: Request, res: Response) => {
 // ================= MANUAL RM UPDATE ENDPOINT =================
 // GET /rm/update?token=XYZ - Forza aggiornamento canali RM (MPD2)
 app.get('/rm/update', async (req: Request, res: Response) => {
+    if (DISABLE_LIVE_EVENTS) return res.status(404).send('Not Found');
     try {
         const requiredToken = process?.env?.STATIC_RELOAD_TOKEN;
         const provided = (req.query.token as string) || '';
@@ -7454,6 +7466,7 @@ app.get('/rm/update', async (req: Request, res: Response) => {
 // ================= MANUAL MPDZ UPDATE ENDPOINT ==============
 // GET /mpdz/update - Forza aggiornamento canali MPDz
 app.get('/mpdz/update', async (req: Request, res: Response) => {
+    if (DISABLE_LIVE_EVENTS) return res.status(404).send('Not Found');
     try {
         console.log('[MPDz][API] Manual update triggered via /mpdz/update');
         const { updateMpdzChannels } = await import('./utils/mpdzUpdater');
@@ -7474,6 +7487,7 @@ app.get('/mpdz/update', async (req: Request, res: Response) => {
 // ================= MANUAL MPDP UPDATE ENDPOINT ==============
 // GET /mpdp/update - Forza aggiornamento canali MPDp (PSky)
 app.get('/mpdp/update', async (req: Request, res: Response) => {
+    if (DISABLE_LIVE_EVENTS) return res.status(404).send('Not Found');
     try {
         console.log('[MPDp][API] Manual update triggered via /mpdp/update');
         const { updateMpdpChannels } = await import('./utils/mpdpUpdater');
@@ -7518,6 +7532,7 @@ app.get('/mpdp/update', async (req: Request, res: Response) => {
 // Esegue la stessa logica delle 02:00: rimuove dal file gli eventi del giorno precedente
 // Alias: /tv/update per comodità
 app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) => {
+    if (DISABLE_LIVE_EVENTS) return res.status(404).send('Not Found');
     try {
         const htmlLog: string[] = [];
         htmlLog.push('<html><body style="font-family: sans-serif;">');
@@ -7679,6 +7694,7 @@ app.get(['/static/fupdate', '/tv/update'], async (req: Request, res: Response) =
 });
 
 app.get('/live/purge', (req: Request, res: Response) => {
+    if (DISABLE_LIVE_EVENTS) return res.status(404).send('Not Found');
     try {
         const result = purgeOldDynamicEvents();
         // Ricarica cache in memoria
@@ -7731,28 +7747,30 @@ startServer(basePort);
 //  - Forzare un loadDynamicChannels(true) (applicando il filtro runtime se abilitato)
 //  - Loggare quanti eventi sono stati rimossi rispetto al file grezzo
 //  - Evitare sorprese se l'utente non ha impostato variabili env (comportamento di default atteso)
-setTimeout(() => {
-    try {
-        const dynPath = getDynamicFilePath();
-        const beforeRaw = (() => {
-            try {
-                if (!dynPath || !fs.existsSync(dynPath)) return 0;
-                const raw = JSON.parse(fs.readFileSync(dynPath, 'utf-8'));
-                return Array.isArray(raw) ? raw.length : 0;
-            } catch { return 0; }
-        })();
-        // Forza reload applicando eventuale filtro runtime
-        const filtered = loadDynamicChannels(true);
-        const after = filtered.length;
-        if (beforeRaw && after <= beforeRaw) {
-            console.log(`[STARTUP][PURGE-CHECK] path=${dynPath} before=${beforeRaw} afterFilter=${after} removed=${beforeRaw - after}`);
-        } else {
-            console.log(`[STARTUP][PURGE-CHECK] path=${dynPath} count=${after} (no removals or file empty)`);
+if (!DISABLE_LIVE_EVENTS) {
+    setTimeout(() => {
+        try {
+            const dynPath = getDynamicFilePath();
+            const beforeRaw = (() => {
+                try {
+                    if (!dynPath || !fs.existsSync(dynPath)) return 0;
+                    const raw = JSON.parse(fs.readFileSync(dynPath, 'utf-8'));
+                    return Array.isArray(raw) ? raw.length : 0;
+                } catch { return 0; }
+            })();
+            // Forza reload applicando eventuale filtro runtime
+            const filtered = loadDynamicChannels(true);
+            const after = filtered.length;
+            if (beforeRaw && after <= beforeRaw) {
+                console.log(`[STARTUP][PURGE-CHECK] path=${dynPath} before=${beforeRaw} afterFilter=${after} removed=${beforeRaw - after}`);
+            } else {
+                console.log(`[STARTUP][PURGE-CHECK] path=${dynPath} count=${after} (no removals or file empty)`);
+            }
+        } catch (e: any) {
+            console.log('[STARTUP][PURGE-CHECK][ERR]', e?.message || e);
         }
-    } catch (e: any) {
-        console.log('[STARTUP][PURGE-CHECK][ERR]', e?.message || e);
-    }
-}, 20000);
+    }, 20000);
+}
 // ================================================================
 
 // Funzione per assicurarsi che le directory di cache esistano
@@ -7875,55 +7893,61 @@ function scheduleNextLiveRun() {
 }
 
 // Avvia scheduler dopo avvio server (dopo breve delay per evitare conflitto startup)
-setTimeout(() => {
-    logLive('Scheduler Live eventi attivato');
-    scheduleNextLiveRun();
-}, 5000);
+if (!DISABLE_LIVE_EVENTS) {
+    setTimeout(() => {
+        logLive('Scheduler Live eventi attivato');
+        scheduleNextLiveRun();
+    }, 5000);
+}
 
 // ================== BOOTSTRAP LIVE RUN (se file mancante o vuoto) ==================
-setTimeout(async () => {
-    try {
-        const dynPath = getDynamicFilePath();
-        let needBootstrap = false;
+if (!DISABLE_LIVE_EVENTS) {
+    setTimeout(async () => {
         try {
-            if (!fs.existsSync(dynPath)) needBootstrap = true; else {
-                const st = fs.statSync(dynPath);
-                if (st.size < 50) { // heuristica: file troppo piccolo per contenere array eventi
-                    needBootstrap = true;
-                }
-            }
-        } catch { needBootstrap = true; }
-        if (needBootstrap) {
-            logLive('BOOTSTRAP: dynamic_channels.json assente o vuoto -> eseguo Live.py immediato');
-            await executeLiveScript();
+            const dynPath = getDynamicFilePath();
+            let needBootstrap = false;
             try {
-                const r = purgeOldDynamicEvents();
-                loadDynamicChannels(true);
-                logLive('BOOTSTRAP: purge post Live.py eseguito', r);
-            } catch (e: any) {
-                logLive('BOOTSTRAP: errore purge post Live.py', e?.message || String(e));
+                if (!fs.existsSync(dynPath)) needBootstrap = true; else {
+                    const st = fs.statSync(dynPath);
+                    if (st.size < 50) { // heuristica: file troppo piccolo per contenere array eventi
+                        needBootstrap = true;
+                    }
+                }
+            } catch { needBootstrap = true; }
+            if (needBootstrap) {
+                logLive('BOOTSTRAP: dynamic_channels.json assente o vuoto -> eseguo Live.py immediato');
+                await executeLiveScript();
+                try {
+                    const r = purgeOldDynamicEvents();
+                    loadDynamicChannels(true);
+                    logLive('BOOTSTRAP: purge post Live.py eseguito', r);
+                } catch (e: any) {
+                    logLive('BOOTSTRAP: errore purge post Live.py', e?.message || String(e));
+                }
+            } else {
+                logLive('BOOTSTRAP: dynamic_channels.json presente, skip run iniziale');
             }
-        } else {
-            logLive('BOOTSTRAP: dynamic_channels.json presente, skip run iniziale');
+        } catch (e: any) {
+            logLive('BOOTSTRAP: errore controllo iniziale', e?.message || String(e));
         }
-    } catch (e: any) {
-        logLive('BOOTSTRAP: errore controllo iniziale', e?.message || String(e));
-    }
-}, 8000);
+    }, 8000);
+}
 // ==============================================================================
 // Esecuzione automatica /live/update dopo 2 minuti dall'avvio per garantire prima popolazione dinamici
-setTimeout(async () => {
-    try {
-        console.log('[LIVE][AUTO-120s] Avvio aggiornamento iniziale forzato');
-        // Riutilizza executeLiveScript + purge come fa l'endpoint /live/update
-        const execRes = await (async () => { try { return await (executeLiveScript as any)(); } catch { return undefined; } })();
-        const purgeResult = purgeOldDynamicEvents();
-        loadDynamicChannels(true);
-        console.log('[LIVE][AUTO-120s] Completato', { purgeRemoved: purgeResult.removed, dynamicCount: loadDynamicChannels(true).length });
-    } catch (e: any) {
-        console.error('[LIVE][AUTO-120s][ERR]', e?.message || e);
-    }
-}, 120000);
+if (!DISABLE_LIVE_EVENTS) {
+    setTimeout(async () => {
+        try {
+            console.log('[LIVE][AUTO-120s] Avvio aggiornamento iniziale forzato');
+            // Riutilizza executeLiveScript + purge come fa l'endpoint /live/update
+            const execRes = await (async () => { try { return await (executeLiveScript as any)(); } catch { return undefined; } })();
+            const purgeResult = purgeOldDynamicEvents();
+            loadDynamicChannels(true);
+            console.log('[LIVE][AUTO-120s] Completato', { purgeRemoved: purgeResult.removed, dynamicCount: loadDynamicChannels(true).length });
+        } catch (e: any) {
+            console.error('[LIVE][AUTO-120s][ERR]', e?.message || e);
+        }
+    }, 120000);
+}
 // ==============================================================================
 // ====================================================================
 
@@ -7954,24 +7978,28 @@ function scheduleNextAutoPurge() {
 }
 
 // Avvia scheduling purge dopo avvio server (leggero delay per startup)
-setTimeout(() => scheduleNextAutoPurge(), 7000);
+if (!DISABLE_LIVE_EVENTS) {
+    setTimeout(() => scheduleNextAutoPurge(), 7000);
+}
 // ====================================================================
 
 // =============== WATCHER dynamic_channels.json =======================
-try {
-    const dynamicFilePath = path.join(__dirname, '../config/dynamic_channels.json');
-    if (fs.existsSync(dynamicFilePath)) {
-        fs.watch(dynamicFilePath, { persistent: false }, (evt: any) => {
-            if (evt === 'change') {
-                console.log('🔄 Detected change in dynamic_channels.json -> invalidate & reload');
-                invalidateDynamicChannels();
-                loadDynamicChannels(true);
-            }
-        });
-        console.log('👁️  Watch attivo su dynamic_channels.json');
+if (!DISABLE_LIVE_EVENTS) {
+    try {
+        const dynamicFilePath = path.join(__dirname, '../config/dynamic_channels.json');
+        if (fs.existsSync(dynamicFilePath)) {
+            fs.watch(dynamicFilePath, { persistent: false }, (evt: any) => {
+                if (evt === 'change') {
+                    console.log('🔄 Detected change in dynamic_channels.json -> invalidate & reload');
+                    invalidateDynamicChannels();
+                    loadDynamicChannels(true);
+                }
+            });
+            console.log('👁️  Watch attivo su dynamic_channels.json');
+        }
+    } catch (e) {
+        console.error('❌ Impossibile attivare watcher dynamic_channels.json:', e);
     }
-} catch (e) {
-    console.error('❌ Impossibile attivare watcher dynamic_channels.json:', e);
 }
 // ====================================================================
 
@@ -7999,7 +8027,9 @@ function scheduleDailyReload() {
         }
     }, delay);
 }
-setTimeout(() => scheduleDailyReload(), 9000);
+if (!DISABLE_LIVE_EVENTS) {
+    setTimeout(() => scheduleDailyReload(), 9000);
+}
 // ====================================================================
 
 // =============== AMSTAFF AUTO-UPDATER ================================
@@ -8016,11 +8046,13 @@ console.log(`✅ Addon active on port ${process.env.PORT || 7000}`);
 
 // =============== RM AUTO-UPDATER (MPD) ============================
 // Avvia aggiornamento automatico canali RM ogni 15 minuti
-try {
-    startRmScheduler();
-    console.log('✅ RM auto-updater attivato (MPD)');
-} catch (e) {
-    console.error('❌ Errore avvio RM updater:', e);
+if (!DISABLE_LIVE_EVENTS) {
+    try {
+        startRmScheduler();
+        console.log('✅ RM auto-updater attivato (MPD)');
+    } catch (e) {
+        console.error('❌ Errore avvio RM updater:', e);
+    }
 }
 // ====================================================================
 
@@ -8028,66 +8060,80 @@ try {
 
 // =============== THISNOT AUTO-UPDATER ==============================
 // Avvia aggiornamento automatico canali ThisNot ogni 2 ore
-try {
-    startThisNotUpdater(2);
-    console.log('✅ ThisNot auto-updater attivato (ogni 2 ore)');
-} catch (e) {
-    console.error('❌ Errore avvio ThisNot updater:', e);
+if (!DISABLE_LIVE_EVENTS) {
+    try {
+        startThisNotUpdater(2);
+        console.log('✅ ThisNot auto-updater attivato (ogni 2 ore)');
+    } catch (e) {
+        console.error('❌ Errore avvio ThisNot updater:', e);
+    }
 }
 // ====================================================================
 
 // =============== SPORTZX AUTO-UPDATER ==============================
 // Avvia aggiornamento automatico canali SportzX ogni 15 minuti
-try {
-    startSportzxScheduler();
-    console.log('✅ SportzX auto-updater attivato (ogni 15 min)');
-} catch (e) {
-    console.error('❌ Errore avvio SportzX updater:', e);
+if (!DISABLE_LIVE_EVENTS) {
+    try {
+        startSportzxScheduler();
+        console.log('✅ SportzX auto-updater attivato (ogni 15 min)');
+    } catch (e) {
+        console.error('❌ Errore avvio SportzX updater:', e);
+    }
 }
 // ====================================================================
 
 // =============== SPORTS99 AUTO-UPDATER ==============================
 // Avvia aggiornamento automatico canali Sports99 ogni 15 minuti
-try {
-    startSports99Scheduler();
-    console.log('✅ Sports99 auto-updater attivato (ogni 15 min)');
-} catch (e) {
-    console.error('❌ Errore avvio Sports99 updater:', e);
+if (!DISABLE_LIVE_EVENTS) {
+    try {
+        startSports99Scheduler();
+        console.log('✅ Sports99 auto-updater attivato (ogni 15 min)');
+    } catch (e) {
+        console.error('❌ Errore avvio Sports99 updater:', e);
+    }
 }
 
 // =============== MEDIAHOSTING AUTO-UPDATER ==============================
-try {
-    startMediaHostingScheduler();
-    console.log('✅ MediaHosting auto-updater attivato (ogni 30 min)');
-} catch (e) {
-    console.error('❌ Errore avvio MediaHosting updater:', e);
+if (!DISABLE_LIVE_EVENTS) {
+    try {
+        startMediaHostingScheduler();
+        console.log('✅ MediaHosting auto-updater attivato (ogni 30 min)');
+    } catch (e) {
+        console.error('❌ Errore avvio MediaHosting updater:', e);
+    }
 }
 
 // =============== FREESHOT AUTO-UPDATER ==============================
-try {
-    startFreeshotScheduler();
-    console.log('✅ Freeshot auto-updater attivato (ogni 30 min)');
-} catch (e) {
-    console.error('❌ Errore avvio Freeshot updater:', e);
+if (!DISABLE_LIVE_EVENTS) {
+    try {
+        startFreeshotScheduler();
+        console.log('✅ Freeshot auto-updater attivato (ogni 30 min)');
+    } catch (e) {
+        console.error('❌ Errore avvio Freeshot updater:', e);
+    }
 }
 
 // =============== MPDZ AUTO-UPDATER ==============================
 // Avvia aggiornamento automatico canali MPDz ogni 23 minuti
-try {
-    startMpdzScheduler(1380000);
-    console.log('✅ MPDz auto-updater attivato (ogni 23 min)');
-} catch (e) {
-    console.error('❌ Errore avvio MPDz updater:', e);
+if (!DISABLE_LIVE_EVENTS) {
+    try {
+        startMpdzScheduler(1380000);
+        console.log('✅ MPDz auto-updater attivato (ogni 23 min)');
+    } catch (e) {
+        console.error('❌ Errore avvio MPDz updater:', e);
+    }
 }
 // ====================================================================
 
 // =============== MPDP AUTO-UPDATER ==============================
 // Avvia aggiornamento automatico canali MPDp (PSky) ogni 23 minuti
-try {
-    startMpdpScheduler(1380000);
-    console.log('✅ MPDp auto-updater attivato (ogni 23 min)');
-} catch (e) {
-    console.error('❌ Errore avvio MPDp updater:', e);
+if (!DISABLE_LIVE_EVENTS) {
+    try {
+        startMpdpScheduler(1380000);
+        console.log('✅ MPDp auto-updater attivato (ogni 23 min)');
+    } catch (e) {
+        console.error('❌ Errore avvio MPDp updater:', e);
+    }
 }
 // ====================================================================
 
@@ -8102,9 +8148,10 @@ try {
 // ====================================================================
 
 // === Z-Eventi playlist enrichment & Endpoint ===
-(() => {
-    try {
-        const zUrl = process.env.ZEVENTI_ENV_URL;
+if (!DISABLE_LIVE_EVENTS) {
+    (() => {
+        try {
+            const zUrl = process.env.ZEVENTI_ENV_URL;
         const outputFile = '/tmp/z_eventi.json';
 
         type RawEventi = {
@@ -8295,12 +8342,14 @@ try {
     } catch (e) {
         console.error('[Z-Events][INIT] Error:', e);
     }
-})();
+    })();
+}
 
 // === AK-Eventi playlist enrichment & Endpoint ===
-(() => {
-    try {
-        const akUrl = process.env.AK_ENV_URL;
+if (!DISABLE_LIVE_EVENTS) {
+    (() => {
+        try {
+            const akUrl = process.env.AK_ENV_URL;
         const outputFile = '/tmp/ak_eventi.json';
 
         type RawEventi = {
@@ -8487,12 +8536,14 @@ try {
     } catch (e) {
         console.error('[AK-Events][INIT] Error:', e);
     }
-})();
+    })();
+}
 
 // === X-Eventi playlist enrichment & Endpoint ===
-(() => {
-    try {
-        // Check env var enabling
+if (!DISABLE_LIVE_EVENTS) {
+    (() => {
+        try {
+            // Check env var enabling
         const xUrl = process.env.X_EVENTI_URL;
 
         const pythonBin = process.env.PYTHON_BIN || 'python3';
@@ -8577,4 +8628,4 @@ try {
     } catch (e) {
         console.log('[X-Events][INIT][ERR]', (e as any)?.message || e);
     }
-})();
+})();}
