@@ -114,22 +114,27 @@ export async function fetchResource(
 
   // 3. Execute fetch
   const task = (async () => {
-    let proxyAgent: any = undefined;
-    
-    // Configura proxy dinamico in base al dominio target
-    const proxyUrl = url.includes('animesaturn') 
-      ? (process.env.AS_PROXY || process.env.PROXY || '')
-      : url.includes('animeworld')
-      ? (process.env.AW_PROXY || process.env.PROXY || '')
-      : url.includes('animeunity')
-      ? (process.env.AU_PROXY || process.env.PROXY || '')
-      : '';
+    let resolvedAgent: any = undefined;
 
-    if (proxyUrl) {
-      if (proxyUrl.startsWith('socks')) {
-        proxyAgent = new SocksProxyAgent(proxyUrl);
-      } else {
-        proxyAgent = new HttpsProxyAgent(proxyUrl);
+    // Se l'agent è stato passato esplicitamente nelle opzioni, usalo (anche se null/false = nessun proxy)
+    if ('agent' in options && options.agent !== undefined) {
+      resolvedAgent = options.agent || undefined;
+    } else {
+      // Auto-detect proxy in base al dominio target
+      const proxyUrl = url.includes('animesaturn')
+        ? (process.env.AS_PROXY || process.env.PROXY || '')
+        : url.includes('animeworld')
+        ? (process.env.AW_PROXY || process.env.PROXY || '')
+        : url.includes('animeunity')
+        ? (process.env.AU_PROXY || process.env.PROXY || '')
+        : '';
+
+      if (proxyUrl) {
+        if (proxyUrl.startsWith('socks')) {
+          resolvedAgent = new SocksProxyAgent(proxyUrl);
+        } else {
+          resolvedAgent = new HttpsProxyAgent(proxyUrl);
+        }
       }
     }
 
@@ -143,7 +148,7 @@ export async function fetchResource(
           ...headers,
         },
         body,
-        agent: proxyAgent,
+        agent: resolvedAgent,
         redirect: 'follow',
       },
       timeoutMs
