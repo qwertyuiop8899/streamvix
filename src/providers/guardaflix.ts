@@ -17,16 +17,7 @@ const SHARED_HEADERS = {
     'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.7,en;q=0.6',
 };
 
-// Proxy fallback: start without proxy, switch to proxy on failure
-let useProxyFallback = false;
-const proxyDispatcher = process.env.PROXY ? new ProxyAgent(process.env.PROXY) : null;
-
-function getDispatcher() {
-    if (useProxyFallback && proxyDispatcher) {
-        return proxyDispatcher;
-    }
-    return undefined; // No proxy initially
-}
+const PROXY2 = process.env.PROXY2;
 
 // Helper for fetch with timeout
 async function fetchWithTimeout(url: string, options: any = {}, timeoutMs: number = 10000): Promise<Response> {
@@ -44,8 +35,8 @@ async function fetchWithTimeout(url: string, options: any = {}, timeoutMs: numbe
     }
 }
 
-// Helper to fetch with cookies and proxy
-async function fetchWithCookies(url: string, options: any = {}): Promise<{ data: string; status: number; headers: any }> {
+// Helper to fetch with cookies
+async function fetchWithCookies(url: string, options: any = {}, timeoutMs: number = 10000, dispatcher?: any): Promise<{ data: string; status: number; headers: any }> {
     const cookieString = await jar.getCookieString(url);
     const headers = {
         ...SHARED_HEADERS,
@@ -53,15 +44,10 @@ async function fetchWithCookies(url: string, options: any = {}): Promise<{ data:
         'Cookie': cookieString
     };
 
-    const dispatcher = getDispatcher();
+    const fetchOpts: any = { ...options, headers };
+    if (dispatcher) fetchOpts.dispatcher = dispatcher;
 
-    console.log(`[Guardaflix] Fetching: ${url}`);
-
-    const response = await fetchWithTimeout(url, {
-        ...options,
-        headers,
-        dispatcher
-    }, 10000);
+    const response = await fetchWithTimeout(url, fetchOpts, timeoutMs);
 
     // Handle Set-Cookie
     const setCookie = response.headers.get('set-cookie');
@@ -81,6 +67,44 @@ async function fetchWithCookies(url: string, options: any = {}): Promise<{ data:
         status: response.status,
         headers: response.headers
     };
+}
+
+// Helper to fetch with bypass (direct 2s -> PROXY2 4s)
+async function fetchWithBypass(url: string, options: any = {}): Promise<{ data: string; status: number; headers: any }> {
+    try {
+        // 1. Try direct fetch with short timeout (2s)
+        const res = await fetchWithCookies(url, options, 2000);
+        if (res.status === 403 || res.status === 400) {
+            throw Object.assign(new Error(`HTTP ${res.status}`), { response: { status: res.status } });
+        }
+        return res;
+    } catch (e: any) {
+        const status = e.response?.status;
+        const isBlock = status === 403 || status === 400;
+        const isTimeout = e.code === 'ABORT_ERR' || e.name === 'AbortError' || e.code === 'UND_ERR_ABORTED' || e.message?.includes('abort');
+        const isNetwork = !e.response;
+
+        if (isBlock || isTimeout || isNetwork) {
+            if (!PROXY2) {
+                console.log(`[Guardaflix] Blocked or timeout on ${url}, but PROXY2 is not set. Aborting.`);
+                throw e;
+            }
+
+            console.log(`[Guardaflix] Blocked or timeout on ${url} (${status || e.code || 'TIMEOUT'}), trying PROXY2 bypass...`);
+
+            // 2. Try with PROXY2 (4s timeout)
+            try {
+                const proxyAgent = new ProxyAgent(PROXY2);
+                const proxyRes = await fetchWithCookies(url, options, 4000, proxyAgent);
+                console.log(`[Guardaflix] PROXY2 bypass success for ${url}`);
+                return proxyRes;
+            } catch (proxyErr: any) {
+                console.error(`[Guardaflix] PROXY2 bypass failed for ${url}: ${proxyErr.message}. Aborting.`);
+                throw proxyErr;
+            }
+        }
+        throw e;
+    }
 }
 
 // --- UQLOAD VIA MFP (EasyProxy) ---
@@ -123,7 +147,7 @@ async function extractLoadM(playerUrl: string, referer: string, mfpUrl?: string,
         const playerDomain = new URL(playerUrl).origin;
         const apiUrl = `${playerDomain}/api/v1/video?id=${id}&w=2560&h=1440&r=${encodeURIComponent(referer)}`;
 
-        const response = await fetchWithCookies(apiUrl, {
+        const response = await fetchWithBypass(apiUrl, {
             headers: { 'Referer': playerUrl }
         });
 
@@ -201,14 +225,8 @@ async function searchGuardaflix(query: string, year: string): Promise<string | n
         const searchUrl = `${getTargetDomain()}/?s=${encodeURIComponent(query)}`;
         console.log('[Guardaflix] Direct search:', searchUrl);
 
-        const res = await fetchWithCookies(searchUrl);
+        const res = await fetchWithBypass(searchUrl);
         console.log('[GF][Direct] search html length', res.data.length);
-
-        if (res.status === 403) {
-            console.error('[Guardaflix] Search failed with 403 Forbidden. Cloudflare block?');
-            // Could implement retry or more complex bypass here if needed
-            return null;
-        }
 
         const $ = cheerio.load(res.data);
 
@@ -264,7 +282,7 @@ import * as fs from 'fs';
 async function resolvePageStream(pageUrl: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
     const streams: Stream[] = [];
     try {
-        const res = await fetchWithCookies(pageUrl);
+        const res = await fetchWithBypass(pageUrl);
         const $ = cheerio.load(res.data);
 
         // Build options-to-language mapping from .aa-tbs li a span.server
@@ -326,7 +344,7 @@ async function resolvePageStream(pageUrl: string, mfpUrl?: string, mfpPsw?: stri
                 else if (src.includes('trembed=')) {
                     console.log(`[Guardaflix] Inspecting embed: ${src}`);
                     try {
-                        const embedRes = await fetchWithCookies(src, { headers: { 'Referer': pageUrl } });
+                        const embedRes = await fetchWithBypass(src, { headers: { 'Referer': pageUrl } });
                         const $embed = cheerio.load(embedRes.data);
                         const nestedIframes = $embed('iframe');
                         for (const nested of nestedIframes) {
@@ -369,7 +387,7 @@ async function resolvePageStream(pageUrl: string, mfpUrl?: string, mfpPsw?: stri
                 }
                 else if (src.includes('trembed=')) {
                     try {
-                        const embedRes = await fetchWithCookies(src, { headers: { 'Referer': pageUrl } });
+                        const embedRes = await fetchWithBypass(src, { headers: { 'Referer': pageUrl } });
                         const $embed = cheerio.load(embedRes.data);
                         const nestedIframes = $embed('iframe');
                         for (const nested of nestedIframes) {
@@ -460,37 +478,14 @@ async function getCinemetaMeta(type: string, paramId: string): Promise<{ name: s
 // --- PUBLIC INTERFACE ---
 
 export async function getGuardaflixStreams(type: string, id: string, tmdbApiKey?: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
-    // First attempt: without proxy
-    useProxyFallback = false;
-    let networkError = false;
-    try {
-        const result = await getGuardaflixStreamsCore(type, id, tmdbApiKey, mfpUrl, mfpPsw);
-        return result; // Return even if empty — means content not found, not a network issue
-    } catch (e: any) {
-        const msg = String(e?.message || e).toLowerCase();
-        networkError = msg.includes('econnrefused') || msg.includes('econnreset') || msg.includes('etimedout') || msg.includes('enotfound') || msg.includes('socket') || msg.includes('proxy') || msg.includes('network') || msg.includes('connect');
-        console.log(`[Guardaflix] First attempt failed (network=${networkError}): ${e}`);
-    }
-
-    // Fallback: with proxy ONLY on network errors (not on "content not found")
-    if (networkError && proxyDispatcher) {
-        console.log('[Guardaflix] Retrying with proxy...');
-        useProxyFallback = true;
-        try {
-            return await getGuardaflixStreamsCore(type, id, tmdbApiKey, mfpUrl, mfpPsw);
-        } catch (e) {
-            console.log(`[Guardaflix] Proxy attempt also failed: ${e}`);
-        }
-    }
-
-    return [];
+    return await getGuardaflixStreamsCore(type, id, tmdbApiKey, mfpUrl, mfpPsw);
 }
 
 async function getGuardaflixStreamsCore(type: string, id: string, tmdbApiKey?: string, mfpUrl?: string, mfpPsw?: string): Promise<Stream[]> {
     // Only Movies supported for now
     if (type !== 'movie') return [];
 
-    console.log(`[Guardaflix] Requesting: ${id} (${type}) [proxy=${useProxyFallback}]`);
+    console.log(`[Guardaflix] Requesting: ${id} (${type})`);
 
     let imdbId = id;
     if (id.includes(':')) {
