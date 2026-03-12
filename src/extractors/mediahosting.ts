@@ -7,7 +7,7 @@
  * 
  * Ref: https://github.com/mandrakodi/mandrakodi.github.io/blob/main/myResolver.py
  */
-import axios from 'axios';
+// import axios from 'axios'; // non più usato con screenistream (URL diretto)
 
 export interface MediaHostingChannel {
     id: number;          // stream ID su mediahosting (es. 229, 230...)
@@ -17,55 +17,63 @@ export interface MediaHostingChannel {
 }
 
 export class MediaHostingClient {
-    private baseUrl = 'https://mediahosting.space';
-    private referer = 'https://mediahosting.space/';
+    // private baseUrl = 'https://mediahosting.space'; // OLD mediahosting
+    private baseUrl = 'https://cc3.screenistream.xyz:8080';
+    private referer = 'https://cc3.screenistream.xyz/';
+    private token = 'T4Nz6WCt2Uwlqma4';
     private userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
     /**
-     * Risolve un ID mediahosting in un URL M3U8.
-     * @param streamId - L'ID numerico dello stream (es. 229)
+     * Risolve un ID stream in un URL M3U8 diretto (screenistream).
+     * @param streamId - L'ID numerico dello stream (es. 325)
      * @returns URL M3U8 o null se non trovato
      */
     async resolve(streamId: number | string): Promise<string | null> {
-        const playerUrl = `${this.baseUrl}/embed/player?stream=${streamId}&no_register=true`;
-        try {
-            const resp = await axios.get(playerUrl, {
-                headers: {
-                    'Referer': this.referer,
-                    'User-Agent': this.userAgent,
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                },
-                timeout: 15000,
-            });
-            const html: string = resp.data;
+        // URL diretto screenistream — nessuna estrazione necessaria
+        const directUrl = `${this.baseUrl}/stream/${streamId}/index.m3u8?token=${this.token}`;
+        console.log(`[MediaHosting] ✅ Direct stream ${streamId} -> ${directUrl.substring(0, 80)}...`);
+        return directUrl;
 
-            // Pattern 1: <source src="...">
-            const sourceMatch = html.match(/<source\s+src="([^"]+)"/i);
-            if (sourceMatch && sourceMatch[1]) {
-                console.log(`[MediaHosting] ✅ Resolved stream ${streamId} -> ${sourceMatch[1].substring(0, 80)}...`);
-                return sourceMatch[1];
-            }
-
-            // Pattern 2: file:"..." (alcuni player usano questo)
-            const fileMatch = html.match(/file:\s*"([^"]+\.m3u8[^"]*)"/i);
-            if (fileMatch && fileMatch[1]) {
-                console.log(`[MediaHosting] ✅ Resolved stream ${streamId} (file:) -> ${fileMatch[1].substring(0, 80)}...`);
-                return fileMatch[1];
-            }
-
-            // Pattern 3: source: "..."
-            const srcMatch = html.match(/source:\s*"([^"]+\.m3u8[^"]*)"/i);
-            if (srcMatch && srcMatch[1]) {
-                console.log(`[MediaHosting] ✅ Resolved stream ${streamId} (source:) -> ${srcMatch[1].substring(0, 80)}...`);
-                return srcMatch[1];
-            }
-
-            console.warn(`[MediaHosting] ⚠️ No stream URL found for ID ${streamId}`);
-            return null;
-        } catch (e: any) {
-            console.error(`[MediaHosting] ❌ Error resolving stream ${streamId}: ${e.message}`);
-            return null;
-        }
+        // --- OLD mediahosting embed extraction (commentato) ---
+        // const playerUrl = `${this.baseUrl}/embed/player?stream=${streamId}&no_register=true`;
+        // try {
+        //     const resp = await axios.get(playerUrl, {
+        //         headers: {
+        //             'Referer': this.referer,
+        //             'User-Agent': this.userAgent,
+        //             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        //         },
+        //         timeout: 15000,
+        //     });
+        //     const html: string = resp.data;
+        //
+        //     // Pattern 1: <source src="...">
+        //     const sourceMatch = html.match(/<source\s+src="([^"]+)"/i);
+        //     if (sourceMatch && sourceMatch[1]) {
+        //         console.log(`[MediaHosting] ✅ Resolved stream ${streamId} -> ${sourceMatch[1].substring(0, 80)}...`);
+        //         return sourceMatch[1];
+        //     }
+        //
+        //     // Pattern 2: file:"..." (alcuni player usano questo)
+        //     const fileMatch = html.match(/file:\s*"([^"]+\.m3u8[^"]*)"/i);
+        //     if (fileMatch && fileMatch[1]) {
+        //         console.log(`[MediaHosting] ✅ Resolved stream ${streamId} (file:) -> ${fileMatch[1].substring(0, 80)}...`);
+        //         return fileMatch[1];
+        //     }
+        //
+        //     // Pattern 3: source: "..."
+        //     const srcMatch = html.match(/source:\s*"([^"]+\.m3u8[^"]*)"/i);
+        //     if (srcMatch && srcMatch[1]) {
+        //         console.log(`[MediaHosting] ✅ Resolved stream ${streamId} (source:) -> ${srcMatch[1].substring(0, 80)}...`);
+        //         return srcMatch[1];
+        //     }
+        //
+        //     console.warn(`[MediaHosting] ⚠️ No stream URL found for ID ${streamId}`);
+        //     return null;
+        // } catch (e: any) {
+        //     console.error(`[MediaHosting] ❌ Error resolving stream ${streamId}: ${e.message}`);
+        //     return null;
+        // }
     }
 
     /** Headers necessari per il playback dello stream M3U8 */
@@ -80,41 +88,55 @@ export class MediaHostingClient {
 
 // ===== CHANNEL MATCHING (come getFreeshotCode) =====
 
-// Mappa nome normalizzato -> stream ID MediaHosting
+// Mappa nome normalizzato -> stream ID screenistream
 export const MEDIAHOSTING_CODE_MAP: Record<string, number> = {
-    dazn1: 229,
-    dazn: 229,
-    zonadazn: 229,
-    skysportuno: 230,
-    skysportf1: 231,
-    skysportcalcio: 232,
-    skysporttennis: 233,
-    skysportmotogp: 234,
-    skysportarena: 235,
-    skysportmax: 236,
-    skysportgolf: 237,
-    skysport24: 238,
-    skysportbasket: 239,
-    skysportlegend: 240,
-    skysportmix: 241,
+    dazn1: 325,
+    dazn: 325,
+    zonadazn: 325,
+    skysportuno: 326,
+    skysportf1: 327,
+    skysportcalcio: 328,
+    skysporttennis: 329,
+    skysportmotogp: 330,
+    skysportarena: 331,
+    skysportmax: 332,
+    skysportgolf: 333,
+    skysport24: 334,
+    skysportbasket: 335,
+    skysportlegend: 336,
+    skysportmix: 337,
 };
+
+// --- OLD mediahosting IDs (commentato) ---
+// dazn1: 229, dazn: 229, zonadazn: 229,
+// skysportuno: 230, skysportf1: 231, skysportcalcio: 232,
+// skysporttennis: 233, skysportmotogp: 234, skysportarena: 235,
+// skysportmax: 236, skysportgolf: 237, skysport24: 238,
+// skysportbasket: 239, skysportlegend: 240, skysportmix: 241
 
 // Nome visuale canonico da usare nel titolo stream
 export const MEDIAHOSTING_DISPLAY_NAME: Record<number, string> = {
-    229: 'DAZN 1',
-    230: 'Sky Sport Uno',
-    231: 'Sky Sport F1',
-    232: 'Sky Sport Calcio',
-    233: 'Sky Sport Tennis',
-    234: 'Sky Sport MotoGP',
-    235: 'Sky Sport Arena',
-    236: 'Sky Sport Max',
-    237: 'Sky Sport Golf',
-    238: 'Sky Sport 24',
-    239: 'Sky Sport Basket',
-    240: 'Sky Sport Legend',
-    241: 'Sky Sport Mix',
+    325: 'DAZN 1',
+    326: 'Sky Sport Uno',
+    327: 'Sky Sport F1',
+    328: 'Sky Sport Calcio',
+    329: 'Sky Sport Tennis',
+    330: 'Sky Sport MotoGP',
+    331: 'Sky Sport Arena',
+    332: 'Sky Sport Max',
+    333: 'Sky Sport Golf',
+    334: 'Sky Sport 24',
+    335: 'Sky Sport Basket',
+    336: 'Sky Sport Legend',
+    337: 'Sky Sport Mix',
 };
+
+// --- OLD mediahosting IDs (commentato) ---
+// 229: 'DAZN 1', 230: 'Sky Sport Uno', 231: 'Sky Sport F1',
+// 232: 'Sky Sport Calcio', 233: 'Sky Sport Tennis', 234: 'Sky Sport MotoGP',
+// 235: 'Sky Sport Arena', 236: 'Sky Sport Max', 237: 'Sky Sport Golf',
+// 238: 'Sky Sport 24', 239: 'Sky Sport Basket', 240: 'Sky Sport Legend',
+// 241: 'Sky Sport Mix'
 
 function normalizeKey(s?: string): string | null {
     if (!s || typeof s !== 'string') return null;
