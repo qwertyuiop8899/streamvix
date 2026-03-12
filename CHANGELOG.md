@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.17.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.4...v1.17.5) (2026-03-11)
+
+
+### Bug Fixes
+
+* add env disable live on all the endpoint ([9dd9e01](https://github.com/qwertyuiop8899/streamvix/commit/9dd9e0173721c126f491f88d5029e6ac8c612745))
+* add env disable live on all the endpoint ([35589e4](https://github.com/qwertyuiop8899/streamvix/commit/35589e45df4f9e156479c621345b22f777a7090b))
+* gf ([ecfb144](https://github.com/qwertyuiop8899/streamvix/commit/ecfb144b9233850c38ab7dcdb62e1bc9d8a94e75))
+
 ## [1.17.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.3...v1.17.4) (2026-03-11)
 
 
