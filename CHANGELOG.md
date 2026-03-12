@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.7...v1.17.8) (2026-03-12)
+
+
+### Bug Fixes
+
+* domains update ([48ee8b5](https://github.com/qwertyuiop8899/streamvix/commit/48ee8b5e82d9cd6a1d55d2a12b7e192255d05bae))
+* proxy au ([4e7b8dc](https://github.com/qwertyuiop8899/streamvix/commit/4e7b8dcc2d101664981d7b083ea0efcb429185b8))
+
 ## [1.17.7](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.6...v1.17.7) (2026-03-12)
 
 
