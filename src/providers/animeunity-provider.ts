@@ -46,6 +46,7 @@ const TTL = {
 const caches = createCaches();
 
 const PROXY_URL = process.env.AU_PROXY || process.env.PROXY || '';
+const DIRECT_TIMEOUT = 3000; // timeout breve per tentativo diretto (senza proxy)
 let proxyAgent: any = undefined;
 if (PROXY_URL) {
   if (PROXY_URL.startsWith('socks')) {
@@ -55,14 +56,132 @@ if (PROXY_URL) {
   }
 }
 
-// Interceptor per iniettare l'agent in tutte le chiamate axios
-axios.interceptors.request.use(config => {
-  if (proxyAgent && config.url && config.url.includes('animeunity')) {
-    config.httpsAgent = proxyAgent;
-    config.httpAgent = proxyAgent;
+// --- Proxy diagnostic helpers ---
+function maskProxyUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.password) u.password = '***';
+    return u.toString();
+  } catch { return url.replace(/:([^@:]+)@/, ':***@'); }
+}
+
+const PROXY_TYPE = PROXY_URL ? (PROXY_URL.startsWith('socks') ? 'SOCKS' : 'HTTP/HTTPS') : 'NONE';
+if (PROXY_URL) {
+  console.log(`[AnimeUnity][Proxy] Proxy configurato: tipo=${PROXY_TYPE} url=${maskProxyUrl(PROXY_URL)}`);
+} else {
+  console.log('[AnimeUnity][Proxy] Nessun proxy configurato (AU_PROXY e PROXY non impostati)');
+}
+
+function isRetryableError(err: any): boolean {
+  const code = err?.code || '';
+  const status = err?.response?.status || 0;
+  const msg = String(err?.message || '');
+  return status === 403 || status === 503 || status >= 500
+    || /ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENETUNREACH|ENOTFOUND|abort|timeout|socket hang up/i.test(code + msg);
+}
+
+/**
+ * axios GET con retry proxy: tenta prima DIRETTO (3s timeout), poi con proxy se fallisce.
+ */
+async function auAxiosGet(url: string, config: any = {}): Promise<any> {
+  // Tentativo diretto
+  console.log(`[AnimeUnity][Proxy] GET diretto (${DIRECT_TIMEOUT}ms) -> ${url}`);
+  try {
+    const resp = await axios.get(url, { ...config, timeout: DIRECT_TIMEOUT, httpAgent: undefined, httpsAgent: undefined });
+    console.log(`[AnimeUnity][Proxy] GET diretto OK (${resp.status}) <- ${url}`);
+    return resp;
+  } catch (directErr: any) {
+    const directMsg = directErr?.message || String(directErr);
+    console.warn(`[AnimeUnity][Proxy] GET diretto FALLITO: ${directMsg} <- ${url}`);
+    if (!proxyAgent) {
+      console.warn('[AnimeUnity][Proxy] Nessun proxy configurato, errore definitivo');
+      throw directErr;
+    }
+    if (!isRetryableError(directErr)) {
+      console.warn('[AnimeUnity][Proxy] Errore non retryable, non riprovo con proxy');
+      throw directErr;
+    }
   }
-  return config;
-});
+  // Retry con proxy
+  console.log(`[AnimeUnity][Proxy] Retry GET con proxy (${PROXY_TYPE}) -> ${url}`);
+  try {
+    const resp = await axios.get(url, { ...config, timeout: config.timeout || FETCH_TIMEOUT, httpAgent: proxyAgent, httpsAgent: proxyAgent });
+    console.log(`[AnimeUnity][Proxy] GET con proxy OK (${resp.status}) <- ${url}`);
+    return resp;
+  } catch (proxyErr: any) {
+    console.error(`[AnimeUnity][Proxy] GET FALLITO anche con proxy: ${proxyErr?.message || proxyErr} <- ${url}`);
+    throw proxyErr;
+  }
+}
+
+/**
+ * axios POST con retry proxy: tenta prima DIRETTO (3s timeout), poi con proxy se fallisce.
+ */
+async function auAxiosPost(url: string, data: any, config: any = {}): Promise<any> {
+  console.log(`[AnimeUnity][Proxy] POST diretto (${DIRECT_TIMEOUT}ms) -> ${url}`);
+  try {
+    const resp = await axios.post(url, data, { ...config, timeout: DIRECT_TIMEOUT, httpAgent: undefined, httpsAgent: undefined });
+    console.log(`[AnimeUnity][Proxy] POST diretto OK (${resp.status}) <- ${url}`);
+    return resp;
+  } catch (directErr: any) {
+    const directMsg = directErr?.message || String(directErr);
+    console.warn(`[AnimeUnity][Proxy] POST diretto FALLITO: ${directMsg} <- ${url}`);
+    if (!proxyAgent) {
+      console.warn('[AnimeUnity][Proxy] Nessun proxy configurato, errore definitivo');
+      throw directErr;
+    }
+    if (!isRetryableError(directErr)) {
+      console.warn('[AnimeUnity][Proxy] Errore non retryable, non riprovo con proxy');
+      throw directErr;
+    }
+  }
+  console.log(`[AnimeUnity][Proxy] Retry POST con proxy (${PROXY_TYPE}) -> ${url}`);
+  try {
+    const resp = await axios.post(url, data, { ...config, timeout: config.timeout || FETCH_TIMEOUT, httpAgent: proxyAgent, httpsAgent: proxyAgent });
+    console.log(`[AnimeUnity][Proxy] POST con proxy OK (${resp.status}) <- ${url}`);
+    return resp;
+  } catch (proxyErr: any) {
+    console.error(`[AnimeUnity][Proxy] POST FALLITO anche con proxy: ${proxyErr?.message || proxyErr} <- ${url}`);
+    throw proxyErr;
+  }
+}
+
+/**
+ * fetchResource wrapper con retry proxy: tenta prima DIRETTO (3s, agent: null),
+ * poi con proxy agent se fallisce.
+ */
+async function auFetchResource(url: string, providerCaches: any, options: any = {}): Promise<any> {
+  console.log(`[AnimeUnity][Proxy] fetchResource diretto (${DIRECT_TIMEOUT}ms) -> ${url}`);
+  try {
+    const result = await fetchResource(url, providerCaches, {
+      ...options,
+      agent: null,  // forza nessun proxy (override auto-detect in fetch-resource.ts)
+      timeoutMs: DIRECT_TIMEOUT,
+    });
+    console.log(`[AnimeUnity][Proxy] fetchResource diretto OK <- ${url}`);
+    return result;
+  } catch (directErr: any) {
+    const directMsg = directErr?.message || String(directErr);
+    console.warn(`[AnimeUnity][Proxy] fetchResource diretto FALLITO: ${directMsg} <- ${url}`);
+    if (!proxyAgent) {
+      console.warn('[AnimeUnity][Proxy] Nessun proxy per fetchResource, errore definitivo');
+      throw directErr;
+    }
+  }
+  console.log(`[AnimeUnity][Proxy] Retry fetchResource con proxy (${PROXY_TYPE}) -> ${url}`);
+  try {
+    const result = await fetchResource(url, providerCaches, {
+      ...options,
+      agent: proxyAgent,
+      timeoutMs: options.timeoutMs || FETCH_TIMEOUT,
+    });
+    console.log(`[AnimeUnity][Proxy] fetchResource con proxy OK <- ${url}`);
+    return result;
+  } catch (proxyErr: any) {
+    console.error(`[AnimeUnity][Proxy] fetchResource FALLITO anche con proxy: ${proxyErr?.message || proxyErr} <- ${url}`);
+    throw proxyErr;
+  }
+}
 
 interface AnimeUnitySession {
   csrfToken: string;
@@ -161,7 +280,7 @@ function extractAnimeIdSlugFromPath(animePath: string): { animeId: number | null
 async function getSessionData(): Promise<AnimeUnitySession | null> {
   if (sessionCache && sessionCache.expiresAt > Date.now()) return sessionCache;
   try {
-    const response = await axios.get(`${getUnityBaseUrl()}/`, {
+    const response = await auAxiosGet(`${getUnityBaseUrl()}/`, {
       timeout: FETCH_TIMEOUT,
       headers: {
         'User-Agent': USER_AGENT,
@@ -206,12 +325,12 @@ async function searchEndpoint(query: string, dubbed = false): Promise<AnimeUnity
   const out: AnimeUnitySearchResult[] = [];
 
   const requests = [
-    axios.post(
+    auAxiosPost(
       `${getUnityBaseUrl()}/livesearch`,
       { title: query },
       { timeout: FETCH_TIMEOUT, headers }
     ).catch(() => null),
-    axios.post(
+    auAxiosPost(
       `${getUnityBaseUrl()}/archivio/get-animes`,
       {
         title: query,
@@ -260,7 +379,7 @@ async function fetchEpisodesRangeFromApi(animeId: number, requestedEpisode: numb
   const endRange = startRange + 119;
 
   try {
-    const payload = await fetchResource(
+    const payload = await auFetchResource(
       `${getUnityBaseUrl()}/info_api/${animeId}/1?start_range=${startRange}&end_range=${endRange}`,
       caches,
       {
@@ -290,7 +409,7 @@ async function getStreamData(animeId: number, animeSlug: string, episodeId: numb
   const episodePage = `${getUnityBaseUrl()}/anime/${animeId}-${animeSlug}/${episodeId}`;
 
   try {
-    const html = await fetchResource(episodePage, caches, {
+    const html = await auFetchResource(episodePage, caches, {
       ttlMs: TTL.streamPage,
       cacheKey: `au-ep:${animeId}:${episodeId}`,
       timeoutMs: FETCH_TIMEOUT,
@@ -308,7 +427,7 @@ async function getStreamData(animeId: number, animeSlug: string, episodeId: numb
     let mp4Url: string | null = null;
     if (embedUrl) {
       try {
-        const embedHtml = await fetchResource(embedUrl, caches, {
+        const embedHtml = await auFetchResource(embedUrl, caches, {
           ttlMs: TTL.streamPage,
           cacheKey: `au-embed:${embedUrl}`,
           timeoutMs: FETCH_TIMEOUT,
@@ -592,7 +711,7 @@ export class AnimeUnityProvider {
     const animeUrl = buildUnityUrl(normalizedPath);
     if (!animeUrl) return [];
 
-    const html = await fetchResource(animeUrl, caches, {
+    const html = await auFetchResource(animeUrl, caches, {
       ttlMs: TTL.animePage,
       cacheKey: `au-anime:${normalizedPath}`,
       timeoutMs: FETCH_TIMEOUT,
