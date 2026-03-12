@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.5...v1.17.6) (2026-03-12)
+
+
+### Bug Fixes
+
+* guaflix ([8d8fec1](https://github.com/qwertyuiop8899/streamvix/commit/8d8fec1e51141155e27bf55874401b605b3d7afa))
+
 ## [1.17.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.4...v1.17.5) (2026-03-11)
 
 
