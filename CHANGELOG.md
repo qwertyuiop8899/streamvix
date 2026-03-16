@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.8...v1.17.9) (2026-03-15)
+
+
+### Bug Fixes
+
+* vavoo clean ([30f1328](https://github.com/qwertyuiop8899/streamvix/commit/30f1328d0f5a5858f9a9383bef116bc37f418c3b))
+
 ## [1.17.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.7...v1.17.8) (2026-03-12)
 
 
