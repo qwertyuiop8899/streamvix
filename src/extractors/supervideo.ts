@@ -108,7 +108,16 @@ export class SuperVideoExtractor implements HostExtractor {
       const m3u8 = this.unpackStream(html);
       if (m3u8) {
         if (debug) console.log('[SV][success]', m3u8.substring(0, 80));
-        return { streams: [this.buildStream(m3u8, html, ctx)] };
+        
+        // Exact same referer computation logic as easystreams
+        let playbackReferer = refererBase;
+        try {
+          playbackReferer = new URL(m3u8).origin + "/";
+        } catch (_) {
+          playbackReferer = refererBase || "https://supervideo.tv/";
+        }
+        
+        return { streams: [this.buildStream(m3u8, html, ctx, playbackReferer)] };
       }
 
       if (debug) console.log('[SV][no-packed] no eval/sources found in response');
@@ -147,7 +156,7 @@ export class SuperVideoExtractor implements HostExtractor {
     return null;
   }
 
-  private buildStream(m3u8: string, html: string, ctx: ExtractorContext): StreamForStremio {
+  private buildStream(m3u8: string, html: string, ctx: ExtractorContext, playbackReferer: string): StreamForStremio {
     let resPart = '';
     let sizePart = '';
     const heightAndSizeMatch = html.match(/\d{3,}x(\d{3,}), ([\d.]+ ?[GM]B)/);
@@ -162,6 +171,20 @@ export class SuperVideoExtractor implements HostExtractor {
     if (resPart) segs.push(resPart);
     segs.push('SuperVideo');
     const title = `${baseTitle} • [ITA]` + (segs.length ? `\n💾 ${segs.join(' • ')}` : '');
-    return { title, url: m3u8, behaviorHints: { notWebReady: true } };
+    
+    return { 
+      title, 
+      url: m3u8, 
+      behaviorHints: { 
+        notWebReady: true,
+        proxyHeaders: {
+          request: {
+            "Referer": playbackReferer,
+            "Origin": playbackReferer.replace(/\/$/, ''),
+            "User-Agent": USER_AGENT
+          }
+        }
+      } as any
+    };
   }
 }
