@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.17.10](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.9...v1.17.10) (2026-03-23)
+
+
+### Bug Fixes
+
+* domain update ([73fab1f](https://github.com/qwertyuiop8899/streamvix/commit/73fab1f57a50fc09c3c46bb5b29cdf501ab63844))
+* domains update ([23159a2](https://github.com/qwertyuiop8899/streamvix/commit/23159a23f98a01aa8e6a3db6a3289cd3a4e86fec))
+* domains update ([e3f495b](https://github.com/qwertyuiop8899/streamvix/commit/e3f495ba9c613b1b13418554e36b4e655a6d8145))
+* dropload.ts ([f7c092d](https://github.com/qwertyuiop8899/streamvix/commit/f7c092d344724f2d47a9a3d6f7fcf43801662f4c))
+* guardaserie-provider.ts ([16ed7d5](https://github.com/qwertyuiop8899/streamvix/commit/16ed7d5c1644a0038673f33473880b572fecda8f))
+* supervideo.ts ([8aaf1f9](https://github.com/qwertyuiop8899/streamvix/commit/8aaf1f9a5b6fbb80a71a55aff13ca48697e8bba5))
+
 ## [1.17.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.8...v1.17.9) (2026-03-15)
 
 
