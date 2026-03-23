@@ -436,7 +436,7 @@ export class GuardaSerieProvider {
       // mirrors inside this block
       for (const mm of block.matchAll(/data-link=\"([^\"]+)\"/g)) { let u = mm[1]; if (u.startsWith('//')) u = 'https:' + u; links.add(u); }
       if (!links.size) continue;
-      eps.push({ season: isNaN(seasonNum) ? 1 : seasonNum, number: epNum, url: seriesUrl, embeds: Array.from(links).filter(l => /supervideo|dropload|mixdrop|dood/i.test(l)) });
+      eps.push({ season: isNaN(seasonNum) ? 1 : seasonNum, number: epNum, url: seriesUrl, embeds: Array.from(links).filter(l => /supervideo|dropload|dr0p|mixdrop|dood/i.test(l)) });
       if (eps.length > 500) break;
     }
     console.log('[GS][fetchEpisodes] new-pattern parsed', eps.length);
@@ -615,10 +615,10 @@ export class GuardaSerieProvider {
         const globalMirrors = detailHtml.match(/<div class=\"mirrors\"[\s\S]*?<\/div>/gi) || [];
         for (const gm of globalMirrors) {
           if (!new RegExp(`id=\"${epId}\"`).test(detailHtml)) continue;
-          for (const mm of gm.matchAll(/data-link=\"([^\"]+)\"/g)) { let u = mm[1]; if (u.startsWith('//')) u = 'https:' + u; if (/supervideo|dropload|mixdrop|dood/i.test(u)) { if (!embedLinks.includes(u)) embedLinks.push(u); } }
+          for (const mm of gm.matchAll(/data-link=\"([^\"]+)\"/g)) { let u = mm[1]; if (u.startsWith('//')) u = 'https:' + u; if (/supervideo|dropload|dr0p|mixdrop|dood/i.test(u)) { if (!embedLinks.includes(u)) embedLinks.push(u); } }
         }
       }
-      const uniqueLinks = Array.from(new Set(embedLinks)).filter(l => /supervideo|dropload|mixdrop|dood/i.test(l)).slice(0, 6);
+      const uniqueLinks = Array.from(new Set(embedLinks)).filter(l => /supervideo|dropload|dr0p|mixdrop|dood/i.test(l)).slice(0, 6);
       const pageReferer = pageUrl;
       const out: StreamForStremio[] = []; const seen = new Set<string>();
       for (const eurlRaw of uniqueLinks) {
@@ -642,7 +642,7 @@ export class GuardaSerieProvider {
             const parsed = this.parseSecondLineParts(s.title);
             let player = parsed.player;
             if (!player) {
-              player = /dropload/i.test(eurl) ? 'dropload' : /mixdrop/i.test(eurl) ? 'mixdrop' : /dood/i.test(eurl) ? 'doodstream' : undefined as any;
+              player = /dropload|dr0p/i.test(eurl) ? 'dropload' : /mixdrop/i.test(eurl) ? 'mixdrop' : /dood/i.test(eurl) ? 'doodstream' : undefined as any;
             }
             out.push({ ...s, title: this.formatStreamTitle(resolvedTitle || '', season, episode, parsed.info, player) });
           }
