@@ -1,5 +1,5 @@
 //Adapted for use in Streamvix from:
-// webstreamr in https://github.com/webstreamr/webstreamr
+// webstreamr in https://github.com/webstreamr/webstreamr 
 // 
 
 import { HostExtractor, ExtractResult, ExtractorContext, normalizeUrl, parseSizeToBytes } from './base';
