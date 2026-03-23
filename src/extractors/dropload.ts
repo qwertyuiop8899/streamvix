@@ -23,10 +23,9 @@ function humanSize(bytes: number): string {
   while (v >= 1024 && i < units.length -1) { v /= 1024; i++; }
   return (i >= 2 ? v.toFixed(2) : v.toFixed(0)) + units[i];
 }
-
 export class DroploadExtractor implements HostExtractor {
   id='dropload';
-  supports(url: string){ return /dropload/i.test(url); }
+  supports(url: string){ return /dropload|dr0p/i.test(url); }
   async extract(rawUrl: string, _ctx: ExtractorContext): Promise<ExtractResult> {
     // Normalize but keep embed- part if present (contains script). Only collapse /e/ path.
     let url = normalizeUrl(rawUrl);
@@ -220,7 +219,26 @@ export class DroploadExtractor implements HostExtractor {
   secondSegs.push('Dropload');
   // If we have neither size nor resolution, omit the entire second line per new rule
   const effectiveSecondLine = (sizePart || resPart) ? `\n💾 ${secondSegs.join(' • ')}` : '';
-  const stream: StreamForStremio = { title: `${title} • [ITA]${effectiveSecondLine}`, url: m3u8, behaviorHints:{ notWebReady:true } };
+  
+  let playbackReferer = url;
+  try {
+    playbackReferer = new URL(url).origin + "/";
+  } catch (_) { }
+
+  const stream: StreamForStremio = { 
+    title: `${title} • [ITA]${effectiveSecondLine}`, 
+    url: m3u8, 
+    behaviorHints:{ 
+      notWebReady:true,
+      proxyHeaders: {
+        request: {
+          "Referer": playbackReferer,
+          "Origin": playbackReferer.replace(/\/$/, ''),
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)"
+        }
+      } 
+    } as any
+  };
     return { streams: [stream] };
   }
 }
