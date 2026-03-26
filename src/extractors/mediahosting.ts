@@ -16,22 +16,88 @@ export interface MediaHostingChannel {
     logo?: string;
 }
 
+const CC1_STREAM_ID_BY_CC3: Record<number, number> = {
+    325: 229,
+    326: 230,
+    327: 231,
+    328: 232,
+    329: 233,
+    330: 234,
+    331: 235,
+    332: 236,
+    333: 237,
+    334: 238,
+    335: 239,
+    336: 240,
+    337: 241,
+};
+
+const CC3_STREAM_ID_BY_CC1: Record<number, number> = Object.entries(CC1_STREAM_ID_BY_CC3).reduce(
+    (acc, [cc3, cc1]) => {
+        acc[cc1] = Number(cc3);
+        return acc;
+    },
+    {} as Record<number, number>
+);
+
+export interface MediaHostingResolvedSource {
+    host: 'cc1' | 'cc3';
+    streamId: number | string;
+    url: string;
+}
+
 export class MediaHostingClient {
     // private baseUrl = 'https://mediahosting.space'; // OLD mediahosting
-    private baseUrl = 'https://cc3.screenistream.xyz:8080';
-    private referer = 'https://cc3.screenistream.xyz/';
+    private hostMap: Record<'cc1' | 'cc3', { baseUrl: string; referer: string }> = {
+        cc1: {
+            baseUrl: 'https://cc1.screenistream.xyz:8080',
+            referer: 'https://cc1.screenistream.xyz/',
+        },
+        cc3: {
+            baseUrl: 'https://cc3.screenistream.xyz:8080',
+            referer: 'https://cc3.screenistream.xyz/',
+        },
+    };
     private token = 'T4Nz6WCt2Uwlqma4';
     private userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+    private mapStreamIdForHost(streamId: number | string, host: 'cc1' | 'cc3'): number | string {
+        const n = Number(streamId);
+        if (!Number.isFinite(n)) return streamId;
+
+        if (host === 'cc1' && CC1_STREAM_ID_BY_CC3[n] !== undefined) {
+            return CC1_STREAM_ID_BY_CC3[n];
+        }
+        if (host === 'cc3' && CC3_STREAM_ID_BY_CC1[n] !== undefined) {
+            return CC3_STREAM_ID_BY_CC1[n];
+        }
+        return n;
+    }
 
     /**
      * Risolve un ID stream in un URL M3U8 diretto (screenistream).
      * @param streamId - L'ID numerico dello stream (es. 325)
      * @returns URL M3U8 o null se non trovato
      */
-    async resolve(streamId: number | string): Promise<string | null> {
+    async resolve(streamId: number | string, host: 'cc1' | 'cc3' = 'cc3'): Promise<string | null> {
+        let resolvedHost: 'cc1' | 'cc3' = host;
+        let resolvedStreamId: number | string = streamId;
+
+        // Compatibilità: accetta anche "cc1:229" o "cc3:325"
+        if (typeof streamId === 'string' && streamId.includes(':')) {
+            const [maybeHost, maybeId] = streamId.split(':', 2);
+            if ((maybeHost === 'cc1' || maybeHost === 'cc3') && maybeId) {
+                resolvedHost = maybeHost;
+                resolvedStreamId = maybeId;
+            }
+        }
+
+        const hostCfg = this.hostMap[resolvedHost] || this.hostMap.cc3;
+        const hostStreamId = this.mapStreamIdForHost(resolvedStreamId, resolvedHost);
+
         // URL diretto screenistream — nessuna estrazione necessaria
-        const directUrl = `${this.baseUrl}/stream/${streamId}/index.m3u8?token=${this.token}`;
-        console.log(`[MediaHosting] ✅ Direct stream ${streamId} -> ${directUrl.substring(0, 80)}...`);
+        const directUrl = `${hostCfg.baseUrl}/stream/${hostStreamId}/index.m3u8?token=${this.token}`;
+        console.log(`[MediaHosting] ✅ Direct stream ${resolvedHost}:${hostStreamId} -> ${directUrl.substring(0, 80)}...`);
         return directUrl;
 
         // --- OLD mediahosting embed extraction (commentato) ---
@@ -78,11 +144,39 @@ export class MediaHostingClient {
 
     /** Headers necessari per il playback dello stream M3U8 */
     getPlaybackHeaders(): Record<string, string> {
+        const hostCfg = this.hostMap.cc3;
         return {
-            'Referer': this.referer,
-            'Origin': this.baseUrl,
+            'Referer': hostCfg.referer,
+            'Origin': hostCfg.baseUrl,
             'User-Agent': this.userAgent,
         };
+    }
+
+    /** Variante host-aware per chi vuole header coerenti con il nodo scelto (cc1/cc3) */
+    getPlaybackHeadersForHost(host: 'cc1' | 'cc3' = 'cc3'): Record<string, string> {
+        const hostCfg = this.hostMap[host] || this.hostMap.cc3;
+        return {
+            'Referer': hostCfg.referer,
+            'Origin': hostCfg.baseUrl,
+            'User-Agent': this.userAgent,
+        };
+    }
+
+    /**
+     * Da uno stesso stream canonico (es. 334) risolve entrambe le sorgenti.
+     * Utile per mostrare 2 stream sullo stesso canale mh_xxx.
+     */
+    async resolveBoth(streamId: number | string): Promise<MediaHostingResolvedSource[]> {
+        const cc3StreamId = this.mapStreamIdForHost(streamId, 'cc3');
+        const cc1StreamId = this.mapStreamIdForHost(streamId, 'cc1');
+
+        const cc3 = await this.resolve(cc3StreamId, 'cc3');
+        const cc1 = await this.resolve(cc1StreamId, 'cc1');
+
+        const out: MediaHostingResolvedSource[] = [];
+        if (cc3) out.push({ host: 'cc3', streamId: cc3StreamId, url: cc3 });
+        if (cc1) out.push({ host: 'cc1', streamId: cc1StreamId, url: cc1 });
+        return out;
     }
 }
 
