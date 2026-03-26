@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.17.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.11...v1.17.12) (2026-03-26)
+
+
+### Bug Fixes
+
+* mediahosting.ts ([04387c1](https://github.com/qwertyuiop8899/streamvix/commit/04387c1ec9bf099ccfb640af93eff3bd36d84d72))
+* mediahostingUpdater.ts ([93f3983](https://github.com/qwertyuiop8899/streamvix/commit/93f398396f82507c606bf302be0e0de2629bc464))
+* mh2 ([589043d](https://github.com/qwertyuiop8899/streamvix/commit/589043d37a6763db8087ad6d6a99fe7e2e88ee3e))
+
 ## [1.17.11](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.10...v1.17.11) (2026-03-25)
 
 
