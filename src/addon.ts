@@ -2891,30 +2891,51 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         const mhMatch = mhCh._mediahosting;
                         console.log(`✅ Found MediaHosting stream for: ${mhCh.name}`);
                         const mhClient = new MediaHostingClient();
-                        const mhStreamUrl = await mhClient.resolve(mhMatch.stream_id);
-                        if (mhStreamUrl) {
-                            const mhHdrs = mhClient.getPlaybackHeaders();
-                            const mhMfpUrl = (requestConfig?.mediaFlowProxyUrl || configCache?.mediaFlowProxyUrl || process.env.MFP_URL || '').replace(/\/+$/, '');
-                            const mhMfpPsw = requestConfig?.mediaFlowProxyPassword || configCache?.mediaFlowProxyPassword || process.env.MFP_PSW || '';
+                        const mhMfpUrl = (requestConfig?.mediaFlowProxyUrl || configCache?.mediaFlowProxyUrl || process.env.MFP_URL || '').replace(/\/+$/, '');
+                        const mhMfpPsw = requestConfig?.mediaFlowProxyPassword || configCache?.mediaFlowProxyPassword || process.env.MFP_PSW || '';
+
+                        const wantedHosts: Array<'cc3' | 'cc1'> = Array.isArray(mhMatch.hosts) && mhMatch.hosts.length
+                            ? mhMatch.hosts.filter((h: any) => h === 'cc3' || h === 'cc1')
+                            : ['cc3', 'cc1'];
+
+                        const sourceSpecs = wantedHosts.map((host) => ({
+                            host,
+                            streamId: host === 'cc1'
+                                ? (mhMatch.stream_id_cc1 || mhMatch.stream_id)
+                                : mhMatch.stream_id
+                        }));
+
+                        const mhStreams: any[] = [];
+                        const seenUrls = new Set<string>();
+
+                        for (const src of sourceSpecs) {
+                            const mhStreamUrl = await mhClient.resolve(src.streamId, src.host);
+                            if (!mhStreamUrl || seenUrls.has(mhStreamUrl)) continue;
+                            seenUrls.add(mhStreamUrl);
+
+                            const mhHdrs = mhClient.getPlaybackHeadersForHost(src.host);
                             let mhFinalUrl = mhStreamUrl;
-                            let mhTitle = '🔴 LIVE';
+                            let mhTitle = `🔴 LIVE [${src.host.toUpperCase()}]`;
                             if (mhMfpUrl) {
                                 const hParams = Object.entries(mhHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
                                 const pwParam = mhMfpPsw ? `&api_password=${encodeURIComponent(mhMfpPsw)}` : '';
                                 mhFinalUrl = `${mhMfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(mhStreamUrl)}${pwParam}${hParams}`;
-                                mhTitle = '🌐 🔴 LIVE';
+                                mhTitle = `🌐 🔴 LIVE [${src.host.toUpperCase()}]`;
                             }
-                            return {
-                                streams: [{
-                                    url: mhFinalUrl,
-                                    title: mhTitle,
-                                    name: mhMatch.channel_name || 'MediaHosting',
-                                    behaviorHints: {
-                                        notWebReady: true,
-                                        ...(mhMfpUrl ? {} : { proxyHeaders: { request: mhHdrs } })
-                                    } as any
-                                }]
-                            };
+
+                            mhStreams.push({
+                                url: mhFinalUrl,
+                                title: mhTitle,
+                                name: mhMatch.channel_name || 'MediaHosting',
+                                behaviorHints: {
+                                    notWebReady: true,
+                                    ...(mhMfpUrl ? {} : { proxyHeaders: { request: mhHdrs } })
+                                } as any
+                            });
+                        }
+
+                        if (mhStreams.length > 0) {
+                            return { streams: mhStreams };
                         } else {
                             console.warn(`[MediaHosting] Could not resolve stream for ${mhCh.name}`);
                             return { streams: [] };
