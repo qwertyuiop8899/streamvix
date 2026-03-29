@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.14](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.13...v1.17.14) (2026-03-29)
+
+
+### Bug Fixes
+
+* pluto ([712fe81](https://github.com/qwertyuiop8899/streamvix/commit/712fe813884cceddc529f9ae56beaa49d1f06985))
+
 ## [1.17.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.12...v1.17.13) (2026-03-29)
 
 
