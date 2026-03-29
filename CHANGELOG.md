@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.13](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.12...v1.17.13) (2026-03-29)
+
+
+### Bug Fixes
+
+* add pluto ([172862d](https://github.com/qwertyuiop8899/streamvix/commit/172862d56dfcba775b1ca0c50afb4b922f1504c3))
+* domains update ([8470313](https://github.com/qwertyuiop8899/streamvix/commit/84703134d453ffe714ec27637c4c6692bea158fb))
+
 ## [1.17.12](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.11...v1.17.12) (2026-03-26)
 
 
