@@ -796,7 +796,10 @@
     "epgChannelIds": [
       "64c109a4798def0008a6e03e"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/64c109a4798def0008a6e03e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-64c109a4798def0008a6e03e.m3u8",
+    "staticUrlF2": "https://amg00793-amg00793c43-rakuten-it-5537.playouts.now.amagi.tv/playlist.m3u8",
+    "logo": "https://images.pluto.tv/channels/64c109a4798def0008a6e03e/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/64c109a4798def0008a6e03e/colorLogoPNG.png"
   },
   {
     "id": "plutotvalbertosordi",
@@ -808,7 +811,10 @@
     "epgChannelIds": [
       "661f8f01801af800083d9d81"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/661f8f01801af800083d9d81/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-661f8f01801af800083d9d81.m3u8",
+    "staticUrlF2": "https://253cf8b2.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWl0X1Jpc2F0ZWFsbGl0YWxpYW5hX0hMUw/playlist.m3u8",
+    "logo": "https://images.pluto.tv/channels/661f8f01801af800083d9d81/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/661f8f01801af800083d9d81/colorLogoPNG.png"
   },
   {
     "id": "southpark",
@@ -820,7 +826,9 @@
     "epgChannelIds": [
       "62bc1f502b70e3000706298e"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62bc1f502b70e3000706298e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-62bc1f502b70e3000706298e.m3u8",
+    "logo": "https://images.pluto.tv/channels/62bc1f502b70e3000706298e/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/62bc1f502b70e3000706298e/colorLogoPNG.png"
   },
   {
     "id": "casepazzesche",
@@ -832,7 +840,9 @@
     "epgChannelIds": [
       "626bb07a58b8dd0007e9f36e"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/626bb07a58b8dd0007e9f36e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-626bb07a58b8dd0007e9f36e.m3u8",
+    "logo": "https://images.pluto.tv/channels/626bb07a58b8dd0007e9f36e/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/626bb07a58b8dd0007e9f36e/colorLogoPNG.png"
   },
   {
     "id": "extrememakeoverhomeedition",
@@ -844,7 +854,9 @@
     "epgChannelIds": [
       "6661739641af6400080cd8f1"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6661739641af6400080cd8f1/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6661739641af6400080cd8f1.m3u8",
+    "logo": "https://images.pluto.tv/channels/6661739641af6400080cd8f1/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/6661739641af6400080cd8f1/colorLogoPNG.png"
   },
   {
     "id": "16annieincinta",
@@ -856,7 +868,9 @@
     "epgChannelIds": [
       "60940a07d88ba90007b9cb71"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/60940a07d88ba90007b9cb71/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-60940a07d88ba90007b9cb71.m3u8",
+    "logo": "https://images.pluto.tv/channels/60940a07d88ba90007b9cb71/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/60940a07d88ba90007b9cb71/colorLogoPNG.png"
   },
   {
     "id": "iltestimone",
@@ -868,7 +882,9 @@
     "epgChannelIds": [
       "61fbd3f0733df400076c9a2d"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/61fbd3f0733df400076c9a2d/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-61fbd3f0733df400076c9a2d.m3u8",
+    "logo": "https://images.pluto.tv/channels/61fbd3f0733df400076c9a2d/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/61fbd3f0733df400076c9a2d/colorLogoPNG.png"
   },
   {
     "id": "catfish",
@@ -880,7 +896,9 @@
     "epgChannelIds": [
       "6093f9ed2c75660007322bb7"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6093f9ed2c75660007322bb7/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6093f9ed2c75660007322bb7.m3u8",
+    "logo": "https://images.pluto.tv/channels/6093f9ed2c75660007322bb7/colorLogoPNG_1750862971704.png",
+    "background": "https://images.pluto.tv/channels/6093f9ed2c75660007322bb7/colorLogoPNG_1750862971704.png"
   },
   {
     "id": "teenmom",
@@ -892,7 +910,42 @@
     "epgChannelIds": [
       "62e7fc8c0d061100083946a9"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62e7fc8c0d061100083946a9/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-62e7fc8c0d061100083946a9.m3u8",
+    "logo": "https://images.pluto.tv/channels/62e7fc8c0d061100083946a9/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/62e7fc8c0d061100083946a9/colorLogoPNG.png"
+  },
+  {
+    "id": "mrbean",
+    "type": "tv",
+    "name": "Pluto TV Documentari",
+    "poster": "https://static.wikia.nocookie.net/logopedia/images/7/78/Mr._Bean_%28animated_series%2C_stacked%29.svg/revision/latest?cb=20260201140906",
+    "description": "Pluto",
+    "category": "pluto",
+    "staticUrlF": "https://amg00627-amg00627c29-rakuten-it-3989.playouts.now.amagi.tv/playlist/amg00627-banijayfast-mrbeanitcc-rakutenit/playlist.m3u8",
+    "logo": "https://static.wikia.nocookie.net/logopedia/images/7/78/Mr._Bean_%28animated_series%2C_stacked%29.svg/revision/latest?cb=20260201140906",
+    "background": "https://static.wikia.nocookie.net/logopedia/images/7/78/Mr._Bean_%28animated_series%2C_stacked%29.svg/revision/latest?cb=20260201140906"
+  },
+  {
+    "id": "peopleareawesome",
+    "type": "tv",
+    "name": "Pluto TV Documentari",
+    "poster": "https://www.peopleareawesome.com/cdn/shop/t/17/assets/logo-image-file.png?v=158202363238024051661687180214",
+    "description": "Pluto",
+    "category": "pluto",
+    "staticUrlF": "https://jukin-peopleareawesome-2-it.samsung.wurl.tv/playlist.m3u8",
+    "logo": "https://www.peopleareawesome.com/cdn/shop/t/17/assets/logo-image-file.png?v=158202363238024051661687180214",
+    "background": "https://www.peopleareawesome.com/cdn/shop/t/17/assets/logo-image-file.png?v=158202363238024051661687180214"
+  },
+  {
+    "id": "failarmy",
+    "type": "tv",
+    "name": "Pluto TV Documentari",
+    "poster": "https://scontent.fcia2-2.fna.fbcdn.net/v/t39.30808-6/474203457_910497557866850_2327206467749796632_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=1d70fc&_nc_ohc=m9FhAaVau4sQ7kNvwFIZQbB&_nc_oc=AdoTm5G1PZ91XVXTgkfRrWyhD4AFiPnkXy0xumeiObvFQURQYan4FGGsOIistCE6P6k&_nc_zt=23&_nc_ht=scontent.fcia2-2.fna&_nc_gid=lt-_0zrdvqilOsm9o67M5g&_nc_ss=7a32e&oh=00_AfyUMZ9qtU4epkhZozkN_Hr1AxuPlo5poewSCIlNI-UDoQ&oe=69CECA79",
+    "description": "Pluto",
+    "category": "pluto",
+    "staticUrlF": "https://failarmy-international-it.samsung.wurl.tv/playlist.m3u8",
+    "logo": "https://scontent.fcia2-2.fna.fbcdn.net/v/t39.30808-6/474203457_910497557866850_2327206467749796632_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=1d70fc&_nc_ohc=m9FhAaVau4sQ7kNvwFIZQbB&_nc_oc=AdoTm5G1PZ91XVXTgkfRrWyhD4AFiPnkXy0xumeiObvFQURQYan4FGGsOIistCE6P6k&_nc_zt=23&_nc_ht=scontent.fcia2-2.fna&_nc_gid=lt-_0zrdvqilOsm9o67M5g&_nc_ss=7a32e&oh=00_AfyUMZ9qtU4epkhZozkN_Hr1AxuPlo5poewSCIlNI-UDoQ&oe=69CECA79",
+    "background": "https://scontent.fcia2-2.fna.fbcdn.net/v/t39.30808-6/474203457_910497557866850_2327206467749796632_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=1d70fc&_nc_ohc=m9FhAaVau4sQ7kNvwFIZQbB&_nc_oc=AdoTm5G1PZ91XVXTgkfRrWyhD4AFiPnkXy0xumeiObvFQURQYan4FGGsOIistCE6P6k&_nc_zt=23&_nc_ht=scontent.fcia2-2.fna&_nc_gid=lt-_0zrdvqilOsm9o67M5g&_nc_ss=7a32e&oh=00_AfyUMZ9qtU4epkhZozkN_Hr1AxuPlo5poewSCIlNI-UDoQ&oe=69CECA79"
   },
   {
     "id": "plutotvdocumentari",
@@ -904,7 +957,9 @@
     "epgChannelIds": [
       "608aa8a5709d6b0007b132fe"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa8a5709d6b0007b132fe/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608aa8a5709d6b0007b132fe.m3u8",
+    "logo": "https://images.pluto.tv/channels/608aa8a5709d6b0007b132fe/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/608aa8a5709d6b0007b132fe/colorLogoPNG.png"
   },
   {
     "id": "plutotvstoria",
@@ -916,7 +971,9 @@
     "epgChannelIds": [
       "65253fdf3fd33c00080214a3"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65253fdf3fd33c00080214a3/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-65253fdf3fd33c00080214a3.m3u8",
+    "logo": "https://images.pluto.tv/channels/65253fdf3fd33c00080214a3/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/65253fdf3fd33c00080214a3/colorLogoPNG.png"
   },
   {
     "id": "naturescape",
@@ -928,7 +985,9 @@
     "epgChannelIds": [
       "610a9ebe8c2ac2000734776e"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/610a9ebe8c2ac2000734776e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-610a9ebe8c2ac2000734776e.m3u8",
+    "logo": "https://images.pluto.tv/channels/610a9ebe8c2ac2000734776e/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/610a9ebe8c2ac2000734776e/colorLogoPNG.png"
   },
   {
     "id": "plutotvnatura",
@@ -940,19 +999,23 @@
     "epgChannelIds": [
       "60802b37709d6b0007b0c549"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/60802b37709d6b0007b0c549/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-60802b37709d6b0007b0c549.m3u8",
+    "logo": "https://images.pluto.tv/channels/60802b37709d6b0007b0c549/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/60802b37709d6b0007b0c549/colorLogoPNG.png"
   },
   {
     "id": "euronews",
     "type": "tv",
     "name": "Euronews",
-    "poster": "https://images.pluto.tv/channels/61b86ea479a4390007c6d5fc/colorLogoPNG.png",
+    "poster": "https://raw.githubusercontent.com/qwertyuiop8899/logo/main/generated-covers/portrait/euronews.jpg",
     "description": "Pluto",
     "category": "pluto",
     "epgChannelIds": [
       "61b86ea479a4390007c6d5fc"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/61b86ea479a4390007c6d5fc/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-61b86ea479a4390007c6d5fc.m3u8",
+    "logo": "https://images.pluto.tv/channels/61b86ea479a4390007c6d5fc/colorLogoPNG.png",
+    "background": "https://raw.githubusercontent.com/qwertyuiop8899/logo/main/generated-covers/landscape/euronews.jpg"
   },
   {
     "id": "cbsnews247",
@@ -964,7 +1027,9 @@
     "epgChannelIds": [
       "6231ec4b62cd1f0007093c7b"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6231ec4b62cd1f0007093c7b/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6231ec4b62cd1f0007093c7b.m3u8",
+    "logo": "https://images.pluto.tv/channels/6231ec4b62cd1f0007093c7b/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/6231ec4b62cd1f0007093c7b/colorLogoPNG.png"
   },
   {
     "id": "isolitiidioti",
@@ -976,7 +1041,9 @@
     "epgChannelIds": [
       "6602acadb2abe500081cf28a"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6602acadb2abe500081cf28a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6602acadb2abe500081cf28a.m3u8",
+    "logo": "https://images.pluto.tv/channels/6602acadb2abe500081cf28a/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/6602acadb2abe500081cf28a/colorLogoPNG.png"
   },
   {
     "id": "plutotvscherzierisate",
@@ -988,7 +1055,9 @@
     "epgChannelIds": [
       "609404b0a8ec810007d8de9d"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/609404b0a8ec810007d8de9d/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-609404b0a8ec810007d8de9d.m3u8",
+    "logo": "https://images.pluto.tv/channels/609404b0a8ec810007d8de9d/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/609404b0a8ec810007d8de9d/colorLogoPNG.png"
   },
   {
     "id": "failarmy",
@@ -1000,7 +1069,9 @@
     "epgChannelIds": [
       "608014d19a26320007c92ab6"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608014d19a26320007c92ab6/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608014d19a26320007c92ab6.m3u8",
+    "logo": "https://images.pluto.tv/channels/608014d19a26320007c92ab6/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/608014d19a26320007c92ab6/colorLogoPNG.png"
   },
   {
     "id": "justforlaughsgags",
@@ -1012,7 +1083,9 @@
     "epgChannelIds": [
       "6093f48c95132a00075fd859"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6093f48c95132a00075fd859/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6093f48c95132a00075fd859.m3u8",
+    "logo": "https://images.pluto.tv/channels/6093f48c95132a00075fd859/colorLogoPNG_1745912777006.png",
+    "background": "https://images.pluto.tv/channels/6093f48c95132a00075fd859/colorLogoPNG_1745912777006.png"
   },
   {
     "id": "ijefferson",
@@ -1024,7 +1097,9 @@
     "epgChannelIds": [
       "62442f28afe626000747f195"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62442f28afe626000747f195/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-62442f28afe626000747f195.m3u8",
+    "logo": "https://images.pluto.tv/channels/62442f28afe626000747f195/colorLogoPNG-1652710570039.png",
+    "background": "https://images.pluto.tv/channels/62442f28afe626000747f195/colorLogoPNG-1652710570039.png"
   },
   {
     "id": "baywatch",
@@ -1036,7 +1111,9 @@
     "epgChannelIds": [
       "660fc6630cd4630008fae92f"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/660fc6630cd4630008fae92f/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-660fc6630cd4630008fae92f.m3u8",
+    "logo": "https://images.pluto.tv/channels/660fc6630cd4630008fae92f/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/660fc6630cd4630008fae92f/colorLogoPNG.png"
   },
   {
     "id": "plutotvtoto",
@@ -1048,7 +1125,9 @@
     "epgChannelIds": [
       "65253f9881f942000833ccd5"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65253f9881f942000833ccd5/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-65253f9881f942000833ccd5.m3u8",
+    "logo": "https://images.pluto.tv/channels/65253f9881f942000833ccd5/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/65253f9881f942000833ccd5/colorLogoPNG.png"
   },
   {
     "id": "settimocielo",
@@ -1060,7 +1139,9 @@
     "epgChannelIds": [
       "6245d3792792150007e20634"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6245d3792792150007e20634/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6245d3792792150007e20634.m3u8",
+    "logo": "https://images.pluto.tv/channels/6245d3792792150007e20634/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/6245d3792792150007e20634/colorLogoPNG.png"
   },
   {
     "id": "plutotvserie",
@@ -1072,7 +1153,9 @@
     "epgChannelIds": [
       "60b9ff2722bfa400072676ef"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/60b9ff2722bfa400072676ef/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-60b9ff2722bfa400072676ef.m3u8",
+    "logo": "https://images.pluto.tv/channels/60b9ff2722bfa400072676ef/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/60b9ff2722bfa400072676ef/colorLogoPNG.png"
   },
   {
     "id": "bbcdrama",
@@ -1084,7 +1167,9 @@
     "epgChannelIds": [
       "62e7fa5ab5062e0007dcf97d"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62e7fa5ab5062e0007dcf97d/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-62e7fa5ab5062e0007dcf97d.m3u8",
+    "logo": "https://images.pluto.tv/channels/62e7fa5ab5062e0007dcf97d/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/62e7fa5ab5062e0007dcf97d/colorLogoPNG.png"
   },
   {
     "id": "maidiresi",
@@ -1096,7 +1181,9 @@
     "epgChannelIds": [
       "6349279ed5023700078f2bc2"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6349279ed5023700078f2bc2/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6349279ed5023700078f2bc2.m3u8",
+    "logo": "https://images.pluto.tv/channels/6349279ed5023700078f2bc2/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/6349279ed5023700078f2bc2/colorLogoPNG.png"
   },
   {
     "id": "topserie",
@@ -1108,7 +1195,9 @@
     "epgChannelIds": [
       "654c955683595c00081d9d87"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/654c955683595c00081d9d87/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-654c955683595c00081d9d87.m3u8",
+    "logo": "https://images.pluto.tv/channels/654c955683595c00081d9d87/colorLogoPNG_1748417004383.png",
+    "background": "https://images.pluto.tv/channels/654c955683595c00081d9d87/colorLogoPNG_1748417004383.png"
   },
   {
     "id": "sulletraccedelcrimine",
@@ -1120,7 +1209,9 @@
     "epgChannelIds": [
       "66d9a98961dbf00008efb5fc"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66d9a98961dbf00008efb5fc/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-66d9a98961dbf00008efb5fc.m3u8",
+    "logo": "https://images.pluto.tv/channels/66d9a98961dbf00008efb5fc/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/66d9a98961dbf00008efb5fc/colorLogoPNG.png"
   },
   {
     "id": "plutotvseriecrime",
@@ -1132,7 +1223,9 @@
     "epgChannelIds": [
       "608aa777b907770007e5d05d"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa777b907770007e5d05d/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608aa777b907770007e5d05d.m3u8",
+    "logo": "https://images.pluto.tv/channels/608aa777b907770007e5d05d/colorLogoPNG_1750402183051.png",
+    "background": "https://images.pluto.tv/channels/608aa777b907770007e5d05d/colorLogoPNG_1750402183051.png"
   },
   {
     "id": "cincin",
@@ -1144,7 +1237,9 @@
     "epgChannelIds": [
       "65cb78b83a116800079e2e35"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65cb78b83a116800079e2e35/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-65cb78b83a116800079e2e35.m3u8",
+    "logo": "https://images.pluto.tv/channels/65cb78b83a116800079e2e35/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/65cb78b83a116800079e2e35/colorLogoPNG.png"
   },
   {
     "id": "loveboat",
@@ -1156,7 +1251,9 @@
     "epgChannelIds": [
       "65cb76723a116800079e1fc3"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65cb76723a116800079e1fc3/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-65cb76723a116800079e1fc3.m3u8",
+    "logo": "https://images.pluto.tv/channels/65cb76723a116800079e1fc3/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/65cb76723a116800079e1fc3/colorLogoPNG.png"
   },
   {
     "id": "missionimpossible",
@@ -1168,7 +1265,9 @@
     "epgChannelIds": [
       "65cb77853ba51e00084cba02"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65cb77853ba51e00084cba02/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-65cb77853ba51e00084cba02.m3u8",
+    "logo": "https://images.pluto.tv/channels/65cb77853ba51e00084cba02/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/65cb77853ba51e00084cba02/colorLogoPNG.png"
   },
   {
     "id": "renegade",
@@ -1180,7 +1279,9 @@
     "epgChannelIds": [
       "634926e4b51d2d00077819a2"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/634926e4b51d2d00077819a2/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-634926e4b51d2d00077819a2.m3u8",
+    "logo": "https://images.pluto.tv/channels/634926e4b51d2d00077819a2/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/634926e4b51d2d00077819a2/colorLogoPNG.png"
   },
   {
     "id": "macgyver",
@@ -1192,7 +1293,9 @@
     "epgChannelIds": [
       "6245d4511358320007029cdf"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6245d4511358320007029cdf/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6245d4511358320007029cdf.m3u8",
+    "logo": "https://images.pluto.tv/channels/6245d4511358320007029cdf/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/6245d4511358320007029cdf/colorLogoPNG.png"
   },
   {
     "id": "plutotvfilm",
@@ -1204,7 +1307,9 @@
     "epgChannelIds": [
       "608aa17fb9f4490007e6419a"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa17fb9f4490007e6419a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608aa17fb9f4490007e6419a.m3u8",
+    "logo": "https://images.pluto.tv/channels/608aa17fb9f4490007e6419a/colorLogoPNG_1733013735186.png",
+    "background": "https://images.pluto.tv/channels/608aa17fb9f4490007e6419a/colorLogoPNG_1733013735186.png"
   },
   {
     "id": "plutotvsalacinema",
@@ -1216,7 +1321,9 @@
     "epgChannelIds": [
       "67b368ca60720de3cd6f8f46"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/67b368ca60720de3cd6f8f46/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-67b368ca60720de3cd6f8f46.m3u8",
+    "logo": "https://images.pluto.tv/channels/67b368ca60720de3cd6f8f46/colorLogoPNG_1745818749515.png",
+    "background": "https://images.pluto.tv/channels/67b368ca60720de3cd6f8f46/colorLogoPNG_1745818749515.png"
   },
   {
     "id": "plutotvfilmazione",
@@ -1228,7 +1335,9 @@
     "epgChannelIds": [
       "608aa20a2e7f270007c4878d"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa20a2e7f270007c4878d/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608aa20a2e7f270007c4878d.m3u8",
+    "logo": "https://images.pluto.tv/channels/608aa20a2e7f270007c4878d/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/608aa20a2e7f270007c4878d/colorLogoPNG.png"
   },
   {
     "id": "plutotvhorror",
@@ -1240,7 +1349,9 @@
     "epgChannelIds": [
       "61c09e3ac210ed0007606620"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/61c09e3ac210ed0007606620/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-61c09e3ac210ed0007606620.m3u8",
+    "logo": "https://images.pluto.tv/channels/61c09e3ac210ed0007606620/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/61c09e3ac210ed0007606620/colorLogoPNG.png"
   },
   {
     "id": "plutotvfilmthriller",
@@ -1252,7 +1363,9 @@
     "epgChannelIds": [
       "608aa5e995132a00075f7005"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa5e995132a00075f7005/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608aa5e995132a00075f7005.m3u8",
+    "logo": "https://images.pluto.tv/channels/608aa5e995132a00075f7005/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/608aa5e995132a00075f7005/colorLogoPNG.png"
   },
   {
     "id": "plutotvlegamiletali",
@@ -1264,7 +1377,9 @@
     "epgChannelIds": [
       "64808a8c536e0c0008a276d1"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/64808a8c536e0c0008a276d1/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-64808a8c536e0c0008a276d1.m3u8",
+    "logo": "https://images.pluto.tv/channels/64808a8c536e0c0008a276d1/colorLogoPNG_1747395859514.png",
+    "background": "https://images.pluto.tv/channels/64808a8c536e0c0008a276d1/colorLogoPNG_1747395859514.png"
   },
   {
     "id": "plutotvfilmromantici",
@@ -1276,7 +1391,9 @@
     "epgChannelIds": [
       "608aa4a4cc92820007b663af"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa4a4cc92820007b663af/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608aa4a4cc92820007b663af.m3u8",
+    "logo": "https://images.pluto.tv/channels/608aa4a4cc92820007b663af/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/608aa4a4cc92820007b663af/colorLogoPNG.png"
   },
   {
     "id": "plutotvfilmcommedia",
@@ -1288,7 +1405,9 @@
     "epgChannelIds": [
       "608aa512d67fd900072323db"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa512d67fd900072323db/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608aa512d67fd900072323db.m3u8",
+    "logo": "https://images.pluto.tv/channels/608aa512d67fd900072323db/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/608aa512d67fd900072323db/colorLogoPNG.png"
   },
   {
     "id": "plutotvcinemaemozione",
@@ -1300,7 +1419,9 @@
     "epgChannelIds": [
       "608aa42b5c2b8f0007197529"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa42b5c2b8f0007197529/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608aa42b5c2b8f0007197529.m3u8",
+    "logo": "https://images.pluto.tv/channels/608aa42b5c2b8f0007197529/colorLogoPNG_1746815914026.png",
+    "background": "https://images.pluto.tv/channels/608aa42b5c2b8f0007197529/colorLogoPNG_1746815914026.png"
   },
   {
     "id": "plutotvfilmclassici",
@@ -1312,7 +1433,9 @@
     "epgChannelIds": [
       "608aa3c446d73500075f0e24"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa3c446d73500075f0e24/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608aa3c446d73500075f0e24.m3u8",
+    "logo": "https://images.pluto.tv/channels/608aa3c446d73500075f0e24/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/608aa3c446d73500075f0e24/colorLogoPNG.png"
   },
   {
     "id": "plutotvwestern",
@@ -1324,7 +1447,9 @@
     "epgChannelIds": [
       "62e7fb67478a5b0007e6c50c"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62e7fb67478a5b0007e6c50c/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-62e7fb67478a5b0007e6c50c.m3u8",
+    "logo": "https://images.pluto.tv/channels/62e7fb67478a5b0007e6c50c/colorLogoPNG_1732029652283.png",
+    "background": "https://images.pluto.tv/channels/62e7fb67478a5b0007e6c50c/colorLogoPNG_1732029652283.png"
   },
   {
     "id": "plutotvrobotwars",
@@ -1336,7 +1461,9 @@
     "epgChannelIds": [
       "651581ba6a84140008593586"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/651581ba6a84140008593586/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-651581ba6a84140008593586.m3u8",
+    "logo": "https://images.pluto.tv/channels/651581ba6a84140008593586/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/651581ba6a84140008593586/colorLogoPNG.png"
   },
   {
     "id": "plutotvcinemaitaliano",
@@ -1348,7 +1475,9 @@
     "epgChannelIds": [
       "608aa7d8359b270007861489"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa7d8359b270007861489/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608aa7d8359b270007861489.m3u8",
+    "logo": "https://images.pluto.tv/channels/608aa7d8359b270007861489/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/608aa7d8359b270007861489/colorLogoPNG.png"
   },
   {
     "id": "cinemapoliziottesco",
@@ -1360,7 +1489,9 @@
     "epgChannelIds": [
       "671754d8e482950008962aaf"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/671754d8e482950008962aaf/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-671754d8e482950008962aaf.m3u8",
+    "logo": "https://images.pluto.tv/channels/671754d8e482950008962aaf/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/671754d8e482950008962aaf/colorLogoPNG.png"
   },
   {
     "id": "plutotveros",
@@ -1372,7 +1503,9 @@
     "epgChannelIds": [
       "66335489307fa300082bd6e4"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66335489307fa300082bd6e4/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-66335489307fa300082bd6e4.m3u8",
+    "logo": "https://images.pluto.tv/channels/66335489307fa300082bd6e4/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/66335489307fa300082bd6e4/colorLogoPNG.png"
   },
   {
     "id": "plutotvcinemaorientale",
@@ -1384,7 +1517,9 @@
     "epgChannelIds": [
       "6786235bd648bf0008c2780a"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6786235bd648bf0008c2780a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6786235bd648bf0008c2780a.m3u8",
+    "logo": "https://images.pluto.tv/channels/6786235bd648bf0008c2780a/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/6786235bd648bf0008c2780a/colorLogoPNG.png"
   },
   {
     "id": "duriamorire",
@@ -1396,7 +1531,9 @@
     "epgChannelIds": [
       "65f865a62873090008d06382"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65f865a62873090008d06382/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-65f865a62873090008d06382.m3u8",
+    "logo": "https://images.pluto.tv/channels/65f865a62873090008d06382/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/65f865a62873090008d06382/colorLogoPNG.png"
   },
   {
     "id": "gliimmortalivandammevslundgren",
@@ -1408,7 +1545,9 @@
     "epgChannelIds": [
       "6536608b4f123d000876b78b"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6536608b4f123d000876b78b/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6536608b4f123d000876b78b.m3u8",
+    "logo": "https://images.pluto.tv/channels/6536608b4f123d000876b78b/colorLogoPNG_1748416779748.png",
+    "background": "https://images.pluto.tv/channels/6536608b4f123d000876b78b/colorLogoPNG_1748416779748.png"
   },
   {
     "id": "cinethriller",
@@ -1420,7 +1559,9 @@
     "epgChannelIds": [
       "653660b4295b840008a70ba3"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/653660b4295b840008a70ba3/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-653660b4295b840008a70ba3.m3u8",
+    "logo": "https://images.pluto.tv/channels/653660b4295b840008a70ba3/colorLogoPNG_1749022092472.png",
+    "background": "https://images.pluto.tv/channels/653660b4295b840008a70ba3/colorLogoPNG_1749022092472.png"
   },
   {
     "id": "plutotvsharkattack",
@@ -1432,7 +1573,9 @@
     "epgChannelIds": [
       "67e3b11a432a0e406fd1d55f"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/67e3b11a432a0e406fd1d55f/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-67e3b11a432a0e406fd1d55f.m3u8",
+    "logo": "https://images.pluto.tv/channels/67e3b11a432a0e406fd1d55f/colorLogoPNG_1751458394679.png",
+    "background": "https://images.pluto.tv/channels/67e3b11a432a0e406fd1d55f/colorLogoPNG_1751458394679.png"
   },
   {
     "id": "plutotvvampiri",
@@ -1444,7 +1587,9 @@
     "epgChannelIds": [
       "6633551323e24f00084744aa"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6633551323e24f00084744aa/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6633551323e24f00084744aa.m3u8",
+    "logo": "https://images.pluto.tv/channels/6633551323e24f00084744aa/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/6633551323e24f00084744aa/colorLogoPNG.png"
   },
   {
     "id": "plutotvzombie",
@@ -1456,7 +1601,9 @@
     "epgChannelIds": [
       "663354f3cd43940008602115"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/663354f3cd43940008602115/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-663354f3cd43940008602115.m3u8",
+    "logo": "https://images.pluto.tv/channels/663354f3cd43940008602115/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/663354f3cd43940008602115/colorLogoPNG.png"
   },
   {
     "id": "plutotvsplatter",
@@ -1468,7 +1615,9 @@
     "epgChannelIds": [
       "66335533307fa300082bd80a"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66335533307fa300082bd80a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-66335533307fa300082bd80a.m3u8",
+    "logo": "https://images.pluto.tv/channels/66335533307fa300082bd80a/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/66335533307fa300082bd80a/colorLogoPNG.png"
   },
   {
     "id": "horrorclub",
@@ -1480,7 +1629,9 @@
     "epgChannelIds": [
       "66c35c0c92b1af0008c8e83a"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66c35c0c92b1af0008c8e83a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-66c35c0c92b1af0008c8e83a.m3u8",
+    "logo": "https://images.pluto.tv/channels/66c35c0c92b1af0008c8e83a/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/66c35c0c92b1af0008c8e83a/colorLogoPNG.png"
   },
   {
     "id": "plutotvparanormal",
@@ -1492,7 +1643,9 @@
     "epgChannelIds": [
       "66c70033b1a34600087bb09a"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66c70033b1a34600087bb09a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-66c70033b1a34600087bb09a.m3u8",
+    "logo": "https://images.pluto.tv/channels/66c70033b1a34600087bb09a/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/66c70033b1a34600087bb09a/colorLogoPNG.png"
   },
   {
     "id": "startrektheoriginalseries",
@@ -1504,7 +1657,9 @@
     "epgChannelIds": [
       "6581a09edfed030008e12b39"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6581a09edfed030008e12b39/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6581a09edfed030008e12b39.m3u8",
+    "logo": "https://images.pluto.tv/channels/6581a09edfed030008e12b39/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/6581a09edfed030008e12b39/colorLogoPNG.png"
   },
   {
     "id": "startrekvoyager",
@@ -1516,7 +1671,9 @@
     "epgChannelIds": [
       "65cb73d33ba51e00084cabad"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65cb73d33ba51e00084cabad/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-65cb73d33ba51e00084cabad.m3u8",
+    "logo": "https://images.pluto.tv/channels/65cb73d33ba51e00084cabad/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/65cb73d33ba51e00084cabad/colorLogoPNG.png"
   },
   {
     "id": "startrekdeepspacenine",
@@ -1528,7 +1685,9 @@
     "epgChannelIds": [
       "65cb783b3af63d00087bedda"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65cb783b3af63d00087bedda/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-65cb783b3af63d00087bedda.m3u8",
+    "logo": "https://images.pluto.tv/channels/65cb783b3af63d00087bedda/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/65cb783b3af63d00087bedda/colorLogoPNG.png"
   },
   {
     "id": "plutotvseriescifi",
@@ -1540,7 +1699,9 @@
     "epgChannelIds": [
       "67ed14aaf7c5d70b9089c3bf"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/67ed14aaf7c5d70b9089c3bf/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-67ed14aaf7c5d70b9089c3bf.m3u8",
+    "logo": "https://images.pluto.tv/channels/67ed14aaf7c5d70b9089c3bf/colorLogoPNG_1750259768860.png",
+    "background": "https://images.pluto.tv/channels/67ed14aaf7c5d70b9089c3bf/colorLogoPNG_1750259768860.png"
   },
   {
     "id": "plutotvscifi",
@@ -1552,7 +1713,9 @@
     "epgChannelIds": [
       "61728bb9ee3773000840c1fa"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/61728bb9ee3773000840c1fa/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-61728bb9ee3773000840c1fa.m3u8",
+    "logo": "https://images.pluto.tv/channels/61728bb9ee3773000840c1fa/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/61728bb9ee3773000840c1fa/colorLogoPNG.png"
   },
   {
     "id": "andromeda",
@@ -1564,7 +1727,9 @@
     "epgChannelIds": [
       "60802d37ee238e0007c94e64"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/60802d37ee238e0007c94e64/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-60802d37ee238e0007c94e64.m3u8",
+    "logo": "https://images.pluto.tv/channels/60802d37ee238e0007c94e64/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/60802d37ee238e0007c94e64/colorLogoPNG.png"
   },
   {
     "id": "plutotvtruecrime",
@@ -1576,7 +1741,9 @@
     "epgChannelIds": [
       "66d9ab4bf0f17500084e9b7e"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66d9ab4bf0f17500084e9b7e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-66d9ab4bf0f17500084e9b7e.m3u8",
+    "logo": "https://images.pluto.tv/channels/66d9ab4bf0f17500084e9b7e/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/66d9ab4bf0f17500084e9b7e/colorLogoPNG.png"
   },
   {
     "id": "storiecriminali",
@@ -1588,7 +1755,9 @@
     "epgChannelIds": [
       "66177d18c8311c0008d077d0"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66177d18c8311c0008d077d0/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-66177d18c8311c0008d077d0.m3u8",
+    "logo": "https://images.pluto.tv/channels/66177d18c8311c0008d077d0/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/66177d18c8311c0008d077d0/colorLogoPNG.png"
   },
   {
     "id": "ilbancodeipugni",
@@ -1600,7 +1769,9 @@
     "epgChannelIds": [
       "60e4507a06171800072339a3"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/60e4507a06171800072339a3/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-60e4507a06171800072339a3.m3u8",
+    "logo": "https://images.pluto.tv/channels/60e4507a06171800072339a3/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/60e4507a06171800072339a3/colorLogoPNG.png"
   },
   {
     "id": "affarefatto",
@@ -1612,7 +1783,9 @@
     "epgChannelIds": [
       "64ec5c6644fe100009d114ae"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/64ec5c6644fe100009d114ae/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-64ec5c6644fe100009d114ae.m3u8",
+    "logo": "https://images.pluto.tv/channels/64ec5c6644fe100009d114ae/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/64ec5c6644fe100009d114ae/colorLogoPNG.png"
   },
   {
     "id": "wickedtuna",
@@ -1624,7 +1797,9 @@
     "epgChannelIds": [
       "67c832cc9b53325ee16fb899"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/67c832cc9b53325ee16fb899/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-67c832cc9b53325ee16fb899.m3u8",
+    "logo": "https://images.pluto.tv/channels/67c832cc9b53325ee16fb899/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/67c832cc9b53325ee16fb899/colorLogoPNG.png"
   },
   {
     "id": "geordieshore",
@@ -1636,7 +1811,9 @@
     "epgChannelIds": [
       "619263ee9541940007d20d60"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/619263ee9541940007d20d60/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-619263ee9541940007d20d60.m3u8",
+    "logo": "https://images.pluto.tv/channels/619263ee9541940007d20d60/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/619263ee9541940007d20d60/colorLogoPNG.png"
   },
   {
     "id": "plutotvshore",
@@ -1648,7 +1825,9 @@
     "epgChannelIds": [
       "67e3b0d2443f0671bc8a1297"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/67e3b0d2443f0671bc8a1297/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-67e3b0d2443f0671bc8a1297.m3u8",
+    "logo": "https://images.pluto.tv/channels/67e3b0d2443f0671bc8a1297/colorLogoPNG_1747721158520.png",
+    "background": "https://images.pluto.tv/channels/67e3b0d2443f0671bc8a1297/colorLogoPNG_1747721158520.png"
   },
   {
     "id": "plutotvreality",
@@ -1660,7 +1839,9 @@
     "epgChannelIds": [
       "61925f874b1ec000075e700a"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/61925f874b1ec000075e700a/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-61925f874b1ec000075e700a.m3u8",
+    "logo": "https://images.pluto.tv/channels/61925f874b1ec000075e700a/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/61925f874b1ec000075e700a/colorLogoPNG.png"
   },
   {
     "id": "pimpmyride",
@@ -1672,7 +1853,9 @@
     "epgChannelIds": [
       "636a4eaf77279a0007f14861"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/636a4eaf77279a0007f14861/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-636a4eaf77279a0007f14861.m3u8",
+    "logo": "https://images.pluto.tv/channels/636a4eaf77279a0007f14861/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/636a4eaf77279a0007f14861/colorLogoPNG.png"
   },
   {
     "id": "fifa",
@@ -1684,7 +1867,9 @@
     "epgChannelIds": [
       "660bfc4424e1d000085b5f93"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/660bfc4424e1d000085b5f93/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-660bfc4424e1d000085b5f93.m3u8",
+    "logo": "https://images.pluto.tv/channels/660bfc4424e1d000085b5f93/colorLogoPNG_1750064819565.png",
+    "background": "https://images.pluto.tv/channels/660bfc4424e1d000085b5f93/colorLogoPNG_1750064819565.png"
   },
   {
     "id": "worldpokertour",
@@ -1696,7 +1881,9 @@
     "epgChannelIds": [
       "608016e446d73500075ea7e0"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608016e446d73500075ea7e0/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608016e446d73500075ea7e0.m3u8",
+    "logo": "https://images.pluto.tv/channels/608016e446d73500075ea7e0/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/608016e446d73500075ea7e0/colorLogoPNG.png"
   },
   {
     "id": "tritonpoker",
@@ -1708,7 +1895,9 @@
     "epgChannelIds": [
       "6616a51124e1d00008761a7e"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6616a51124e1d00008761a7e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6616a51124e1d00008761a7e.m3u8",
+    "logo": "https://images.pluto.tv/channels/6616a51124e1d00008761a7e/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/6616a51124e1d00008761a7e/colorLogoPNG.png"
   },
   {
     "id": "billiardtv",
@@ -1720,7 +1909,9 @@
     "epgChannelIds": [
       "65df0b428b24c80008eec0b6"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65df0b428b24c80008eec0b6/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-65df0b428b24c80008eec0b6.m3u8",
+    "logo": "https://images.pluto.tv/channels/65df0b428b24c80008eec0b6/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/65df0b428b24c80008eec0b6/colorLogoPNG.png"
   },
   {
     "id": "theboatshow",
@@ -1732,7 +1923,9 @@
     "epgChannelIds": [
       "63eb58aa60bc8f0008caa8f8"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/63eb58aa60bc8f0008caa8f8/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-63eb58aa60bc8f0008caa8f8.m3u8",
+    "logo": "https://images.pluto.tv/channels/63eb58aa60bc8f0008caa8f8/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/63eb58aa60bc8f0008caa8f8/colorLogoPNG.png"
   },
   {
     "id": "plutotvsport",
@@ -1744,7 +1937,9 @@
     "epgChannelIds": [
       "608030eff4b6f70007e1684c"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608030eff4b6f70007e1684c/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608030eff4b6f70007e1684c.m3u8",
+    "logo": "https://images.pluto.tv/channels/608030eff4b6f70007e1684c/colorLogoPNG_1746816937164.png",
+    "background": "https://images.pluto.tv/channels/608030eff4b6f70007e1684c/colorLogoPNG_1746816937164.png"
   },
   {
     "id": "ufc",
@@ -1756,7 +1951,9 @@
     "epgChannelIds": [
       "679203d4bc03978b9b4b79a6"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/679203d4bc03978b9b4b79a6/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-679203d4bc03978b9b4b79a6.m3u8",
+    "logo": "https://images.pluto.tv/channels/679203d4bc03978b9b4b79a6/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/679203d4bc03978b9b4b79a6/colorLogoPNG.png"
   },
   {
     "id": "monsterjam",
@@ -1768,7 +1965,9 @@
     "epgChannelIds": [
       "65bce7f1d77d450008b3a430"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65bce7f1d77d450008b3a430/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-65bce7f1d77d450008b3a430.m3u8",
+    "logo": "https://images.pluto.tv/channels/65bce7f1d77d450008b3a430/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/65bce7f1d77d450008b3a430/colorLogoPNG.png"
   },
   {
     "id": "modussuperseriesdarts",
@@ -1780,7 +1979,9 @@
     "epgChannelIds": [
       "671655b2daad7f00085d202d"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/671655b2daad7f00085d202d/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-671655b2daad7f00085d202d.m3u8",
+    "logo": "https://images.pluto.tv/channels/671655b2daad7f00085d202d/colorLogoPNG_1732093506297.png",
+    "background": "https://images.pluto.tv/channels/671655b2daad7f00085d202d/colorLogoPNG_1732093506297.png"
   },
   {
     "id": "superspongebob",
@@ -1792,7 +1993,9 @@
     "epgChannelIds": [
       "6093f9281db477000759fce0"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6093f9281db477000759fce0/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6093f9281db477000759fce0.m3u8",
+    "logo": "https://images.pluto.tv/channels/6093f9281db477000759fce0/colorLogoPNG_1749451468739.png",
+    "background": "https://images.pluto.tv/channels/6093f9281db477000759fce0/colorLogoPNG_1749451468739.png"
   },
   {
     "id": "supercartonianimati",
@@ -1804,7 +2007,9 @@
     "epgChannelIds": [
       "6093f6f8351eb0000754afb8"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6093f6f8351eb0000754afb8/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6093f6f8351eb0000754afb8.m3u8",
+    "logo": "https://images.pluto.tv/channels/6093f6f8351eb0000754afb8/colorLogoPNG_1749626196712.png",
+    "background": "https://images.pluto.tv/channels/6093f6f8351eb0000754afb8/colorLogoPNG_1749626196712.png"
   },
   {
     "id": "superkidsclassics",
@@ -1816,7 +2021,9 @@
     "epgChannelIds": [
       "67f4f99729b03f18cb36647e"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/67f4f99729b03f18cb36647e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-67f4f99729b03f18cb36647e.m3u8",
+    "logo": "https://images.pluto.tv/channels/67f4f99729b03f18cb36647e/colorLogoPNG_1749212422489.png",
+    "background": "https://images.pluto.tv/channels/67f4f99729b03f18cb36647e/colorLogoPNG_1749212422489.png"
   },
   {
     "id": "yugioh",
@@ -1828,7 +2035,9 @@
     "epgChannelIds": [
       "63eb82e24e83e70008ab735f"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/63eb82e24e83e70008ab735f/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-63eb82e24e83e70008ab735f.m3u8",
+    "logo": "https://images.pluto.tv/channels/63eb82e24e83e70008ab735f/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/63eb82e24e83e70008ab735f/colorLogoPNG.png"
   },
   {
     "id": "plutotvanime",
@@ -1840,7 +2049,9 @@
     "epgChannelIds": [
       "65b90daed77d450008a43345"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65b90daed77d450008a43345/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-65b90daed77d450008a43345.m3u8",
+    "logo": "https://images.pluto.tv/channels/65b90daed77d450008a43345/colorLogoPNG_1747395522672.png",
+    "background": "https://images.pluto.tv/channels/65b90daed77d450008a43345/colorLogoPNG_1747395522672.png"
   },
   {
     "id": "teenagemutantninjaturtles",
@@ -1852,7 +2063,9 @@
     "epgChannelIds": [
       "62619405c733e8000732d1fe"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62619405c733e8000732d1fe/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-62619405c733e8000732d1fe.m3u8",
+    "logo": "https://images.pluto.tv/channels/62619405c733e8000732d1fe/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/62619405c733e8000732d1fe/colorLogoPNG.png"
   },
   {
     "id": "gormiti",
@@ -1864,7 +2077,9 @@
     "epgChannelIds": [
       "66a8c64814a2bb00084d09d6"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66a8c64814a2bb00084d09d6/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-66a8c64814a2bb00084d09d6.m3u8",
+    "logo": "https://images.pluto.tv/channels/66a8c64814a2bb00084d09d6/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/66a8c64814a2bb00084d09d6/colorLogoPNG.png"
   },
   {
     "id": "supericarly",
@@ -1876,7 +2091,9 @@
     "epgChannelIds": [
       "609401db8cf51c00084b592e"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/609401db8cf51c00084b592e/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-609401db8cf51c00084b592e.m3u8",
+    "logo": "https://images.pluto.tv/channels/609401db8cf51c00084b592e/colorLogoPNG_1749451591847.png",
+    "background": "https://images.pluto.tv/channels/609401db8cf51c00084b592e/colorLogoPNG_1749451591847.png"
   },
   {
     "id": "supervictorious",
@@ -1888,7 +2105,9 @@
     "epgChannelIds": [
       "63c012504faf1c0007abfa93"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/63c012504faf1c0007abfa93/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-63c012504faf1c0007abfa93.m3u8",
+    "logo": "https://images.pluto.tv/channels/63c012504faf1c0007abfa93/colorLogoPNG_1749480683796.png",
+    "background": "https://images.pluto.tv/channels/63c012504faf1c0007abfa93/colorLogoPNG_1749480683796.png"
   },
   {
     "id": "superzoey101",
@@ -1900,7 +2119,9 @@
     "epgChannelIds": [
       "6304ed62410a4c00083c0291"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6304ed62410a4c00083c0291/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6304ed62410a4c00083c0291.m3u8",
+    "logo": "https://images.pluto.tv/channels/6304ed62410a4c00083c0291/colorLogoPNG_1749451764425.png",
+    "background": "https://images.pluto.tv/channels/6304ed62410a4c00083c0291/colorLogoPNG_1749451764425.png"
   },
   {
     "id": "superbigtimerush",
@@ -1912,7 +2133,9 @@
     "epgChannelIds": [
       "666174c9f999220008769012"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/666174c9f999220008769012/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-666174c9f999220008769012.m3u8",
+    "logo": "https://images.pluto.tv/channels/666174c9f999220008769012/colorLogoPNG_1749451832489.png",
+    "background": "https://images.pluto.tv/channels/666174c9f999220008769012/colorLogoPNG_1749451832489.png"
   },
   {
     "id": "superpop",
@@ -1924,7 +2147,9 @@
     "epgChannelIds": [
       "6093f7b5bb49b90007cecaad"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6093f7b5bb49b90007cecaad/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6093f7b5bb49b90007cecaad.m3u8",
+    "logo": "https://images.pluto.tv/channels/6093f7b5bb49b90007cecaad/colorLogoPNG_1749451949815.png",
+    "background": "https://images.pluto.tv/channels/6093f7b5bb49b90007cecaad/colorLogoPNG_1749451949815.png"
   },
   {
     "id": "hellskitchen",
@@ -1936,7 +2161,9 @@
     "epgChannelIds": [
       "664f0ddbf78a8500092dcffa"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/664f0ddbf78a8500092dcffa/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-664f0ddbf78a8500092dcffa.m3u8",
+    "logo": "https://images.pluto.tv/channels/664f0ddbf78a8500092dcffa/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/664f0ddbf78a8500092dcffa/colorLogoPNG.png"
   },
   {
     "id": "plutotvcucina",
@@ -1948,7 +2175,9 @@
     "epgChannelIds": [
       "608aa718a8ec810007d87fee"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/608aa718a8ec810007d87fee/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-608aa718a8ec810007d87fee.m3u8",
+    "logo": "https://images.pluto.tv/channels/608aa718a8ec810007d87fee/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/608aa718a8ec810007d87fee/colorLogoPNG.png"
   },
   {
     "id": "plutotvreallife",
@@ -1960,7 +2189,9 @@
     "epgChannelIds": [
       "60801976f92a750007a0699c"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/60801976f92a750007a0699c/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-60801976f92a750007a0699c.m3u8",
+    "logo": "https://images.pluto.tv/channels/60801976f92a750007a0699c/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/60801976f92a750007a0699c/colorLogoPNG.png"
   },
   {
     "id": "plutotvviaggi",
@@ -1972,7 +2203,9 @@
     "epgChannelIds": [
       "63c923944207be0007fd0887"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/63c923944207be0007fd0887/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-63c923944207be0007fd0887.m3u8",
+    "logo": "https://images.pluto.tv/channels/63c923944207be0007fd0887/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/63c923944207be0007fd0887/colorLogoPNG.png"
   },
   {
     "id": "plutotvasmr",
@@ -1984,7 +2217,9 @@
     "epgChannelIds": [
       "66867b9919311200085313d9"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66867b9919311200085313d9/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-66867b9919311200085313d9.m3u8",
+    "logo": "https://images.pluto.tv/channels/66867b9919311200085313d9/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/66867b9919311200085313d9/colorLogoPNG.png"
   },
   {
     "id": "cnnheadlines",
@@ -1996,7 +2231,9 @@
     "epgChannelIds": [
       "66c45ba803e3b20008d8c294"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66c45ba803e3b20008d8c294/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-66c45ba803e3b20008d8c294.m3u8",
+    "logo": "https://images.pluto.tv/channels/66c45ba803e3b20008d8c294/colorLogoPNG_1745489409673.png",
+    "background": "https://images.pluto.tv/channels/66c45ba803e3b20008d8c294/colorLogoPNG_1745489409673.png"
   },
   {
     "id": "desiplaytv",
@@ -2008,7 +2245,9 @@
     "epgChannelIds": [
       "66c3139c21a4740008466116"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/66c3139c21a4740008466116/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-66c3139c21a4740008466116.m3u8",
+    "logo": "https://images.pluto.tv/channels/66c3139c21a4740008466116/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/66c3139c21a4740008466116/colorLogoPNG.png"
   },
   {
     "id": "vh1summervibes",
@@ -2020,7 +2259,9 @@
     "epgChannelIds": [
       "626180ec537f210007e94b52"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/626180ec537f210007e94b52/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-626180ec537f210007e94b52.m3u8",
+    "logo": "https://images.pluto.tv/channels/626180ec537f210007e94b52/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/626180ec537f210007e94b52/colorLogoPNG.png"
   },
   {
     "id": "vh1musiclegends",
@@ -2032,7 +2273,9 @@
     "epgChannelIds": [
       "62e8cc10ca869f00078efca8"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/62e8cc10ca869f00078efca8/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-62e8cc10ca869f00078efca8.m3u8",
+    "logo": "https://images.pluto.tv/channels/62e8cc10ca869f00078efca8/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/62e8cc10ca869f00078efca8/colorLogoPNG.png"
   },
   {
     "id": "vh1backto90s",
@@ -2044,7 +2287,9 @@
     "epgChannelIds": [
       "6552085aab05240008b05f6c"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6552085aab05240008b05f6c/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6552085aab05240008b05f6c.m3u8",
+    "logo": "https://images.pluto.tv/channels/6552085aab05240008b05f6c/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/6552085aab05240008b05f6c/colorLogoPNG.png"
   },
   {
     "id": "vh1rock",
@@ -2056,7 +2301,9 @@
     "epgChannelIds": [
       "636a4173e34fd50007534542"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/636a4173e34fd50007534542/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-636a4173e34fd50007534542.m3u8",
+    "logo": "https://images.pluto.tv/channels/636a4173e34fd50007534542/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/636a4173e34fd50007534542/colorLogoPNG.png"
   },
   {
     "id": "vh1dance",
@@ -2068,7 +2315,9 @@
     "epgChannelIds": [
       "65e5d9d2ec9fda0008c35f91"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/65e5d9d2ec9fda0008c35f91/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-65e5d9d2ec9fda0008c35f91.m3u8",
+    "logo": "https://images.pluto.tv/channels/65e5d9d2ec9fda0008c35f91/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/65e5d9d2ec9fda0008c35f91/colorLogoPNG.png"
   },
   {
     "id": "vh1classici",
@@ -2080,7 +2329,9 @@
     "epgChannelIds": [
       "6690f892d51259000880d1c4"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/6690f892d51259000880d1c4/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-6690f892d51259000880d1c4.m3u8",
+    "logo": "https://images.pluto.tv/channels/6690f892d51259000880d1c4/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/6690f892d51259000880d1c4/colorLogoPNG.png"
   },
   {
     "id": "vh1canzoniitaliane",
@@ -2092,6 +2343,8 @@
     "epgChannelIds": [
       "63724270c7c2360007b170e8"
     ],
-    "staticUrlF": "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/63724270c7c2360007b170e8/master.m3u8?deviceId=channel&deviceModel=web&deviceVersion=1.0&appVersion=1.0&deviceType=rokuChannel&deviceMake=rokuChannel&deviceDNT=1&advertisingId=channel&embedPartner=rokuChannel&appName=rokuchannel&is_lat=1&bmodel=bm1&content=channel&platform=web&tags=ROKU_CONTENT_TAGS&coppa=false&content_type=livefeed&rdid=channel&genre=ROKU_ADS_CONTENT_GENRE&content_rating=ROKU_ADS_CONTENT_RATING&studio_id=viacom&channel_id=channel"
+    "staticUrlF": "https://jmp2.uk/plu-63724270c7c2360007b170e8.m3u8",
+    "logo": "https://images.pluto.tv/channels/63724270c7c2360007b170e8/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/63724270c7c2360007b170e8/colorLogoPNG.png"
   }
 ]
