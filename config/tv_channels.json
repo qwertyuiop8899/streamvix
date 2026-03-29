@@ -797,7 +797,18 @@
       "64c109a4798def0008a6e03e"
     ],
     "staticUrlF": "https://jmp2.uk/plu-64c109a4798def0008a6e03e.m3u8",
-    "staticUrlF2": "https://amg00793-amg00793c43-rakuten-it-5537.playouts.now.amagi.tv/playlist.m3u8",
+    "pdUrlF": "https://amg00793-amg00793c43-rakuten-it-5537.playouts.now.amagi.tv/playlist.m3u8",
+    "logo": "https://images.pluto.tv/channels/64c109a4798def0008a6e03e/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/64c109a4798def0008a6e03e/colorLogoPNG.png"
+  },
+  {
+    "id": "topgear2",
+    "type": "tv",
+    "name": "TopGear Rakuten",
+    "poster": "https://images.pluto.tv/channels/64c109a4798def0008a6e03e/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "staticUrlF": "https://amg00793-amg00793c43-rakuten-it-5537.playouts.now.amagi.tv/playlist.m3u8",
     "logo": "https://images.pluto.tv/channels/64c109a4798def0008a6e03e/colorLogoPNG.png",
     "background": "https://images.pluto.tv/channels/64c109a4798def0008a6e03e/colorLogoPNG.png"
   },
@@ -812,7 +823,18 @@
       "661f8f01801af800083d9d81"
     ],
     "staticUrlF": "https://jmp2.uk/plu-661f8f01801af800083d9d81.m3u8",
-    "staticUrlF2": "https://253cf8b2.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWl0X1Jpc2F0ZWFsbGl0YWxpYW5hX0hMUw/playlist.m3u8",
+    "pdUrlF": "https://253cf8b2.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWl0X1Jpc2F0ZWFsbGl0YWxpYW5hX0hMUw/playlist.m3u8",
+    "logo": "https://images.pluto.tv/channels/661f8f01801af800083d9d81/colorLogoPNG.png",
+    "background": "https://images.pluto.tv/channels/661f8f01801af800083d9d81/colorLogoPNG.png"
+  },
+  {
+    "id": "plutotvalbertosordi2",
+    "type": "tv",
+    "name": "Pluto TV Alberto Sordi Rakuten",
+    "poster": "https://images.pluto.tv/channels/661f8f01801af800083d9d81/colorLogoPNG.png",
+    "description": "Pluto",
+    "category": "pluto",
+    "staticUrlF": "https://253cf8b2.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWl0X1Jpc2F0ZWFsbGl0YWxpYW5hX0hMUw/playlist.m3u8",
     "logo": "https://images.pluto.tv/channels/661f8f01801af800083d9d81/colorLogoPNG.png",
     "background": "https://images.pluto.tv/channels/661f8f01801af800083d9d81/colorLogoPNG.png"
   },
@@ -917,7 +939,7 @@
   {
     "id": "mrbean",
     "type": "tv",
-    "name": "Pluto TV Documentari",
+    "name": "Mr.Bean",
     "poster": "https://static.wikia.nocookie.net/logopedia/images/7/78/Mr._Bean_%28animated_series%2C_stacked%29.svg/revision/latest?cb=20260201140906",
     "description": "Pluto",
     "category": "pluto",
@@ -928,7 +950,7 @@
   {
     "id": "peopleareawesome",
     "type": "tv",
-    "name": "Pluto TV Documentari",
+    "name": "PeopleAreAwesome",
     "poster": "https://www.peopleareawesome.com/cdn/shop/t/17/assets/logo-image-file.png?v=158202363238024051661687180214",
     "description": "Pluto",
     "category": "pluto",
@@ -939,7 +961,7 @@
   {
     "id": "failarmy",
     "type": "tv",
-    "name": "Pluto TV Documentari",
+    "name": "FailArmy",
     "poster": "https://scontent.fcia2-2.fna.fbcdn.net/v/t39.30808-6/474203457_910497557866850_2327206467749796632_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=1d70fc&_nc_ohc=m9FhAaVau4sQ7kNvwFIZQbB&_nc_oc=AdoTm5G1PZ91XVXTgkfRrWyhD4AFiPnkXy0xumeiObvFQURQYan4FGGsOIistCE6P6k&_nc_zt=23&_nc_ht=scontent.fcia2-2.fna&_nc_gid=lt-_0zrdvqilOsm9o67M5g&_nc_ss=7a32e&oh=00_AfyUMZ9qtU4epkhZozkN_Hr1AxuPlo5poewSCIlNI-UDoQ&oe=69CECA79",
     "description": "Pluto",
     "category": "pluto",
