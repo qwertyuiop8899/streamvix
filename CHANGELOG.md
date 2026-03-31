@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.17.15](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.14...v1.17.15) (2026-03-31)
+
+
+### Bug Fixes
+
+* animesaturn-provider.ts ([e9fb402](https://github.com/qwertyuiop8899/streamvix/commit/e9fb4028c61d0e0f93585431a1cb479f1343e8f8))
+* animeworld-provider.ts ([0c67ee0](https://github.com/qwertyuiop8899/streamvix/commit/0c67ee0e50b55253abecd3e320503f60013f28d6))
+* domains update ([749ce6c](https://github.com/qwertyuiop8899/streamvix/commit/749ce6c93a7623de2cb5d16c3a86e2761ecb2ca1))
+* fetch ([358fb5c](https://github.com/qwertyuiop8899/streamvix/commit/358fb5cf36ba15f2a833ac0d4c694df91d2e7683))
+
 ## [1.17.14](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.13...v1.17.14) (2026-03-29)
 
 
