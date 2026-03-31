@@ -21,6 +21,53 @@ const englishTitleCache = new Map<string, string>();
 const AW_FETCH_TIMEOUT = Number.parseInt(process.env.ANIMEWORLD_FETCH_TIMEOUT_MS || '10000', 10) || 10000;
 const awCaches = createCaches();
 
+// ─── Page Context helpers (ported from easystreams) ─────────
+interface AwPageContext {
+  html: string;
+  sessionCookie: string | null;
+  csrfToken: string | null;
+}
+
+function extractSessionCookie(setCookieHeader: string | null | undefined): string | null {
+  const text = String(setCookieHeader || '');
+  const match = text.match(/sessionId=[^;,\s]+/i);
+  return match ? match[0] : null;
+}
+
+function extractCsrfTokenFromHtml(html: string): string | null {
+  const match = /<meta[^>]*name=["']csrf-token["'][^>]*content=["']([^"']+)["'][^>]*>/i.exec(String(html || ''));
+  return match && match[1] ? String(match[1]).trim() : null;
+}
+
+async function fetchAnimePageContext(animeUrl: string, cacheKeySuffix: string): Promise<AwPageContext> {
+  const key = `aw-pagectx:${cacheKeySuffix}`;
+  const cached = awCaches.http.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value as AwPageContext;
+
+  const response = await fetch(animeUrl, {
+    method: 'GET',
+    headers: {
+      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+      'accept-language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+    },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(AW_FETCH_TIMEOUT),
+  } as any);
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} ${response.statusText} for ${animeUrl}`);
+  }
+
+  const html = await response.text();
+  const rawSetCookie = response.headers.get('set-cookie') || '';
+  const sessionCookie = extractSessionCookie(rawSetCookie);
+  const csrfToken = extractCsrfTokenFromHtml(html);
+
+  const ctx: AwPageContext = { html, sessionCookie, csrfToken };
+  awCaches.http.set(key, { value: ctx, expiresAt: Date.now() + 15 * 60 * 1000 });
+  return ctx;
+}
+
 function getWorldBaseUrl(): string {
   const configured = getProviderUrl('animeworld', ['ANIMEWORLD_BASE_URL', 'AW_BASE_URL']);
   if (configured) return configured.replace(/\/+$/, '');
@@ -212,33 +259,41 @@ async function awGetEpisodes(slug: string): Promise<AnimeWorldEpisode[]> {
 
 async function awGetStream(slug: string, episode?: number): Promise<{ mp4_url: string | null }> {
   const animeUrl = `${getWorldBaseUrl()}/play/${slug}`;
-  let html = '';
+  let pageContext: AwPageContext;
   try {
-    html = await fetchResource(animeUrl, awCaches, { ttlMs: 5 * 60 * 1000, cacheKey: `aw-playctx:${slug}`, timeoutMs: AW_FETCH_TIMEOUT });
-  } catch {
+    pageContext = await fetchAnimePageContext(animeUrl, slug);
+  } catch (err: any) {
+    console.error('[AnimeWorld][awGetStream] page fetch failed for', slug, err?.message);
     return { mp4_url: null };
   }
 
-  const metaToken = /<meta[^>]*name=["']csrf-token["'][^>]*content=["']([^"']+)["'][^>]*>/i.exec(String(html || ''))?.[1] || '';
+  const { html, csrfToken, sessionCookie } = pageContext;
   const episodes = await awGetEpisodes(slug);
   const selected = episode != null ? episodes.find((entry) => Number(entry.number) === Number(episode)) : episodes[0];
   const token = String((selected as any)?.id || '').trim();
-  if (!token) return { mp4_url: null };
+  if (!token) {
+    console.log('[AnimeWorld][awGetStream] no episode token found for', slug, 'ep=', episode, 'episodes found:', episodes.length);
+    return { mp4_url: null };
+  }
 
   let info: any = null;
   try {
+    const extraHeaders: Record<string, string> = {
+      referer: animeUrl,
+      'x-requested-with': 'XMLHttpRequest',
+    };
+    if (csrfToken) extraHeaders['csrf-token'] = csrfToken;
+    if (sessionCookie) extraHeaders['cookie'] = sessionCookie;
+
     info = await fetchResource(`${getWorldBaseUrl()}/api/episode/info?id=${encodeURIComponent(token)}`, awCaches, {
       as: 'json',
       ttlMs: 2 * 60 * 1000,
-      cacheKey: `aw-info:${slug}:${token}`,
+      cacheKey: `aw-info:${slug}:${token}:${csrfToken ? 'csrf' : 'nocsrf'}`,
       timeoutMs: AW_FETCH_TIMEOUT,
-      headers: {
-        referer: animeUrl,
-        'x-requested-with': 'XMLHttpRequest',
-        ...(metaToken ? { 'csrf-token': metaToken } : {}),
-      },
+      headers: extraHeaders,
     });
-  } catch {
+  } catch (err: any) {
+    console.error('[AnimeWorld][awGetStream] info API failed for', slug, 'token=', token, err?.message);
     return { mp4_url: null };
   }
 
@@ -715,27 +770,103 @@ export class AnimeWorldProvider {
     titleFallback: string
   ): Promise<StreamForStremio[]> {
     const normalizedPath = normalizeAnimeWorldPath(animePath);
-    if (!normalizedPath || !normalizedPath.startsWith('/play/')) return [];
+    if (!normalizedPath || !normalizedPath.startsWith('/play/')) {
+      console.log('[AnimeWorld][Mapping] path normalization failed for:', animePath);
+      return [];
+    }
     const slug = normalizedPath.replace('/play/', '').trim();
     if (!slug) return [];
 
-    const episodes: AnimeWorldEpisode[] = await invokePython(['get_episodes', '--anime-slug', slug]).catch(() => []);
-    if (!episodes.length) return [];
+    console.log('[AnimeWorld][Mapping] extracting streams from path:', animePath, 'slug:', slug, 'ep:', requestedEpisode);
+
+    // Use fetchAnimePageContext to get HTML + session cookies (like easystreams)
+    const animeUrl = `${getWorldBaseUrl()}/play/${slug}`;
+    let pageContext: AwPageContext;
+    try {
+      pageContext = await fetchAnimePageContext(animeUrl, slug);
+    } catch (err: any) {
+      console.error('[AnimeWorld][Mapping] page fetch failed for', slug, err?.message);
+      return [];
+    }
+
+    // Parse episodes from page HTML (same regex as awGetEpisodes)
+    const raw = String(pageContext.html || '');
+    const episodesFromPage: AnimeWorldEpisode[] = [];
+    const anchorRegex = /<a\b[^>]*(?:data-episode-num=(?:"[^"]*"|'[^']*'))[^>]*(?:data-id=(?:"[^"]*"|'[^']*'))[^>]*>|<a\b[^>]*(?:data-id=(?:"[^"]*"|'[^']*'))[^>]*(?:data-episode-num=(?:"[^"]*"|'[^']*'))[^>]*>/gi;
+    const tags = raw.match(anchorRegex) || [];
+    for (let index = 0; index < tags.length; index += 1) {
+      const attrs = parseTagAttributes(tags[index]);
+      const token = String(attrs['data-id'] || '').trim();
+      if (!token) continue;
+      const num = parseAwEpisodeNumber(attrs['data-episode-num'], index + 1);
+      episodesFromPage.push({ id: token, number: num, name: attrs['data-comment'] || undefined });
+    }
+
+    console.log('[AnimeWorld][Mapping] episodes found on page:', episodesFromPage.length, 'for slug:', slug);
+    if (!episodesFromPage.length) return [];
 
     let target: AnimeWorldEpisode | undefined;
-    if (isMovie) target = episodes[0];
-    else target = episodes.find((entry) => Number(entry.number) === Number(requestedEpisode)) || episodes[0];
+    if (isMovie) target = episodesFromPage[0];
+    else target = episodesFromPage.find((entry) => Number(entry.number) === Number(requestedEpisode)) || episodesFromPage[0];
     if (!target) return [];
 
-    const streamData = await invokePython([
-      'get_stream',
-      '--anime-slug',
-      slug,
-      '--episode',
-      String(isMovie ? Number(target.number || 1) : requestedEpisode),
-    ]).catch(() => null);
-    const mp4 = String(streamData?.mp4_url || '').trim();
-    if (!mp4) return [];
+    // Fetch episode info WITH session cookie + csrf (like easystreams fetchEpisodeInfo)
+    const token = String(target.id || '').trim();
+    if (!token) return [];
+
+    const extraHeaders: Record<string, string> = {
+      referer: animeUrl,
+      'x-requested-with': 'XMLHttpRequest',
+    };
+    if (pageContext.csrfToken) extraHeaders['csrf-token'] = pageContext.csrfToken;
+    if (pageContext.sessionCookie) extraHeaders['cookie'] = pageContext.sessionCookie;
+
+    let info: any = null;
+    try {
+      info = await fetchResource(`${getWorldBaseUrl()}/api/episode/info?id=${encodeURIComponent(token)}`, awCaches, {
+        as: 'json',
+        ttlMs: 2 * 60 * 1000,
+        cacheKey: `aw-info:${slug}:${token}:${pageContext.csrfToken ? 'csrf' : 'nocsrf'}`,
+        timeoutMs: AW_FETCH_TIMEOUT,
+        headers: extraHeaders,
+      });
+    } catch (err: any) {
+      console.error('[AnimeWorld][Mapping] info API failed for', slug, 'token=', token, err?.message);
+      return [];
+    }
+
+    // Extract grabber candidates (mp4/m3u8 URLs)
+    const direct = collectGrabberCandidates(info);
+    let mp4 = direct.map((entry) => normalizePlayableMediaUrl(entry)).filter(Boolean)[0] || null;
+
+    // Fallback: try target URL
+    if (!mp4 && info?.target && typeof info.target === 'string') {
+      try {
+        const targetHeaders: Record<string, string> = {
+          referer: animeUrl,
+          'x-requested-with': 'XMLHttpRequest',
+        };
+        if (pageContext.csrfToken) targetHeaders['csrf-token'] = pageContext.csrfToken;
+        if (pageContext.sessionCookie) targetHeaders['cookie'] = pageContext.sessionCookie;
+
+        const targetHtml = await fetchResource(String(info.target), awCaches, {
+          ttlMs: 2 * 60 * 1000,
+          cacheKey: `aw-target:${info.target}`,
+          timeoutMs: AW_FETCH_TIMEOUT,
+          headers: targetHeaders,
+        });
+        mp4 = collectMediaLinksFromHtml(String(targetHtml || ''))[0] || null;
+      } catch {
+        mp4 = null;
+      }
+    }
+
+    if (!mp4) {
+      console.log('[AnimeWorld][Mapping] no stream URL extracted for', slug, 'ep=', requestedEpisode, 'grabbers:', direct.length);
+      return [];
+    }
+
+    console.log('[AnimeWorld][Mapping] stream found for', slug, ':', mp4.substring(0, 80) + '...');
 
     // Use slug base (strip hash suffix e.g. "one-piece.abc123" → "one piece") as label fallback
     const slugLabel = slug.split('.')[0].replace(/[-_]+/g, ' ').trim();
@@ -778,10 +909,15 @@ export class AnimeWorldProvider {
     titleFallback: string
   ): Promise<StreamForStremio[]> {
     const lookup = resolveLookupRequest(id, seasonNumber, episodeNumber, providerContext);
-    if (!lookup) return [];
+    if (!lookup) {
+      console.log('[AnimeWorld][Mapping] resolveLookupRequest returned null for id:', id);
+      return [];
+    }
 
+    console.log('[AnimeWorld][Mapping] lookup:', JSON.stringify(lookup));
     let mappingPayload = await fetchMappingPayload(lookup, awCaches, 'AnimeWorld');
     let animePaths = extractProviderPaths(mappingPayload, 'animeworld', normalizeAnimeWorldPath as any);
+    console.log('[AnimeWorld][Mapping] paths from mapping API:', animePaths);
 
     if (animePaths.length === 0 && String(lookup.provider || '').toLowerCase() === 'imdb') {
       const tmdbFromContext = providerContext?.tmdbId && /^\d+$/.test(String(providerContext.tmdbId))
@@ -917,6 +1053,7 @@ export class AnimeWorldProvider {
     return { streams: fromMappingImdb };
   }
   // Mapping miss → resolve full English title for title search fallback
+  console.log('[AnimeWorld] Mapping miss (IMDB): fallback a ricerca per titolo per', imdbIdClean);
   const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
   const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
   return res;
@@ -943,6 +1080,7 @@ export class AnimeWorldProvider {
     return { streams: fromMappingTmdb };
   }
   // Mapping miss → resolve full English title for title search fallback
+  console.log('[AnimeWorld] Mapping miss (TMDB): fallback a ricerca per titolo per TMDB', tmdbId);
   const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
   const res = await this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
   return res;
