@@ -5,7 +5,19 @@
  */
 
 import { getCached, setCached, type CacheEntry } from './cache';
-import fetch from 'node-fetch';
+// Prefer native fetch (available in Node.js 18+, used by easystreams);
+// fallback to node-fetch for older runtimes.
+let fetchImpl: typeof globalThis.fetch;
+try {
+  if (typeof globalThis.fetch === 'function') {
+    fetchImpl = globalThis.fetch;
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    fetchImpl = require('node-fetch') as any;
+  }
+} catch {
+  fetchImpl = globalThis.fetch;
+}
 import { SocksProxyAgent } from 'socks-proxy-agent';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
@@ -65,7 +77,7 @@ export async function fetchWithTimeout(
   const { agent, ...restOptions } = options;
 
   try {
-    const response = await fetch(url, { ...restOptions, agent, signal: controller.signal as any });
+    const response = await fetchImpl(url, { ...restOptions, agent, signal: controller.signal as any });
     return response;
   } finally {
     clearTimeout(timeoutId);
