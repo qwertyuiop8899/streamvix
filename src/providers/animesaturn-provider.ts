@@ -567,11 +567,20 @@ export class AnimeSaturnProvider {
     titleFallback: string
   ): Promise<StreamForStremio[]> {
     const normalizedPath = normalizeAnimeSaturnPath(animePath);
-    if (!normalizedPath) return [];
+    if (!normalizedPath) {
+      console.log('[AnimeSaturn][Mapping] path normalization failed for:', animePath);
+      return [];
+    }
     const animeUrl = buildSaturnUrl(normalizedPath);
     if (!animeUrl) return [];
 
-    const episodes: AnimeSaturnEpisode[] = await invokePythonScraper(['get_episodes', '--anime-url', animeUrl]).catch(() => []);
+    console.log('[AnimeSaturn][Mapping] extracting streams from path:', animePath, 'url:', animeUrl, 'ep:', requestedEpisode);
+
+    const episodes: AnimeSaturnEpisode[] = await invokePythonScraper(['get_episodes', '--anime-url', animeUrl]).catch((err: any) => {
+      console.error('[AnimeSaturn][Mapping] get_episodes failed for', animeUrl, err?.message);
+      return [];
+    });
+    console.log('[AnimeSaturn][Mapping] episodes found:', episodes.length, 'for', normalizedPath);
     if (!episodes.length) return [];
 
     let targetEpisode: AnimeSaturnEpisode | undefined;
@@ -583,9 +592,17 @@ export class AnimeSaturnProvider {
     }) || episodes[0];
     if (!targetEpisode) return [];
 
-    const streamResult = await invokePythonScraper(['get_stream', '--episode-url', targetEpisode.url]).catch(() => ({ url: null }));
+    const streamResult = await invokePythonScraper(['get_stream', '--episode-url', targetEpisode.url]).catch((err: any) => {
+      console.error('[AnimeSaturn][Mapping] get_stream failed for', targetEpisode!.url, err?.message);
+      return { url: null };
+    });
     const streamUrl = String(streamResult?.url || '').trim();
-    if (!streamUrl) return [];
+    if (!streamUrl) {
+      console.log('[AnimeSaturn][Mapping] no stream URL for episode:', targetEpisode.url);
+      return [];
+    }
+
+    console.log('[AnimeSaturn][Mapping] stream found:', streamUrl.substring(0, 80) + '...');
 
     const cleanName = String(titleFallback || '').replace(/\s+/g, ' ').trim() || 'AnimeSaturn';
     const sNum = seasonNumber || 1;
@@ -611,10 +628,15 @@ export class AnimeSaturnProvider {
     titleFallback: string
   ): Promise<StreamForStremio[]> {
     const lookup = resolveLookupRequest(id, seasonNumber, episodeNumber, providerContext);
-    if (!lookup) return [];
+    if (!lookup) {
+      console.log('[AnimeSaturn][Mapping] resolveLookupRequest returned null for id:', id);
+      return [];
+    }
 
+    console.log('[AnimeSaturn][Mapping] lookup:', JSON.stringify(lookup));
     let mappingPayload = await fetchMappingPayload(lookup, asCaches, 'AnimeSaturn');
     let animePaths = extractProviderPaths(mappingPayload, 'animesaturn', normalizeAnimeSaturnPath as any);
+    console.log('[AnimeSaturn][Mapping] paths from mapping API:', animePaths);
 
     if (animePaths.length === 0 && String(lookup.provider || '').toLowerCase() === 'imdb') {
       const tmdbFromContext = providerContext?.tmdbId && /^\d+$/.test(String(providerContext.tmdbId))
@@ -779,6 +801,7 @@ export class AnimeSaturnProvider {
     return { streams: fromMappingImdb };
   }
   // Mapping miss → full title + MAL ID for title search fallback
+  console.log('[AnimeSaturn] Mapping miss (IMDB): fallback a ricerca per titolo per', imdbIdClean);
   const englishTitle = await getEnglishTitleFromAnyId(imdbId, 'imdb', this.config.tmdbApiKey);
       // Recupera anche l'id MAL tramite Haglund
       let malId: string | undefined = undefined;
@@ -823,6 +846,7 @@ export class AnimeSaturnProvider {
     return { streams: fromMappingTmdb };
   }
   // Mapping miss → full title + MAL ID for title search fallback
+  console.log('[AnimeSaturn] Mapping miss (TMDB): fallback a ricerca per titolo per TMDB', tmdbId);
   const englishTitle = await getEnglishTitleFromAnyId(tmdbId, 'tmdb', this.config.tmdbApiKey);
       // Recupera anche l'id MAL tramite Haglund
       let malId: string | undefined = undefined;
