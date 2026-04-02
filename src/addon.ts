@@ -43,6 +43,7 @@ import { startSportzxScheduler, getSportzxChannels } from './utils/sportzxUpdate
 import { startSports99Scheduler, getSports99Channels } from './utils/sports99Updater';
 import { startMediaHostingScheduler, getMediaHostingChannels } from './utils/mediahostingUpdater';
 import { startFreeshotScheduler, getFreeshotChannels } from './utils/freeshotUpdater';
+import { startSportStreamScheduler, getSportStreamChannels } from './utils/sportstreamUpdater';
 import { startMpdzScheduler, updateMpdzChannels } from './utils/mpdzUpdater';
 import { startMpdpScheduler, updateMpdpChannels } from './utils/mpdpUpdater';
 // import { startZEventiScheduler, updateZEventiChannels } from './utils/zEventiUpdater';
@@ -54,6 +55,8 @@ import { getDvrStreamsForChannel, getDvrConfig, buildDvrRecordEntry } from './ut
 
 // ================= TYPES & INTERFACES =================
 const DISABLE_LIVE_EVENTS = process.env.DISABLE_LIVE_EVENTS === 'true';
+const IS_MH_DISABLED = (() => { try { const v = (process.env.DISABLE_MH || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
+const IS_SS_DISABLED = (() => { try { const v = (process.env.DISABLE_SPS || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
 interface AddonConfig {
     tmdbApiKey?: string;
     mediaFlowProxyUrl?: string;
@@ -776,7 +779,8 @@ const baseManifest: Manifest = {
                         "THISNOT",
                         "SportzX",
                         "Sports99",
-                        "MediaHosting",
+                        ...(IS_SS_DISABLED ? [] : ["SportStream"]),
+                        ...(IS_MH_DISABLED ? [] : ["MediaHosting"]),
                         "Freeshot"
                     ]
                 }
@@ -1795,10 +1799,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 if (sports99.length > 0) {
                     filteredChannels = [...filteredChannels, ...sports99];
                 }
+                // INTEGRATION: Add SportStream channels to Live catalog
+                if (!IS_SS_DISABLED) {
+                    const ssChannels = getSportStreamChannels();
+                    if (ssChannels.length > 0) {
+                        filteredChannels = [...filteredChannels, ...ssChannels];
+                    }
+                }
                 // INTEGRATION: Add MediaHosting channels to Live catalog
-                const mhChannels = getMediaHostingChannels();
-                if (mhChannels.length > 0) {
-                    filteredChannels = [...filteredChannels, ...mhChannels];
+                if (!IS_MH_DISABLED) {
+                    const mhChannels = getMediaHostingChannels();
+                    if (mhChannels.length > 0) {
+                        filteredChannels = [...filteredChannels, ...mhChannels];
+                    }
                 }
                 // INTEGRATION: Add Freeshot channels to Live catalog
                 const fsChannels = getFreeshotChannels();
@@ -1813,8 +1826,14 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 if (sportzxE.length > 0) filteredChannels = [...filteredChannels, ...sportzxE];
                 const sports99E = getSports99Channels();
                 if (sports99E.length > 0) filteredChannels = [...filteredChannels, ...sports99E];
-                const mhChE = getMediaHostingChannels();
-                if (mhChE.length > 0) filteredChannels = [...filteredChannels, ...mhChE];
+                if (!IS_SS_DISABLED) {
+                    const ssChE = getSportStreamChannels();
+                    if (ssChE.length > 0) filteredChannels = [...filteredChannels, ...ssChE];
+                }
+                if (!IS_MH_DISABLED) {
+                    const mhChE = getMediaHostingChannels();
+                    if (mhChE.length > 0) filteredChannels = [...filteredChannels, ...mhChE];
+                }
                 const fsChE = getFreeshotChannels();
                 if (fsChE.length > 0) filteredChannels = [...filteredChannels, ...fsChE];
                 // console.log(`[CATALOG] streamvix_eventi -> filtered dynamic count=${filteredChannels.length}`);
@@ -2075,6 +2094,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     genreMap['ppv'] = 'ppv';
                     genreMap['sportzx'] = 'sportzx'; // lowercase to match getChannelCategories() output
                     genreMap['sports99'] = 'sports99'; // Sports99 channels
+                    genreMap['sportstream'] = 'sportstream'; // SportStream channels
                     genreMap['mediahosting'] = 'mediahosting'; // MediaHosting channels
                     genreMap['freeshot'] = 'freeshot'; // Freeshot channels
                     const target = genreMap[norm] || norm;
@@ -2492,8 +2512,31 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }
             }
 
+            // === SPORTSTREAM META HANDLER ===
+            if (!IS_SS_DISABLED && cleanId.startsWith('ss_')) {
+                const { getSportStreamChannels } = await import('./utils/sportstreamUpdater');
+                const ssChannel = getSportStreamChannels().find((c: any) => c.id === cleanId);
+                if (ssChannel) {
+                    console.log(`✅ Found SportStream channel for meta: ${ssChannel.name}`);
+                    return cacheAndReturn({
+                        meta: {
+                            id: `tv:${ssChannel.id}`,
+                            type: 'tv',
+                            name: ssChannel.name,
+                            poster: ssChannel.logo,
+                            posterShape: 'square',
+                            background: ssChannel.logo,
+                            description: ssChannel.description || 'SportStream Live',
+                            genres: ['SportStream', 'Live'],
+                            releaseInfo: 'Live'
+                        },
+                        cacheMaxAge: 600
+                    });
+                }
+            }
+
             // === MEDIAHOSTING META HANDLER ===
-            if (cleanId.startsWith('mh_')) {
+            if (!IS_MH_DISABLED && cleanId.startsWith('mh_')) {
                 const { getMediaHostingChannels } = await import('./utils/mediahostingUpdater');
                 const mhChannel = getMediaHostingChannels().find((c: any) => c.id === cleanId);
                 if (mhChannel) {
@@ -2882,8 +2925,50 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                 }
 
+                // === SPORTSTREAM STREAM HANDLER ===
+                if (!IS_SS_DISABLED && cleanIdForSportzx.startsWith('ss_')) {
+                    const { getSportStreamChannels, buildSportStreamUrl, getSportStreamHeaders } = await import('./utils/sportstreamUpdater');
+                    const ssCh = getSportStreamChannels().find((c: any) => c.id === cleanIdForSportzx);
+                    if (ssCh && ssCh._sportstream) {
+                        const ssMatch = ssCh._sportstream;
+                        console.log(`✅ Found SportStream stream for: ${ssCh.name}`);
+                        const ssStreamUrl = buildSportStreamUrl(ssMatch.stream_id);
+                        if (!ssStreamUrl) {
+                            console.warn(`[SportStream] SPS_ENV non impostata, nessuno stream per ${ssCh.name}`);
+                            return { streams: [] };
+                        }
+                        const ssHdrs = getSportStreamHeaders();
+                        const ssMfpUrl = (requestConfig?.mediaFlowProxyUrl || configCache?.mediaFlowProxyUrl || process.env.MFP_URL || '').replace(/\/+$/, '');
+                        const ssMfpPsw = requestConfig?.mediaFlowProxyPassword || configCache?.mediaFlowProxyPassword || process.env.MFP_PSW || '';
+                        let ssFinalUrl = ssStreamUrl;
+                        let ssTitle = '🔴 LIVE';
+
+                        if (ssMfpUrl) {
+                            const hParams = Object.entries(ssHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
+                            const pwParam = ssMfpPsw ? `&api_password=${encodeURIComponent(ssMfpPsw)}` : '';
+                            ssFinalUrl = `${ssMfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(ssStreamUrl)}${pwParam}${hParams}`;
+                            ssTitle = '🌐 🔴 LIVE';
+                        }
+
+                        return {
+                            streams: [{
+                                url: ssFinalUrl,
+                                title: ssTitle,
+                                name: ssMatch.channel_name || 'SportStream',
+                                behaviorHints: {
+                                    notWebReady: true,
+                                    ...(ssMfpUrl ? {} : {
+                                        proxyHeaders: { request: ssHdrs }
+                                    }),
+                                    headers: { Referer: ssHdrs['Referer'], Origin: ssHdrs['Origin'] }
+                                } as any
+                            }]
+                        };
+                    }
+                }
+
                 // === MEDIAHOSTING STREAM HANDLER ===
-                if (cleanIdForSportzx.startsWith('mh_')) {
+                if (!IS_MH_DISABLED && cleanIdForSportzx.startsWith('mh_')) {
                     const { getMediaHostingChannels } = await import('./utils/mediahostingUpdater');
                     const { MediaHostingClient } = await import('./extractors/mediahosting');
                     const mhCh = getMediaHostingChannels().find((c: any) => c.id === cleanIdForSportzx);
@@ -3685,38 +3770,77 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
 
                         // === MEDIAHOSTING per canali dinamici (DOPO Freeshot) ===
-                        try {
-                            const { MediaHostingClient, getMediaHostingCode } = await import('./extractors/mediahosting');
-                            const mhMatch = getMediaHostingCode({
-                                id: (channel as any).id,
-                                name: (channel as any).name,
-                                epgChannelIds: (channel as any).epgChannelIds,
-                                extraTexts: providerTitlesExt
-                            });
-                            if (mhMatch) {
-                                const mhClient = new MediaHostingClient();
-                                const mhStreamUrl = await mhClient.resolve(mhMatch.streamId);
-                                if (mhStreamUrl) {
-                                    const mhHdrs = mhClient.getPlaybackHeaders();
-                                    let mhInjUrl = mhStreamUrl;
-                                    if (mfpUrl) {
-                                        const hParams = Object.entries(mhHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
-                                        const pwParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
-                                        mhInjUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(mhStreamUrl)}${pwParam}${hParams}`;
-                                    }
-                                    streams.push({
-                                        url: mhInjUrl,
-                                        title: `[MH] ${mhMatch.displayName} [ITA]`,
-                                        behaviorHints: {
-                                            notWebReady: true,
-                                            ...(mfpUrl ? {} : { proxyHeaders: { request: mhHdrs } })
+                        if (!IS_MH_DISABLED) {
+                            try {
+                                const { MediaHostingClient, getMediaHostingCode } = await import('./extractors/mediahosting');
+                                const mhMatch = getMediaHostingCode({
+                                    id: (channel as any).id,
+                                    name: (channel as any).name,
+                                    epgChannelIds: (channel as any).epgChannelIds,
+                                    extraTexts: providerTitlesExt
+                                });
+                                if (mhMatch) {
+                                    const mhClient = new MediaHostingClient();
+                                    const mhStreamUrl = await mhClient.resolve(mhMatch.streamId);
+                                    if (mhStreamUrl) {
+                                        const mhHdrs = mhClient.getPlaybackHeaders();
+                                        let mhInjUrl = mhStreamUrl;
+                                        if (mfpUrl) {
+                                            const hParams = Object.entries(mhHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
+                                            const pwParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                            mhInjUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(mhStreamUrl)}${pwParam}${hParams}`;
                                         }
-                                    } as any);
-                                    debugLog(`MediaHosting (dynamic) aggiunto per ${mhMatch.displayName} (hint: ${mhMatch.matchHint}): ${mhInjUrl.substring(0, 80)}`);
+                                        streams.push({
+                                            url: mhInjUrl,
+                                            title: `[MH] ${mhMatch.displayName} [ITA]`,
+                                            behaviorHints: {
+                                                notWebReady: true,
+                                                ...(mfpUrl ? {} : { proxyHeaders: { request: mhHdrs } })
+                                            }
+                                        } as any);
+                                        debugLog(`MediaHosting (dynamic) aggiunto per ${mhMatch.displayName} (hint: ${mhMatch.matchHint}): ${mhInjUrl.substring(0, 80)}`);
+                                    }
                                 }
+                            } catch (e) {
+                                debugLog(`MediaHosting import/fetch fallito (dynamic): ${e}`);
                             }
-                        } catch (e) {
-                            debugLog(`MediaHosting import/fetch fallito (dynamic): ${e}`);
+                        }
+
+                        // === SPORTSTREAM per canali dinamici (DOPO MediaHosting) ===
+                        if (!IS_SS_DISABLED) {
+                            try {
+                                const { getSportStreamCode, buildSportStreamUrl, getSportStreamHeaders } = await import('./utils/sportstreamUpdater');
+                                const ssMatch = getSportStreamCode({
+                                    id: (channel as any).id,
+                                    name: (channel as any).name,
+                                    epgChannelIds: (channel as any).epgChannelIds,
+                                    extraTexts: providerTitlesExt
+                                });
+                                if (ssMatch) {
+                                    const ssStreamUrl = buildSportStreamUrl(ssMatch.streamId);
+                                    if (ssStreamUrl) {
+                                        const ssHdrs = getSportStreamHeaders();
+                                        let ssInjUrl = ssStreamUrl;
+                                        if (mfpUrl) {
+                                            const hParams = Object.entries(ssHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
+                                            const pwParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                            ssInjUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(ssStreamUrl)}${pwParam}${hParams}`;
+                                        }
+                                        streams.push({
+                                            url: ssInjUrl,
+                                            title: `[SS] ${ssMatch.displayName} [ITA]`,
+                                            behaviorHints: {
+                                                notWebReady: true,
+                                                ...(mfpUrl ? {} : { proxyHeaders: { request: ssHdrs } }),
+                                                headers: { Referer: ssHdrs['Referer'], Origin: ssHdrs['Origin'] }
+                                            }
+                                        } as any);
+                                        debugLog(`SportStream (dynamic) aggiunto per ${ssMatch.displayName} (hint: ${ssMatch.matchHint}): ${ssInjUrl.substring(0, 80)}`);
+                                    }
+                                }
+                            } catch (e) {
+                                debugLog(`SportStream import/fetch fallito (dynamic): ${e}`);
+                            }
                         }
 
                         // === INJECTION ORDINE: prima MPDh, poi MPD, poi MPDz ===
@@ -4261,38 +4385,77 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
 
                         // --- MEDIAHOSTING per canali statici (DOPO Freeshot) ---
-                        try {
-                            const { MediaHostingClient, getMediaHostingCode } = await import('./extractors/mediahosting');
-                            const mhMatch = getMediaHostingCode({
-                                id: (channel as any).id,
-                                name: (channel as any).name,
-                                epgChannelIds: (channel as any).epgChannelIds,
-                                extraTexts: []
-                            });
-                            if (mhMatch) {
-                                const mhClient = new MediaHostingClient();
-                                const mhStreamUrl = await mhClient.resolve(mhMatch.streamId);
-                                if (mhStreamUrl) {
-                                    const mhHdrs = mhClient.getPlaybackHeaders();
-                                    let mhInjUrl = mhStreamUrl;
-                                    if (mfpUrl) {
-                                        const hParams = Object.entries(mhHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
-                                        const pwParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
-                                        mhInjUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(mhStreamUrl)}${pwParam}${hParams}`;
-                                    }
-                                    streams.push({
-                                        url: mhInjUrl,
-                                        title: `[MH] ${mhMatch.displayName} [ITA]`,
-                                        behaviorHints: {
-                                            notWebReady: true,
-                                            ...(mfpUrl ? {} : { proxyHeaders: { request: mhHdrs } })
+                        if (!IS_MH_DISABLED) {
+                            try {
+                                const { MediaHostingClient, getMediaHostingCode } = await import('./extractors/mediahosting');
+                                const mhMatch = getMediaHostingCode({
+                                    id: (channel as any).id,
+                                    name: (channel as any).name,
+                                    epgChannelIds: (channel as any).epgChannelIds,
+                                    extraTexts: []
+                                });
+                                if (mhMatch) {
+                                    const mhClient = new MediaHostingClient();
+                                    const mhStreamUrl = await mhClient.resolve(mhMatch.streamId);
+                                    if (mhStreamUrl) {
+                                        const mhHdrs = mhClient.getPlaybackHeaders();
+                                        let mhInjUrl = mhStreamUrl;
+                                        if (mfpUrl) {
+                                            const hParams = Object.entries(mhHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
+                                            const pwParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                            mhInjUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(mhStreamUrl)}${pwParam}${hParams}`;
                                         }
-                                    } as any);
-                                    debugLog(`MediaHosting (static) aggiunto per ${mhMatch.displayName} (hint: ${mhMatch.matchHint})`);
+                                        streams.push({
+                                            url: mhInjUrl,
+                                            title: `[MH] ${mhMatch.displayName} [ITA]`,
+                                            behaviorHints: {
+                                                notWebReady: true,
+                                                ...(mfpUrl ? {} : { proxyHeaders: { request: mhHdrs } })
+                                            }
+                                        } as any);
+                                        debugLog(`MediaHosting (static) aggiunto per ${mhMatch.displayName} (hint: ${mhMatch.matchHint})`);
+                                    }
                                 }
+                            } catch (e) {
+                                debugLog('MediaHosting import/fetch fallito per canale statico', (e as any)?.message || e);
                             }
-                        } catch (e) {
-                            debugLog('MediaHosting import/fetch fallito per canale statico', (e as any)?.message || e);
+                        }
+
+                        // --- SPORTSTREAM per canali statici (DOPO MediaHosting) ---
+                        if (!IS_SS_DISABLED) {
+                            try {
+                                const { getSportStreamCode, buildSportStreamUrl, getSportStreamHeaders } = await import('./utils/sportstreamUpdater');
+                                const ssMatch = getSportStreamCode({
+                                    id: (channel as any).id,
+                                    name: (channel as any).name,
+                                    epgChannelIds: (channel as any).epgChannelIds,
+                                    extraTexts: []
+                                });
+                                if (ssMatch) {
+                                    const ssStreamUrl = buildSportStreamUrl(ssMatch.streamId);
+                                    if (ssStreamUrl) {
+                                        const ssHdrs = getSportStreamHeaders();
+                                        let ssInjUrl = ssStreamUrl;
+                                        if (mfpUrl) {
+                                            const hParams = Object.entries(ssHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
+                                            const pwParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                            ssInjUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(ssStreamUrl)}${pwParam}${hParams}`;
+                                        }
+                                        streams.push({
+                                            url: ssInjUrl,
+                                            title: `[SS] ${ssMatch.displayName} [ITA]`,
+                                            behaviorHints: {
+                                                notWebReady: true,
+                                                ...(mfpUrl ? {} : { proxyHeaders: { request: ssHdrs } }),
+                                                headers: { Referer: ssHdrs['Referer'], Origin: ssHdrs['Origin'] }
+                                            }
+                                        } as any);
+                                        debugLog(`SportStream (static) aggiunto per ${ssMatch.displayName} (hint: ${ssMatch.matchHint})`);
+                                    }
+                                }
+                            } catch (e) {
+                                debugLog('SportStream import/fetch fallito per canale statico', (e as any)?.message || e);
+                            }
                         }
                     }
 
@@ -8090,14 +8253,28 @@ if (!DISABLE_LIVE_EVENTS) {
     }
 }
 
+// =============== SPORTSTREAM AUTO-UPDATER ==============================
+if (!DISABLE_LIVE_EVENTS && !IS_SS_DISABLED) {
+    try {
+        startSportStreamScheduler();
+        console.log('✅ SportStream auto-updater attivato (ogni 30 min)');
+    } catch (e) {
+        console.error('❌ Errore avvio SportStream updater:', e);
+    }
+} else if (IS_SS_DISABLED) {
+    console.log('⏭️ SportStream DISABILITATO via DISABLE_SPS');
+}
+
 // =============== MEDIAHOSTING AUTO-UPDATER ==============================
-if (!DISABLE_LIVE_EVENTS) {
+if (!DISABLE_LIVE_EVENTS && !IS_MH_DISABLED) {
     try {
         startMediaHostingScheduler();
         console.log('✅ MediaHosting auto-updater attivato (ogni 30 min)');
     } catch (e) {
         console.error('❌ Errore avvio MediaHosting updater:', e);
     }
+} else if (IS_MH_DISABLED) {
+    console.log('⏭️ MediaHosting DISABILITATO via DISABLE_MH');
 }
 
 // =============== FREESHOT AUTO-UPDATER ==============================
