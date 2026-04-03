@@ -17,7 +17,24 @@ const SHARED_HEADERS = {
     'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.7,en;q=0.6',
 };
 
-const PROXY2 = process.env.PROXY2;
+/**
+ * Get a proxied URL from a list of Cloudflare Worker proxies
+ * Supports rotation/failover
+ */
+function getWorkerUrls(): string[] {
+    const raw = process.env.CF_PROXY;
+    if (!raw) return [];
+    return raw.split(',').map(u => u.trim().replace(/,$/, '').trim()).filter(u => u.length > 0);
+}
+
+function getProxiedUrl(targetUrl: string, workerUrl: string, referer?: string): string {
+    const separator = workerUrl.includes('?') ? '&' : '?';
+    let finalUrl = `${workerUrl}${separator}url=${encodeURIComponent(targetUrl)}`;
+    if (referer) {
+        finalUrl += `&h=referer:${encodeURIComponent(referer)}`;
+    }
+    return finalUrl;
+}
 
 // Helper for fetch with timeout
 async function fetchWithTimeout(url: string, options: any = {}, timeoutMs: number = 10000): Promise<Response> {
@@ -69,10 +86,13 @@ async function fetchWithCookies(url: string, options: any = {}, timeoutMs: numbe
     };
 }
 
-// Helper to fetch with bypass (direct 2s -> PROXY2 4s)
+// Helper to fetch with bypass (Direct -> CF_PROXY -> Warp)
 async function fetchWithBypass(url: string, options: any = {}): Promise<{ data: string; status: number; headers: any }> {
+    const workers = getWorkerUrls();
+    const PROXY = process.env.PROXY;
+
     try {
-        // 1. Try direct fetch with short timeout (2s)
+        // 1. Try direct fetch (Fastest)
         const res = await fetchWithCookies(url, options, 2000);
         if (res.status === 403 || res.status === 400) {
             throw Object.assign(new Error(`HTTP ${res.status}`), { response: { status: res.status } });
@@ -85,22 +105,40 @@ async function fetchWithBypass(url: string, options: any = {}): Promise<{ data: 
         const isNetwork = !e.response;
 
         if (isBlock || isTimeout || isNetwork) {
-            if (!PROXY2) {
-                console.log(`[Guardaflix] Blocked or timeout on ${url}, but PROXY2 is not set. Aborting.`);
-                throw e;
+            
+            console.log(`[Guardaflix] Blocked or timeout on ${url} (${status || e.code || 'TIMEOUT'}), trying bypass...`);
+
+            // 2. CF_PROXY Workers (with Rotation)
+            if (workers.length > 0) {
+                const startIndex = Math.floor(Math.random() * workers.length);
+                
+                for (let i = 0; i < workers.length; i++) {
+                    const workerIndex = (startIndex + i) % workers.length;
+                    const workerUrl = workers[workerIndex];
+                    
+                    console.log(`[Guardaflix] Trying CF Worker #${workerIndex + 1} for ${url}...`);
+                    try {
+                        const cfProxiedUrl = getProxiedUrl(url, workerUrl, options.headers?.['Referer']);
+                        const cfRes = await fetchWithCookies(cfProxiedUrl, options, 8000);
+                        console.log(`[Guardaflix] CF Worker #${workerIndex + 1} success for ${url}`);
+                        return cfRes;
+                    } catch (cfErr: any) {
+                        console.error(`[Guardaflix] CF Worker #${workerIndex + 1} failed for ${url}: ${cfErr.message}`);
+                    }
+                }
             }
 
-            console.log(`[Guardaflix] Blocked or timeout on ${url} (${status || e.code || 'TIMEOUT'}), trying PROXY2 bypass...`);
-
-            // 2. Try with PROXY2 (4s timeout)
-            try {
-                const proxyAgent = new ProxyAgent(PROXY2);
-                const proxyRes = await fetchWithCookies(url, options, 4000, proxyAgent);
-                console.log(`[Guardaflix] PROXY2 bypass success for ${url}`);
-                return proxyRes;
-            } catch (proxyErr: any) {
-                console.error(`[Guardaflix] PROXY2 bypass failed for ${url}: ${proxyErr.message}. Aborting.`);
-                throw proxyErr;
+            // 3. Fallback to PROXY (Warp)
+            if (PROXY) {
+                console.log(`[Guardaflix] Trying PROXY (Warp) for ${url}...`);
+                try {
+                    const proxyAgent = new ProxyAgent(PROXY);
+                    const proxyRes = await fetchWithCookies(url, options, 5000, proxyAgent);
+                    console.log(`[Guardaflix] PROXY bypass success for ${url}`);
+                    return proxyRes;
+                } catch (err: any) {
+                    console.warn(`[Guardaflix] PROXY bypass failed for ${url}: ${err.message}`);
+                }
             }
         }
         throw e;
