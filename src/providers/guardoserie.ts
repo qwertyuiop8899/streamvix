@@ -35,58 +35,97 @@ function getClient() {
     return client;
 }
 
-const PROXY2 = process.env.PROXY2;
+/**
+ * Get a proxied URL from a list of Cloudflare Worker proxies
+ * Supports rotation/failover
+ */
+function getWorkerUrls(): string[] {
+    const raw = process.env.CF_PROXY;
+    if (!raw) return [];
+    return raw.split(',').map(u => u.trim().replace(/,$/, '').trim()).filter(u => u.length > 0);
+}
 
-// Helper to fetch with bypass
+function getProxiedUrl(targetUrl: string, workerUrl: string): string {
+    const separator = workerUrl.includes('?') ? '&' : '?';
+    return `${workerUrl}${separator}url=${encodeURIComponent(targetUrl)}`;
+}
+
+// Helper to fetch with bypass (Direct -> CF_PROXY -> Warp)
 async function fetchWithBypass(url: string, options: any = {}): Promise<any> {
+    const workers = getWorkerUrls();
+    const PROXY = process.env.PROXY;
+
     try {
-        // 1. Try direct fetch with short timeout (2s)
+        // 1. Try direct fetch (Fastest)
         return await getClient().get(url, { 
             ...options, 
             timeout: 2000 
         });
     } catch (e: any) {
-        // Check if it's a block (403/400) or a timeout/network error
         if (e.response?.status === 403 || e.response?.status === 400 || !e.response || e.code === 'ECONNABORTED' || e.message === 'timeout exceeded') {
             
-            if (!PROXY2) {
-                console.log(`[Guardoserie] Blocked or timeout on ${url}, but PROXY2 is not set. Aborting.`);
-                throw e;
-            }
-
-            console.log(`[Guardoserie] Blocked or timeout on ${url} (${e.response?.status || e.code || 'TIMEOUT'}), trying PROXY2 bypass...`);
+            console.log(`[Guardoserie] Blocked or timeout on ${url} (${e.response?.status || e.code || 'TIMEOUT'}), trying bypass...`);
             
-            // Build the full URL including params
-            let finalTargetUrl = url;
-            try {
-                if (options.params) {
-                    const urlObj = new URL(url);
-                    for (const [key, value] of Object.entries(options.params)) {
-                        urlObj.searchParams.append(key, String(value));
+            const finalTargetUrl = buildUrlWithParams(url, options.params);
+
+            // 2. CF_PROXY Workers (with Rotation)
+            if (workers.length > 0) {
+                const startIndex = Math.floor(Math.random() * workers.length);
+                
+                for (let i = 0; i < workers.length; i++) {
+                    const workerIndex = (startIndex + i) % workers.length;
+                    const workerUrl = workers[workerIndex];
+                    
+                    console.log(`[Guardoserie] Trying CF Worker #${workerIndex + 1} for ${url}...`);
+                    try {
+                        const cfProxiedUrl = getProxiedUrl(finalTargetUrl, workerUrl);
+                        const cfRes = await axios.get(cfProxiedUrl, {
+                            ...options,
+                            proxy: false,
+                            timeout: 8000
+                        });
+                        console.log(`[Guardoserie] CF Worker #${workerIndex + 1} success for ${url}`);
+                        return cfRes;
+                    } catch (cfErr: any) {
+                        console.error(`[Guardoserie] CF Worker #${workerIndex + 1} failed for ${url}: ${cfErr.message}`);
                     }
-                    finalTargetUrl = urlObj.toString();
                 }
-            } catch (urlErr) {
-                console.error('[Guardoserie] Error rebuilding URL with params:', urlErr);
             }
 
-            // 2. Try with PROXY2 (4s timeout)
-            try {
-                const proxyAgent = new HttpsProxyAgent(PROXY2);
-                const proxyRes = await axios.get(finalTargetUrl, {
-                    ...options,
-                    httpsAgent: proxyAgent,
-                    proxy: false,
-                    timeout: 4000
-                });
-                console.log(`[Guardoserie] PROXY2 bypass success for ${url}`);
-                return proxyRes;
-            } catch (proxyErr: any) {
-                console.error(`[Guardoserie] PROXY2 bypass failed for ${url}: ${proxyErr.message}. Aborting.`);
-                throw proxyErr;
+            // 3. Fallback to PROXY (Warp)
+            if (PROXY) {
+                console.log(`[Guardoserie] Trying PROXY (Warp) for ${url}...`);
+                try {
+                    const proxyAgent = new HttpsProxyAgent(PROXY);
+                    const proxyRes = await axios.get(finalTargetUrl, {
+                        ...options,
+                        httpsAgent: proxyAgent,
+                        proxy: false,
+                        timeout: 5000
+                    });
+                    console.log(`[Guardoserie] PROXY bypass success for ${url}`);
+                    return proxyRes;
+                } catch (err: any) {
+                    console.warn(`[Guardoserie] PROXY bypass failed for ${url}: ${err.message}`);
+                }
             }
+
+            throw e;
         }
         throw e;
+    }
+}
+
+function buildUrlWithParams(url: string, params: any): string {
+    if (!params) return url;
+    try {
+        const urlObj = new URL(url);
+        for (const [key, value] of Object.entries(params)) {
+            urlObj.searchParams.append(key, String(value));
+        }
+        return urlObj.toString();
+    } catch {
+        return url;
     }
 }
 
