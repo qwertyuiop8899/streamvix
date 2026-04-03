@@ -375,7 +375,7 @@ function landingTemplate(manifest: any) {
 					<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.85rem;">
 						<div class="preset-card" data-preset="film-serie-nomfp" style="padding: 1rem; border: 2px solid rgba(140, 82, 255, 0.4); border-radius: 10px; background: rgba(45, 21, 68, 0.7); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie</div>
-							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, <s style="opacity:0.5">GuardaSerie</s>, Guardoserie, Guardaflix</div>
 						</div>
 						<div class="preset-card" data-preset="film-serie-anime-nomfp" style="padding: 1rem; border: 2px solid rgba(140, 82, 255, 0.4); border-radius: 10px; background: rgba(45, 21, 68, 0.7); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + Anime</div>
@@ -383,11 +383,11 @@ function landingTemplate(manifest: any) {
 						</div>
 						<div class="preset-card" data-preset="film-serie-tv-nomfp" style="padding: 1rem; border: 2px solid rgba(140, 82, 255, 0.4); border-radius: 10px; background: rgba(45, 21, 68, 0.7); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + TV Live</div>
-							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix, Live TV, Vavoo NO MFP</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, <s style="opacity:0.5">GuardaSerie</s>, Guardoserie, Guardaflix, Live TV, Vavoo NO MFP</div>
 						</div>
 						<div class="preset-card" data-preset="film-serie-anime-tv-nomfp" style="padding: 1rem; border: 2px solid rgba(140, 82, 255, 0.4); border-radius: 10px; background: rgba(45, 21, 68, 0.7); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + Anime + TV Live</div>
-							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix, Loonex, AnimeSaturn, AnimeUnity FHD, AnimeWorld, Live TV, Vavoo NO MFP</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, <s style="opacity:0.5">GuardaSerie</s>, Guardoserie, Guardaflix, Loonex, AnimeSaturn, AnimeUnity FHD, AnimeWorld, Live TV, Vavoo NO MFP</div>
 						</div>
 					</div>
 				</div>
@@ -398,19 +398,19 @@ function landingTemplate(manifest: any) {
 					<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.85rem;">
 						<div class="preset-card" data-preset="film-serie-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie</div>
-							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, <s style="opacity:0.5">GuardaSerie</s>, Guardoserie, Guardaflix</div>
 						</div>
 						<div class="preset-card" data-preset="film-serie-anime-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + Anime</div>
-							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix, Loonex, ToonItalia, AnimeSaturn, AnimeUnity FHD, AnimeWorld</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, <s style="opacity:0.5">GuardaSerie</s>, Guardoserie, Guardaflix, Loonex, ToonItalia, AnimeSaturn, AnimeUnity FHD, AnimeWorld</div>
 						</div>
 						<div class="preset-card" data-preset="film-serie-tv-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + TV Live</div>
-							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix, Live TV, Vavoo</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, <s style="opacity:0.5">GuardaSerie</s>, Guardoserie, Guardaflix, Live TV, Vavoo</div>
 						</div>
 						<div class="preset-card" data-preset="film-serie-anime-tv-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + Anime + TV Live</div>
-							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, GuardaSerie, Guardoserie, Guardaflix, Loonex, ToonItalia, AnimeSaturn, AnimeUnity FHD, AnimeWorld, Live TV, Vavoo</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, <s style="opacity:0.5">GuardaSerie</s>, Guardoserie, Guardaflix, Loonex, ToonItalia, AnimeSaturn, AnimeUnity FHD, AnimeWorld, Live TV, Vavoo</div>
 						</div>
 					</div>
 				</div>
@@ -492,7 +492,7 @@ function landingTemplate(manifest: any) {
 					'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
 					'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
 					'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
-					'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓', invert: false },
+					'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600; color:#ff5555;">(Temporaneamente disabilitato)</span>', invert: false, forceDisabled: true },
 					'guardoserieEnabled': { title: 'Guardoserie 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
 					'guardaflixEnabled': { title: 'Guardaflix 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
 					'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
@@ -513,19 +513,24 @@ function landingTemplate(manifest: any) {
 					let isChecked = hasDefault ? (t.invert ? !((elem as any).default as boolean) : !!(elem as any).default) : true;
 					// Force Eurostreaming & Loonex OFF by default (unless explicit default true)
 					if ((key === 'eurostreamingEnabled' || key === 'loonexEnabled' || key === 'vavooNoMfpEnabled') && !hasDefault) isChecked = false;
+					// Force GuardaSerie permanently OFF and disabled
+					if (t.forceDisabled) isChecked = false;
 					const checkedAttr = isChecked ? ' checked' : '';
 					const extraAttr = key === 'mediaflowMaster' ? ' data-master-mfp="1"' : '';
 					const extraAttrTmdb = key === 'personalTmdbKey' ? ' data-personal-tmdb="1"' : '';
+					const disabledAttr = t.forceDisabled ? ' disabled' : '';
+					const dimmedClass = t.forceDisabled ? ' dimmed' : '';
+					const cursorStyle = t.forceDisabled ? ' style="pointer-events:none; opacity:0.5;"' : '';
 					// (Rimossa vecchia iniezione pills Local/FHD - verrà creato sotto-menu dedicato)
 					let extraLocal = '';
 					options += `
 							<div class="form-element"${extraAttr}${extraAttrTmdb}>
-								<div class="toggle-row" data-toggle-row="${key}">
+								<div class="toggle-row${dimmedClass}" data-toggle-row="${key}">
 									<span class="toggle-title">${t.title}${extraLocal}</span>
-									<div class="toggle-right">
+									<div class="toggle-right"${cursorStyle}>
 										<span class="toggle-off">OFF</span>
 										<label class="switch">
-											<input type="checkbox" id="${key}" name="${key}" data-config-key="${key}" data-main-toggle="1" data-invert="${t.invert ? 'true' : 'false'}"${checkedAttr} />
+											<input type="checkbox" id="${key}" name="${key}" data-config-key="${key}" data-main-toggle="1" data-invert="${t.invert ? 'true' : 'false'}"${checkedAttr}${disabledAttr} />
 											<span class="slider"></span>
 										</label>
 										<span class="toggle-on">ON</span>
