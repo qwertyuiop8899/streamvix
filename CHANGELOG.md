@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.17.17](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.16...v1.17.17) (2026-04-03)
+
+
+### Bug Fixes
+
+* domains update ([b073d23](https://github.com/qwertyuiop8899/streamvix/commit/b073d23439580b376fbe1265b8c322aa7982a501))
+* guardaflix.ts ([08543da](https://github.com/qwertyuiop8899/streamvix/commit/08543da236f77dcb5b7224f54ef1ff37905c4d48))
+* guardaserie-provider.ts ([9d8d459](https://github.com/qwertyuiop8899/streamvix/commit/9d8d45978d40c20a14ba05eaaef32d9e7c6e6507))
+* gus ([e05dae9](https://github.com/qwertyuiop8899/streamvix/commit/e05dae9e35f89206e60009155190034fb366fc97))
+
 ## [1.17.16](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.15...v1.17.16) (2026-04-02)
 
 
