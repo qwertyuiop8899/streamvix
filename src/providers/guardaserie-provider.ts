@@ -29,7 +29,7 @@ export class GuardaSerieProvider {
   }
 
   async handleImdbRequest(imdbId: string, season: number | null, episode: number | null, isMovie = false) {
-    if (!this.config.enabled) return { streams: [] };
+    if (!this.config.enabled || (globalThis as any).process?.env?.GS_DISABLE !== 'false') return { streams: [] };
     try {
       if (isMovie) { // richiesto: non cercare film su Guardaserie
         console.log('[GS][handleImdbRequest] isMovie true -> skip');
@@ -59,7 +59,7 @@ export class GuardaSerieProvider {
   }
 
   async handleTmdbRequest(tmdbId: string, season: number | null, episode: number | null, isMovie = false) {
-    if (!this.config.enabled) return { streams: [] };
+    if (!this.config.enabled || (globalThis as any).process?.env?.GS_DISABLE !== 'false') return { streams: [] };
     try {
       if (isMovie) { // richiesto: non cercare film su Guardaserie
         console.log('[GS][handleTmdbRequest] isMovie true -> skip');
