@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.20](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.19...v1.17.20) (2026-04-04)
+
+
+### Bug Fixes
+
+* update_domains.py ([ccbe531](https://github.com/qwertyuiop8899/streamvix/commit/ccbe5315712e42f9e8bf8362f72c30417ddd0ed8))
+
 ## [1.17.19](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.18...v1.17.19) (2026-04-04)
 
 
