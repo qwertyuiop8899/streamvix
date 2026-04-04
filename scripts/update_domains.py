@@ -4,6 +4,7 @@ from pathlib import Path
 
 PASTEBIN_RAW = 'https://pastebin.com/raw/KgQ4jTy6'
 GUARDASERIE_IT_URL = 'https://guardaserie.foo/'  # Source for guardoserie + guardaflix domains
+EURO_SOURCE_URL = 'https://eurostreaming-nuovo-indirizzo.com/' # Primary source for eurostreaming
 DOMAINS_FILE = Path('config/domains.json')
 BACKUP_FILE = Path('config/domains.jsonbk')
 ATTENTION_FILE = Path('attenzione.check')
@@ -21,7 +22,7 @@ KEY_HINTS = {
     'animeunity': re.compile(r'animeunity\.[a-z]{2,}'),
     'animeworld': re.compile(r'animeworld\.[a-z]{2,}'),
     'guardaserie': re.compile(r'guardaserie[a-z]*\.[a-z]{2,}'),
-    # eurostreaming handled separately via fixed position (line 4 of pastebin)
+    'eurostreaming': re.compile(r'eurostreamings?\.[a-z]{2,}'),
     # guardoserie and guardaflix handled separately via guardaserie.it.com scraping
 }
 
@@ -84,11 +85,25 @@ def scrape_guardaserie_it(html: str):
         print(f'[update_domains] Found guardaflix domain: {result["guardaflix"]}')
 
     return result
+ 
+ 
+def scrape_eurostreaming_nuovo(html: str):
+    """
+    Scrape eurostreaming domain from eurostreaming-nuovo-indirizzo.com.
+    Looks for the main link with title="nuovo indirizzo eurostreaming".
+    """
+    m = re.search(r'<a\s+href="https?://([^"/]+)/?"\s+title="nuovo indirizzo eurostreaming"', html, re.I)
+    if m:
+        domain = m.group(1).lower()
+        print(f'[update_domains] Found official eurostreaming domain: {domain}')
+        return domain
+    return None
 
 
 def main():
     paste_txt = fetch(PASTEBIN_RAW)
     guardaserie_it_html = fetch(GUARDASERIE_IT_URL)
+    euro_nuovo_html = fetch(EURO_SOURCE_URL)
 
     reachable = True
     if not paste_txt and not guardaserie_it_html:
@@ -141,23 +156,16 @@ def main():
             updated[key] = new_host
             changed[key] = {'old': old_host, 'new': new_host}
 
-    # eurostreaming: pick host from 4th non-empty line (1-based) of pastebin list if valid
-    if paste_txt:
-        try:
-            lines = [ln.strip() for ln in paste_txt.splitlines() if ln.strip()]
-            if len(lines) >= 4:
-                line4 = lines[3]
-                # Match "euro" + qualsiasi cosa (eurostreaming, eurostreamings, eurostream, etc.)
-                m = re.search(r'https?://(www\.)?(euro[a-z]*\.[a-z]{2,})', line4, re.I)
-                if m:
-                    euro_host = m.group(2).lower()
-                    old_host = updated.get('eurostreaming')
-                    if euro_host and old_host != euro_host:
-                        updated['eurostreaming'] = euro_host
-                        changed['eurostreaming'] = {'old': old_host, 'new': euro_host}
-        except Exception as e:
-            print('[update_domains] eurostreaming line-4 parse error', e, file=sys.stderr)
-
+    # eurostreaming is now handled via KEY_HINTS search across the entire pastebin
+    # but we PRIORITIZE the official euro-nuovo source if available
+    if euro_nuovo_html:
+        official_euro = scrape_eurostreaming_nuovo(euro_nuovo_html)
+        if official_euro:
+            old_host = updated.get('eurostreaming')
+            if old_host != official_euro:
+                updated['eurostreaming'] = official_euro
+                changed['eurostreaming'] = {'old': old_host, 'new': official_euro}
+ 
     # guardoserie + guardaflix: scrape from guardaserie.it.com
     if guardaserie_it_html:
         scraped = scrape_guardaserie_it(guardaserie_it_html)
