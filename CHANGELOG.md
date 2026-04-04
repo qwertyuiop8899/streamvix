@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.19](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.18...v1.17.19) (2026-04-04)
+
+
+### Bug Fixes
+
+* domains.json ([49e630f](https://github.com/qwertyuiop8899/streamvix/commit/49e630f9c4dbdcd63fd5c1e706bb7910e796e2c1))
+* eurostreaming.py ([f5cfc9f](https://github.com/qwertyuiop8899/streamvix/commit/f5cfc9fdb3bbfd5f233df70f64772347d3a651fb))
+
 ## [1.17.18](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.17...v1.17.18) (2026-04-03)
 
 
