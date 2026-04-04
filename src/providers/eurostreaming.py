@@ -50,7 +50,7 @@ Note:
  - I log OCR/captcha appaiono solo con ES_DEBUG=1.
 """
 # Eurostreaming provider (MammaMia-style, 1:1 functions) with curl_cffi + fake_headers
-import re, os, json, base64, time, random, asyncio, sys, unicodedata, html
+import re, os, json, base64, time, random, asyncio, sys, unicodedata, html, urllib.parse
 import difflib
 from typing import Dict, Tuple, Optional
 
@@ -163,25 +163,100 @@ def ensure_es_domain(force: bool = False):
     _ES_LAST_CHECK = now
     return ES_DOMAIN
 
-# Proxies / ForwardProxy simplified
-# Prima prova senza proxy; se CF blocca (risposta non-JSON), fallback su PROXY env
+# Proxies / CF Worker list
 _proxy_url = os.environ.get('PROXY', '').strip()
 _proxy_dict: Dict[str, str] = {"http": _proxy_url, "https": _proxy_url} if _proxy_url else {}
-proxies: Dict[str, str] = {}  # default: nessun proxy
-ForwardProxy = ""
+
+def get_worker_urls():
+    raw = os.environ.get('CF_PROXY')
+    if not raw: return []
+    return [u.strip().rstrip('/') for u in raw.split(',') if u.strip()]
+
+CF_WORKERS = get_worker_urls()
+ForwardProxy = ""  # Restored to satisfy legacy concatenations
 
 async def _cf_safe_get(client, url, headers=None, **kwargs):
-    """GET con fallback proxy: prima prova diretto, se CF blocca riprova con PROXY."""
-    resp = await client.get(url, proxies=proxies, headers=headers, **kwargs)
-    # Se la risposta è JSON valida, ok
-    ct = resp.headers.get('content-type', '')
-    if 'json' in ct or resp.status_code == 404:
-        return resp
-    # Cloudflare challenge? Riprova con proxy se disponibile
-    if _proxy_dict and resp.status_code in (403, 503):
-        log('cf_safe_get: CF block detected, retrying with PROXY')
-        resp = await client.get(url, proxies=_proxy_dict, headers=headers, **kwargs)
-    return resp
+    """Multi-stage GET: Direct -> Warp -> CF Workers."""
+    is_json_api = 'wp-json' in url
+    log(f'_cf_safe_get: START {url} (is_json={is_json_api})')
+    
+    # 1. Try Direct with impersonation
+    try:
+        resp = await client.get(url, headers=headers, timeout=12, impersonate='chrome', **kwargs)
+        ct = resp.headers.get('content-type', '').lower()
+        status = resp.status_code
+        
+        if is_json_api:
+            if 'json' in ct: return resp
+            log(f'_cf_safe_get: direct blocked (JSON expected, got {ct}, status={status})')
+        else:
+            if status == 404: return resp
+            # status 202 is often Cloudflare challenge
+            if status in (200, 404) and 'text/html' in ct and 'just a moment' not in resp.text.lower():
+                return resp
+            log(f'_cf_safe_get: direct blocked (status={status}, type={ct})')
+    except Exception as e:
+        log(f'_cf_safe_get: direct failed: {e}')
+
+    # 2. Try Warp Proxy (if available)
+    if _proxy_dict:
+        log('_cf_safe_get: retrying with Warp PROXY')
+        try:
+            resp = await client.get(url, proxies=_proxy_dict, headers=headers, timeout=15, impersonate='chrome', **kwargs)
+            ct = resp.headers.get('content-type', '').lower()
+            status = resp.status_code
+            if is_json_api:
+                if 'json' in ct: return resp
+            else:
+                if status == 200: return resp
+            log(f'_cf_safe_get: Warp blocked (status={status}, type={ct})')
+        except Exception as e:
+            log(f'_cf_safe_get: Warp failed: {e}')
+
+    # 3. Try CF Workers (Rotation)
+    if CF_WORKERS:
+        shuffled = list(CF_WORKERS)
+        random.shuffle(shuffled)
+        for worker in shuffled:
+            log(f'_cf_safe_get: retrying with worker {worker}')
+            try:
+                target_url = url
+                if 'wp-json' in url: target_url = url.replace('https://', 'http://')
+                proxied_url = f"{worker}/?url={urllib.parse.quote(target_url)}"
+                # Workers usually don't support impersonate through their interface, but let's try direct fetch
+                resp = await client.get(proxied_url, headers=headers, timeout=20, **kwargs)
+                ct = resp.headers.get('content-type', '').lower()
+                if resp.status_code == 200:
+                    if is_json_api and 'json' not in ct:
+                        log(f'_cf_safe_get: worker {worker} returned non-json for API')
+                        continue
+                    return resp
+            except Exception as e:
+                log(f'_cf_safe_get: worker {worker} failed: {e}')
+
+    log('_cf_safe_get: ALL STAGES FAILED, final direct fallback')
+    return await client.get(url, headers=headers, impersonate='chrome', **kwargs)
+
+async def _cf_safe_post(client, url, data=None, headers=None, **kwargs):
+    """Multi-stage POST: Direct -> Warp -> CF Workers."""
+    log(f'_cf_safe_post: START {url}')
+    # 1. Try Direct
+    try:
+        resp = await client.post(url, data=data, headers=headers, timeout=12, impersonate='chrome', **kwargs)
+        if resp.status_code == 200 and 'just a moment' not in resp.text.lower(): 
+            return resp
+    except: pass
+
+    # 2. Try Warp
+    if _proxy_dict:
+        log('_cf_safe_post: retrying with Warp PROXY')
+        try:
+            resp = await client.post(url, data=data, proxies=_proxy_dict, headers=headers, timeout=15, impersonate='chrome', **kwargs)
+            if resp.status_code == 200: return resp
+        except: pass
+
+    log('_cf_safe_post: final direct fallback')
+    return await client.post(url, data=data, headers=headers, impersonate='chrome', **kwargs)
 
 random_headers = Headers()
 
@@ -224,7 +299,7 @@ async def get_info_imdb_scrape(clean_id: str, ismovie: int, _type: str, client) 
     year = 0
     try:
         log('imdb(scrape): fetching', clean_id)
-        r = await client.get(f'https://www.imdb.com/title/{clean_id}/')
+        r = await _cf_safe_get(client, f'https://www.imdb.com/title/{clean_id}/')
         if r.status_code == 200:
             m = re.search(r'<title>([^<]+)</title>', r.text, re.I)
             if m:
@@ -245,14 +320,15 @@ def get_info_tmdb(clean_id: str, ismovie: int, _type: str):
     return (clean_id, 0)
 
 # ==== Optional TMDb-based metadata (user provided pattern) ===== #
-TMDB_KEY = os.environ.get('TMDB_KEY')
+TMDB_KEY = os.environ.get('TMDB_KEY') or os.environ.get('TMDB_API_KEY') or '40a9faa1f6741afb2c0c40238d85f8d0'
+# Default key from addon.ts: '40a9faa1f6741afb2c0c40238d85f8d0'
 
 async def get_info_imdb_tmdb(imdb_id: str, ismovie: int, _type: str, client) -> Tuple[str, int]:
     """Use TMDb 'find' endpoint to resolve IMDb id to (title, year) if API key present."""
     if not TMDB_KEY:
         return await get_info_imdb_scrape(imdb_id, ismovie, _type, client)
     try:
-        resp = await client.get(f'https://api.themoviedb.org/3/find/{imdb_id}?api_key={TMDB_KEY}&language=it&external_source=imdb_id')
+        resp = await _cf_safe_get(client, f'https://api.themoviedb.org/3/find/{imdb_id}?api_key={TMDB_KEY}&language=it&external_source=imdb_id')
         data = resp.json()
         if ismovie == 0:
             arr = data.get('tv_results') or []
@@ -325,18 +401,18 @@ async def deltabit(page_url, client):
         headers2 = random_headers.generate()
         log(f'deltabit: attempt {attempt} initial {page_url}')
         try:
-            page_url_response = await client.get(ForwardProxy + page_url, headers={**headers, 'Range': 'bytes=0-0'}, proxies=proxies)
+            page_url_response = await _cf_safe_get(client, page_url, headers={**headers, 'Range': 'bytes=0-0'})
             page_url = page_url_response.url
             log('deltabit: redirected url', page_url)
             headers2['referer'] = 'https://safego.cc/'
-            headers2['user-agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
-            response = await client.get(ForwardProxy + page_url, headers=headers2, allow_redirects=True, proxies=proxies)
+            headers2['user-agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/136.0.0.0'
+            response = await _cf_safe_get(client, page_url, headers=headers2, allow_redirects=True)
             page_url = response.url
             log('deltabit: final page url', page_url)
             origin = page_url.split('/')[2]
             headers['origin'] = f'https://{origin}'
             headers['referer'] = page_url
-            headers['user-agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
+            headers['user-agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/136.0.0.0'
             soup = BeautifulSoup(response.text, _PARSER, parse_only=SoupStrainer('input'))
             data = {}
             for inp in soup:
@@ -349,7 +425,7 @@ async def deltabit(page_url, client):
             log(f'deltabit: waiting {wait_time:.2f}s before POST (async)')
             await asyncio.sleep(wait_time)
             fname = data.get('fname', '')
-            response = await client.post(ForwardProxy + page_url, data=data, headers=headers, proxies=proxies)
+            response = await _cf_safe_post(client, page_url, data=data, headers=headers)
             # Support multiple possible player markup patterns (site can change)
             patterns = [
                 r'sources:\s*\["([^"\\]+)"',    # sources:["URL"]
@@ -367,7 +443,7 @@ async def deltabit(page_url, client):
                 # One quick second-chance re-POST after extra 0.9s (sometimes server timer)
                 log('deltabit: no source first POST, retrying once after short wait')
                 await asyncio.sleep(0.9)
-                response2 = await client.post(ForwardProxy + page_url, data=data, headers=headers, proxies=proxies)
+                response2 = await _cf_safe_post(client, page_url, data=data, headers=headers)
                 for pat in patterns:
                     m2 = re.search(pat, response2.text, re.DOTALL | re.IGNORECASE)
                     if m2 and m2.group(1).startswith('http'):
@@ -422,7 +498,7 @@ def convert_numbers(base64_data):
 async def get_numbers(safego_url, client):
     log('safego:get_numbers', safego_url)
     # Don't override User-Agent - let impersonate handle headers for Cloudflare bypass
-    response = await client.get(ForwardProxy + safego_url, proxies=proxies)
+    response = await _cf_safe_get(client, safego_url)
     cookies = (response.cookies.get_dict())
     soup = BeautifulSoup(response.text, _PARSER, parse_only=SoupStrainer('img'))
     img = soup.img if soup else None
@@ -446,7 +522,7 @@ async def real_page(safego_url, client):
                 if cookies_raw:
                     cookies = json.loads(cookies_raw.replace("'", '"'))
         # Initial GET to load the page (captcha form)
-        response = await client.get(ForwardProxy + safego_url, headers=headers, cookies=cookies, proxies=proxies)
+        response = await _cf_safe_get(client, safego_url, headers=headers, cookies=cookies)
         soup = BeautifulSoup(response.text, _PARSER, parse_only=SoupStrainer('a'))
         if soup and len(soup) >= 1 and soup.a and soup.a.get('href'):
             log('safego: proceed href (cached cookies)')
@@ -458,7 +534,7 @@ async def real_page(safego_url, client):
             numbers = convert_numbers(numbers)
             log('safego: ocr ->', numbers)
             data = {'captch5': numbers}
-            response = await client.post(ForwardProxy + safego_url, headers=headers, data=data, cookies=cookies, proxies=proxies)
+            response = await _cf_safe_post(client, safego_url, headers=headers, data=data, cookies=cookies)
             cap4 = response.headers.get('set-cookie', '')
             if cap4:
                 cap4 = cap4.split(';')[0]
@@ -482,7 +558,7 @@ async def get_host_link(pattern, atag, client):
         return None
     href_value = match.group(1)
     log('get_host_link: clicka', href_value)
-    response = await client.head(ForwardProxy + href_value, headers={**headers, 'Range': 'bytes=0-0'}, proxies=proxies)
+    response = await _cf_safe_get(client, href_value, headers={**headers, 'Range': 'bytes=0-0'})
     href_value = response.url
     log('get_host_link: safego', href_value)
     href = await real_page(href_value, client)
@@ -495,7 +571,7 @@ async def resolve_clicka_to_host(href_value, client):
         return None
     href_value = str(href_value).strip()
     log('get_host_link: clicka', href_value)
-    response = await client.get(ForwardProxy + href_value, headers={**headers, 'Range': 'bytes=0-0'}, allow_redirects=True, proxies=proxies)
+    response = await _cf_safe_get(client, href_value, headers={**headers, 'Range': 'bytes=0-0'}, allow_redirects=True)
     safego_url = response.url
     if isinstance(safego_url, str):
         safego_url = safego_url.strip()
@@ -632,7 +708,8 @@ async def search_advanced(showname, date, season, episode, MFP, client, skip_yea
     reason = None
     debug = { 'candidates': [], 'matched': [], 'filtered_tokens': [], 'rejected': [], 'phase': None, 'skip_year_check': skip_year_check }
     try:
-        response = await _cf_safe_get(client, ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/search?search={showname}&_fields=id", headers=headers)
+        q = urllib.parse.quote(showname)
+        response = await _cf_safe_get(client, f"{ES_DOMAIN}/wp-json/wp/v2/search?search={q}&_fields=id", headers=headers)
     except Exception as e:
         log('search: wp search exception', e)
         return None, 'search_request_failed', debug
@@ -653,7 +730,7 @@ async def search_advanced(showname, date, season, episode, MFP, client, skip_yea
 
     for i in results:
         try:
-            response = await _cf_safe_get(client, ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/posts/{i['id']}?_fields=title,content", headers=headers)
+            response = await _cf_safe_get(client, f"{ES_DOMAIN}/wp-json/wp/v2/posts/{i['id']}?_fields=title,content", headers=headers)
         except Exception as e:  # pragma: no cover
             log('search: post fetch exception', i.get('id'), e)
             continue
@@ -734,7 +811,7 @@ async def search_advanced(showname, date, season, episode, MFP, client, skip_yea
             if match_more:
                 href_value = match_more.group(1)
                 try:
-                    response_2 = await client.get(ForwardProxy + href_value, proxies=proxies, headers=headers)
+                    response_2 = await _cf_safe_get(client, href_value, headers=headers)
                     match2 = year_pattern.search(response_2.text)
                     if match2:
                         posts_data[-1]['year'] = match2.group(0)
@@ -966,7 +1043,8 @@ async def search_legacy(showname, date, season, episode, MFP, client, skip_year_
     debug = { 'mode': 'legacy', 'year': date, 'skip_year_check': skip_year_check }
     headers = random_headers.generate()
     try:
-        response = await _cf_safe_get(client, ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/search?search={showname}&_fields=id", headers=headers)
+        q = urllib.parse.quote(showname)
+        response = await _cf_safe_get(client, f"{ES_DOMAIN}/wp-json/wp/v2/search?search={q}&_fields=id", headers=headers)
     except Exception as e:
         debug['error'] = str(e)
         return None, 'search_request_failed', debug
@@ -979,8 +1057,8 @@ async def search_legacy(showname, date, season, episode, MFP, client, skip_year_
     year_pattern = re.compile(r'(?<!/)(19|20)\d{2}(?!/)')
     for i in results:
         try:
-            r = await _cf_safe_get(client, ForwardProxy + f"{ES_DOMAIN}/wp-json/wp/v2/posts/{i['id']}?_fields=content", headers=headers)
-        except Exception:
+            r = await _cf_safe_get(client, f"{ES_DOMAIN}/wp-json/wp/v2/posts/{i['id']}?_fields=content", headers=headers)
+        except Exception as e:
             continue
         if 'ID articolo non valido' in r.text:
             continue
@@ -998,10 +1076,11 @@ async def search_legacy(showname, date, season, episode, MFP, client, skip_year_
                 more = re.search(r'<a\s+href="([^\"]+)"[^>]*>Continua a leggere</a>', desc)
                 if more:
                     try:
-                        r2 = await client.get(ForwardProxy + more.group(1), proxies=proxies, headers=headers)
-                        match2 = year_pattern.search(r2.text)
-                        if match2:
-                            post_year = match2.group(0)
+                        r2 = await _cf_safe_get(client, more.group(1), headers=headers)
+                        if r2.status_code == 200:
+                            match2 = year_pattern.search(r2.text)
+                            if match2:
+                                post_year = match2.group(0)
                     except Exception:
                         pass
             if date and post_year and str(post_year) != str(date):
