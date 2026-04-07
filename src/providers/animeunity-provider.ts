@@ -899,15 +899,21 @@ export class AnimeUnityProvider {
 
     const autoFlag = this.config.animeunityAuto === true;
     const fhdFlag = this.config.animeunityFhd === true;
-    const autoWanted = autoFlag || (!autoFlag && !fhdFlag);
-    const fhdWanted = fhdFlag;
+    const autoMfpFlag = this.config.animeunityAutoMfp === true;
+    const fhdMfpFlag = this.config.animeunityFhdMfp === true;
+    const anySelected = autoFlag || fhdFlag || autoMfpFlag || fhdMfpFlag;
+    // Default (nessuna selezione): FHD MFP se MFP presente, altrimenti AUTO (solo locale)
+    const autoWanted = anySelected ? autoFlag : !this.config.mfpUrl;
+    const fhdWanted = anySelected ? fhdFlag : false;
+    const autoMfpWanted = anySelected ? autoMfpFlag : false;
+    const fhdMfpWanted = anySelected ? fhdMfpFlag : !!this.config.mfpUrl;
     const filtered = streams.filter((st) => {
       const qual = st.behaviorHints?.animeunityQuality;
-      if (qual === 'FHD') return fhdWanted;
-      return autoWanted;
+      if (qual === 'FHD') return fhdWanted || fhdMfpWanted;
+      return autoWanted || autoMfpWanted;
     });
 
-    if (fhdWanted) {
+    if (fhdWanted || fhdMfpWanted) {
       filtered.forEach((st) => {
         if (st.behaviorHints?.animeunityQuality === 'FHD') {
           st.behaviorHints.animeunityIsFhd = true;
@@ -915,7 +921,39 @@ export class AnimeUnityProvider {
       });
     }
 
-    return filtered;
+    // Genera versioni MFP-wrapped degli stream HLS (cross-IP)
+    const mfpWrapped: StreamForStremio[] = [];
+    if ((autoMfpWanted || fhdMfpWanted) && this.config.mfpUrl) {
+      const cleanMfp = this.config.mfpUrl.endsWith('/') ? this.config.mfpUrl.slice(0, -1) : this.config.mfpUrl;
+      const pwdParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
+      for (const st of filtered) {
+        const qual = st.behaviorHints?.animeunityQuality;
+        const isFhd = qual === 'FHD';
+        if (isFhd && !fhdMfpWanted) continue;
+        if (!isFhd && !autoMfpWanted) continue;
+        // Wrap URL HLS in MFP proxy
+        const wrappedUrl = `${cleanMfp}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(st.url)}${pwdParam}`;
+        mfpWrapped.push({
+          title: st.title + ' 🔒',
+          url: wrappedUrl,
+          behaviorHints: {
+            ...st.behaviorHints,
+            notWebReady: true,
+            animeunityMfpWrapped: true,
+          },
+          isSyntheticFhd: st.isSyntheticFhd,
+        });
+      }
+    }
+
+    // Filtra stream diretti: solo se richiesti esplicitamente (non MFP)
+    const directOut = filtered.filter((st) => {
+      const qual = st.behaviorHints?.animeunityQuality;
+      if (qual === 'FHD') return fhdWanted;
+      return autoWanted;
+    });
+
+    return [...directOut, ...mfpWrapped];
   }
 
   private async getStreamsFromMapping(
