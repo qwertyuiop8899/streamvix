@@ -6408,7 +6408,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     const sizeLabel = st.sizeBytes > 0 ? fmtBytes(st.sizeBytes) : '?';
                                     finalTitle = `${finalTitle}\n💾 ${sizeLabel}`;
                                 }
-                                streams.push({ title: finalTitle, url: st.streamUrl, behaviorHints: { notWebReady: true, headers: { Referer: st.referer } } as any, isSyntheticFhd: st.isSyntheticFhd, originalName: (st as any).originalName } as any);
+                                streams.push({ title: finalTitle, url: st.streamUrl, behaviorHints: { notWebReady: true, proxyHeaders: { request: { Referer: 'https://vixsrc.to/', Origin: 'https://vixsrc.to' } } } as any, isSyntheticFhd: st.isSyntheticFhd, originalName: (st as any).originalName } as any);
                             }
                             return { streams };
                         }, providerLabel('vixsrc'), false, 30000);  // VixSrc: timeout 30s
@@ -6662,7 +6662,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const parts = unified.split('\n');
                                 if (parts.length && /^🤌\s/.test(parts[parts.length - 1])) parts.pop();
                                 unified = parts.join('\n');
-                                allStreams.push({ title: unified, name: providerLabel('vixsrc', !!st.isSyntheticFhd), url: st.streamUrl, behaviorHints: { notWebReady: true, headers: { Referer: st.referer } } as any, originalName: (st as any).originalName });
+                                allStreams.push({ title: unified, name: providerLabel('vixsrc', !!st.isSyntheticFhd), url: st.streamUrl, behaviorHints: { notWebReady: true, proxyHeaders: { request: { Referer: 'https://vixsrc.to/', Origin: 'https://vixsrc.to' } } } as any, originalName: (st as any).originalName });
                             }
                         }
                     } // close if (!skipVixsrc)
@@ -6934,7 +6934,7 @@ app.get(['/vixsynthetic', '/vixsynthetic.m3u8'], async (req: Request, res: Respo
             return false;
         })();
         if (multiFlag) console.log('[vixsynthetic] multi-language mode attivo');
-        const r = await fetch(src, { headers: { 'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, */*' } as any });
+        const r = await fetch(src, { headers: { 'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, */*', 'Referer': 'https://vixsrc.to/', 'Origin': 'https://vixsrc.to' } as any });
         if (!r.ok) return res.status(502).send('#EXTM3U\n# Upstream error');
         const text = await r.text();
         // Se non è master, restituisci com'è
