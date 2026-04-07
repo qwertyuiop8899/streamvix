@@ -1290,7 +1290,14 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       if (masterForSynthetic) {
         const syn = buildSyntheticBase(masterForSynthetic, directStream ? directStream.referer : (proxyStream ? proxyStream.referer : ''));
         if (syn) result.push(syn);
-        if (syn) { const synProxy = buildSyntheticProxyWrapper(syn.streamUrl, proxyStream ? proxyStream.referer : syn.referer); if (synProxy) result.push(synProxy); }
+      }
+      // Proxy Synthetic FHD: usa URL proxato completo come src per vixsynthetic (token di EasyProxy, non del server)
+      if (proxyStream && usableAddonBase) {
+        const proxiedSyntheticUrl = `${usableAddonBase.replace(/\/$/, '')}/vixsynthetic.m3u8?src=${encodeURIComponent(proxyStream.streamUrl)}&lang=it&max=1&multi=1`;
+        const inheritedLangP = streams.find(s => s.detectedLang)?.detectedLang;
+        const proxyBaseName = proxyStream.name.replace(/\s*🔒FHD$/, '').replace(/\s*🔒$/, '').replace(/\s*🔓FHD?$/, '').replace(/\s*🔓$/, '').trim();
+        result.push({ name: proxyBaseName + ' 🔒 FHD', streamUrl: proxiedSyntheticUrl, referer: proxyStream.referer, source: 'proxy', isSyntheticFhd: true, originalName: proxyBaseName, detectedLang: inheritedLangP });
+        console.log('[VixSrc][Scenario2] Proxy Synthetic FHD costruito da URL proxato EasyProxy');
       }
       baseList = result;
     } else if (!config.vixLocal && config.vixDual) { // Scenario 3
@@ -1303,7 +1310,14 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       if (masterForSynthetic) {
         const syn = buildSyntheticBase(masterForSynthetic, directStream ? directStream.referer : (proxyStream ? proxyStream.referer : ''));
         if (syn) result.push(syn);
-        if (syn) { const synProxy = buildSyntheticProxyWrapper(syn.streamUrl, proxyStream ? proxyStream.referer : syn.referer); if (synProxy) result.push(synProxy); }
+      }
+      // Proxy Synthetic FHD: usa URL proxato completo come src per vixsynthetic
+      if (proxyStream && usableAddonBase) {
+        const proxiedSyntheticUrl = `${usableAddonBase.replace(/\/$/, '')}/vixsynthetic.m3u8?src=${encodeURIComponent(proxyStream.streamUrl)}&lang=it&max=1&multi=1`;
+        const inheritedLangP = streams.find(s => s.detectedLang)?.detectedLang;
+        const proxyBaseName = proxyStream.name.replace(/\s*🔒FHD$/, '').replace(/\s*🔒$/, '').replace(/\s*🔓FHD?$/, '').replace(/\s*🔓$/, '').trim();
+        result.push({ name: proxyBaseName + ' 🔒 FHD', streamUrl: proxiedSyntheticUrl, referer: proxyStream.referer, source: 'proxy', isSyntheticFhd: true, originalName: proxyBaseName, detectedLang: inheritedLangP });
+        console.log('[VixSrc][Scenario3] Proxy Synthetic FHD costruito da URL proxato EasyProxy');
       }
       baseList = result;
     } else { // Scenario 4: solo proxy
