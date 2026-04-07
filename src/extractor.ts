@@ -126,7 +126,7 @@ async function parseManifestLanguages(masterUrl: string): Promise<string[]> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(masterUrl, {
-      headers: { 'Accept': 'application/vnd.apple.mpegurl, */*' } as any,
+      headers: { 'Accept': 'application/vnd.apple.mpegurl, */*', 'Referer': 'https://vixsrc.to/', 'Origin': 'https://vixsrc.to' } as any,
       signal: controller.signal as any
     });
     clearTimeout(timeout);
