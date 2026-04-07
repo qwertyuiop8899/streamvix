@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.17.22](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.21...v1.17.22) (2026-04-07)
+
+
+### Bug Fixes
+
+* vix addon.ts ([0f4a1c1](https://github.com/qwertyuiop8899/streamvix/commit/0f4a1c1bb7f1610e2de9bb6b7b6914d1d292888d))
+* vix extractor.ts ([9bd3839](https://github.com/qwertyuiop8899/streamvix/commit/9bd3839339e4c4a0bdf520074f5c32f527a272a9))
+* vix landingPage.ts ([9120e04](https://github.com/qwertyuiop8899/streamvix/commit/9120e04bd98baac769180b5539563c73c161e69e))
+
 ## [1.17.21](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.20...v1.17.21) (2026-04-07)
 
 
