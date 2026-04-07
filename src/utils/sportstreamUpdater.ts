@@ -350,3 +350,54 @@ export function getSportStreamCode(channel: {
     const displayName = SPORTSTREAM_DISPLAY_NAME[streamId] || `SS ${streamId}`;
     return { streamId, displayName, matchHint };
 }
+
+// ===== TEAM MATCHING: cerca nomi squadre nel titolo evento =====
+// Mappa normalizzata nome squadra → streamId (solo canali DAZN squadra, escluse Zone generiche)
+const TEAM_NAME_MAP: Record<string, string> = {};
+for (const ch of SPORTSTREAM_CHANNELS) {
+    if ((ch.group === 'Dazn Serie A' || ch.group === 'Dazn Serie B') && !/zona/i.test(ch.name)) {
+        const key = ch.name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+        TEAM_NAME_MAP[key] = ch.streamId;
+    }
+}
+// Alias comuni (nomi alternativi/abbreviazioni)
+TEAM_NAME_MAP['acmilan'] = '1637';
+TEAM_NAME_MAP['sscnapoli'] = '1639';
+TEAM_NAME_MAP['juve'] = '1634';
+TEAM_NAME_MAP['hellasverona'] = '1632';
+TEAM_NAME_MAP['verona'] = '1632';
+TEAM_NAME_MAP['juvestabia'] = '1655';
+TEAM_NAME_MAP['virtusentella'] = '1651';
+TEAM_NAME_MAP['entella'] = '1651';
+
+/**
+ * Dato il nome di un evento (es. "Milan - Napoli"), ritorna tutti i canali DAZN squadra
+ * corrispondenti alle squadre menzionate, escludendo canali già trovati da getSportStreamCode.
+ * @param eventName - Nome evento (es. "Milan - Napoli", "Inter vs Juventus")
+ * @param excludeStreamIds - Set di streamId già iniettati (per evitare doppioni)
+ * @returns Array di { streamId, displayName, matchHint }
+ */
+export function getSportStreamTeamMatches(
+    eventName: string,
+    excludeStreamIds?: Set<string>
+): { streamId: string; displayName: string; matchHint: string }[] {
+    if (!eventName || typeof eventName !== 'string') return [];
+    const results: { streamId: string; displayName: string; matchHint: string }[] = [];
+    const seen = new Set<string>(excludeStreamIds || []);
+    // Normalizza nome evento
+    const normalized = eventName.toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
+    // Ordina chiavi per lunghezza decrescente (match più specifici prima)
+    const teamKeys = Object.keys(TEAM_NAME_MAP).sort((a, b) => b.length - a.length);
+    for (const key of teamKeys) {
+        const sid = TEAM_NAME_MAP[key];
+        if (seen.has(sid)) continue;
+        // Word boundary match: cerca il nome squadra come parola intera nel nome evento
+        const regex = new RegExp(`\\b${key}\\b`, 'i');
+        if (regex.test(normalized)) {
+            seen.add(sid);
+            const display = SPORTSTREAM_DISPLAY_NAME[sid] || `DAZN ${key}`;
+            results.push({ streamId: sid, displayName: display, matchHint: `team:${key}` });
+        }
+    }
+    return results;
+}
