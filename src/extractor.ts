@@ -533,24 +533,40 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   console.log('[VixSrc][Debug] addonBase initial =', config.addonBase, 'vixDual=', !!config.vixDual, 'vixLocal=', !!config.vixLocal);
 
   // -------------------------------------------------------------
-  // Bridge NUOVE checkbox (vixDirect, vixDirectFhd, vixProxy, vixProxyFhd)
-  // alle flag interne storiche (vixLocal, vixDual) SOLO per la logica
-  // di generazione. Il filtro visuale resta invariato dopo.
-  // - vixLocal deve essere true se l'utente vuole vedere QUALSIASI direct
-  //   (base o FHD) => vixDirect || vixDirectFhd
-  // - vixDual deve essere true se l'utente chiede QUALSIASI FHD
-  //   (directFhd o proxyFhd) per consentire generazione synthetic.
+  // Bridge checkbox landing page → flag interne storiche (vixLocal, vixDual)
+  // Nuove semantiche:
+  //   vixDirect    = Direct (solo self-hosted, token IP-bound)
+  //   vixDirectFhd = Synthetic (server riscrive manifest, video diretto client)
+  //   vixProxy     = MFP Proxy (tutto via MFP)
+  //   vixProxyFhd  = Synthetic MFP (synthetic wrappato in MFP)
+  //   Nessuna selezione = DEFAULT → Synthetic
+  //
+  // Flag interne:
+  //   vixLocal = true → genera variante direct (serve per estrarre token/master)
+  //   vixDual  = true → genera varianti synthetic
   try {
-    const wantsDirect = (config as any).vixDirect === true || (config as any).vixDirectFhd === true;
-    const wantsAnyFhd = (config as any).vixDirectFhd === true || (config as any).vixProxyFhd === true;
-    // Applica solo se non già esplicitamente impostato (non sovrascrivere override env o landing legacy)
-    if (wantsDirect && config.vixLocal !== true) {
-      config.vixLocal = true;
-      console.log('[VixSrc][Bridge] vixLocal abilitato perché selezionato direct/directFHD');
-    }
-    if (wantsAnyFhd && config.vixDual !== true) {
-      config.vixDual = true;
-      console.log('[VixSrc][Bridge] vixDual abilitato perché selezionato qualche FHD (direct o proxy)');
+    const wantsDirect = (config as any).vixDirect === true;
+    const wantsSynthetic = (config as any).vixDirectFhd === true;
+    const wantsMfp = (config as any).vixProxy === true;
+    const wantsSyntheticMfp = (config as any).vixProxyFhd === true;
+    const noneSelected = !wantsDirect && !wantsSynthetic && !wantsMfp && !wantsSyntheticMfp;
+
+    // Default = Synthetic quando nessuna opzione selezionata
+    if (noneSelected) {
+      config.vixLocal = true;  // serve parse diretto per ottenere master URL
+      config.vixDual = true;   // genera synthetic
+      console.log('[VixSrc][Bridge] Default mode: Synthetic (nessuna selezione)');
+    } else {
+      // vixLocal necessario se: Direct esplicito OPPURE Synthetic/SyntheticMFP (serve master URL)
+      if ((wantsDirect || wantsSynthetic || wantsSyntheticMfp) && config.vixLocal !== true) {
+        config.vixLocal = true;
+        console.log('[VixSrc][Bridge] vixLocal abilitato per Direct/Synthetic');
+      }
+      // vixDual necessario se: Synthetic o SyntheticMFP
+      if ((wantsSynthetic || wantsSyntheticMfp) && config.vixDual !== true) {
+        config.vixDual = true;
+        console.log('[VixSrc][Bridge] vixDual abilitato per Synthetic');
+      }
     }
   } catch (e) {
     console.warn('[VixSrc][Bridge] errore applicazione bridge nuove checkbox -> legacy:', (e as any)?.message || e);
@@ -1091,9 +1107,9 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     console.error('[VixSrc][EarlyDirect] Errore direct parse:', (e as any)?.message || e);
   }
 
-  // Proxy variant (solo se credenziali presenti)
+  // Proxy variant (solo se MFP URL presente; password opzionale)
   let proxyResult: VixCloudStreamInfo | null = null;
-  if (config.mfpUrl && config.mfpPsw) {
+  if (config.mfpUrl) {
     try {
       console.log('[VixSrc][ProxyStage] Invoco getProxyStream per costruire versione proxy');
       proxyResult = await getProxyStream(targetUrl, id, type, config);
@@ -1138,6 +1154,14 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   if (!streams.length) {
     console.warn('[VixSrc] Nessuno stream ottenuto');
     return null; // niente da filtrare
+  }
+
+  // Propaga detectedLang dal direct agli stream che non ce l'hanno (proxy non fa lang detect)
+  const knownLang = streams.find(s => s.detectedLang)?.detectedLang;
+  if (knownLang) {
+    for (const s of streams) {
+      if (!s.detectedLang) s.detectedLang = knownLang;
+    }
   }
 
   // Ordinamento stabile: direct prima di proxy
@@ -1189,7 +1213,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     console.log(`[VixSrc] Nessun usableAddonBase disponibile: synthetic FHD disabilitato`);
   }
 
-  const haveMfp = !!(config.mfpUrl && config.mfpPsw && streams.some(s => s.source === 'proxy'));
+  const haveMfp = !!(config.mfpUrl && streams.some(s => s.source === 'proxy'));
   const haveDirect = streams.some(s => s.source === 'direct');
 
   function buildSyntheticBase(masterUrl: string, referer: string): VixCloudStreamInfo | null {
@@ -1238,7 +1262,8 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     const wrapper = `${cleaned}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(syntheticTarget)}${passwordParam}`;
     const proxyOrig = streams.find(s => s.source === 'proxy');
     const baseName = proxyOrig ? proxyOrig.name.replace(/\s*🔒FHD$/, '').replace(/\s*🔒$/, '') : 'Proxy';
-    return { name: baseName + ' 🔒 FHD', streamUrl: wrapper, referer, source: 'proxy', isSyntheticFhd: true, originalName: baseName };
+    const inheritedLangProxy = streams.find(s => s.detectedLang)?.detectedLang;
+    return { name: baseName + ' 🔒 FHD', streamUrl: wrapper, referer, source: 'proxy', isSyntheticFhd: true, originalName: baseName, detectedLang: inheritedLangProxy };
   }
 
   const directStream = streams.find(s => s.source === 'direct') || null;
@@ -1346,13 +1371,23 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     });
   }
 
-  // --- Filtro visualizzazione NON invasivo: applicato DOPO la logica originale ---
+  // --- Filtro visualizzazione: applicato DOPO la logica originale ---
+  // Nuove semantiche checkbox:
+  //   f.direct    = Direct (solo self-hosted)
+  //   f.directFhd = Synthetic (cross-IP, video diretto client)
+  //   f.proxy     = MFP Proxy (tutto via MFP)
+  //   f.proxyFhd  = Synthetic MFP (synthetic wrappato in MFP)
+  // Varianti interne:
+  //   baseDirect = URL master diretta
+  //   directFhd  = vixsynthetic endpoint
+  //   baseProxy  = MFP proxy
+  //   proxyFhd   = synthetic wrappato in MFP
   function finalizeAndFilter(list: VixCloudStreamInfo[]): VixCloudStreamInfo[] {
     const f = {
       direct: (config as any).vixDirect === true,
-      directFhd: (config as any).vixDirectFhd === true,
-      proxy: (config as any).vixProxy === true,
-      proxyFhd: (config as any).vixProxyFhd === true
+      directFhd: (config as any).vixDirectFhd === true,   // = Synthetic
+      proxy: (config as any).vixProxy === true,            // = MFP Proxy
+      proxyFhd: (config as any).vixProxyFhd === true       // = Synthetic MFP
     };
     const none = !f.direct && !f.directFhd && !f.proxy && !f.proxyFhd;
     const variants = {
@@ -1362,154 +1397,45 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       proxyFhd: list.find(s => s.source === 'proxy' && ((s as any).isSyntheticFhd || /FHD/.test(s.name)))
     };
     const available = Object.entries(variants).filter(([_, v]) => !!v).map(([k]) => k);
-    const mfpPresent = !!(config.mfpUrl && config.mfpPsw);
+    const mfpPresent = !!config.mfpUrl;
     console.log('[VixSrc][Filter] Flags', f, 'MFP', mfpPresent, 'Available', available);
     const out: VixCloudStreamInfo[] = []; const add = (v: VixCloudStreamInfo | undefined | null) => { if (v && !out.includes(v)) out.push(v); };
 
-    // -------------------------------------------------------------
-    // EARLY SHORTCUT: nessuna credenziale MFP => vietato mostrare
-    // qualsiasi variante proxy (base o FHD) indipendentemente da
-    // cosa è stato selezionato nelle checkbox. Questo elimina le
-    // ultime leakage (es. D+DF+PF, D+P+PF) osservate nei test.
-    // Logica di degradazione:
-    //  - Nessuna flag: fallback a direct (base o FHD)
-    //  - Qualsiasi combinazione che include direct/directFHD: mostra solo le corrispondenti direct
-    //  - Solo proxy/proxyFHD selezionati: degrada a direct (base o FHD) se disponibile
-    //  - Ordine: baseDirect prima, poi directFhd se distinta e richiesta
-    // -------------------------------------------------------------
-    if (!mfpPresent) {
-      // Caso auto (nessuna selezione): preferisci baseDirect altrimenti directFhd
-      if (none) {
-        add(variants.baseDirect || variants.directFhd);
-        const fin = finalize(out); console.log('[VixSrc][Filter][Chosen][EarlyNoMFP]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-      }
-      // Se l'utente ha chiesto direct e/o directFhd, rispetta ordine
-      if (f.direct || f.directFhd) {
-        if (f.direct) add(variants.baseDirect || variants.directFhd);
-        if (f.directFhd) add(variants.directFhd || variants.baseDirect);
-        const fin = finalize(out); console.log('[VixSrc][Filter][Chosen][EarlyNoMFP]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-      }
-      // Solo proxy flags selezionate -> degrada a direct fallback
-      if (f.proxy || f.proxyFhd) {
-        add(variants.baseDirect || variants.directFhd);
-        // Se l'utente aveva richiesto proxyFHD e abbiamo anche una directFhd distinta, aggiungila come miglior fallback
-        if (f.proxyFhd && variants.directFhd && variants.directFhd !== variants.baseDirect) add(variants.directFhd);
-        const fin = finalize(out); console.log('[VixSrc][Filter][Chosen][EarlyNoMFP]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-      }
-    }
-
-    if (none) { // default (auto)
-      if (mfpPresent) {
-        // prefer proxy family if available
-        add(variants.baseProxy || variants.proxyFhd || variants.baseDirect || variants.directFhd);
-      } else {
-        // no MFP: never show proxy variants
-        add(variants.baseDirect || variants.directFhd);
-      }
+    // Default (nessuna selezione) → preferisci Synthetic, fallback Direct
+    if (none) {
+      add(variants.directFhd || variants.baseDirect);
       const fin = finalize(out);
-      console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : '')));
+      console.log('[VixSrc][Filter][Chosen][Default]', fin.map(s => s.source + (s.isSyntheticFhd ? ' Synthetic' : '')));
       return fin;
     }
-    // Solo Direct
-    if (f.direct && !f.directFhd && !f.proxy && !f.proxyFhd) {
-      if (mfpPresent) add(variants.baseDirect || variants.directFhd || variants.baseProxy || variants.proxyFhd);
-      else add(variants.baseDirect || variants.directFhd); // no proxy leak
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
+
+    // Se MFP non presente, blocca varianti proxy
+    if (!mfpPresent) {
+      if (f.direct) add(variants.baseDirect);
+      if (f.directFhd) add(variants.directFhd);
+      // proxy/proxyFhd senza MFP → degrada a synthetic o direct
+      if (f.proxy && !f.direct && !f.directFhd) add(variants.directFhd || variants.baseDirect);
+      if (f.proxyFhd && !f.directFhd) add(variants.directFhd || variants.baseDirect);
+      if (!out.length) add(variants.directFhd || variants.baseDirect); // safety fallback
+      const fin = finalize(out);
+      console.log('[VixSrc][Filter][Chosen][NoMFP]', fin.map(s => s.source + (s.isSyntheticFhd ? ' Synthetic' : '')));
+      return fin;
     }
-    // Solo Direct FHD
-    if (!f.direct && f.directFhd && !f.proxy && !f.proxyFhd) {
-      if (mfpPresent) add(variants.directFhd || variants.baseDirect || variants.proxyFhd || variants.baseProxy);
-      else add(variants.directFhd || variants.baseDirect); // strict
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-    }
-    // Solo Proxy
-    if (!f.direct && !f.directFhd && f.proxy && !f.proxyFhd) {
-      if (mfpPresent) add(variants.baseProxy || variants.proxyFhd || variants.baseDirect || variants.directFhd);
-      else add(variants.baseDirect || variants.directFhd); // degrade to direct only
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-    }
-    // Solo Proxy FHD
-    if (!f.direct && !f.directFhd && !f.proxy && f.proxyFhd) {
-      if (mfpPresent) add(variants.proxyFhd || variants.baseProxy || variants.directFhd || variants.baseDirect);
-      else add(variants.directFhd || variants.baseDirect); // strict
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-    }
-    // Direct + Proxy
-    if (f.direct && !f.directFhd && f.proxy && !f.proxyFhd) {
-      if (mfpPresent) { add(variants.baseDirect || variants.directFhd); add(variants.baseProxy || variants.proxyFhd); }
-      else { add(variants.baseDirect || variants.directFhd); } // block proxy
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-    }
-    // Direct + Direct FHD (solo) -> mai proxy
-    if (f.direct && f.directFhd && !f.proxy && !f.proxyFhd) {
-      if (variants.baseDirect) add(variants.baseDirect);
-      if (variants.directFhd && variants.directFhd !== variants.baseDirect) add(variants.directFhd);
-      if (!variants.baseDirect && !variants.directFhd && mfpPresent) add(variants.baseProxy || variants.proxyFhd); // only if truly nothing
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-    }
-    // Direct FHD + Proxy FHD
-    if (!f.direct && f.directFhd && !f.proxy && f.proxyFhd) {
-      if (mfpPresent) { add(variants.directFhd || variants.baseDirect); add(variants.proxyFhd || variants.baseProxy); }
-      else { add(variants.directFhd || variants.baseDirect); }
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-    }
-    // Direct FHD + Proxy (senza Direct base, senza Proxy FHD)
-    if (!f.direct && f.directFhd && f.proxy && !f.proxyFhd) {
-      if (mfpPresent) { add(variants.directFhd || variants.baseDirect); add(variants.baseProxy || variants.proxyFhd); }
-      else { add(variants.directFhd || variants.baseDirect); }
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-    }
-    // Tutte e 4
-    if (f.direct && f.directFhd && f.proxy && f.proxyFhd) {
-      if (mfpPresent) { add(variants.baseDirect || variants.directFhd); add(variants.directFhd); add(variants.baseProxy || variants.proxyFhd); add(variants.proxyFhd); }
-      else { add(variants.baseDirect || variants.directFhd); add(variants.directFhd); }
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-    }
-    // Direct + Direct FHD + Proxy (senza Proxy FHD)
-    if (f.direct && f.directFhd && f.proxy && !f.proxyFhd) {
-      if (mfpPresent) {
-        add(variants.baseDirect || variants.directFhd);
-        add(variants.directFhd || variants.baseDirect);
-        add(variants.baseProxy || variants.proxyFhd);
-      } else {
-        add(variants.baseDirect || variants.directFhd);
-        add(variants.directFhd || variants.baseDirect);
-      }
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-    }
-    // Direct + Proxy FHD
-    if (f.direct && !f.directFhd && !f.proxy && f.proxyFhd) {
-      if (mfpPresent) { add(variants.baseDirect || variants.directFhd); add(variants.proxyFhd || variants.baseProxy); }
-      else { add(variants.baseDirect || variants.directFhd); } // remove second add (no implicit FHD if not requested)
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-    }
-    // Proxy + Proxy FHD (senza direct)
-    if (!f.direct && !f.directFhd && f.proxy && f.proxyFhd) {
-      if (mfpPresent) {
-        add(variants.baseProxy || variants.proxyFhd);
-        add(variants.proxyFhd);
-        const onlyProxy = out.filter(v => v.source === 'proxy');
-        const fin = finalize(onlyProxy.length ? onlyProxy : out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-      } else {
-        add(variants.directFhd || variants.baseDirect); // strict fallback
-        const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-      }
-    }
-    // Direct FHD + Proxy + Proxy FHD (senza Direct base)
-    if (!f.direct && f.directFhd && f.proxy && f.proxyFhd) {
-      if (mfpPresent) {
-        add(variants.directFhd || variants.baseDirect);
-        add(variants.baseProxy || variants.proxyFhd);
-        add(variants.proxyFhd);
-      } else {
-        add(variants.directFhd || variants.baseDirect);
-      }
-      const fin = finalize(out); console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? 'FHD' : ''))); return fin;
-    }
-    console.log('[VixSrc][Filter] Combinazione non riconosciuta, ritorno lista intera');
-    return finalize(list);
+
+    // MFP presente: rispetta selezioni esatte
+    if (f.direct) add(variants.baseDirect);
+    if (f.directFhd) add(variants.directFhd);
+    if (f.proxy) add(variants.baseProxy);
+    if (f.proxyFhd) add(variants.proxyFhd);
+
+    // Fallback se nessuna variante disponibile nelle richieste
+    if (!out.length) add(variants.directFhd || variants.baseDirect || variants.baseProxy);
+
+    const fin = finalize(out);
+    console.log('[VixSrc][Filter][Chosen]', fin.map(s => s.source + (s.isSyntheticFhd ? ' Synthetic' : '')));
+    return fin;
   }
 
-  // Safety final return (should normally not reach here) - applica comunque filtro
+  // Safety final return - applica filtro
   return finalizeAndFilter(baseList);
 }
