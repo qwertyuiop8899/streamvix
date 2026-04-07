@@ -733,7 +733,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "11.0.23",
+    version: "10.5.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -869,10 +869,10 @@ const baseManifest: Manifest = {
         { key: "dvrEnabled", title: "DVR (EasyProxy only) 📹", type: "checkbox" },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
         { key: "disableVixsrc", title: "Disable StreamingCommunity", type: "checkbox" },
-        { key: "vixDirect", title: "StreamingCommunity Direct mode", type: "checkbox" },
-        { key: "vixDirectFhd", title: "StreamingCommunity Direct FHD mode", type: "checkbox" },
-        { key: "vixProxy", title: "StreamingCommunity Proxy mode", type: "checkbox" },
-        { key: "vixProxyFhd", title: "StreamingCommunity Proxy FHD mode", type: "checkbox" },
+        { key: "vixDirect", title: "SC: Direct (solo self-hosted)", type: "checkbox" },
+        { key: "vixDirectFhd", title: "SC: Synthetic (cross-IP, consigliato)", type: "checkbox" },
+        { key: "vixProxy", title: "SC: MFP Proxy (richiede MFP)", type: "checkbox" },
+        { key: "vixProxyFhd", title: "SC: Synthetic MFP (richiede MFP)", type: "checkbox" },
         { key: "disableLiveTv", title: "Live TV 📺 [Molti canali hanno bisogno di MFP]", type: "checkbox" },
         { key: "trailerEnabled", title: "🎬▶️ Trailer", type: "checkbox", default: "checked" },
         { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
