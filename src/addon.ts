@@ -733,7 +733,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "10.5.23",
+    version: "11.0.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -869,15 +869,17 @@ const baseManifest: Manifest = {
         { key: "dvrEnabled", title: "DVR (EasyProxy only) 📹", type: "checkbox" },
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
         { key: "disableVixsrc", title: "Disable StreamingCommunity", type: "checkbox" },
-        { key: "vixDirect", title: "SC: Direct (solo self-hosted)", type: "checkbox" },
-        { key: "vixDirectFhd", title: "SC: Synthetic (cross-IP, consigliato)", type: "checkbox" },
+        { key: "vixDirect", title: "SC: Direct (solo installazione locale)", type: "checkbox" },
+        { key: "vixDirectFhd", title: "SC: Synthetic (solo installazione locale)", type: "checkbox" },
         { key: "vixProxy", title: "SC: MFP Proxy (richiede MFP)", type: "checkbox" },
-        { key: "vixProxyFhd", title: "SC: Synthetic MFP (richiede MFP)", type: "checkbox" },
+        { key: "vixProxyFhd", title: "SC: Synthetic MFP (richiede MFP, consigliato)", type: "checkbox" },
         { key: "disableLiveTv", title: "Live TV 📺 [Molti canali hanno bisogno di MFP]", type: "checkbox" },
         { key: "trailerEnabled", title: "🎬▶️ Trailer", type: "checkbox", default: "checked" },
         { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
-        { key: "animeunityAuto", title: "AnimeUnity AUTO mode", type: "checkbox" },
-        { key: "animeunityFhd", title: "AnimeUnity FHD mode", type: "checkbox" },
+        { key: "animeunityAuto", title: "AnimeUnity AUTO mode (solo installazione locale)", type: "checkbox" },
+        { key: "animeunityFhd", title: "AnimeUnity FHD mode (solo installazione locale)", type: "checkbox" },
+        { key: "animeunityAutoMfp", title: "AnimeUnity AUTO MFP (richiede MFP)", type: "checkbox" },
+        { key: "animeunityFhdMfp", title: "AnimeUnity FHD MFP (richiede MFP, consigliato)", type: "checkbox" },
         { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
         { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
         { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
@@ -3809,7 +3811,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         // === SPORTSTREAM per canali dinamici (DOPO MediaHosting) ===
                         if (!IS_SS_DISABLED) {
                             try {
-                                const { getSportStreamCode, buildSportStreamUrl, getSportStreamHeaders } = await import('./utils/sportstreamUpdater');
+                                const { getSportStreamCode, buildSportStreamUrl, getSportStreamHeaders, getSportStreamTeamMatches } = await import('./utils/sportstreamUpdater');
+                                const ssInjectedIds = new Set<string>();
                                 const ssMatch = getSportStreamCode({
                                     id: (channel as any).id,
                                     name: (channel as any).name,
@@ -3835,7 +3838,32 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                                 headers: { Referer: ssHdrs['Referer'], Origin: ssHdrs['Origin'] }
                                             }
                                         } as any);
+                                        ssInjectedIds.add(ssMatch.streamId);
                                         debugLog(`SportStream (dynamic) aggiunto per ${ssMatch.displayName} (hint: ${ssMatch.matchHint}): ${ssInjUrl.substring(0, 80)}`);
+                                    }
+                                }
+                                // Team matching: cerca nomi squadre nel nome evento per canali DAZN specifici
+                                const teamMatches = getSportStreamTeamMatches((channel as any).name || '', ssInjectedIds);
+                                for (const tm of teamMatches) {
+                                    const tmUrl = buildSportStreamUrl(tm.streamId);
+                                    if (tmUrl) {
+                                        const ssHdrs = getSportStreamHeaders();
+                                        let tmInjUrl = tmUrl;
+                                        if (mfpUrl) {
+                                            const hParams = Object.entries(ssHdrs).map(([k, v]) => `&h_${k.toLowerCase()}=${encodeURIComponent(v)}`).join('');
+                                            const pwParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
+                                            tmInjUrl = `${mfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(tmUrl)}${pwParam}${hParams}`;
+                                        }
+                                        streams.push({
+                                            url: tmInjUrl,
+                                            title: `[SS] DAZN ${tm.displayName} [ITA]`,
+                                            behaviorHints: {
+                                                notWebReady: true,
+                                                ...(mfpUrl ? {} : { proxyHeaders: { request: ssHdrs } }),
+                                                headers: { Referer: ssHdrs['Referer'], Origin: ssHdrs['Origin'] }
+                                            }
+                                        } as any);
+                                        debugLog(`SportStream team (dynamic) aggiunto per DAZN ${tm.displayName} (hint: ${tm.matchHint})`);
                                     }
                                 }
                             } catch (e) {
@@ -5984,6 +6012,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                         animeunityAuto: (() => { const v = (config as any).animeunityAuto; if (v === undefined) return undefined; return v === true || v === 'true' || v === 'on' || v === 1; })(),
                         animeunityFhd: (() => { const v = (config as any).animeunityFhd; if (v === undefined) return undefined; return v === true || v === 'true' || v === 'on' || v === 1; })(),
+                        animeunityAutoMfp: (() => { const v = (config as any).animeunityAutoMfp; if (v === undefined) return undefined; return v === true || v === 'true' || v === 'on' || v === 1; })(),
+                        animeunityFhdMfp: (() => { const v = (config as any).animeunityFhdMfp; if (v === undefined) return undefined; return v === true || v === 'true' || v === 'on' || v === 1; })(),
                     };
                     const animeSaturnConfig = {
                         enabled: animeSaturnEnabled,
