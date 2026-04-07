@@ -6005,11 +6005,24 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const trailerEnabled = (config as any).trailerEnabled !== false && rc?.trailerEnabled !== false;
                 const fastModeEnabled = (config as any).fastMode === true;
                 if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled)) {
+                    // Rilevamento addonBase per AnimeUnity (stessa logica VixSrc)
+                    let auAddonBase = '';
+                    try {
+                        const lastReqAu: any = (global as any).lastExpressRequest;
+                        if (lastReqAu) {
+                            const proto = lastReqAu.protocol || 'https';
+                            const host = lastReqAu.get('host') || lastReqAu.headers?.host || '';
+                            if (host) auAddonBase = `${proto}://${host}`;
+                        }
+                    } catch { /* ignore */ }
+                    if (!auAddonBase) auAddonBase = (process?.env?.ADDON_BASE_URL || '').trim();
+                    if (!auAddonBase) auAddonBase = (config as any).addonBase || '';
                     const animeUnityConfig: AnimeUnityConfig = {
                         enabled: animeUnityEnabled,
                         mfpUrl: mfpUrl,
                         mfpPassword: mfpPsw,
                         tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
+                        addonBase: auAddonBase || undefined,
                         animeunityAuto: (() => { const v = (config as any).animeunityAuto; if (v === undefined) return undefined; return v === true || v === 'true' || v === 'on' || v === 1; })(),
                         animeunityFhd: (() => { const v = (config as any).animeunityFhd; if (v === undefined) return undefined; return v === true || v === 'true' || v === 'on' || v === 1; })(),
                         animeunityAutoMfp: (() => { const v = (config as any).animeunityAutoMfp; if (v === undefined) return undefined; return v === true || v === 'true' || v === 'on' || v === 1; })(),
@@ -6964,7 +6977,13 @@ app.get(['/vixsynthetic', '/vixsynthetic.m3u8'], async (req: Request, res: Respo
             return false;
         })();
         if (multiFlag) console.log('[vixsynthetic] multi-language mode attivo');
-        const r = await fetch(src, { headers: { 'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, */*', 'Referer': 'https://vixsrc.to/', 'Origin': 'https://vixsrc.to' } as any });
+        // Rileva se src è già un URL proxato (EasyProxy/MFP) — non servono header VixSrc
+        const isProxiedSrc = /proxy\/hls|mediaflow/i.test(src) && !/vixsrc\.to/i.test(new URL(src).hostname);
+        const fetchHeaders = isProxiedSrc
+            ? { 'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, */*' }
+            : { 'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, */*', 'Referer': 'https://vixsrc.to/', 'Origin': 'https://vixsrc.to' };
+        if (isProxiedSrc) console.log('[vixsynthetic] src è URL proxato, skip header VixSrc');
+        const r = await fetch(src, { headers: fetchHeaders as any });
         if (!r.ok) return res.status(502).send('#EXTM3U\n# Upstream error');
         const text = await r.text();
         // Se non è master, restituisci com'è
@@ -7006,6 +7025,12 @@ app.get(['/vixsynthetic', '/vixsynthetic.m3u8'], async (req: Request, res: Respo
         }
         variants.sort((a, b) => (b.height - a.height) || (b.bandwidth - a.bandwidth));
         const best = variants[0];
+        // Fix: per URL proxati, le rendition video usano segment.ts (proxy raw bytes)
+        // ma servono manifest.m3u8 (che riscrive gli URL dei segmenti interni)
+        if (isProxiedSrc && best.url.includes('/proxy/hls/segment.ts?')) {
+            best.url = best.url.replace('/proxy/hls/segment.ts?', '/proxy/hls/manifest.m3u8?');
+            console.log('[vixsynthetic] Fix rendition URL: segment.ts → manifest.m3u8');
+        }
         const header: string[] = ['#EXTM3U'];
         const copyTags = ['#EXT-X-VERSION', '#EXT-X-INDEPENDENT-SEGMENTS'];
         for (const t of copyTags) { if (text.includes(t)) header.push(t); }
