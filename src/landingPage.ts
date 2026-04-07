@@ -402,7 +402,7 @@ function landingTemplate(manifest: any) {
 						</div>
 						<div class="preset-card" data-preset="film-serie-anime-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + Anime</div>
-							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, Guardoserie, Guardaflix, Loonex, ToonItalia, AnimeSaturn, AnimeUnity FHD MFP, AnimeWorld</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, Guardoserie, Guardaflix, Loonex, ToonItalia, AnimeSaturn, AnimeUnity FHD Proxy, AnimeWorld</div>
 						</div>
 						<div class="preset-card" data-preset="film-serie-tv-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + TV Live</div>
@@ -410,7 +410,7 @@ function landingTemplate(manifest: any) {
 						</div>
 						<div class="preset-card" data-preset="film-serie-anime-tv-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + Anime + TV Live</div>
-							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, Guardoserie, Guardaflix, Loonex, ToonItalia, AnimeSaturn, AnimeUnity FHD MFP, AnimeWorld, Live TV, Vavoo</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity FHD, CB01, GuardaHD, Guardoserie, Guardaflix, Loonex, ToonItalia, AnimeSaturn, AnimeUnity FHD Proxy, AnimeWorld, Live TV, Vavoo</div>
 						</div>
 					</div>
 				</div>
@@ -727,7 +727,7 @@ function landingTemplate(manifest: any) {
 							auSub.style.background = 'rgba(20,15,35,0.55)';
 							auSub.innerHTML = ''
 							+ '<div style="text-align:center; font-size:0.95rem; letter-spacing:0.05em; margin:0 0 10px 0; color:#c9b3ff; font-weight:700;">Modalità AnimeUnity</div>'
-							+ '<div id="animeunityDefaultMsg" style="text-align:center; font-size:0.80rem; margin:0 0 14px 0; opacity:0.85; line-height:1.3;">Nessuna selezione = FHD MFP (consigliato)</div>'
+							+ '<div id="animeunityDefaultMsg" style="text-align:center; font-size:0.80rem; margin:0 0 14px 0; opacity:0.85; line-height:1.3;">Nessuna selezione = FHD Proxy (consigliato)</div>'
 							+ '<div style="display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap;">'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
 									+ '<input type="checkbox" id="animeunityAutoToggle" data-config-key="animeunityAuto" style="transform:scale(1.1);" />'
@@ -739,11 +739,11 @@ function landingTemplate(manifest: any) {
 								+ '</label>'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
 									+ '<input type="checkbox" id="animeunityAutoMfpToggle" data-config-key="animeunityAutoMfp" style="transform:scale(1.1);" />'
-									+ '<span>AUTO MFP</span>'
+									+ '<span>AUTO Proxy</span>'
 								+ '</label>'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
 									+ '<input type="checkbox" id="animeunityFhdMfpToggle" data-config-key="animeunityFhdMfp" style="transform:scale(1.1);" />'
-									+ '<span>FHD MFP</span>'
+									+ '<span>FHD Proxy</span>'
 								+ '</label>'
 							+ '</div>';
 							auWrap.parentNode.insertBefore(auSub, auWrap.nextSibling);
@@ -768,9 +768,9 @@ function landingTemplate(manifest: any) {
 								var active = [];
 								if (auAuto && auAuto.checked) active.push('AUTO');
 								if (auFhd && auFhd.checked) active.push('FHD');
-								if (auAutoMfp && auAutoMfp.checked) active.push('AUTO MFP');
-								if (auFhdMfp && auFhdMfp.checked) active.push('FHD MFP');
-								if (active.length === 0) info.textContent = 'Nessuna selezione = FHD MFP (consigliato)'; else info.textContent = 'Modalità: ' + active.join(', ');
+								if (auAutoMfp && auAutoMfp.checked) active.push('AUTO Proxy');
+								if (auFhdMfp && auFhdMfp.checked) active.push('FHD Proxy');
+								if (active.length === 0) info.textContent = 'Nessuna selezione = FHD Proxy (consigliato)'; else info.textContent = 'Modalità: ' + active.join(', ');
 							}
 							[auAuto, auFhd, auAutoMfp, auFhdMfp].forEach(function(el){ 
 								if (el) el.addEventListener('change', function(){ 
@@ -933,7 +933,7 @@ function landingTemplate(manifest: any) {
 							sub.style.background = 'rgba(20,15,35,0.55)';
 							sub.innerHTML = ''
 							+ '<div style="text-align:center; font-size:0.95rem; letter-spacing:0.05em; margin:0 0 10px 0; color:#c9b3ff; font-weight:700;">Modalità StreamingCommunity</div>'
-							+ '<div id="vixsrcDefaultMsg" style="text-align:center; font-size:0.85rem; margin:0 0 14px 0; opacity:0.85; line-height:1.3;">Nessuna selezione = Synthetic MFP (consigliato)</div>'
+							+ '<div id="vixsrcDefaultMsg" style="text-align:center; font-size:0.85rem; margin:0 0 14px 0; opacity:0.85; line-height:1.3;">Nessuna selezione = Synthetic Proxy (consigliato)</div>'
 							+ '<div style="display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap;">'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
 									+ '<input type="checkbox" id="vixDirectToggle" data-config-key="vixDirect" style="transform:scale(1.1);" />'
@@ -945,20 +945,20 @@ function landingTemplate(manifest: any) {
 								+ '</label>'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
 									+ '<input type="checkbox" id="vixProxyToggle" data-config-key="vixProxy" style="transform:scale(1.1);" />'
-									+ '<span>MFP Proxy</span>'
+									+ '<span>Proxy</span>'
 								+ '</label>'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
 									+ '<input type="checkbox" id="vixProxyFhdToggle" data-config-key="vixProxyFhd" style="transform:scale(1.1);" />'
-									+ '<span>Synthetic MFP</span>'
+									+ '<span>Synthetic Proxy</span>'
 								+ '</label>'
 								+ '<span id="vixLegendTrigger" style="cursor:pointer; font-size:0.65rem; padding:6px 10px; border:1px solid #8c52ff; border-radius:10px; background:#2d1b47; font-weight:700; letter-spacing:0.05em; display:inline-flex; align-items:center; gap:6px;">📖 <span style="font-size:0.65rem;">HELP</span></span>'
 							+ '</div>'
 							+ '<div id="vixLegendPanel" style="display:none; margin-top:12px; font-size:0.65rem; line-height:1.4; background:rgba(10,10,25,0.55); padding:10px 12px; border:1px solid #3d2d60; border-radius:10px;">'
-								+ '<b>Default (nessuna selezione)</b>: Synthetic MFP — consigliato, richiede MFP.<br/>'
+								+ '<b>Default (nessuna selezione)</b>: Synthetic Proxy — consigliato, richiede Proxy.<br/>'
 								+ '<b>Direct ⚠️</b>: Link diretto al master — funziona SOLO se installazione locale (token IP-bound).<br/>'
 								+ '<b>Synthetic ⚠️</b>: Server riscrive il manifest — funziona SOLO se installazione locale (token IP-bound).<br/>'
-								+ '<b>MFP Proxy</b>: Tutto il traffico passa dal proxy MFP. Funziona cross-IP (richiede MFP).<br/>'
-								+ '<b>Synthetic MFP</b>: Synthetic wrappato in MFP. Funziona cross-IP (richiede MFP, consigliato).<br/>'
+								+ '<b>Proxy</b>: Tutto il traffico passa dal proxy. Funziona cross-IP (richiede Proxy).<br/>'
+								+ '<b>Synthetic Proxy</b>: Synthetic wrappato nel proxy. Funziona cross-IP (richiede Proxy, consigliato).<br/>'
 								+ 'Direct e Synthetic funzionano solo se addon e player sono sulla stessa rete.'
 							+ '</div>';
 							vixsrcMainWrap.parentNode.insertBefore(sub, vixsrcMainWrap.nextSibling);
@@ -987,10 +987,10 @@ function landingTemplate(manifest: any) {
 							var active = [];
 							if (vixDirectToggle && vixDirectToggle.checked) active.push('Direct');
 							if (vixDirectFhdToggle && vixDirectFhdToggle.checked) active.push('Synthetic');
-							if (vixProxyToggle && vixProxyToggle.checked) active.push('MFP Proxy');
-							if (vixProxyFhdToggle && vixProxyFhdToggle.checked) active.push('Synthetic MFP');
+								if (vixProxyToggle && vixProxyToggle.checked) active.push('Proxy');
+								if (vixProxyFhdToggle && vixProxyFhdToggle.checked) active.push('Synthetic Proxy');
 							if (active.length === 0) {
-								info.textContent = 'Nessuna selezione = Synthetic MFP (consigliato)';
+									info.textContent = 'Nessuna selezione = Synthetic Proxy (consigliato)';
 							} else {
 								info.textContent = 'Modalità: ' + active.join(', ');
 							}
@@ -1423,27 +1423,27 @@ function landingTemplate(manifest: any) {
 					},
 					// ── con proxy (EP o MFP) ──
 					'film-serie-mfp': {
-						name: '🎬 Film + Serie (Con Proxy MFP)',
+						name: '🎬 Film + Serie (Con Proxy)',
 						mfp: true,
 						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'Guardoserie', 'Guardaflix'],
 						config: { disableVixsrc:false, vixProxyFhd:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:true, animeunityEnabled:false, animeunityFhd:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, loonexEnabled:false, toonitaliaEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
 					},
 					'film-serie-anime-mfp': {
-						name: '🎬 Film + Serie + Anime (Con Proxy MFP)',
+						name: '🎬 Film + Serie + Anime (Con Proxy)',
 						mfp: true,
-						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'Guardoserie', 'Guardaflix', 'Loonex', 'ToonItalia', 'AnimeSaturn', 'AnimeUnity FHD MFP', 'AnimeWorld'],
+						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'Guardoserie', 'Guardaflix', 'Loonex', 'ToonItalia', 'AnimeSaturn', 'AnimeUnity FHD Proxy', 'AnimeWorld'],
 						config: { disableVixsrc:false, vixProxyFhd:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:true, animeunityEnabled:true, animeunityFhdMfp:true, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, loonexEnabled:true, toonitaliaEnabled:true, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
 					},
 					'film-serie-tv-mfp': {
-						name: '🎬 Film + Serie + TV Live (Con Proxy MFP)',
+						name: '🎬 Film + Serie + TV Live (Con Proxy)',
 						mfp: true,
 						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'Guardoserie', 'Guardaflix', 'Live TV', 'Vavoo'],
 						config: { disableVixsrc:false, vixProxyFhd:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:false, animeunityFhd:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, loonexEnabled:false, toonitaliaEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
 					},
 					'film-serie-anime-tv-mfp': {
-						name: '🎬 Film + Serie + Anime + TV Live (Con Proxy MFP)',
+						name: '🎬 Film + Serie + Anime + TV Live (Con Proxy)',
 						mfp: true,
-						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'Guardoserie', 'Guardaflix', 'Live TV', 'Vavoo', 'Loonex', 'ToonItalia', 'AnimeSaturn', 'AnimeUnity FHD MFP', 'AnimeWorld'],
+						providers: ['StreamingCommunity FHD', 'CB01', 'GuardaHD', 'Guardoserie', 'Guardaflix', 'Live TV', 'Vavoo', 'Loonex', 'ToonItalia', 'AnimeSaturn', 'AnimeUnity FHD Proxy', 'AnimeWorld'],
 						config: { disableVixsrc:false, vixProxyFhd:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:true, animeunityFhdMfp:true, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, loonexEnabled:true, toonitaliaEnabled:true, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
 					}
 				};
