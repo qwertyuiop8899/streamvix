@@ -933,7 +933,7 @@ function landingTemplate(manifest: any) {
 							sub.style.background = 'rgba(20,15,35,0.55)';
 							sub.innerHTML = ''
 							+ '<div style="text-align:center; font-size:0.95rem; letter-spacing:0.05em; margin:0 0 10px 0; color:#c9b3ff; font-weight:700;">Modalità StreamingCommunity</div>'
-							+ '<div id="vixsrcDefaultMsg" style="text-align:center; font-size:0.85rem; margin:0 0 14px 0; opacity:0.85; line-height:1.3;">Nessuna selezione = Synthetic Proxy (consigliato)</div>'
+							+ '<div id="vixsrcDefaultMsg" style="text-align:center; font-size:0.85rem; margin:0 0 14px 0; opacity:0.85; line-height:1.3;">Nessuna selezione = Synthetic FHD Proxy (consigliato)</div>'
 							+ '<div style="display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap;">'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
 									+ '<input type="checkbox" id="vixDirectToggle" data-config-key="vixDirect" style="transform:scale(1.1);" />'
@@ -941,7 +941,7 @@ function landingTemplate(manifest: any) {
 								+ '</label>'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
 									+ '<input type="checkbox" id="vixDirectFhdToggle" data-config-key="vixDirectFhd" style="transform:scale(1.1);" />'
-									+ '<span>Synthetic ⚠️ <span style="font-size:0.6rem; color:#ff9966;">(solo locale)</span></span>'
+									+ '<span>Synthetic FHD ⚠️ <span style="font-size:0.6rem; color:#ff9966;">(solo locale)</span></span>'
 								+ '</label>'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
 									+ '<input type="checkbox" id="vixProxyToggle" data-config-key="vixProxy" style="transform:scale(1.1);" />'
@@ -949,17 +949,17 @@ function landingTemplate(manifest: any) {
 								+ '</label>'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
 									+ '<input type="checkbox" id="vixProxyFhdToggle" data-config-key="vixProxyFhd" style="transform:scale(1.1);" />'
-									+ '<span>Synthetic Proxy</span>'
+									+ '<span>Synthetic FHD Proxy</span>'
 								+ '</label>'
 								+ '<span id="vixLegendTrigger" style="cursor:pointer; font-size:0.65rem; padding:6px 10px; border:1px solid #8c52ff; border-radius:10px; background:#2d1b47; font-weight:700; letter-spacing:0.05em; display:inline-flex; align-items:center; gap:6px;">📖 <span style="font-size:0.65rem;">HELP</span></span>'
 							+ '</div>'
 							+ '<div id="vixLegendPanel" style="display:none; margin-top:12px; font-size:0.65rem; line-height:1.4; background:rgba(10,10,25,0.55); padding:10px 12px; border:1px solid #3d2d60; border-radius:10px;">'
-								+ '<b>Default (nessuna selezione)</b>: Synthetic Proxy — consigliato, richiede Proxy.<br/>'
+								+ '<b>Default (nessuna selezione)</b>: Synthetic FHD Proxy — consigliato, richiede Proxy.<br/>'
 								+ '<b>Direct ⚠️</b>: Link diretto al master — funziona SOLO se installazione locale (token IP-bound).<br/>'
-								+ '<b>Synthetic ⚠️</b>: Server riscrive il manifest — funziona SOLO se installazione locale (token IP-bound).<br/>'
+								+ '<b>Synthetic FHD ⚠️</b>: Server riscrive il manifest — funziona SOLO se installazione locale (token IP-bound).<br/>'
 								+ '<b>Proxy</b>: Tutto il traffico passa dal proxy. Funziona cross-IP (richiede Proxy).<br/>'
-								+ '<b>Synthetic Proxy</b>: Synthetic wrappato nel proxy. Funziona cross-IP (richiede Proxy, consigliato).<br/>'
-								+ 'Direct e Synthetic funzionano solo se addon e player sono sulla stessa rete.'
+								+ '<b>Synthetic FHD Proxy</b>: Synthetic FHD wrappato nel proxy. Funziona cross-IP (richiede Proxy, consigliato).<br/>'
+								+ 'Direct e Synthetic FHD funzionano solo se addon e player sono sulla stessa rete.'
 							+ '</div>';
 							vixsrcMainWrap.parentNode.insertBefore(sub, vixsrcMainWrap.nextSibling);
 						}
@@ -986,11 +986,11 @@ function landingTemplate(manifest: any) {
 							if (!info) return;
 							var active = [];
 							if (vixDirectToggle && vixDirectToggle.checked) active.push('Direct');
-							if (vixDirectFhdToggle && vixDirectFhdToggle.checked) active.push('Synthetic');
+							if (vixDirectFhdToggle && vixDirectFhdToggle.checked) active.push('Synthetic FHD');
 								if (vixProxyToggle && vixProxyToggle.checked) active.push('Proxy');
-								if (vixProxyFhdToggle && vixProxyFhdToggle.checked) active.push('Synthetic Proxy');
+								if (vixProxyFhdToggle && vixProxyFhdToggle.checked) active.push('Synthetic FHD Proxy');
 							if (active.length === 0) {
-									info.textContent = 'Nessuna selezione = Synthetic Proxy (consigliato)';
+									info.textContent = 'Nessuna selezione = Synthetic FHD Proxy (consigliato)';
 							} else {
 								info.textContent = 'Modalità: ' + active.join(', ');
 							}
