@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.21](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.20...v1.17.21) (2026-04-07)
+
+
+### Bug Fixes
+
+* addon ([711e874](https://github.com/qwertyuiop8899/streamvix/commit/711e874bb58d19d76d80b50beb3664fea2358d09))
+* extractor ([a678609](https://github.com/qwertyuiop8899/streamvix/commit/a678609ee20f58b7e749a85496910646583ef63b))
+
 ## [1.17.20](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.19...v1.17.20) (2026-04-04)
 
 
