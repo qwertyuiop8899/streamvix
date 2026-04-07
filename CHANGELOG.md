@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.26](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.25...v1.17.26) (2026-04-07)
+
+
+### Bug Fixes
+
+* landingPage.ts ([1ff66d6](https://github.com/qwertyuiop8899/streamvix/commit/1ff66d6fb61035e64fd15965997f798254b8d181))
+
 ## [1.17.25](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.24...v1.17.25) (2026-04-07)
 
 
