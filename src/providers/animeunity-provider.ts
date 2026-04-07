@@ -921,28 +921,119 @@ export class AnimeUnityProvider {
       });
     }
 
-    // Genera versioni MFP-wrapped degli stream HLS (cross-IP)
+    // Genera versioni MFP cross-IP degli stream HLS via EasyProxy.
+    // Per VixCloud il proxy dell'embed restituisce HTML: parsiamo window.masterPlaylist
+    // fetchato dal proxy (IP del proxy) e costruiamo poi il vero master proxato.
     const mfpWrapped: StreamForStremio[] = [];
-    if ((autoMfpWanted || fhdMfpWanted) && this.config.mfpUrl) {
+    if ((autoMfpWanted || fhdMfpWanted) && this.config.mfpUrl && streamResult.embed_url) {
       const cleanMfp = this.config.mfpUrl.endsWith('/') ? this.config.mfpUrl.slice(0, -1) : this.config.mfpUrl;
       const pwdParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
-      for (const st of filtered) {
-        const qual = st.behaviorHints?.animeunityQuality;
-        const isFhd = qual === 'FHD';
-        if (isFhd && !fhdMfpWanted) continue;
-        if (!isFhd && !autoMfpWanted) continue;
-        // Wrap URL HLS in MFP proxy
-        const wrappedUrl = `${cleanMfp}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(st.url)}${pwdParam}`;
-        mfpWrapped.push({
-          title: st.title + ' 🔒',
-          url: wrappedUrl,
-          behaviorHints: {
-            ...st.behaviorHints,
-            notWebReady: true,
-            animeunityMfpWrapped: true,
-          },
-          isSyntheticFhd: st.isSyntheticFhd,
-        });
+
+      try {
+        const embedReferer = streamResult.episode_page || animeUrl || 'https://animeunity.so/';
+        const embedProxyUrl = `${cleanMfp}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(streamResult.embed_url)}${pwdParam}`
+          + `&h_Accept=${encodeURIComponent('text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8')}`
+          + `&h_Origin=${encodeURIComponent('https://vixcloud.co')}`
+          + `&h_Referer=${encodeURIComponent(embedReferer)}`
+          + `&h_User-Agent=${encodeURIComponent(USER_AGENT)}`;
+        console.log('[AnimeUnity][MFP] Fetch embed proxato:', embedProxyUrl);
+
+        const embedProxyRes = await fetch(embedProxyUrl);
+        if (!embedProxyRes.ok) {
+          console.warn('[AnimeUnity][MFP] Fetch embed proxato fallito:', embedProxyRes.status);
+        } else {
+          const proxiedHtml = await embedProxyRes.text();
+          const $proxied = cheerio.load(String(proxiedHtml || ''));
+          const scriptTag = $proxied('script').toArray().map((el) => $proxied(el).html() || '').find((s) => s.includes('masterPlaylist'));
+          if (!scriptTag) {
+            console.warn('[AnimeUnity][MFP] masterPlaylist non trovato nell\'HTML proxato');
+          } else {
+            const rawScript = scriptTag.replace(/\n/g, '\t');
+            const keyRegex = /window\.(\w+)\s*=\s*/g;
+            const keys: string[] = [];
+            let match: RegExpExecArray | null;
+            while ((match = keyRegex.exec(rawScript)) !== null) keys.push(match[1]);
+            const parts = rawScript.split(/window\.(?:\w+)\s*=\s*/).slice(1);
+            if (!keys.length || keys.length !== parts.length) {
+              console.warn('[AnimeUnity][MFP] key/parts mismatch parsing embed proxato', { keys: keys.length, parts: parts.length });
+            } else {
+              const jsonObjects: string[] = [];
+              for (let i = 0; i < keys.length; i += 1) {
+                let cleaned = parts[i]
+                  .replace(/;/g, '')
+                  .replace(/(\{|\[|,)\s*(\w+)\s*:/g, '$1 "$2":')
+                  .replace(/,(\s*[}\]])/g, '$1')
+                  .trim();
+                jsonObjects.push(`"${keys[i]}": ${cleaned}`);
+              }
+              let aggregated = '{\n' + jsonObjects.join(',\n') + '\n}';
+              aggregated = aggregated.replace(/'/g, '"');
+              let parsed: any = null;
+              try {
+                parsed = JSON.parse(aggregated);
+              } catch (e) {
+                console.warn('[AnimeUnity][MFP] JSON parse fallito (trunc)=', aggregated.slice(0, 160));
+              }
+
+              const masterPlaylist = parsed?.masterPlaylist;
+              if (!masterPlaylist?.url) {
+                console.warn('[AnimeUnity][MFP] masterPlaylist.url assente nel parsing proxy');
+              } else {
+                const paramsObj = masterPlaylist.params || {};
+                const token = paramsObj.token;
+                const expires = paramsObj.expires;
+                let playlistUrl = String(masterPlaylist.url || '');
+                if (playlistUrl) {
+                  const paramStr = `token=${encodeURIComponent(token || '')}&expires=${encodeURIComponent(expires || '')}`;
+                  if (playlistUrl.includes('?b')) playlistUrl = playlistUrl.replace('?b:1', '?b=1') + `&${paramStr}`;
+                  else playlistUrl = playlistUrl + (playlistUrl.includes('?') ? '&' : '?') + paramStr;
+                  const beforeQuery = playlistUrl.split('?')[0];
+                  if (!/\.m3u8$/i.test(beforeQuery)) {
+                    const partsF = playlistUrl.split('?');
+                    playlistUrl = beforeQuery.replace(/\/$/, '') + '.m3u8' + (partsF[1] ? '?' + partsF.slice(1).join('?') : '');
+                  }
+                  if (parsed?.canPlayFHD === true && !/[?&]h=1(?:&|$)/.test(playlistUrl)) playlistUrl += '&h=1';
+
+                  const proxyPlaylistUrl = `${cleanMfp}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(playlistUrl)}${pwdParam}`
+                    + `&h_accept=${encodeURIComponent('*/*')}`
+                    + `&h_Origin=${encodeURIComponent('https://vixcloud.co')}`
+                    + `&h_Referer=${encodeURIComponent(embedReferer)}`
+                    + `&h_User-Agent=${encodeURIComponent(USER_AGENT)}`;
+                  console.log('[AnimeUnity][MFP] Playlist proxy ricostruita da embed proxato OK');
+
+                  if (autoMfpWanted) {
+                    mfpWrapped.push({
+                      title: baseTitle + ' 🔒',
+                      url: proxyPlaylistUrl,
+                      behaviorHints: { notWebReady: true, animeunityMfpWrapped: true },
+                    });
+                  }
+
+                  if (fhdMfpWanted) {
+                    if (this.config.addonBase) {
+                      const syntheticUrl = `${this.config.addonBase.replace(/\/$/, '')}/vixsynthetic.m3u8?src=${encodeURIComponent(proxyPlaylistUrl)}&lang=it&max=1&multi=1`;
+                      mfpWrapped.push({
+                        title: baseTitle + ' 🔒 FHD',
+                        url: syntheticUrl,
+                        behaviorHints: { notWebReady: true, animeunityMfpWrapped: true, animeunityQuality: 'FHD', animeunityIsFhd: true },
+                        isSyntheticFhd: true,
+                      });
+                    } else {
+                      console.warn('[AnimeUnity][MFP] addonBase non disponibile per FHD sintetico, fallback a AUTO proxy');
+                      mfpWrapped.push({
+                        title: baseTitle + ' 🔒',
+                        url: proxyPlaylistUrl,
+                        behaviorHints: { notWebReady: true, animeunityMfpWrapped: true },
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e: any) {
+        console.warn('[AnimeUnity][MFP] Errore chiamata EasyProxy:', e?.message || e);
       }
     }
 
