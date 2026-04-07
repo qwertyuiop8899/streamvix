@@ -913,48 +913,52 @@ function landingTemplate(manifest: any) {
 							sub.style.background = 'rgba(20,15,35,0.55)';
 							sub.innerHTML = ''
 							+ '<div style="text-align:center; font-size:0.95rem; letter-spacing:0.05em; margin:0 0 10px 0; color:#c9b3ff; font-weight:700;">Modalità StreamingCommunity</div>'
-							+ '<div id="vixsrcDefaultMsg" style="text-align:center; font-size:0.85rem; margin:0 0 14px 0; opacity:0.85; line-height:1.3;">Nessuna selezione = Default</div>'
+							+ '<div id="vixsrcDefaultMsg" style="text-align:center; font-size:0.85rem; margin:0 0 14px 0; opacity:0.85; line-height:1.3;">Nessuna selezione = Synthetic (consigliato)</div>'
 							+ '<div style="display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap;">'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
 									+ '<input type="checkbox" id="vixDirectToggle" data-config-key="vixDirect" style="transform:scale(1.1);" />'
-									+ '<span>Direct</span>'
+									+ '<span>Direct ⚠️</span>'
 								+ '</label>'
 								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
 									+ '<input type="checkbox" id="vixDirectFhdToggle" data-config-key="vixDirectFhd" style="transform:scale(1.1);" />'
-									+ '<span>Direct FHD</span>'
+									+ '<span>Synthetic</span>'
 								+ '</label>'
-								// === PROXY OPTIONS (COMMENTATI - Decommentare per riabilitare MFP) ===
-								// + '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
-								// 	+ '<input type="checkbox" id="vixProxyToggle" data-config-key="vixProxy" style="transform:scale(1.1);" />'
-								// 	+ '<span>Proxy</span>'
-								// + '</label>'
-								// + '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
-								// 	+ '<input type="checkbox" id="vixProxyFhdToggle" data-config-key="vixProxyFhd" style="transform:scale(1.1);" />'
-								// 	+ '<span>Proxy FHD</span>'
-								// + '</label>'
-								// === FINE PROXY OPTIONS ===
+								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
+									+ '<input type="checkbox" id="vixProxyToggle" data-config-key="vixProxy" style="transform:scale(1.1);" />'
+									+ '<span>MFP Proxy</span>'
+								+ '</label>'
+								+ '<label style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; font-weight:600; padding:5px 10px; background:#2a1d44; border:1px solid #4d2d66; border-radius:10px;">'
+									+ '<input type="checkbox" id="vixProxyFhdToggle" data-config-key="vixProxyFhd" style="transform:scale(1.1);" />'
+									+ '<span>Synthetic MFP</span>'
+								+ '</label>'
 								+ '<span id="vixLegendTrigger" style="cursor:pointer; font-size:0.65rem; padding:6px 10px; border:1px solid #8c52ff; border-radius:10px; background:#2d1b47; font-weight:700; letter-spacing:0.05em; display:inline-flex; align-items:center; gap:6px;">📖 <span style="font-size:0.65rem;">HELP</span></span>'
 							+ '</div>'
 							+ '<div id="vixLegendPanel" style="display:none; margin-top:12px; font-size:0.65rem; line-height:1.4; background:rgba(10,10,25,0.55); padding:10px 12px; border:1px solid #3d2d60; border-radius:10px;">'
-								+ '<b>Default</b>: Comportamento automatico (Direct).<br/>'
-								+ '<b>Direct</b>: Solo link diretti senza wrapping MFP.<br/>'
-								+ '<b>Direct FHD</b>: Variante forzata qualità alta senza MFP.<br/>'
-								// + '<b>Proxy</b>: Variante proxy (richiede MFP).<br/>'  // COMMENTATO
-								// + '<b>Proxy FHD</b>: Variante proxy qualità alta (richiede MFP).<br/>'  // COMMENTATO
-								+ 'Puoi selezionare qualsiasi combinazione; nessuna selezione = comportamento automatico (Direct).'
+								+ '<b>Default (nessuna selezione)</b>: Synthetic — consigliato per addon pubblici.<br/>'
+								+ '<b>Direct ⚠️</b>: Link diretto al master — funziona SOLO se self-hosted (token IP-bound).<br/>'
+								+ '<b>Synthetic</b>: Server riscrive il manifest, video diretto al client da CDN. Cross-IP, no MFP.<br/>'
+								+ '<b>MFP Proxy</b>: Tutto il traffico passa dal proxy MFP (richiede credenziali MFP).<br/>'
+								+ '<b>Synthetic MFP</b>: Synthetic wrappato in MFP per massima compatibilità (richiede MFP).<br/>'
+								+ 'Puoi selezionare qualsiasi combinazione; nessuna selezione = Synthetic automatico.'
 							+ '</div>';
 							vixsrcMainWrap.parentNode.insertBefore(sub, vixsrcMainWrap.nextSibling);
 						}
 						var vixDirectToggle = document.getElementById('vixDirectToggle');
 						var vixDirectFhdToggle = document.getElementById('vixDirectFhdToggle');
+						var vixProxyToggle = document.getElementById('vixProxyToggle');
+						var vixProxyFhdToggle = document.getElementById('vixProxyFhdToggle');
 						var legendBtn = document.getElementById('vixLegendTrigger');
 						var legendPanel = document.getElementById('vixLegendPanel');
 						// Restore state from hidden config fields (populated by manifest from URL)
 						try {
 							var hiddenDirect = document.getElementById('hidden_vixDirect');
 							var hiddenDirectFhd = document.getElementById('hidden_vixDirectFhd');
+							var hiddenProxy = document.getElementById('hidden_vixProxy');
+							var hiddenProxyFhd = document.getElementById('hidden_vixProxyFhd');
 							if (vixDirectToggle && hiddenDirect && hiddenDirect.type === 'checkbox') vixDirectToggle.checked = hiddenDirect.checked;
 							if (vixDirectFhdToggle && hiddenDirectFhd && hiddenDirectFhd.type === 'checkbox') vixDirectFhdToggle.checked = hiddenDirectFhd.checked;
+							if (vixProxyToggle && hiddenProxy && hiddenProxy.type === 'checkbox') vixProxyToggle.checked = hiddenProxy.checked;
+							if (vixProxyFhdToggle && hiddenProxyFhd && hiddenProxyFhd.type === 'checkbox') vixProxyFhdToggle.checked = hiddenProxyFhd.checked;
 						} catch(e) { console.warn('VixSrc state restore failed:', e); }
 						if (legendBtn && legendPanel){ legendBtn.addEventListener('click', function(){ legendPanel.style.display = legendPanel.style.display==='none' ? 'block':'none'; }); }
 						function updateVixModeVisual(){
@@ -962,21 +966,27 @@ function landingTemplate(manifest: any) {
 							if (!info) return;
 							var active = [];
 							if (vixDirectToggle && vixDirectToggle.checked) active.push('Direct');
-							if (vixDirectFhdToggle && vixDirectFhdToggle.checked) active.push('Direct FHD');
+							if (vixDirectFhdToggle && vixDirectFhdToggle.checked) active.push('Synthetic');
+							if (vixProxyToggle && vixProxyToggle.checked) active.push('MFP Proxy');
+							if (vixProxyFhdToggle && vixProxyFhdToggle.checked) active.push('Synthetic MFP');
 							if (active.length === 0) {
-								info.textContent = 'Nessuna selezione = Default';
+								info.textContent = 'Nessuna selezione = Synthetic (consigliato)';
 							} else {
 								info.textContent = 'Modalità: ' + active.join(', ');
 							}
 						}
-						[vixDirectToggle, vixDirectFhdToggle].forEach(function(el){ 
+						[vixDirectToggle, vixDirectFhdToggle, vixProxyToggle, vixProxyFhdToggle].forEach(function(el){ 
 							if (el) el.addEventListener('change', function(){ 
 								updateVixModeVisual(); 
 								// Sync hidden inputs for config persistence
 								var hiddenDirect = document.getElementById('hidden_vixDirect');
 								var hiddenDirectFhd = document.getElementById('hidden_vixDirectFhd');
+								var hiddenProxy = document.getElementById('hidden_vixProxy');
+								var hiddenProxyFhd = document.getElementById('hidden_vixProxyFhd');
 								if (hiddenDirect && vixDirectToggle) hiddenDirect.checked = vixDirectToggle.checked;
 								if (hiddenDirectFhd && vixDirectFhdToggle) hiddenDirectFhd.checked = vixDirectFhdToggle.checked;
+								if (hiddenProxy && vixProxyToggle) hiddenProxy.checked = vixProxyToggle.checked;
+								if (hiddenProxyFhd && vixProxyFhdToggle) hiddenProxyFhd.checked = vixProxyFhdToggle.checked;
 								updateLink(); 
 							}); 
 						});
