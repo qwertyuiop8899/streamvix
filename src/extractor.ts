@@ -551,11 +551,13 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     const wantsSyntheticMfp = (config as any).vixProxyFhd === true;
     const noneSelected = !wantsDirect && !wantsSynthetic && !wantsMfp && !wantsSyntheticMfp;
 
-    // Default = Synthetic quando nessuna opzione selezionata
+    // Default = Synthetic MFP quando nessuna opzione selezionata (richiede MFP per cross-IP)
     if (noneSelected) {
       config.vixLocal = true;  // serve parse diretto per ottenere master URL
       config.vixDual = true;   // genera synthetic
-      console.log('[VixSrc][Bridge] Default mode: Synthetic (nessuna selezione)');
+      // Imposta anche vixProxyFhd per il filtro (Synthetic MFP default)
+      (config as any).vixProxyFhd = true;
+      console.log('[VixSrc][Bridge] Default mode: Synthetic MFP (nessuna selezione)');
     } else {
       // vixLocal necessario se: Direct esplicito OPPURE Synthetic/SyntheticMFP (serve master URL)
       if ((wantsDirect || wantsSynthetic || wantsSyntheticMfp) && config.vixLocal !== true) {
@@ -1401,9 +1403,14 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     console.log('[VixSrc][Filter] Flags', f, 'MFP', mfpPresent, 'Available', available);
     const out: VixCloudStreamInfo[] = []; const add = (v: VixCloudStreamInfo | undefined | null) => { if (v && !out.includes(v)) out.push(v); };
 
-    // Default (nessuna selezione) → preferisci Synthetic, fallback Direct
+    // Default (nessuna selezione) → preferisci Synthetic MFP, fallback MFP, poi Synthetic/Direct (solo locale)
     if (none) {
-      add(variants.directFhd || variants.baseDirect);
+      if (mfpPresent) {
+        add(variants.proxyFhd || variants.baseProxy);
+      } else {
+        // Senza MFP: degrada a synthetic/direct (funziona solo locale)
+        add(variants.directFhd || variants.baseDirect);
+      }
       const fin = finalize(out);
       console.log('[VixSrc][Filter][Chosen][Default]', fin.map(s => s.source + (s.isSyntheticFhd ? ' Synthetic' : '')));
       return fin;
