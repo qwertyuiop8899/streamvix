@@ -3,8 +3,10 @@ export interface AnimeUnityConfig {
   mfpPassword: string;
   enabled: boolean;
   tmdbApiKey?: string;
-  animeunityAuto?: boolean; // toggle AUTO master playlist
-  animeunityFhd?: boolean;  // toggle FHD only variant
+  animeunityAuto?: boolean; // toggle AUTO master playlist (solo locale, IP-bound)
+  animeunityFhd?: boolean;  // toggle FHD only variant (solo locale, IP-bound)
+  animeunityAutoMfp?: boolean; // toggle AUTO wrappato in MFP (cross-IP)
+  animeunityFhdMfp?: boolean;  // toggle FHD wrappato in MFP (cross-IP)
 }
 
 export interface AnimeUnityResult {
