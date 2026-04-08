@@ -870,9 +870,8 @@ const baseManifest: Manifest = {
         // { key: "enableMpd", title: "Enable MPD Streams", type: "checkbox" },
         { key: "disableVixsrc", title: "Disable StreamingCommunity", type: "checkbox" },
         { key: "vixDirect", title: "SC: Direct (solo installazione locale)", type: "checkbox" },
-        { key: "vixDirectFhd", title: "SC: Synthetic (solo installazione locale)", type: "checkbox" },
-        { key: "vixProxy", title: "SC: MFP Proxy (richiede MFP)", type: "checkbox" },
-        { key: "vixProxyFhd", title: "SC: Synthetic MFP (richiede MFP, consigliato)", type: "checkbox" },
+        { key: "vixDirectFhd", title: "SC: Synthetic FHD (solo installazione locale)", type: "checkbox" },
+        { key: "vixProxy", title: "SC: Proxy (richiede Proxy, consigliato)", type: "checkbox" },
         { key: "disableLiveTv", title: "Live TV 📺 [Molti canali hanno bisogno di MFP]", type: "checkbox" },
         { key: "trailerEnabled", title: "🎬▶️ Trailer", type: "checkbox", default: "checked" },
         { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
@@ -5946,7 +5945,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const cfg = config as any;
                     // Check if user has explicitly set any provider or flag
                     const providerKeys = [
-                        'trailerEnabled', 'disableVixsrc', 'vixDirect', 'vixDirectFhd', 'vixProxy', 'vixProxyFhd',
+                        'trailerEnabled', 'disableVixsrc', 'vixDirect', 'vixDirectFhd', 'vixProxy',
                         'guardahdEnabled', 'guardaserieEnabled', 'guardoserieEnabled', 'guardaflixEnabled',
                         'eurostreamingEnabled', 'loonexEnabled', 'toonitaliaEnabled', 'cb01Enabled',
                         'animesaturnEnabled', 'animeworldEnabled', 'animeunityEnabled'
@@ -6417,7 +6416,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 vixDirect: isDirectAPICall ? true : ((config as any)?.vixDirect === true),
                                 vixDirectFhd: isDirectAPICall ? false : ((config as any)?.vixDirectFhd === true),
                                 vixProxy: isDirectAPICall ? false : ((config as any)?.vixProxy === true),
-                                vixProxyFhd: isDirectAPICall ? false : ((config as any)?.vixProxyFhd === true),
                                 addonBase: (config as any)?.addonBase || (() => {
                                     try {
                                         const proto = (process.env.EXTERNAL_PROTOCOL || 'https');
@@ -6689,7 +6687,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             vixDirect: (config as any)?.vixDirect === true,
                             vixDirectFhd: (config as any)?.vixDirectFhd === true,
                             vixProxy: (config as any)?.vixProxy === true,
-                            vixProxyFhd: (config as any)?.vixProxyFhd === true,
                             addonBase: (config as any)?.addonBase || ''
                         };
                         const res: VixCloudStreamInfo[] | null = await getStreamContent(id, type, finalConfig);
