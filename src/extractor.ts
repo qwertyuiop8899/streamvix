@@ -684,92 +684,12 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     }
 
     const cleanedMfpUrl = mfpUrl.endsWith('/') ? mfpUrl.slice(0, -1) : mfpUrl;
-    // Prima richiesta: redirect_stream=false per ottenere JSON completo
     const passwordParam = mfpPsw ? `&api_password=${encodeURIComponent(mfpPsw)}` : '';
-    const baseApi = `${cleanedMfpUrl}/extractor/video?host=VixCloud&redirect_stream=false${passwordParam}&d=${encodeURIComponent(url)}`;
-    console.log(`[VixSrc][Proxy] FETCH JSON: ${baseApi}`);
 
-    // Nuova funzione asincrona per ottenere l'URL m3u8 finale
-    async function getActualStreamUrl(proxyUrl: string): Promise<string> {
-      try {
-        // In modalità "debug" non seguiamo i reindirizzamenti e otteniamo l'URL m3u8 dalla risposta JSON
-        const debugUrl = proxyUrl.replace('redirect_stream=true', 'redirect_stream=false');
-
-        console.log(`Fetching stream URL from: ${debugUrl}`);
-        const response = await fetch(debugUrl);
-
-        if (!response.ok) {
-          console.error(`Failed to fetch stream details: ${response.status}`);
-          return proxyUrl; // Fallback al proxy URL originale
-        }
-
-        const data = await response.json();
-        console.log(`MFP Response:`, data);
-
-        // CORREZIONE: usa mediaflow_proxy_url invece di stream_url
-        if (data && data.mediaflow_proxy_url) {
-          // Costruisci l'URL completo includendo i parametri necessari
-          let finalUrl = data.mediaflow_proxy_url;
-
-          // Aggiungi i parametri di query se presenti
-          if (data.query_params) {
-            const params = new URLSearchParams();
-            for (const [key, value] of Object.entries(data.query_params)) {
-              if (value !== null) {
-                params.append(key, String(value));
-              }
-            }
-
-            // Se l'URL ha già parametri, aggiungi & altrimenti ?
-            finalUrl += (finalUrl.includes('?') ? '&' : '?') + params.toString();
-          }
-
-          // Aggiungi il parametro d per il destination_url
-          if (data.destination_url) {
-            const destParam = 'd=' + encodeURIComponent(data.destination_url);
-            finalUrl += (finalUrl.includes('?') ? '&' : '?') + destParam;
-          }
-
-          // Aggiungi gli header come parametri h_
-          if (data.request_headers) {
-            for (const [key, value] of Object.entries(data.request_headers)) {
-              if (value !== null) {
-                const headerParam = `h_${key}=${encodeURIComponent(String(value))}`;
-                finalUrl += '&' + headerParam;
-              }
-            }
-          }
-
-          console.log(`Extracted proxy m3u8 URL: ${finalUrl}`);
-          return finalUrl;
-        } else {
-          console.warn(`Couldn't find mediaflow_proxy_url in MFP response, using proxy URL`);
-          return proxyUrl; // Fallback al proxy URL originale
-        }
-      } catch (error) {
-        console.error(`Error extracting m3u8 URL: ${error}`);
-        return proxyUrl; // Fallback al proxy URL originale
-      }
-    }
-
-    // Helper: inietta h=1 nel parametro 'd' (destination_url) del link proxy se possibile
-    function injectH1IntoDestination(proxyUrl: string): string {
-      try {
-        const urlObj = new URL(proxyUrl);
-        const dParam = urlObj.searchParams.get('d');
-        if (!dParam) return proxyUrl;
-
-        // URLSearchParams.get() restituisce il valore decodificato
-        const destUrl = new URL(dParam);
-        // imposta/forza h=1
-        destUrl.searchParams.set('h', '1');
-        // reimposta 'd' con l'URL aggiornato (verrà ri-encodato automaticamente)
-        urlObj.searchParams.set('d', destUrl.toString());
-        return urlObj.toString();
-      } catch {
-        return proxyUrl; // in caso di problemi, lascia invariato
-      }
-    }
+    // Approccio semplificato: passa l'URL della pagina VixSrc direttamente al proxy HLS generico.
+    // EasyProxy farà fetch della pagina, estrarrà il manifest e proxierà tutti gli URL interni.
+    const finalStreamUrl = `${cleanedMfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}${passwordParam}`;
+    console.log(`[VixSrc][Proxy] Built generic proxy URL: ${finalStreamUrl}`);
 
     // Ottieni il titolo dalla TMDB API
     const tmdbApiTitle = type === 'movie' ? await getMovieTitle(id, tmdbApiKey) : await getSeriesTitle(id, tmdbApiKey);
@@ -793,23 +713,14 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       }
     }
 
-    // Ottieni l'URL m3u8 finale
-    // Usa la funzione per comporre a partire dalla risposta debug
-    let finalStreamUrl = await getActualStreamUrl(baseApi.replace('redirect_stream=false', 'redirect_stream=false'));
-    console.log(`[VixSrc][Proxy] Final m3u8 URL ricostruito: ${finalStreamUrl}`);
-
     // Prova ad estrarre la dimensione (bytes) dalla pagina VixSrc
     let sizeBytes: number | undefined = undefined;
-    let canPlayFHD = false;
     try {
       const pageRes = await fetch(url);
       if (pageRes.ok) {
         const html = await pageRes.text();
-        // Rileva supporto Full HD
-        canPlayFHD = html.includes('window.canPlayFHD = true');
         const sizeMatch = html.match(/\"size\":(\d+)/);
         if (sizeMatch) {
-          // Nel codice originale la size è in kB -> converti in bytes (kB * 1024)
           const kB = parseInt(sizeMatch[1] as string, 10);
           if (!isNaN(kB) && kB >= 0) sizeBytes = kB * 1024;
         }
@@ -817,14 +728,9 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     } catch (e) {
       // Ignora errori di parsing/rete: la dimensione è solo informativa
     }
-    // Se la pagina supporta FHD, inietta h=1 nel parametro d del link proxy
-    if (canPlayFHD) {
-      finalStreamUrl = injectH1IntoDestination(finalStreamUrl);
-      console.log('Applied h=1 to destination URL (FHD enabled).');
-    }
 
     return {
-      name: finalNameForProxy, // will be transformed later
+      name: finalNameForProxy,
       streamUrl: finalStreamUrl,
       referer: url,
       source: 'proxy',
