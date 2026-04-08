@@ -897,152 +897,47 @@ export class AnimeUnityProvider {
       }
     }
 
-    const autoFlag = this.config.animeunityAuto === true;
-    const fhdFlag = this.config.animeunityFhd === true;
-    const autoMfpFlag = this.config.animeunityAutoMfp === true;
-    const fhdMfpFlag = this.config.animeunityFhdMfp === true;
-    const anySelected = autoFlag || fhdFlag || autoMfpFlag || fhdMfpFlag;
-    // Default (nessuna selezione): FHD MFP se MFP presente, altrimenti AUTO (solo locale)
-    const autoWanted = anySelected ? autoFlag : !this.config.mfpUrl;
-    const fhdWanted = anySelected ? fhdFlag : false;
-    const autoMfpWanted = anySelected ? autoMfpFlag : false;
-    const fhdMfpWanted = anySelected ? fhdMfpFlag : !!this.config.mfpUrl;
-    const filtered = streams.filter((st) => {
-      const qual = st.behaviorHints?.animeunityQuality;
-      if (qual === 'FHD') return fhdWanted || fhdMfpWanted;
-      return autoWanted || autoMfpWanted;
-    });
+    // --- Nuova logica 3 modalità (come StreamingCommunity) ---
+    // animeunityDirect    = Direct (solo locale, IP-bound)
+    // animeunityDirectFhd = Synthetic FHD (solo locale, IP-bound)
+    // animeunityProxy     = Proxy (cross-IP, tutto via EasyProxy)
+    // Default (nessuna selezione) = Proxy se MFP presente, altrimenti Direct
+    const wantsDirect = this.config.animeunityDirect === true;
+    const wantsDirectFhd = this.config.animeunityDirectFhd === true;
+    const wantsProxy = this.config.animeunityProxy === true;
+    const noneSelected = !wantsDirect && !wantsDirectFhd && !wantsProxy;
+    const directWanted = noneSelected ? !this.config.mfpUrl : wantsDirect;
+    const directFhdWanted = noneSelected ? false : wantsDirectFhd;
+    const proxyWanted = noneSelected ? !!this.config.mfpUrl : wantsProxy;
 
-    if (fhdWanted || fhdMfpWanted) {
-      filtered.forEach((st) => {
-        if (st.behaviorHints?.animeunityQuality === 'FHD') {
-          st.behaviorHints.animeunityIsFhd = true;
-        }
-      });
-    }
-
-    // Genera versioni MFP cross-IP degli stream HLS via EasyProxy.
-    // Per VixCloud il proxy dell'embed restituisce HTML: parsiamo window.masterPlaylist
-    // fetchato dal proxy (IP del proxy) e costruiamo poi il vero master proxato.
+    // Genera versione Proxy cross-IP via EasyProxy generic HLS proxy.
     const mfpWrapped: StreamForStremio[] = [];
-    if ((autoMfpWanted || fhdMfpWanted) && this.config.mfpUrl && streamResult.embed_url) {
+    if (proxyWanted && this.config.mfpUrl && streamResult.embed_url) {
       const cleanMfp = this.config.mfpUrl.endsWith('/') ? this.config.mfpUrl.slice(0, -1) : this.config.mfpUrl;
       const pwdParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
 
       try {
         const embedReferer = streamResult.episode_page || animeUrl || 'https://animeunity.so/';
-        const embedProxyUrl = `${cleanMfp}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(streamResult.embed_url)}${pwdParam}`
-          + `&h_Accept=${encodeURIComponent('text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8')}`
+        const proxyPlaylistUrl = `${cleanMfp}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(streamResult.embed_url)}${pwdParam}`
           + `&h_Origin=${encodeURIComponent('https://vixcloud.co')}`
-          + `&h_Referer=${encodeURIComponent(embedReferer)}`
-          + `&h_User-Agent=${encodeURIComponent(USER_AGENT)}`;
-        console.log('[AnimeUnity][MFP] Fetch embed proxato:', embedProxyUrl);
+          + `&h_Referer=${encodeURIComponent(embedReferer)}`;
+        console.log('[AnimeUnity][MFP] Built generic proxy URL:', proxyPlaylistUrl);
 
-        const embedProxyRes = await fetch(embedProxyUrl);
-        if (!embedProxyRes.ok) {
-          console.warn('[AnimeUnity][MFP] Fetch embed proxato fallito:', embedProxyRes.status);
-        } else {
-          const proxiedHtml = await embedProxyRes.text();
-          const $proxied = cheerio.load(String(proxiedHtml || ''));
-          const scriptTag = $proxied('script').toArray().map((el) => $proxied(el).html() || '').find((s) => s.includes('masterPlaylist'));
-          if (!scriptTag) {
-            console.warn('[AnimeUnity][MFP] masterPlaylist non trovato nell\'HTML proxato');
-          } else {
-            const rawScript = scriptTag.replace(/\n/g, '\t');
-            const keyRegex = /window\.(\w+)\s*=\s*/g;
-            const keys: string[] = [];
-            let match: RegExpExecArray | null;
-            while ((match = keyRegex.exec(rawScript)) !== null) keys.push(match[1]);
-            const parts = rawScript.split(/window\.(?:\w+)\s*=\s*/).slice(1);
-            if (!keys.length || keys.length !== parts.length) {
-              console.warn('[AnimeUnity][MFP] key/parts mismatch parsing embed proxato', { keys: keys.length, parts: parts.length });
-            } else {
-              const jsonObjects: string[] = [];
-              for (let i = 0; i < keys.length; i += 1) {
-                let cleaned = parts[i]
-                  .replace(/;/g, '')
-                  .replace(/(\{|\[|,)\s*(\w+)\s*:/g, '$1 "$2":')
-                  .replace(/,(\s*[}\]])/g, '$1')
-                  .trim();
-                jsonObjects.push(`"${keys[i]}": ${cleaned}`);
-              }
-              let aggregated = '{\n' + jsonObjects.join(',\n') + '\n}';
-              aggregated = aggregated.replace(/'/g, '"');
-              let parsed: any = null;
-              try {
-                parsed = JSON.parse(aggregated);
-              } catch (e) {
-                console.warn('[AnimeUnity][MFP] JSON parse fallito (trunc)=', aggregated.slice(0, 160));
-              }
-
-              const masterPlaylist = parsed?.masterPlaylist;
-              if (!masterPlaylist?.url) {
-                console.warn('[AnimeUnity][MFP] masterPlaylist.url assente nel parsing proxy');
-              } else {
-                const paramsObj = masterPlaylist.params || {};
-                const token = paramsObj.token;
-                const expires = paramsObj.expires;
-                let playlistUrl = String(masterPlaylist.url || '');
-                if (playlistUrl) {
-                  const paramStr = `token=${encodeURIComponent(token || '')}&expires=${encodeURIComponent(expires || '')}`;
-                  if (playlistUrl.includes('?b')) playlistUrl = playlistUrl.replace('?b:1', '?b=1') + `&${paramStr}`;
-                  else playlistUrl = playlistUrl + (playlistUrl.includes('?') ? '&' : '?') + paramStr;
-                  const beforeQuery = playlistUrl.split('?')[0];
-                  if (!/\.m3u8$/i.test(beforeQuery)) {
-                    const partsF = playlistUrl.split('?');
-                    playlistUrl = beforeQuery.replace(/\/$/, '') + '.m3u8' + (partsF[1] ? '?' + partsF.slice(1).join('?') : '');
-                  }
-                  if (parsed?.canPlayFHD === true && !/[?&]h=1(?:&|$)/.test(playlistUrl)) playlistUrl += '&h=1';
-
-                  const proxyPlaylistUrl = `${cleanMfp}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(playlistUrl)}${pwdParam}`
-                    + `&h_accept=${encodeURIComponent('*/*')}`
-                    + `&h_Origin=${encodeURIComponent('https://vixcloud.co')}`
-                    + `&h_Referer=${encodeURIComponent(embedReferer)}`
-                    + `&h_User-Agent=${encodeURIComponent(USER_AGENT)}`;
-                  console.log('[AnimeUnity][MFP] Playlist proxy ricostruita da embed proxato OK');
-
-                  if (autoMfpWanted) {
-                    mfpWrapped.push({
-                      title: baseTitle + ' 🔒',
-                      url: proxyPlaylistUrl,
-                      behaviorHints: { notWebReady: true, animeunityMfpWrapped: true },
-                    });
-                  }
-
-                  if (fhdMfpWanted) {
-                    if (this.config.addonBase) {
-                      const syntheticUrl = `${this.config.addonBase.replace(/\/$/, '')}/vixsynthetic.m3u8?src=${encodeURIComponent(proxyPlaylistUrl)}&lang=it&max=1&multi=1`;
-                      mfpWrapped.push({
-                        title: baseTitle + ' 🔒 FHD',
-                        url: syntheticUrl,
-                        behaviorHints: { notWebReady: true, animeunityMfpWrapped: true, animeunityQuality: 'FHD', animeunityIsFhd: true },
-                        isSyntheticFhd: true,
-                      });
-                    } else {
-                      console.warn('[AnimeUnity][MFP] addonBase non disponibile per FHD sintetico, fallback a AUTO proxy');
-                      mfpWrapped.push({
-                        title: baseTitle + ' 🔒',
-                        url: proxyPlaylistUrl,
-                        behaviorHints: { notWebReady: true, animeunityMfpWrapped: true },
-                      });
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+        mfpWrapped.push({
+          title: baseTitle + ' 🔒',
+          url: proxyPlaylistUrl,
+          behaviorHints: { notWebReady: true, animeunityMfpWrapped: true },
+        });
       } catch (e: any) {
-        console.warn('[AnimeUnity][MFP] Errore chiamata EasyProxy:', e?.message || e);
+        console.warn('[AnimeUnity][MFP] Errore costruzione proxy URL:', e?.message || e);
       }
     }
 
-    // Filtra stream diretti: solo se richiesti esplicitamente (non MFP)
-    const directOut = filtered.filter((st) => {
-      const qual = st.behaviorHints?.animeunityQuality;
-      if (qual === 'FHD') return fhdWanted;
-      return autoWanted;
-    });
+    // Stream diretti: solo se Direct o Synthetic FHD richiesti
+    const directOut: StreamForStremio[] = [];
+    if (directWanted || directFhdWanted) {
+      directOut.push(...streams);
+    }
 
     return [...directOut, ...mfpWrapped];
   }
