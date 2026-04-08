@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.17.28](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.27...v1.17.28) (2026-04-08)
+
+
+### Bug Fixes
+
+* addon.ts ([1d6d5d7](https://github.com/qwertyuiop8899/streamvix/commit/1d6d5d7cdc28a8458f2817628ed2f8352f18b64e))
+* animeunity-provider.ts ([5ba74a2](https://github.com/qwertyuiop8899/streamvix/commit/5ba74a2fac1b519478fa6d979702d8c852de5428))
+* animeunity.ts ([44f7a5f](https://github.com/qwertyuiop8899/streamvix/commit/44f7a5fa5f282cfdb46de707472ba192a6b77f1f))
+* cb01-provider.ts ([1814e90](https://github.com/qwertyuiop8899/streamvix/commit/1814e90fcf016960560e8df7d432ece0a510eab4))
+* extractor.ts ([780334c](https://github.com/qwertyuiop8899/streamvix/commit/780334cc6a966f64ed9bff21110f8f95bb3b6db3))
+* landingPage.ts ([4c33cae](https://github.com/qwertyuiop8899/streamvix/commit/4c33cae40f7c229aeb3145f5178e64a2c2e9b691))
+
 ## [1.17.27](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.26...v1.17.27) (2026-04-07)
 
 
