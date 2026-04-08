@@ -178,12 +178,12 @@ export class EurostreamingProvider {
         const h = uObj.host.toLowerCase();
         if (h.includes('mixdrop')) {
           playerName = 'Mixdrop';
-          // Se configurato MFP URL, wrappiamo l'URL mixdrop nell'extractor
+          // Se configurato MFP URL, wrappiamo l'URL mixdrop nel proxy stream
           if (this.config.mfpUrl) {
             const base = this.config.mfpUrl.replace(/\/$/, '');
             const encoded = encodeURIComponent(s.url);
             const passwordParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
-            finalUrl = `${base}/extractor/video?host=Mixdrop${passwordParam}&d=${encoded}&redirect_stream=true`;
+            finalUrl = `${base}/proxy/stream?d=${encoded}${passwordParam}`;
           }
         } else if (/deltabit|\/delta\//i.test(s.url)) {
           playerName = 'Deltabit';
