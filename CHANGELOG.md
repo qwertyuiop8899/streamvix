@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.27](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.26...v1.17.27) (2026-04-07)
+
+
+### Bug Fixes
+
+* sportstreamUpdater.ts ([6b50ecc](https://github.com/qwertyuiop8899/streamvix/commit/6b50ecc06ae8dbfbe6cd618ca0a52f7b513a3d9d))
+
 ## [1.17.26](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.25...v1.17.26) (2026-04-07)
 
 
