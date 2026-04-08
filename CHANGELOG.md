@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.29](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.28...v1.17.29) (2026-04-08)
+
+
+### Bug Fixes
+
+* addon.ts ([b8dc37e](https://github.com/qwertyuiop8899/streamvix/commit/b8dc37ef5e7723f65c845231334b0616a4d20e27))
+* mix eurostreaming-provider.ts ([0680366](https://github.com/qwertyuiop8899/streamvix/commit/0680366f456d5488ec284320488ee67e0e37eab7))
+
 ## [1.17.28](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.27...v1.17.28) (2026-04-08)
 
 
