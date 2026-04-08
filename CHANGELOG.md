@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.30](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.29...v1.17.30) (2026-04-08)
+
+
+### Bug Fixes
+
+* mixdrop.ts ([e977896](https://github.com/qwertyuiop8899/streamvix/commit/e977896059154fc62d5beea2464cdb872346a4b2))
+
 ## [1.17.29](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.28...v1.17.29) (2026-04-08)
 
 
