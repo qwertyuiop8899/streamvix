@@ -4,10 +4,9 @@ export interface AnimeUnityConfig {
   enabled: boolean;
   tmdbApiKey?: string;
   addonBase?: string; // URL base addon per endpoint sintetici (vixsynthetic.m3u8)
-  animeunityAuto?: boolean; // toggle AUTO master playlist (solo locale, IP-bound)
-  animeunityFhd?: boolean;  // toggle FHD only variant (solo locale, IP-bound)
-  animeunityAutoMfp?: boolean; // toggle AUTO wrappato in MFP (cross-IP)
-  animeunityFhdMfp?: boolean;  // toggle FHD wrappato in MFP (cross-IP)
+  animeunityDirect?: boolean;    // Direct master playlist (solo locale, IP-bound)
+  animeunityDirectFhd?: boolean; // Synthetic FHD (solo locale, IP-bound)
+  animeunityProxy?: boolean;     // Proxy (cross-IP, tutto via EasyProxy)
 }
 
 export interface AnimeUnityResult {
