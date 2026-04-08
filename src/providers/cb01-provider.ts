@@ -596,10 +596,10 @@ export class Cb01Provider {
             log('mixdrop embed no id pattern, using original', { original: originalEmbed });
         }
         const encodedD = encodeURIComponent(dUrl);
-        // Costruisci direttamente l'URL dell'extractor con redirect_stream=true
+        // Costruisci l'URL proxy stream
         // api_password viene aggiunto solo se presente
         const passwordParam = mfpPassword ? `&api_password=${encodeURIComponent(mfpPassword)}` : '';
-        const extractorUrl = `${mfpBase}/extractor/video?host=Mixdrop&d=${encodedD}&redirect_stream=true${passwordParam}`;
+        const extractorUrl = `${mfpBase}/proxy/stream?d=${encodedD}${passwordParam}`;
         log('extractor url built (redirect_stream=true)', { dUrl, extractorUrl });
 
         const meta = metaOverride || this.extractStayonlineMeta(pageHtml) || { file: null, size: undefined };
