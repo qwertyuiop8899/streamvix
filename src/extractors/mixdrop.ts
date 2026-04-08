@@ -54,10 +54,10 @@ export class MixdropExtractor implements HostExtractor {
       if (debug) console.log('[Mixdrop] page fetch failed, proceeding with MFP wrap anyway');
     }
 
-    // Build MediaFlow redirect URL
+    // Build proxy stream URL
     const encoded = encodeURIComponent(embedUrl);
     const passwordParam = ctx.mfpPassword ? `&api_password=${encodeURIComponent(ctx.mfpPassword)}` : '';
-    const finalUrl = `${ctx.mfpUrl.replace(/\/$/, '')}/extractor/video?host=Mixdrop${passwordParam}&d=${encoded}&redirect_stream=true`;
+    const finalUrl = `${ctx.mfpUrl.replace(/\/$/, '')}/proxy/stream?d=${encoded}${passwordParam}`;
 
     if (debug) console.log('[Mixdrop] finalUrl=', finalUrl.substring(0, 100));
 
