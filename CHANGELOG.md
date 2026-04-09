@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.17.31](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.30...v1.17.31) (2026-04-09)
+
+
+### Bug Fixes
+
+* addon.ts ([4d8b4b2](https://github.com/qwertyuiop8899/streamvix/commit/4d8b4b2d3cc5df8cae5ab79bec81e37397a6ebe7))
+* domains update ([464b636](https://github.com/qwertyuiop8899/streamvix/commit/464b6364b2a2461babaea76a067417337518fd45))
+* domains update ([d7b1f56](https://github.com/qwertyuiop8899/streamvix/commit/d7b1f56ac720405550a9a8b184bf02197a2068f6))
+* domains.json ([fe61bd7](https://github.com/qwertyuiop8899/streamvix/commit/fe61bd7ee82f16674a59a08606a5f2423864dcba))
+* update_domains.py ([984ec99](https://github.com/qwertyuiop8899/streamvix/commit/984ec99df42cb6691b54c56858a817ba195787bc))
+* vixcloud.ts ([c1fc644](https://github.com/qwertyuiop8899/streamvix/commit/c1fc64465e4ce9b36fc8385b06e2ef147dcc7764))
+
 ## [1.17.30](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.29...v1.17.30) (2026-04-08)
 
 
