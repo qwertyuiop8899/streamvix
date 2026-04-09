@@ -96,7 +96,7 @@ export class VixCloudHlsExtractor implements HostExtractor {
         title,
         url: finalUrl,
         behaviorHints: {
-          notWebReady: true,
+          notWebReady: false,
           requestHeaders: headers
         }
       };
@@ -121,7 +121,7 @@ export class VixCloudHlsExtractor implements HostExtractor {
     return s;
   }
 
-  private wrapAndTitle(rawUrl: string, ctx: ExtractorContext, prefix: string): StreamForStremio { return { title: prefix + ' ' + (ctx.titleHint || 'Stream'), url: rawUrl, behaviorHints: { notWebReady: true } }; }
+  private wrapAndTitle(rawUrl: string, ctx: ExtractorContext, prefix: string): StreamForStremio { return { title: prefix + ' ' + (ctx.titleHint || 'Stream'), url: rawUrl, behaviorHints: { notWebReady: false } }; }
 
   // Kotlin-style reconstruction using split with capturing groups exactly like the original logic paradigm
   private rebuildWindowAssignmentsToJson_KotlinStyle(_script: string): string | null { return null; }
