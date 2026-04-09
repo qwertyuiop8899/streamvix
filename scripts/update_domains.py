@@ -4,6 +4,7 @@ from pathlib import Path
 
 PASTEBIN_RAW = 'https://pastebin.com/raw/KgQ4jTy6'
 GUARDASERIE_IT_URL = 'https://guardaserie.foo/'  # Source for guardoserie + guardaflix domains
+GUARDASERIE_BLOG_URL = 'https://www.giardiniblog.it/guardaserie-nuovo-link/'  # Source for guardaserie domain
 EURO_SOURCE_URL = 'https://eurostreaming-nuovo-indirizzo.com/' # Primary source for eurostreaming
 DOMAINS_FILE = Path('config/domains.json')
 BACKUP_FILE = Path('config/domains.jsonbk')
@@ -21,9 +22,9 @@ KEY_HINTS = {
     'animesaturn': re.compile(r'animesaturn\.[a-z]{2,}'),
     'animeunity': re.compile(r'animeunity\.[a-z]{2,}'),
     'animeworld': re.compile(r'animeworld\.[a-z]{2,}'),
-    'guardaserie': re.compile(r'guardaserie[a-z]*\.[a-z]{2,}'),
     'eurostreaming': re.compile(r'eurostreamings?\.[a-z]{2,}'),
-    # guardoserie and guardaflix handled separately via guardaserie.it.com scraping
+    # guardaserie handled via giardiniblog scraping
+    # guardoserie and guardaflix handled separately via guardaserie.foo scraping
 }
 
 def fetch(url: str) -> str:
@@ -87,6 +88,19 @@ def scrape_guardaserie_it(html: str):
     return result
  
  
+def scrape_guardaserie_blog(html: str):
+    """
+    Scrape guardaserie domain from giardiniblog.it.
+    Looks for red highlighted link like: <span style="color: #ff0000;"><strong>https://guarda-serie.click/</strong></span>
+    """
+    m = re.search(r'<strong>\s*https?://([^/<\s]+)/?\s*</strong>', html, re.I)
+    if m:
+        domain = m.group(1).lower()
+        print(f'[update_domains] Found guardaserie domain from giardiniblog: {domain}')
+        return domain
+    return None
+
+
 def scrape_eurostreaming_nuovo(html: str):
     """
     Scrape eurostreaming domain from eurostreaming-nuovo-indirizzo.com.
@@ -103,10 +117,11 @@ def scrape_eurostreaming_nuovo(html: str):
 def main():
     paste_txt = fetch(PASTEBIN_RAW)
     guardaserie_it_html = fetch(GUARDASERIE_IT_URL)
+    guardaserie_blog_html = fetch(GUARDASERIE_BLOG_URL)
     euro_nuovo_html = fetch(EURO_SOURCE_URL)
 
     reachable = True
-    if not paste_txt and not guardaserie_it_html:
+    if not paste_txt and not guardaserie_it_html and not guardaserie_blog_html:
         reachable = False
 
     current = load_json(DOMAINS_FILE)
@@ -166,7 +181,16 @@ def main():
                 updated['eurostreaming'] = official_euro
                 changed['eurostreaming'] = {'old': old_host, 'new': official_euro}
  
-    # guardoserie + guardaflix: scrape from guardaserie.it.com
+    # guardaserie: scrape from giardiniblog
+    if guardaserie_blog_html:
+        gs_domain = scrape_guardaserie_blog(guardaserie_blog_html)
+        if gs_domain:
+            old_host = updated.get('guardaserie')
+            if old_host != gs_domain:
+                updated['guardaserie'] = gs_domain
+                changed['guardaserie'] = {'old': old_host, 'new': gs_domain}
+
+    # guardoserie + guardaflix: scrape from guardaserie.foo
     if guardaserie_it_html:
         scraped = scrape_guardaserie_it(guardaserie_it_html)
         for key in ['guardoserie', 'guardaflix']:
