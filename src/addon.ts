@@ -13,7 +13,7 @@ import { formatMediaFlowUrl } from './utils/mediaflow';
 import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels, getDynamicFilePath, getDynamicFileStats } from './utils/dynamicChannels';
 // --- Lightweight declarations to avoid TS complaints if @types/node non installati ---
 // (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.) 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any 
 declare const __dirname: string;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const process: any;
