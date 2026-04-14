@@ -688,7 +688,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
 
     // Approccio semplificato: passa l'URL della pagina VixSrc direttamente al proxy HLS generico.
     // EasyProxy farà fetch della pagina, estrarrà il manifest e proxierà tutti gli URL interni.
-    const finalStreamUrl = `${cleanedMfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}${passwordParam}`;
+    const finalStreamUrl = `${cleanedMfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&redirect_stream=true${passwordParam}`;
     console.log(`[VixSrc][Proxy] Built generic proxy URL: ${finalStreamUrl}`);
 
     // Ottieni il titolo dalla TMDB API
@@ -1167,7 +1167,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
       }
     } catch {/* ignore */ }
     const passwordParam = config.mfpPsw ? `&api_password=${encodeURIComponent(config.mfpPsw)}` : '';
-    const wrapper = `${cleaned}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(syntheticTarget)}${passwordParam}`;
+    const wrapper = `${cleaned}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(syntheticTarget)}&redirect_stream=true${passwordParam}`;
     const proxyOrig = streams.find(s => s.source === 'proxy');
     const baseName = proxyOrig ? proxyOrig.name.replace(/\s*🔒FHD$/, '').replace(/\s*🔒$/, '') : 'Proxy';
     const inheritedLangProxy = streams.find(s => s.detectedLang)?.detectedLang;
