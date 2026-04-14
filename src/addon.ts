@@ -43,6 +43,7 @@ import { startSportzxScheduler, getSportzxChannels } from './utils/sportzxUpdate
 import { startSports99Scheduler, getSports99Channels } from './utils/sports99Updater';
 import { startMediaHostingScheduler, getMediaHostingChannels } from './utils/mediahostingUpdater';
 import { startFreeshotScheduler, getFreeshotChannels } from './utils/freeshotUpdater';
+import { startPaccScheduler, getPaccChannels } from './utils/paccUpdater';
 import { startSportStreamScheduler, getSportStreamChannels } from './utils/sportstreamUpdater';
 import { startMpdzScheduler, updateMpdzChannels } from './utils/mpdzUpdater';
 import { startMpdpScheduler, updateMpdpChannels } from './utils/mpdpUpdater';
@@ -577,6 +578,9 @@ function getStreamPriority(stream: { url: string; title: string }): number {
     // 3. Freeshot (cerca [🏟 Free] o freeshot)
     if (/freeshot|\[🏟\s*Free\]|🏟.*free/i.test(title)) return 3;
 
+    // 3.2. pa.cc (cerca [pa.cc])
+    if (/\[pa\.cc\]/i.test(title)) return 3.2;
+
     // 3.5. MediaHosting [MH] (subito dopo Freeshot)
     if (/\[MH\]/i.test(title)) return 3.5;
 
@@ -781,7 +785,8 @@ const baseManifest: Manifest = {
                         "Sports99",
                         ...(IS_SS_DISABLED ? [] : ["SportStream"]),
                         ...(IS_MH_DISABLED ? [] : ["MediaHosting"]),
-                        "Freeshot"
+                        "Freeshot",
+                        "pa.cc"
                     ]
                 }
             ]
@@ -1818,6 +1823,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 if (fsChannels.length > 0) {
                     filteredChannels = [...filteredChannels, ...fsChannels];
                 }
+                // INTEGRATION: Add pa.cc channels to Live catalog
+                const paccChannels = getPaccChannels();
+                if (paccChannels.length > 0) {
+                    filteredChannels = [...filteredChannels, ...paccChannels];
+                }
                 // console.log(`[CATALOG] streamvix_live -> filtered dynamic count=${filteredChannels.length}`);
             } else if (effectiveId === 'streamvix_eventi') {
                 // Canali eventi sportivi — stesso pool di streamvix_live
@@ -1836,6 +1846,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }
                 const fsChE = getFreeshotChannels();
                 if (fsChE.length > 0) filteredChannels = [...filteredChannels, ...fsChE];
+                const paccChE = getPaccChannels();
+                if (paccChE.length > 0) filteredChannels = [...filteredChannels, ...paccChE];
                 // console.log(`[CATALOG] streamvix_eventi -> filtered dynamic count=${filteredChannels.length}`);
             } else if (effectiveId === 'streamvix_dvr') {
                 // DVR catalog - fetch recordings from EasyProxy
@@ -2097,6 +2109,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     genreMap['sportstream'] = 'sportstream'; // SportStream channels
                     genreMap['mediahosting'] = 'mediahosting'; // MediaHosting channels
                     genreMap['freeshot'] = 'freeshot'; // Freeshot channels
+                    genreMap['pa.cc'] = 'pacc'; // pa.cc channels
+                    genreMap['pacc'] = 'pacc'; // pa.cc channels
                     const target = genreMap[norm] || norm;
                     requestedSlug = target;
 
@@ -2574,6 +2588,29 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             background: fsChannel.logo,
                             description: fsChannel.description || 'Freeshot Live Stream',
                             genres: ['Freeshot', 'Live', 'Sport'],
+                            releaseInfo: 'Live'
+                        },
+                        cacheMaxAge: 600
+                    });
+                }
+            }
+
+            // === PA.CC META HANDLER ===
+            if (cleanId.startsWith('pacc_')) {
+                const { getPaccChannels } = await import('./utils/paccUpdater');
+                const paccChannel = getPaccChannels().find((c: any) => c.id === cleanId);
+                if (paccChannel) {
+                    console.log(`✅ Found pa.cc channel for meta: ${paccChannel.name}`);
+                    return cacheAndReturn({
+                        meta: {
+                            id: `tv:${paccChannel.id}`,
+                            type: 'tv',
+                            name: paccChannel.name,
+                            poster: paccChannel.logo,
+                            posterShape: 'square',
+                            background: paccChannel.logo,
+                            description: paccChannel.description || 'pa.cc Live Stream',
+                            genres: ['pa.cc', 'Live', 'Sport'],
                             releaseInfo: 'Live'
                         },
                         cacheMaxAge: 600
@@ -3066,6 +3103,29 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             };
                         } else {
                             console.warn(`[Freeshot] Could not resolve stream for ${fsCh.name}`);
+                            return { streams: [] };
+                        }
+                    }
+                }
+
+                // === PA.CC STREAM HANDLER ===
+                if (cleanIdForSportzx.startsWith('pacc_')) {
+                    const { getPaccChannels } = await import('./utils/paccUpdater');
+                    const paccCh = getPaccChannels().find((c: any) => c.id === cleanIdForSportzx);
+                    if (paccCh && paccCh._pacc) {
+                        const paccMeta = paccCh._pacc;
+                        console.log(`✅ Found pa.cc stream for: ${paccCh.name}`);
+                        if (paccMeta.streamUrl) {
+                            return {
+                                streams: [{
+                                    url: paccMeta.streamUrl,
+                                    title: '🔴 LIVE',
+                                    name: paccMeta.channel_name || 'pa.cc',
+                                    behaviorHints: { notWebReady: true } as any
+                                }]
+                            };
+                        } else {
+                            console.warn(`[pa.cc] No stream URL for ${paccCh.name}`);
                             return { streams: [] };
                         }
                     }
@@ -3769,6 +3829,22 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                         }
 
+                        // === PA.CC per canali dinamici (DOPO Freeshot) ===
+                        try {
+                            const { getPaccChannels } = require('./utils/paccUpdater');
+                            const { getPaccCode } = require('./extractors/paccRuntime');
+                            const paccMatch = getPaccCode({ id: (channel as any).id, name: (channel as any).name, epgChannelIds: (channel as any).epgChannelIds, extraTexts: providerTitlesExt }, getPaccChannels());
+                            if (paccMatch) {
+                                streams.push({
+                                    url: paccMatch.streamUrl,
+                                    title: `[pa.cc] ${paccMatch.channelName} [ITA]`
+                                } as any);
+                                debugLog(`pa.cc (dynamic) aggiunto per ${paccMatch.channelName} (hint: ${paccMatch.matchHint})`);
+                            }
+                        } catch (e) {
+                            debugLog(`pa.cc import/fetch fallito (dynamic): ${e}`);
+                        }
+
                         // === MEDIAHOSTING per canali dinamici (DOPO Freeshot) ===
                         if (!IS_MH_DISABLED) {
                             try {
@@ -4408,6 +4484,27 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             } catch (e) {
                                 debugLog('Freeshot import/fetch fallito per canale statico', (e as any)?.message || e);
                             }
+                        }
+
+                        // --- PA.CC per canali statici (DOPO Freeshot) ---
+                        try {
+                            const { getPaccChannels } = require('./utils/paccUpdater');
+                            const { getPaccCode } = require('./extractors/paccRuntime');
+                            const paccMatch = getPaccCode({
+                                id: (channel as any).id,
+                                name: (channel as any).name,
+                                epgChannelIds: (channel as any).epgChannelIds,
+                                extraTexts: []
+                            }, getPaccChannels());
+                            if (paccMatch) {
+                                streams.push({
+                                    url: paccMatch.streamUrl,
+                                    title: `[pa.cc] ${paccMatch.channelName} [ITA]`
+                                } as any);
+                                debugLog(`pa.cc (static) aggiunto per ${paccMatch.channelName} (hint: ${paccMatch.matchHint})`);
+                            }
+                        } catch (e) {
+                            debugLog('pa.cc import/fetch fallito per canale statico', (e as any)?.message || e);
                         }
 
                         // --- MEDIAHOSTING per canali statici (DOPO Freeshot) ---
@@ -5279,6 +5376,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 streams.splice(insertPos, 0, freeshotStream);
                             }
                         } catch { }
+                        // Reorder pa.cc streams (same logic as freeshot)
+                        try {
+                            const paccIdx = streams.findIndex(s => /\[pa\.cc\]/i.test(s.title));
+                            if (paccIdx > -1) {
+                                const paccStream = streams.splice(paccIdx, 1)[0];
+                                let insertPos = 0;
+                                for (let i = 0; i < streams.length; i++) {
+                                    if (/\[🌐D_CF\]/.test(streams[i].title) || /\[🌐D\]/.test(streams[i].title) || /\[🏟\s*Free\]/i.test(streams[i].title)) {
+                                        insertPos = i + 1;
+                                    }
+                                }
+                                streams.splice(insertPos, 0, paccStream);
+                            }
+                        } catch { }
                         // === SPORTZX & SPORTS99 STREAM INJECTION (Fuzzy Match) ===
                         try {
                             // Helper Fuzzy Match (locale per lo stream handler)
@@ -6015,7 +6126,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     } catch { /* ignore */ }
                     if (!auAddonBase) auAddonBase = (process?.env?.ADDON_BASE_URL || '').trim();
                     if (!auAddonBase) auAddonBase = (config as any).addonBase || '';
-                    const animeUnityConfig: AnimeUnityConfig = {
+                    const animeUnityConfig = {
                         enabled: animeUnityEnabled,
                         mfpUrl: mfpUrl,
                         mfpPassword: mfpPsw,
@@ -6024,7 +6135,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         animeunityDirect: (() => { const v = (config as any).animeunityDirect; if (v === undefined) return undefined; return v === true || v === 'true' || v === 'on' || v === 1; })(),
                         animeunityDirectFhd: (() => { const v = (config as any).animeunityDirectFhd; if (v === undefined) return undefined; return v === true || v === 'true' || v === 'on' || v === 1; })(),
                         animeunityProxy: (() => { const v = (config as any).animeunityProxy; if (v === undefined) return undefined; return v === true || v === 'true' || v === 'on' || v === 1; })(),
-                    };
+                    } as AnimeUnityConfig;
                     const animeSaturnConfig = {
                         enabled: animeSaturnEnabled,
                         mfpUrl: mfpUrl,
@@ -8334,6 +8445,16 @@ if (!DISABLE_LIVE_EVENTS) {
         console.log('✅ Freeshot auto-updater attivato (ogni 30 min)');
     } catch (e) {
         console.error('❌ Errore avvio Freeshot updater:', e);
+    }
+}
+
+// =============== PA.CC AUTO-UPDATER ==============================
+if (!DISABLE_LIVE_EVENTS) {
+    try {
+        startPaccScheduler();
+        console.log('✅ pa.cc auto-updater attivato (11:10, 14:10, 17:10, 20:10 Roma)');
+    } catch (e) {
+        console.error('❌ Errore avvio pa.cc updater:', e);
     }
 }
 
