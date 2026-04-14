@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.17.32](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.31...v1.17.32) (2026-04-14)
+
+
+### Bug Fixes
+
+* addon.ts ([34971a4](https://github.com/qwertyuiop8899/streamvix/commit/34971a4d03ecb2e571c2d89fd4ab328ac1c84d1b))
+* domains update ([6ac3e51](https://github.com/qwertyuiop8899/streamvix/commit/6ac3e51b0807c07074ea15855dd6e1942739e6cd))
+* extractor.ts ([143dc0f](https://github.com/qwertyuiop8899/streamvix/commit/143dc0f5ff2e664ba790075e4035deb79306d032))
+* paccRuntime.ts ([92ebbb7](https://github.com/qwertyuiop8899/streamvix/commit/92ebbb709b95e2095edaa45e302a9c694a43ccbf))
+* paccUpdater.ts ([3d78a5a](https://github.com/qwertyuiop8899/streamvix/commit/3d78a5a6b0409da84b5b63edf2110d44a5e20c3c))
+
 ## [1.17.31](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.30...v1.17.31) (2026-04-09)
 
 
