@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.35](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.34...v1.17.35) (2026-04-15)
+
+
+### Bug Fixes
+
+* guardaflix.ts ([2a2d489](https://github.com/qwertyuiop8899/streamvix/commit/2a2d4898fd24482b1bfe6a91b207a76acc51d84a))
+* guardoserie.ts ([0f3fdfc](https://github.com/qwertyuiop8899/streamvix/commit/0f3fdfc6969d5bc40b356fff2bf7f60ea9ee4df1))
+
 ## [1.17.34](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.33...v1.17.34) (2026-04-15)
 
 
