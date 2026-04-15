@@ -59,7 +59,7 @@ async function fetchWithBypass(url: string, options: any = {}): Promise<any> {
         // 1. Try direct fetch (Fastest)
         return await getClient().get(url, { 
             ...options, 
-            timeout: 2000 
+            timeout: 1000 
         });
     } catch (e: any) {
         if (e.response?.status === 403 || e.response?.status === 400 || !e.response || e.code === 'ECONNABORTED' || e.message === 'timeout exceeded') {
@@ -68,7 +68,31 @@ async function fetchWithBypass(url: string, options: any = {}): Promise<any> {
             
             const finalTargetUrl = buildUrlWithParams(url, options.params);
 
-            // 2. CF_PROXY Workers (with Rotation)
+            // 2. PROXY (priority)
+            if (PROXY) {
+                console.log(`[Guardoserie] Trying PROXY for ${url}...`);
+                try {
+                    const proxyAgent = new HttpsProxyAgent(PROXY);
+                    const proxyRes = await axios.get(finalTargetUrl, {
+                        ...options,
+                        httpsAgent: proxyAgent,
+                        proxy: false,
+                        timeout: 8000,
+                        headers: {
+                            ...options.headers,
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                            'Origin': getTargetDomain(),
+                            'Referer': `${getTargetDomain()}/`
+                        }
+                    });
+                    console.log(`[Guardoserie] PROXY bypass success for ${url}`);
+                    return proxyRes;
+                } catch (err: any) {
+                    console.warn(`[Guardoserie] PROXY bypass failed for ${url}: ${err.message}`);
+                }
+            }
+
+            // 3. CF_PROXY Workers (fallback, with Rotation)
             if (workers.length > 0) {
                 const startIndex = Math.floor(Math.random() * workers.length);
                 
@@ -89,30 +113,6 @@ async function fetchWithBypass(url: string, options: any = {}): Promise<any> {
                     } catch (cfErr: any) {
                         console.error(`[Guardoserie] CF Worker #${workerIndex + 1} failed for ${url}: ${cfErr.message}`);
                     }
-                }
-            }
-
-            // 3. Fallback to PROXY (Warp)
-            if (PROXY) {
-                console.log(`[Guardoserie] Trying PROXY (Warp) for ${url}...`);
-                try {
-                    const proxyAgent = new HttpsProxyAgent(PROXY);
-                    const proxyRes = await axios.get(finalTargetUrl, {
-                        ...options,
-                        httpsAgent: proxyAgent,
-                        proxy: false,
-                        timeout: 6000,
-                        headers: {
-                            ...options.headers,
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                            'Origin': getTargetDomain(),
-                            'Referer': `${getTargetDomain()}/`
-                        }
-                    });
-                    console.log(`[Guardoserie] PROXY bypass success for ${url}`);
-                    return proxyRes;
-                } catch (err: any) {
-                    console.warn(`[Guardoserie] PROXY bypass failed for ${url}: ${err.message}`);
                 }
             }
 
