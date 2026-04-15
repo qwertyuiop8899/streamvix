@@ -101,7 +101,13 @@ async function fetchWithBypass(url: string, options: any = {}): Promise<any> {
                         ...options,
                         httpsAgent: proxyAgent,
                         proxy: false,
-                        timeout: 5000
+                        timeout: 6000,
+                        headers: {
+                            ...options.headers,
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                            'Origin': getTargetDomain(),
+                            'Referer': `${getTargetDomain()}/`
+                        }
                     });
                     console.log(`[Guardoserie] PROXY bypass success for ${url}`);
                     return proxyRes;
