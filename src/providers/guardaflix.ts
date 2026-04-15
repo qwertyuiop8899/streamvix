@@ -12,7 +12,7 @@ const getTargetDomain = () => `https://${getDomain('guardaflix') || 'guardaplay.
 const jar = new CookieJar();
 
 const SHARED_HEADERS = {
-    'User-Agent': 'Mozilla/5.0',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.7,en;q=0.6',
 };
@@ -108,7 +108,28 @@ async function fetchWithBypass(url: string, options: any = {}): Promise<{ data: 
             
             console.log(`[Guardaflix] Blocked or timeout on ${url} (${status || e.code || 'TIMEOUT'}), trying bypass...`);
 
-            // 2. CF_PROXY Workers (with Rotation)
+            // 2. PROXY (priority)
+            if (PROXY) {
+                console.log(`[Guardaflix] Trying PROXY for ${url}...`);
+                try {
+                    const proxyAgent = new ProxyAgent(PROXY);
+                    const proxyRes = await fetchWithCookies(url, {
+                        ...options,
+                        headers: {
+                            ...SHARED_HEADERS,
+                            ...options.headers,
+                            'Origin': getTargetDomain(),
+                            'Referer': `${getTargetDomain()}/`
+                        }
+                    }, 8000, proxyAgent);
+                    console.log(`[Guardaflix] PROXY bypass success for ${url}`);
+                    return proxyRes;
+                } catch (err: any) {
+                    console.warn(`[Guardaflix] PROXY bypass failed for ${url}: ${err.message}`);
+                }
+            }
+
+            // 3. CF_PROXY Workers (fallback, with Rotation)
             if (workers.length > 0) {
                 const startIndex = Math.floor(Math.random() * workers.length);
                 
@@ -125,19 +146,6 @@ async function fetchWithBypass(url: string, options: any = {}): Promise<{ data: 
                     } catch (cfErr: any) {
                         console.error(`[Guardaflix] CF Worker #${workerIndex + 1} failed for ${url}: ${cfErr.message}`);
                     }
-                }
-            }
-
-            // 3. Fallback to PROXY (Warp)
-            if (PROXY) {
-                console.log(`[Guardaflix] Trying PROXY (Warp) for ${url}...`);
-                try {
-                    const proxyAgent = new ProxyAgent(PROXY);
-                    const proxyRes = await fetchWithCookies(url, options, 5000, proxyAgent);
-                    console.log(`[Guardaflix] PROXY bypass success for ${url}`);
-                    return proxyRes;
-                } catch (err: any) {
-                    console.warn(`[Guardaflix] PROXY bypass failed for ${url}: ${err.message}`);
                 }
             }
         }
