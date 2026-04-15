@@ -776,7 +776,30 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           throw new Error("Iframe src not found in initial response.");
         }
       } else {
-        const response = await fetch(url);
+        let targetFetchUrl = url;
+        if (url.includes("/tv/") || url.includes("/movie/")) {
+          const apiUrl = url.replace("/tv/", "/api/tv/").replace("/movie/", "/api/movie/");
+          try {
+            const apiRes = await fetch(apiUrl);
+            if (apiRes.ok) {
+               const apiJson = await apiRes.json();
+               if (apiJson && apiJson.src) {
+                 targetFetchUrl = `${siteOrigin}${apiJson.src}`;
+                 console.log(`[VixSrc][Direct] Resolved API src: ${apiJson.src}`);
+               }
+            } else {
+               console.warn(`[VixSrc][Direct] API req failed: ${apiRes.status} for ${apiUrl}`);
+            }
+          } catch(e) {
+            console.warn('[VixSrc][Direct] API parse error:', (e as any)?.message);
+          }
+        }
+
+        const response = await fetch(targetFetchUrl, {
+          headers: {
+            "Referer": url
+          }
+        });
         if (!response.ok) throw new Error(`Direct embed request failed: ${response.status}`);
         pageHtml = await response.text();
         // Non modificare finalReferer qui, rimane targetUrl
