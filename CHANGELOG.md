@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.34](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.33...v1.17.34) (2026-04-15)
+
+
+### Bug Fixes
+
+* guardoserie.ts ([0fb03ac](https://github.com/qwertyuiop8899/streamvix/commit/0fb03ac0a89260a23745dfa9bd062799420c5411))
+
 ## [1.17.33](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.32...v1.17.33) (2026-04-15)
 
 
