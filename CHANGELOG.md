@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.37](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.36...v1.17.37) (2026-04-17)
+
+
+### Bug Fixes
+
+* thisnotChannels.ts ([85cf2dc](https://github.com/qwertyuiop8899/streamvix/commit/85cf2dc69176fdf6e19fe79dd395f2e25d728452))
+
 ## [1.17.36](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.35...v1.17.36) (2026-04-17)
 
 
