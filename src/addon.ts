@@ -6558,7 +6558,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     const sizeLabel = st.sizeBytes > 0 ? fmtBytes(st.sizeBytes) : '?';
                                     finalTitle = `${finalTitle}\n💾 ${sizeLabel}`;
                                 }
-                                streams.push({ title: finalTitle, url: st.streamUrl, behaviorHints: { notWebReady: false, proxyHeaders: { request: { Referer: 'https://vixsrc.to/', Origin: 'https://vixsrc.to' } } } as any, isSyntheticFhd: st.isSyntheticFhd, originalName: (st as any).originalName } as any);
+                                const isProxyStream = st.source === 'proxy';
+                                streams.push({ title: finalTitle, url: st.streamUrl, behaviorHints: { notWebReady: false, ...(isProxyStream ? {} : { proxyHeaders: { request: { Referer: 'https://vixsrc.to/', Origin: 'https://vixsrc.to' } } }) } as any, isSyntheticFhd: st.isSyntheticFhd, originalName: (st as any).originalName } as any);
                             }
                             return { streams };
                         }, providerLabel('vixsrc'), false, 30000);  // VixSrc: timeout 30s
@@ -6811,7 +6812,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 const parts = unified.split('\n');
                                 if (parts.length && /^🤌\s/.test(parts[parts.length - 1])) parts.pop();
                                 unified = parts.join('\n');
-                                allStreams.push({ title: unified, name: providerLabel('vixsrc', !!st.isSyntheticFhd), url: st.streamUrl, behaviorHints: { notWebReady: false, proxyHeaders: { request: { Referer: 'https://vixsrc.to/', Origin: 'https://vixsrc.to' } } } as any, originalName: (st as any).originalName });
+                                const isProxyStream = st.source === 'proxy';
+                                allStreams.push({ title: unified, name: providerLabel('vixsrc', !!st.isSyntheticFhd), url: st.streamUrl, behaviorHints: { notWebReady: false, ...(isProxyStream ? {} : { proxyHeaders: { request: { Referer: 'https://vixsrc.to/', Origin: 'https://vixsrc.to' } } }) } as any, originalName: (st as any).originalName });
                             }
                         }
                     } // close if (!skipVixsrc)
