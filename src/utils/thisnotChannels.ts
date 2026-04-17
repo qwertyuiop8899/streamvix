@@ -344,6 +344,14 @@ async function fetchThisNotChannels(): Promise<ThisNotChannel[]> {
         return [];
     }
 
+    const eventi = response.data.eventi;
+    console.log(`🔍 [ThisNot] API eventi: ricevuti ${eventi.length} eventi totali`);
+    const allChannels = await processEventsJson(eventi);
+
+    console.log(`✅ [ThisNot] ${allChannels.length} eventi estratti`);
+    return allChannels;
+}
+
 /**
  * Converte i canali ThisNot nel formato DynamicChannel
  * MANTIENE la data nel nome del canale (es: "04-11 - JUVENTUS VS TORINO - Serie A")
