@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.36](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.35...v1.17.36) (2026-04-17)
+
+
+### Bug Fixes
+
+* domains update ([3b12d40](https://github.com/qwertyuiop8899/streamvix/commit/3b12d406d740d425fd33cc5ac585e635a4e02ab0))
+* thisnotChannels.ts ([a212e5e](https://github.com/qwertyuiop8899/streamvix/commit/a212e5e4cca6c7b16ddc94cd334acf174e68897f))
+
 ## [1.17.35](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.34...v1.17.35) (2026-04-15)
 
 
