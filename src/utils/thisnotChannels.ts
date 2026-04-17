@@ -243,22 +243,28 @@ async function processEventsJson(eventi: any[]): Promise<ThisNotChannel[]> {
             const playerUrlRaw = ev.link || '';
             const dayName = ev.giorno || ''; // Sabato, Domenica...
 
-            if (!playerUrlRaw || !playerUrlRaw.startsWith('http')) {
+            if (!playerUrlRaw) {
+                console.log(`⚠️ [ThisNot] Salto evento senza link: ${matchName}`);
                 continue;
             }
 
+            const playerUrl = new URL(playerUrlRaw, BASE_URL).href;
             const currentDate = getDateFromDayName(dayName);
 
-            const playerUrl = new URL(playerUrlRaw, BASE_URL).href;
+            // Debug log per ogni link
+            // console.log(`🔍 [ThisNot] Analisi evento: ${matchName} (link: ${playerUrl})`);
+
             const playerContent = await getPageContent(playerUrl);
 
             if (!playerContent) {
+                console.log(`⚠️ [ThisNot] Impossibile caricare player per: ${matchName} (${playerUrl})`);
                 continue;
             }
 
             // Stessa logica di estrazione del player
             const iframeMatch = playerContent.match(/<iframe[^>]*src=["']([^"']+)["']/i);
             if (!iframeMatch) {
+                console.log(`⚠️ [ThisNot] Nessun iframe trovato per: ${matchName}`);
                 continue;
             }
 
@@ -269,6 +275,7 @@ async function processEventsJson(eventi: any[]): Promise<ThisNotChannel[]> {
             }
 
             if (iframeSrc.includes('nochannel.php')) {
+                console.log(`⚠️ [ThisNot] Stream non ancora attivo per: ${matchName}`);
                 continue;
             }
 
@@ -276,6 +283,7 @@ async function processEventsJson(eventi: any[]): Promise<ThisNotChannel[]> {
             const tokenMatch = iframeSrc.match(/ck=([A-Za-z0-9+/=_-]+)/);
 
             if (!mpdUrlMatch || !tokenMatch) {
+                console.log(`⚠️ [ThisNot] MPD o Token non trovato nell'iframe per: ${matchName}`);
                 continue;
             }
 
@@ -319,24 +327,22 @@ async function processEventsJson(eventi: any[]): Promise<ThisNotChannel[]> {
 }
 
 async function fetchThisNotChannels(): Promise<ThisNotChannel[]> {
-    // Esegui login per avere i cookie sessione
     await performLogin(`${BASE_URL}/index.php`, PASSWORD);
 
-    // Carica il JSON dell'API
     const apiUrl = `${BASE_URL}/api/eventi.json`;
-    const response = await makeRequest(apiUrl);
+    
+    let response: any;
+    try {
+        response = await makeRequest(apiUrl);
+    } catch (e: any) {
+        console.error(`❌ [ThisNot] API non raggiungibile: ${e.message}`);
+        return [];
+    }
 
     if (!response || !response.data || !response.data.eventi) {
         console.error("❌ [ThisNot] Fallito caricamento API eventi");
         return [];
     }
-
-    const eventi = response.data.eventi;
-    const allChannels = await processEventsJson(eventi);
-
-    console.log(`✅ [ThisNot] ${allChannels.length} eventi estratti`);
-    return allChannels;
-}
 
 /**
  * Converte i canali ThisNot nel formato DynamicChannel
