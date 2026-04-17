@@ -1283,8 +1283,8 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           // Mostra tutte le lingue disponibili (sia Direct che Synthetic mantengono tutte le tracce)
           resolvedLangFlag = langToFlag(allLangs);
         } else {
-          // Nessuna lingua rilevata dal manifest: default ❓
-          resolvedLangFlag = '❓';
+          // Nessuna lingua rilevata dal manifest (audio muxed): default 🇮🇹
+          resolvedLangFlag = '🇮🇹';
         }
         const unified = buildUnifiedStreamName({
           baseTitle: baseTitle || 'Titolo',
@@ -1296,16 +1296,17 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           isFhdOrDual: isFhd,
           langFlag: resolvedLangFlag
         });
-        // PATCH: aggiungi linea fissa "🎦 1080p" SOLO per stream synthetic FHD VixSrc (isSyntheticFhd true)
-        // Requisito: la linea deve comparire immediatamente sopra la linea Proxy e solo per questi casi.
-        if ((s as any).isSyntheticFhd) {
+        // PATCH: aggiungi linea qualità sopra la linea Proxy
+        // Synthetic FHD e Proxy: 🎦 🅵🅷🅳, altri direct: 🎦 1080p
+        {
           try {
             const lines = unified.split('\n');
             const proxyIdx = lines.findIndex(l => l.startsWith('🌐 Proxy '));
             if (proxyIdx > 0) {
-              const already = lines.some(l => l.trim() === '🎦 1080p');
+              const qualityTag = (proxyOn || (s as any).isSyntheticFhd) ? '🎦 🅵🅷🅳' : '🎦 1080p';
+              const already = lines.some(l => l.trim().startsWith('🎦'));
               if (!already) {
-                lines.splice(proxyIdx, 0, '🎦 1080p');
+                lines.splice(proxyIdx, 0, qualityTag);
               }
               return { ...s, name: lines.join('\n') };
             }
