@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.39](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.38...v1.17.39) (2026-04-18)
+
+
+### Bug Fixes
+
+* addon fhd ([65ad726](https://github.com/qwertyuiop8899/streamvix/commit/65ad7269e4d92981ce1b89ace3466c2c7dd17932))
+
 ## [1.17.38](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.37...v1.17.38) (2026-04-17)
 
 
