@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.40](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.39...v1.17.40) (2026-04-18)
+
+
+### Bug Fixes
+
+* epg_config.json ([cdd5009](https://github.com/qwertyuiop8899/streamvix/commit/cdd5009e002b457147df0cba4b7cd2f0cd827334))
+
 ## [1.17.39](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.38...v1.17.39) (2026-04-18)
 
 
