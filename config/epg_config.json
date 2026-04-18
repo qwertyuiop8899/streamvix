@@ -14,5 +14,5 @@
     "liveOffsetMinutes": 0,
     "dynamicOffsetMinutes": 0
   },
-  "assumeZone": "UTC"
+  "assumeZone": "Europe/Rome"
 }
