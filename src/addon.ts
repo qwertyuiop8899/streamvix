@@ -6342,6 +6342,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 if (existingLangLine) langLine = existingLangLine;
                             }
                             outLines.push(langLine);
+                            // VixSrc: preserva la riga 🎦 originale da finalize() (es. 🎦 🅵🅷🅳 o 🎦 1080p)
+                            if (providerKey === 'vixsrc') {
+                                const existingQualityLine = lines.find(l => /^🎦\s/.test(l));
+                                if (existingQualityLine) outLines.push(existingQualityLine);
+                            }
                             if (playerName) outLines.push(`▶️ ${playerName}`);
                             // Build size/res combined line before proxy if present
                             let sizeResLine = '';
