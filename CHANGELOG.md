@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.17.44](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.43...v1.17.44) (2026-04-23)
+
+
+### Bug Fixes
+
+* add netaddon.ts ([f5219cd](https://github.com/qwertyuiop8899/streamvix/commit/f5219cd34156d7c0a1883b4629caa97d85f67da6))
+* bump version ([9606bd1](https://github.com/qwertyuiop8899/streamvix/commit/9606bd117f8a7ea416f0897935c75bd1f33f65c8))
+* domains update ([d14ad65](https://github.com/qwertyuiop8899/streamvix/commit/d14ad65d7ec95c9596ac16910f1ac401e18d2ca5))
+* landingPage.ts ([c04ffab](https://github.com/qwertyuiop8899/streamvix/commit/c04ffabb21c9de031ee42657f717ff2d97a7b1fe))
+* netmirror.ts ([782d275](https://github.com/qwertyuiop8899/streamvix/commit/782d275f847b576dd5f0d5a01425b8e9c992ce04))
+
 ## [1.17.43](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.42...v1.17.43) (2026-04-22)
 
 
