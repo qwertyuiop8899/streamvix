@@ -37,6 +37,7 @@ export function providerLabel(provider: string, isFhd?: boolean): string {
     case 'eurostreaming': return '🤌 Eurostreaming 🇪🇺';
     case 'loonex': return '🤌 Loonex 🎬';
     case 'toonitalia': return '🤌 ToonItalia 🎨';
+    case 'netmirror': return '🤌 NetMirror 🪞';
     default: return provider;
   }
 }
