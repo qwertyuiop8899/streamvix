@@ -2,7 +2,7 @@
 // Scrapes net22.cc / net52.cc, returns ONLY Italian-audio streams (direct
 // playback via behaviorHints.proxyHeaders), keeping only the highest
 // available resolution (1080p > 720p > 480p, ignoring "auto").
-//  
+//
 // See netmirroreprovider.md for the full protocol spec.
 
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
@@ -334,20 +334,31 @@ function detectItalian(m3u8: string): boolean {
     return false;
 }
 
-async function hasItalianAudio(url: string): Promise<boolean> {
+async function probeItalianOnce(url: string, timeoutMs: number): Promise<{ ok: boolean; italian: boolean }> {
     try {
         const res = await axios.get(url, {
             headers: PROBE_HEADERS,
-            timeout: 4000,
+            timeout: timeoutMs,
             responseType: 'text',
             validateStatus: () => true,
             transformResponse: [(d) => d]
         });
-        if (res.status >= 400) return false;
-        return detectItalian(typeof res.data === 'string' ? res.data : '');
+        if (res.status >= 400) return { ok: false, italian: false };
+        const body = typeof res.data === 'string' ? res.data : '';
+        if (!body) return { ok: false, italian: false };
+        return { ok: true, italian: detectItalian(body) };
     } catch {
-        return false;
+        return { ok: false, italian: false };
     }
+}
+
+async function hasItalianAudio(url: string): Promise<boolean> {
+    // Try with progressively larger timeouts to reduce flakiness
+    for (const t of [8000, 12000]) {
+        const r = await probeItalianOnce(url, t);
+        if (r.ok) return r.italian;
+    }
+    return false;
 }
 
 // --- Quality helpers ---
@@ -480,9 +491,26 @@ export async function getNetMirrorStreams(req: NetMirrorRequest): Promise<Stream
             if (!sources.length) continue;
 
             // Filter: Italian audio only. All per-quality variants share the
-            // same audio groups → probe the first source.
-            const firstProbe = sources[0];
-            const hasIt = await hasItalianAudio(firstProbe.url);
+            // same audio groups, but a single source may fail to respond —
+            // probe a few before declaring the title unavailable.
+            const probeOrder: RawSource[] = [];
+            const seen = new Set<string>();
+            for (const s of sources) {
+                if (!seen.has(s.url)) { seen.add(s.url); probeOrder.push(s); }
+            }
+            let hasIt = false;
+            let probedOk = false;
+            for (const p of probeOrder.slice(0, 3)) {
+                const r = await probeItalianOnce(p.url, 10000);
+                if (r.ok) {
+                    probedOk = true;
+                    if (r.italian) { hasIt = true; break; }
+                }
+            }
+            if (!probedOk) {
+                console.log(`[NetMirror] ${title} on ${platform}: probe failed (network), skipping`);
+                continue;
+            }
             if (!hasIt) {
                 console.log(`[NetMirror] ${title} on ${platform}: no Italian audio, skipping`);
                 continue;
