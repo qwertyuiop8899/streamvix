@@ -65,10 +65,20 @@ function endpoints(platform: Platform) {
 async function request(url: string, opts: AxiosRequestConfig = {}): Promise<AxiosResponse> {
     return axios({
         url,
-        timeout: 10000,
+        timeout: 6000,
         validateStatus: () => true,
         ...opts,
         headers: { ...BASE_HEADERS, ...(opts.headers || {}) }
+    });
+}
+
+// Race a promise against a hard timeout. Resolves to fallback if the timeout fires first.
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+    return new Promise<T>((resolve) => {
+        let done = false;
+        const timer = setTimeout(() => { if (!done) { done = true; resolve(fallback); } }, ms);
+        p.then((v) => { if (!done) { done = true; clearTimeout(timer); resolve(v); } })
+         .catch(() => { if (!done) { done = true; clearTimeout(timer); resolve(fallback); } });
     });
 }
 
@@ -466,7 +476,9 @@ export async function getNetMirrorStreams(req: NetMirrorRequest): Promise<Stream
         platforms = ['primevideo', 'netflix', 'disney'];
     }
 
-    for (const platform of platforms) {
+    // Try a single platform — returns a Stream or null. All network calls inside
+    // are bounded by the per-request timeout (6s) and the outer 15s race below.
+    const tryPlatform = async (platform: Platform): Promise<Stream | null> => {
         try {
             let results = await searchContent(title, platform);
             let chosen = pickBest(results, title);
@@ -474,55 +486,50 @@ export async function getNetMirrorStreams(req: NetMirrorRequest): Promise<Stream
                 results = await searchContent(`${title} ${year}`, platform);
                 chosen = pickBest(results, title);
             }
-            if (!chosen) continue;
+            if (!chosen) return null;
 
             const content = await loadContent(chosen.id, platform);
-            if (!content) continue;
+            if (!content) return null;
 
             let targetId = chosen.id;
             if (resolvedMediaType === 'tv' && !content.isMovie) {
-                if (season == null || episode == null) continue;
+                if (season == null || episode == null) return null;
                 const ep = findEpisode(content.episodes, season, episode);
-                if (!ep?.id) continue;
+                if (!ep?.id) return null;
                 targetId = String(ep.id);
             }
 
             const sources = await getStreamingLinks(targetId, title, platform);
-            if (!sources.length) continue;
+            if (!sources.length) return null;
 
-            // Filter: Italian audio only. All per-quality variants share the
-            // same audio groups, but a single source may fail to respond —
-            // probe a few before declaring the title unavailable.
+            // Dedup sources for probing.
             const probeOrder: RawSource[] = [];
             const seen = new Set<string>();
             for (const s of sources) {
                 if (!seen.has(s.url)) { seen.add(s.url); probeOrder.push(s); }
             }
-            let hasIt = false;
-            let probedOk = false;
-            for (const p of probeOrder.slice(0, 3)) {
-                const r = await probeItalianOnce(p.url, 10000);
-                if (r.ok) {
-                    probedOk = true;
-                    if (r.italian) { hasIt = true; break; }
-                }
-            }
+
+            // Probe up to 3 masters in parallel — much faster than serial.
+            const probes = probeOrder.slice(0, 3).map(p => probeItalianOnce(p.url, 6000));
+            const results2 = await Promise.all(probes);
+            const probedOk = results2.some(r => r.ok);
+            const hasIt = results2.some(r => r.ok && r.italian);
+
             if (!probedOk) {
                 console.log(`[NetMirror] ${title} on ${platform}: probe failed (network), skipping`);
-                continue;
+                return null;
             }
             if (!hasIt) {
                 console.log(`[NetMirror] ${title} on ${platform}: no Italian audio, skipping`);
-                continue;
+                return null;
             }
 
-            // Keep only the highest non-auto resolution.
             const nonAuto = sources.filter(s => !isAutoQuality(s));
-            if (!nonAuto.length) continue;
+            if (!nonAuto.length) return null;
             const maxRes = Math.max(...nonAuto.map(parseQuality));
-            if (maxRes <= 0) continue;
+            if (maxRes <= 0) return null;
             const best = nonAuto.find(s => parseQuality(s) === maxRes);
-            if (!best) continue;
+            if (!best) return null;
 
             const qualityLabel = `${maxRes}p`;
             const platformName = platform === 'primevideo' ? 'Prime Video' : platform.charAt(0).toUpperCase() + platform.slice(1);
@@ -531,7 +538,8 @@ export async function getNetMirrorStreams(req: NetMirrorRequest): Promise<Stream
                 : `${title}${year ? ` (${year})` : ''}`;
             const displayTitle = `🎬 ${baseTitle}\n🗣 🇮🇹\n📺 ${platformName} ${qualityLabel}`;
 
-            const stream: Stream = {
+            console.log(`[NetMirror] ✅ ${title} (${platform}) → ${qualityLabel} ITA`);
+            return {
                 name: providerLabel('netmirror'),
                 title: displayTitle,
                 url: best.url,
@@ -545,11 +553,28 @@ export async function getNetMirrorStreams(req: NetMirrorRequest): Promise<Stream
                     }
                 }
             };
-            console.log(`[NetMirror] ✅ ${title} (${platform}) → ${qualityLabel} ITA`);
-            return [stream];
         } catch (e) {
             console.log(`[NetMirror] Error on ${platform}:`, (e as any)?.message || e);
+            return null;
         }
-    }
-    return [];
+    };
+
+    // Race all platforms in parallel. First one with a Stream wins; otherwise
+    // wait for all (up to the 15s hard cap) and return the first non-null.
+    const HARD_CAP_MS = 15000;
+    const platformPromises = platforms.map(p => tryPlatform(p));
+
+    const firstHit = new Promise<Stream | null>((resolve) => {
+        let pending = platformPromises.length;
+        if (!pending) { resolve(null); return; }
+        for (const pp of platformPromises) {
+            pp.then(s => {
+                if (s) resolve(s);
+                else if (--pending === 0) resolve(null);
+            }).catch(() => { if (--pending === 0) resolve(null); });
+        }
+    });
+
+    const winner = await withTimeout(firstHit, HARD_CAP_MS, null);
+    return winner ? [winner] : [];
 }
