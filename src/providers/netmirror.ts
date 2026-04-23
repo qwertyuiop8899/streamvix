@@ -2,7 +2,7 @@
 // Scrapes net22.cc / net52.cc, returns ONLY Italian-audio streams (direct
 // playback via behaviorHints.proxyHeaders), keeping only the highest
 // available resolution (1080p > 720p > 480p, ignoring "auto").
-//
+// 
 // See netmirroreprovider.md for the full protocol spec.
 
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
