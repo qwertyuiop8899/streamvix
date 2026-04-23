@@ -50,6 +50,7 @@ import { startMpdpScheduler, updateMpdpChannels } from './utils/mpdpUpdater';
 // import { startZEventiScheduler, updateZEventiChannels } from './utils/zEventiUpdater';
 import { getGuardoserieStreams } from './providers/guardoserie';
 import { getGuardaflixStreams } from './providers/guardaflix';
+import { getNetMirrorStreams } from './providers/netmirror';
 import { getTrailerStreams, isTrailerProviderAvailable } from './providers/trailerProvider';
 // EasyProxy DVR integration
 import { getDvrStreamsForChannel, getDvrConfig, buildDvrRecordEntry } from './utils/easyproxyDvr';
@@ -877,6 +878,7 @@ const baseManifest: Manifest = {
         { key: "vixDirect", title: "SC: Direct (solo installazione locale)", type: "checkbox" },
         { key: "vixDirectFhd", title: "SC: Synthetic FHD (solo installazione locale)", type: "checkbox" },
         { key: "vixProxy", title: "SC: Proxy (richiede Proxy, consigliato)", type: "checkbox" },
+        { key: "netmirrorEnabled", title: "Enable NetMirror (solo ITA, direct)", type: "checkbox" },
         { key: "disableLiveTv", title: "Live TV 📺 [Molti canali hanno bisogno di MFP]", type: "checkbox" },
         { key: "trailerEnabled", title: "🎬▶️ Trailer", type: "checkbox", default: "checked" },
         { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
@@ -6108,12 +6110,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // API Mode: enable Guardoserie and Guardaflix by default
                 const guardoserieEnabled = isDirectAPICall || (config.guardoserieEnabled === true) || (rc?.guardoserieEnabled === true);
                 const guardaflixEnabled = isDirectAPICall || (config.guardaflixEnabled === true) || (rc?.guardaflixEnabled === true);
+                const netmirrorEnabled = envFlag('NETMIRROR_ENABLED') ?? (isDirectAPICall || (config as any).netmirrorEnabled === true || rc?.netmirrorEnabled === true);
 
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld + Loonex
                 // IMPORTANTE: includere trailerEnabled per permettere trailer standalone
                 const trailerEnabled = (config as any).trailerEnabled !== false && rc?.trailerEnabled !== false;
                 const fastModeEnabled = (config as any).fastMode === true;
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled)) {
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled || netmirrorEnabled)) {
                     // Rilevamento addonBase per AnimeUnity (stessa logica VixSrc)
                     let auAddonBase = '';
                     try {
@@ -6190,6 +6193,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const reverseProviderKey = (label: string): string => {
                         const l = label.toLowerCase();
                         if (l.includes('vixsrc') || l.includes('streamingcommunity')) return 'vixsrc';
+                        if (l.includes('netmirror')) return 'netmirror';
                         if (l.includes('anime unity')) return 'animeunity';
                         if (l.includes('anime saturn')) return 'animesaturn';
                         if (l.includes('anime world')) return 'animeworld';
@@ -6601,6 +6605,28 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                             return { streams: [] };
                         }, providerLabel('guardaflix'), false, 30000);
+                    }
+
+                    // === NETMIRROR PROVIDER (Movie + Series, ITA only, direct) ===
+                    if (netmirrorEnabled && (id.startsWith('tt') || id.startsWith('tmdb:')) && ((type as string) === 'movie' || (type as string) === 'series')) {
+                        scheduleProviderRun('NetMirror', true, async () => {
+                            try {
+                                const nmStreams = await getNetMirrorStreams({
+                                    type: type as 'movie' | 'series',
+                                    id,
+                                    seasonNumber,
+                                    episodeNumber,
+                                    tmdbApiKey: (config as any).tmdbApiKey || process.env.TMDB_API_KEY
+                                });
+                                if (nmStreams && nmStreams.length > 0) {
+                                    console.log(`✅ [NetMirror] Found ${nmStreams.length} streams for ${id}`);
+                                    return { streams: nmStreams };
+                                }
+                            } catch (e) {
+                                console.error(`❌ [NetMirror] Error processing ${id}:`, e);
+                            }
+                            return { streams: [] };
+                        }, providerLabel('netmirror'), false, 30000);
                     }
 
                     // AnimeUnity
