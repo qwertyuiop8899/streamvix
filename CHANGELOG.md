@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.45](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.44...v1.17.45) (2026-04-23)
+
+
+### Bug Fixes
+
+* netmirror ([5afdebd](https://github.com/qwertyuiop8899/streamvix/commit/5afdebd9617c54c332c2ef44ff7efb57d2db93d3))
+
 ## [1.17.44](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.43...v1.17.44) (2026-04-23)
 
 
