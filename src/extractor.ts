@@ -125,7 +125,7 @@ async function parseManifestLanguages(masterUrl: string): Promise<string[]> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(masterUrl, {
+    const res = await vixsrcFetch(masterUrl, {
       headers: { 'Accept': 'application/vnd.apple.mpegurl, */*', 'Referer': 'https://vixsrc.to/', 'Origin': 'https://vixsrc.to' } as any,
       signal: controller.signal as any
     });
@@ -159,7 +159,7 @@ async function parseManifestLanguages(masterUrl: string): Promise<string[]> {
 async function fetchVixCloudSiteVersion(siteOrigin: string): Promise<string> {
   const versionUrl = `${siteOrigin}${VIXCLOUD_REQUEST_TITLE_PATH}`;
   try {
-    const response = await fetch(versionUrl, {
+    const response = await vixsrcFetch(versionUrl, {
       headers: {
         "Referer": `${siteOrigin}/`,
         "Origin": siteOrigin,
@@ -370,6 +370,162 @@ export async function getTmdbIdFromImdbId(imdbId: string, tmdbApiKey?: string, p
 //   }
 // }
 
+// ==============================================================
+// PROXY FALLBACK (solo per modalità VixSrc "proxy" — MFP/Synthetic MFP)
+// --------------------------------------------------------------
+// Quando l'utente sceglie "MFP Proxy" o "Synthetic MFP" (default) nel
+// landing page, TUTTE le chiamate interne dell'addon verso vixsrc.to /
+// vixcloud devono tentare prima il diretto con timeout stretto (1.5s) e,
+// se fallisce o risponde con status di blocco (403/429/5xx), ritentare
+// via env `PROXY`. In modalità Direct / Synthetic senza proxy NON si usa
+// il PROXY env: lo stream è scaricato dal client Stremio e l'addon non
+// deve alterare la logica.
+// ==============================================================
+let __vixCurrentProxyMode = false;
+// Round-robin counter: alterna tra PROXY e PROXY_BACKUP per distribuire il traffico.
+let __vixProxyRRCounter = 0;
+
+function __vixGetProxyEnv(): string | null {
+  try {
+    const env: any = (global as any)?.process?.env || (typeof process !== 'undefined' ? (process as any).env : {});
+    const primary = String(env.PROXY || '').trim();
+    const backup = String(env.PROXY_BACKUP || '').trim();
+    const pool = [primary, backup].filter(v => !!v);
+    if (!pool.length) return null;
+    if (pool.length === 1) return pool[0];
+    // Round-robin: alterna primary/backup a ogni chiamata
+    const chosen = pool[__vixProxyRRCounter % pool.length];
+    __vixProxyRRCounter = (__vixProxyRRCounter + 1) % 1_000_000;
+    return chosen;
+  } catch { return null; }
+}
+
+// Ritorna l'altro proxy rispetto a quello passato (per retry quando il primo fallisce).
+function __vixGetAlternateProxy(currentUrl: string): string | null {
+  try {
+    const env: any = (global as any)?.process?.env || (typeof process !== 'undefined' ? (process as any).env : {});
+    const primary = String(env.PROXY || '').trim();
+    const backup = String(env.PROXY_BACKUP || '').trim();
+    if (currentUrl === primary && backup) return backup;
+    if (currentUrl === backup && primary) return primary;
+    return null;
+  } catch { return null; }
+}
+
+// Statuses considered "blocked" (worth retrying via proxy): 401/403/429/5xx.
+function __vixIsBlockedStatus(s: number): boolean {
+  return s === 0 || s === 401 || s === 403 || s === 429 || (s >= 500 && s < 600);
+}
+
+// Esegue una richiesta HTTP via un proxy HTTP/S o SOCKS5 e restituisce un Response
+// compatibile fetch. `init.method/headers/body` vengono onorati. Ritorna null su errore fatale.
+async function __vixProxyRequestOnce(url: string, init: any, proxyUrl: string): Promise<Response | null> {
+  try {
+    const method = String(init?.method || 'GET').toUpperCase();
+    const headers: Record<string, string> = {};
+    try {
+      if (init?.headers) {
+        if (init.headers instanceof Headers) {
+          (init.headers as Headers).forEach((v, k) => { headers[k] = String(v); });
+        } else if (Array.isArray(init.headers)) {
+          for (const [k, v] of init.headers as any[]) headers[String(k)] = String(v);
+        } else if (typeof init.headers === 'object') {
+          for (const k of Object.keys(init.headers)) headers[k] = String((init.headers as any)[k]);
+        }
+      }
+    } catch { /* ignore */ }
+    const body: any = init?.body;
+
+    if (/^socks/i.test(proxyUrl)) {
+      const axiosMod = await import('axios');
+      const { SocksProxyAgent } = await import('socks-proxy-agent');
+      const agent = new SocksProxyAgent(proxyUrl);
+      const r = await axiosMod.default.request({
+        url,
+        method,
+        headers,
+        data: body,
+        httpAgent: agent,
+        httpsAgent: agent,
+        timeout: 20000,
+        validateStatus: () => true,
+        maxRedirects: 5,
+        responseType: 'arraybuffer',
+        decompress: true
+      });
+      const buf = Buffer.from(r.data);
+      const resp = new Response(buf, { status: r.status, statusText: (r as any).statusText || '' });
+      try {
+        for (const k of Object.keys(r.headers || {})) {
+          try { (resp.headers as any).set(String(k), String((r.headers as any)[k])); } catch { /* ignore */ }
+        }
+      } catch { /* ignore */ }
+      return resp;
+    } else {
+      const undici = await import('undici');
+      const dispatcher = new (undici as any).ProxyAgent(proxyUrl);
+      return await (fetch as any)(url, { ...init, dispatcher });
+    }
+  } catch (e) {
+    console.warn(`[VixSrc][Proxy] request via ${__vixMaskProxy(proxyUrl)} failed:`, (e as any)?.message || e);
+    return null;
+  }
+}
+
+function __vixMaskProxy(u: string): string {
+  try {
+    const p = new URL(u);
+    const host = p.hostname + (p.port ? `:${p.port}` : '');
+    return `${p.protocol}//***@${host}`;
+  } catch { return u.replace(/:[^:@]+@/, ':***@'); }
+}
+
+// Drop-in replacement per fetch() usato SOLO nei punti vixsrc/vixcloud
+// del provider. Se la modalità corrente è "proxy" e PROXY/PROXY_BACKUP è settata:
+//   1. prova diretto con timeout 1500ms
+//   2. se il diretto va in errore (abort/throw) o restituisce uno status
+//      bloccato → ritenta TUTTO via proxy (round-robin PROXY/PROXY_BACKUP);
+//      se anche il primo proxy scelto fallisce/blocca, tenta l'altro.
+// Altrimenti si comporta come fetch() nativo.
+async function vixsrcFetch(url: string, init: any = {}): Promise<Response> {
+  const proxyUrl = __vixGetProxyEnv();
+  const active = __vixCurrentProxyMode && !!proxyUrl;
+  if (!active) {
+    return fetch(url, init);
+  }
+  // 1) Tentativo diretto con timeout 1.5s
+  let direct: Response | null = null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => { try { controller.abort(); } catch {} }, 1500);
+    const mergedInit: any = { ...init, signal: init?.signal || (controller.signal as any) };
+    try {
+      direct = await fetch(url, mergedInit);
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    direct = null;
+  }
+  if (direct && !__vixIsBlockedStatus(direct.status)) {
+    return direct;
+  }
+  // 2) Fallback via proxy (round-robin primario), poi l'altro se fallisce
+  console.log(`[VixSrc][Proxy] fallback via ${__vixMaskProxy(proxyUrl!)} for ${url}`);
+  let viaProxy = await __vixProxyRequestOnce(url, init, proxyUrl!);
+  if (viaProxy && !__vixIsBlockedStatus(viaProxy.status)) return viaProxy;
+  const altUrl = __vixGetAlternateProxy(proxyUrl!);
+  if (altUrl) {
+    console.log(`[VixSrc][Proxy] retry via ${__vixMaskProxy(altUrl)} (primary ${viaProxy ? 'blocked ' + viaProxy.status : 'threw'}) for ${url}`);
+    const viaAlt = await __vixProxyRequestOnce(url, init, altUrl);
+    if (viaAlt) return viaAlt;
+  }
+  // Tutti falliti: ritorna quello che abbiamo (proxy bloccato oppure direct bloccato)
+  if (viaProxy) return viaProxy;
+  if (direct) return direct;
+  throw new Error(`[VixSrc][Proxy] all proxy attempts failed for ${url}`);
+}
+
 // Helper per verificare se un URL esiste via HEAD request (più veloce e sicuro della lista parziale)
 async function checkUrlExists(url: string): Promise<boolean> {
   const skipFlag = (() => {
@@ -388,13 +544,10 @@ async function checkUrlExists(url: string): Promise<boolean> {
 
   // Optional proxy for VixSrc HEAD check (e.g. when the VPS IP is blocked with 403).
   // Env var: PROXY (http/https/socks5 URL, optional user:pass). Used ONLY as
-  // fallback when the direct call fails or returns a blocked status.
-  const proxyUrl = (() => {
-    try {
-      const env: any = (global as any)?.process?.env || (typeof process !== 'undefined' ? (process as any).env : {});
-      return String(env.PROXY || '').trim() || null;
-    } catch { return null; }
-  })();
+  // fallback when the direct call fails or returns a blocked status AND the
+  // current flow is running in "proxy" mode (MFP / Synthetic MFP). In Direct
+  // mode l'addon non deve dirottare nulla sul PROXY.
+  const proxyUrl = __vixCurrentProxyMode ? __vixGetProxyEnv() : null;
 
   // Realistic browser headers to reduce Cloudflare/403 false positives on datacenter IPs.
   const headers = {
@@ -409,13 +562,12 @@ async function checkUrlExists(url: string): Promise<boolean> {
     'Upgrade-Insecure-Requests': '1'
   };
 
-  const headViaProxy = async (): Promise<{ ok: boolean; status: number } | null> => {
-    if (!proxyUrl) return null;
+  const headViaProxy = async (pxUrl: string): Promise<{ ok: boolean; status: number } | null> => {
     try {
-      if (/^socks/i.test(proxyUrl)) {
+      if (/^socks/i.test(pxUrl)) {
         const axiosMod = await import('axios');
         const { SocksProxyAgent } = await import('socks-proxy-agent');
-        const agent = new SocksProxyAgent(proxyUrl);
+        const agent = new SocksProxyAgent(pxUrl);
         const r = await axiosMod.default.request({
           url,
           method: 'HEAD',
@@ -429,12 +581,12 @@ async function checkUrlExists(url: string): Promise<boolean> {
         return { ok: r.status >= 200 && r.status < 400, status: r.status };
       } else {
         const undici = await import('undici');
-        const dispatcher = new undici.ProxyAgent(proxyUrl);
+        const dispatcher = new undici.ProxyAgent(pxUrl);
         const r = await (fetch as any)(url, { method: 'HEAD', headers, dispatcher });
         return { ok: r.ok, status: r.status };
       }
     } catch (e) {
-      console.error(`VIX_CHECK: proxy fallback error for ${url}:`, (e as any)?.message || e);
+      console.error(`VIX_CHECK: proxy ${__vixMaskProxy(pxUrl)} error for ${url}:`, (e as any)?.message || e);
       return null;
     }
   };
@@ -443,11 +595,24 @@ async function checkUrlExists(url: string): Promise<boolean> {
   const isBlockedStatus = (s: number) => s === 0 || s === 401 || s === 403 || s === 429 || (s >= 500 && s < 600);
 
   try {
-    console.log(`VIX_CHECK: Checking existence via HEAD (direct): ${url}`);
+    console.log(`VIX_CHECK: Checking existence via HEAD (direct, proxyMode=${__vixCurrentProxyMode}): ${url}`);
     let direct: { ok: boolean; status: number } | null = null;
     try {
-      const r = await fetch(url, { method: 'HEAD', headers });
-      direct = { ok: r.ok, status: r.status };
+      // Timeout stretto (1.5s) quando siamo in modalità proxy per passare al
+      // fallback in fretta. In modalità direct restiamo sul default di fetch.
+      if (proxyUrl) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => { try { controller.abort(); } catch {} }, 1500);
+        try {
+          const r = await fetch(url, { method: 'HEAD', headers, signal: controller.signal as any });
+          direct = { ok: r.ok, status: r.status };
+        } finally {
+          clearTimeout(timer);
+        }
+      } else {
+        const r = await fetch(url, { method: 'HEAD', headers });
+        direct = { ok: r.ok, status: r.status };
+      }
     } catch (e) {
       console.log(`VIX_CHECK: direct call threw (${(e as any)?.message || e}) -> will try proxy if configured`);
       direct = null;
@@ -463,13 +628,27 @@ async function checkUrlExists(url: string): Promise<boolean> {
       return false;
     }
 
-    // Direct failed or was blocked → try proxy fallback if available.
+    // Direct failed or was blocked → try proxy fallback if available (only in proxy mode).
     if (proxyUrl) {
-      console.log(`VIX_CHECK: direct blocked (${direct ? direct.status : 'net-error'}), retrying via PROXY -> ${url}`);
-      const viaProxy = await headViaProxy();
+      console.log(`VIX_CHECK: direct blocked (${direct ? direct.status : 'net-error'}), retrying via PROXY ${__vixMaskProxy(proxyUrl)} -> ${url}`);
+      let viaProxy = await headViaProxy(proxyUrl);
       if (viaProxy && viaProxy.ok) {
         console.log(`VIX_CHECK: OK via proxy (${viaProxy.status}) -> ${url}`);
         return true;
+      }
+      // Se il primo proxy ha fallito o è stato bloccato, prova l'altro (se configurato)
+      const altProxy = __vixGetAlternateProxy(proxyUrl);
+      if (altProxy && (!viaProxy || isBlockedStatus(viaProxy.status))) {
+        console.log(`VIX_CHECK: retry via alternate proxy ${__vixMaskProxy(altProxy)} -> ${url}`);
+        const viaAlt = await headViaProxy(altProxy);
+        if (viaAlt && viaAlt.ok) {
+          console.log(`VIX_CHECK: OK via alt proxy (${viaAlt.status}) -> ${url}`);
+          return true;
+        }
+        if (viaAlt) {
+          console.log(`VIX_CHECK: Fail via alt proxy (${viaAlt.status}) -> ${url}`);
+          return false;
+        }
       }
       if (viaProxy) {
         console.log(`VIX_CHECK: Fail via proxy (${viaProxy.status}) -> ${url}`);
@@ -604,6 +783,14 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
   console.log(`Extracting stream for ${id} (${type}) with config:`, { ...config, mfpPsw: config.mfpPsw ? '***' : undefined });
   console.log('[VixSrc][BuildMarker] version=early-direct-v2');
   console.log('[VixSrc][Debug] addonBase initial =', config.addonBase, 'vixDual=', !!config.vixDual, 'vixLocal=', !!config.vixLocal);
+
+  // Imposta la modalità proxy per l'intera catena: attivo il fallback via env
+  // PROXY solo quando l'utente ha scelto MFP / Synthetic MFP (vixProxy o
+  // vixProxyFhd). In Direct / Synthetic senza proxy si lavora sempre direct.
+  __vixCurrentProxyMode = !!((config as any)?.vixProxy === true || (config as any)?.vixProxyFhd === true);
+  if (__vixCurrentProxyMode) {
+    console.log('[VixSrc][ProxyMode] attivo: useremo PROXY env come fallback (timeout diretto 1.5s)');
+  }
 
   // -------------------------------------------------------------
   // Bridge checkbox landing page → flag interne storiche (vixLocal, vixDual)
@@ -789,7 +976,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     // Prova ad estrarre la dimensione (bytes) dalla pagina VixSrc
     let sizeBytes: number | undefined = undefined;
     try {
-      const pageRes = await fetch(url);
+      const pageRes = await vixsrcFetch(url);
       if (pageRes.ok) {
         const html = await pageRes.text();
         const sizeMatch = html.match(/\"size\":(\d+)/);
@@ -821,7 +1008,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     try {
       if (url.includes("/iframe")) {
         const version = await fetchVixCloudSiteVersion(siteOrigin);
-        const initialResponse = await fetch(url, {
+        const initialResponse = await vixsrcFetch(url, {
           headers: {
             "x-inertia": "true",
             "x-inertia-version": version,
@@ -835,7 +1022,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
 
         if (iframeSrc) {
           const actualPlayerUrl = new URL(iframeSrc, siteOrigin).toString();
-          const playerResponse = await fetch(actualPlayerUrl, {
+          const playerResponse = await vixsrcFetch(actualPlayerUrl, {
             headers: {
               "x-inertia": "true",
               "x-inertia-version": version,
@@ -853,7 +1040,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
         if (url.includes("/tv/") || url.includes("/movie/")) {
           const apiUrl = url.replace("/tv/", "/api/tv/").replace("/movie/", "/api/movie/");
           try {
-            const apiRes = await fetch(apiUrl);
+            const apiRes = await vixsrcFetch(apiUrl);
             if (apiRes.ok) {
                const apiJson = await apiRes.json();
                if (apiJson && apiJson.src) {
@@ -868,7 +1055,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
           }
         }
 
-        const response = await fetch(targetFetchUrl, {
+        const response = await vixsrcFetch(targetFetchUrl, {
           headers: {
             "Referer": url
           }
