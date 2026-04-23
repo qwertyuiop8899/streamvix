@@ -386,27 +386,100 @@ async function checkUrlExists(url: string): Promise<boolean> {
     return true;
   }
 
-  try {
-    console.log(`VIX_CHECK: Checking existence via HEAD: ${url}`);
-    // Importante: User-Agent specifico per evitare blocchi
-    const response = await fetch(url, {
-      method: 'HEAD',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (StreamViX EarlyDirect)',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      }
-    });
+  // Optional proxy for VixSrc HEAD check (e.g. when the VPS IP is blocked with 403).
+  // Env var: PROXY (http/https/socks5 URL, optional user:pass). Used ONLY as
+  // fallback when the direct call fails or returns a blocked status.
+  const proxyUrl = (() => {
+    try {
+      const env: any = (global as any)?.process?.env || (typeof process !== 'undefined' ? (process as any).env : {});
+      return String(env.PROXY || '').trim() || null;
+    } catch { return null; }
+  })();
 
-    // 200 OK -> Esiste
-    // 301/302 -> Redirect (spesso a trailing slash o altra pagina valida) -> Esiste
-    // 404 -> Non esiste
-    if (response.ok) {
-      console.log(`VIX_CHECK: OK (${response.status}) -> ${url}`);
+  // Realistic browser headers to reduce Cloudflare/403 false positives on datacenter IPs.
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Referer': 'https://vixsrc.to/',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1'
+  };
+
+  const headViaProxy = async (): Promise<{ ok: boolean; status: number } | null> => {
+    if (!proxyUrl) return null;
+    try {
+      if (/^socks/i.test(proxyUrl)) {
+        const axiosMod = await import('axios');
+        const { SocksProxyAgent } = await import('socks-proxy-agent');
+        const agent = new SocksProxyAgent(proxyUrl);
+        const r = await axiosMod.default.request({
+          url,
+          method: 'HEAD',
+          headers,
+          httpAgent: agent,
+          httpsAgent: agent,
+          timeout: 10000,
+          validateStatus: () => true,
+          maxRedirects: 5
+        });
+        return { ok: r.status >= 200 && r.status < 400, status: r.status };
+      } else {
+        const undici = await import('undici');
+        const dispatcher = new undici.ProxyAgent(proxyUrl);
+        const r = await (fetch as any)(url, { method: 'HEAD', headers, dispatcher });
+        return { ok: r.ok, status: r.status };
+      }
+    } catch (e) {
+      console.error(`VIX_CHECK: proxy fallback error for ${url}:`, (e as any)?.message || e);
+      return null;
+    }
+  };
+
+  // Statuses where we should attempt the proxy fallback: blocks and network-layer failures.
+  const isBlockedStatus = (s: number) => s === 0 || s === 401 || s === 403 || s === 429 || (s >= 500 && s < 600);
+
+  try {
+    console.log(`VIX_CHECK: Checking existence via HEAD (direct): ${url}`);
+    let direct: { ok: boolean; status: number } | null = null;
+    try {
+      const r = await fetch(url, { method: 'HEAD', headers });
+      direct = { ok: r.ok, status: r.status };
+    } catch (e) {
+      console.log(`VIX_CHECK: direct call threw (${(e as any)?.message || e}) -> will try proxy if configured`);
+      direct = null;
+    }
+
+    if (direct && direct.ok) {
+      console.log(`VIX_CHECK: OK (${direct.status}) -> ${url}`);
       return true;
-    } else {
-      console.log(`VIX_CHECK: Fail (${response.status}) -> ${url}`);
+    }
+    if (direct && !isBlockedStatus(direct.status)) {
+      // Legitimate 404 or similar: do not waste a proxy hit.
+      console.log(`VIX_CHECK: Fail (${direct.status}) -> ${url}`);
       return false;
     }
+
+    // Direct failed or was blocked → try proxy fallback if available.
+    if (proxyUrl) {
+      console.log(`VIX_CHECK: direct blocked (${direct ? direct.status : 'net-error'}), retrying via PROXY -> ${url}`);
+      const viaProxy = await headViaProxy();
+      if (viaProxy && viaProxy.ok) {
+        console.log(`VIX_CHECK: OK via proxy (${viaProxy.status}) -> ${url}`);
+        return true;
+      }
+      if (viaProxy) {
+        console.log(`VIX_CHECK: Fail via proxy (${viaProxy.status}) -> ${url}`);
+        return false;
+      }
+    }
+
+    // No proxy available or proxy threw.
+    console.log(`VIX_CHECK: Fail (${direct ? direct.status : 'net-error'}) -> ${url}`);
+    return false;
   } catch (error) {
     console.error(`VIX_CHECK: Error checking URL ${url}:`, error);
     // In caso di errore di rete (non 404), assumiamo TRUE per non bloccare falsi negativi
