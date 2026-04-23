@@ -738,7 +738,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "11.1.23",
+    version: "11.0.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -6110,7 +6110,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // API Mode: enable Guardoserie and Guardaflix by default
                 const guardoserieEnabled = isDirectAPICall || (config.guardoserieEnabled === true) || (rc?.guardoserieEnabled === true);
                 const guardaflixEnabled = isDirectAPICall || (config.guardaflixEnabled === true) || (rc?.guardaflixEnabled === true);
-                const netmirrorEnabled = envFlag('NETMIRROR_ENABLED') ?? (isDirectAPICall || (config as any).netmirrorEnabled === true || rc?.netmirrorEnabled === true);
+                // Default ON: NetMirror runs unless explicitly disabled in config (key set to false).
+                // This keeps legacy configs (saved before the NetMirror key existed) working, since
+                // the landing page defaults the toggle to ON.
+                const netmirrorExplicitFalse = (config as any).netmirrorEnabled === false || rc?.netmirrorEnabled === false;
+                const netmirrorEnabled = envFlag('NETMIRROR_ENABLED') ?? (isDirectAPICall || !netmirrorExplicitFalse);
 
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld + Loonex
                 // IMPORTANTE: includere trailerEnabled per permettere trailer standalone
@@ -6481,7 +6485,22 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     };
                     const pickFastModeStreams = async (): Promise<Stream[]> => {
                         const priority = getFastPriority();
-                        if (!priority.length) return [];
+                        // NetMirror runs independently of the priority list: in FastMode we always
+                        // append its streams (if any) alongside the chosen provider, so that it
+                        // appears in the result even when vixsrc/guardaserie/etc. succeed first.
+                        const netmirrorTask = providerTasks['netmirror'];
+                        const appendNetMirror = async (base: Stream[]): Promise<Stream[]> => {
+                            if (!netmirrorTask) return base;
+                            try {
+                                const nm = await netmirrorTask;
+                                if (nm && nm.length) {
+                                    console.log(`[FastMode] Appending ${nm.length} NetMirror stream(s)`);
+                                    return [...base, ...nm];
+                                }
+                            } catch { /* ignore */ }
+                            return base;
+                        };
+                        if (!priority.length) return appendNetMirror([]);
 
                         // Regola speciale film/serie:
                         // se StreamingCommunity risponde ma NON ha ITA, tieni SC + primo provider successivo con stream.
@@ -6492,7 +6511,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 if (scStreams.length > 0) {
                                     if (hasItalianStreams(scStreams)) {
                                         console.log(`[FastMode] Selected provider 'vixsrc' with ITA (${scStreams.length} streams)`);
-                                        return scStreams;
+                                        return appendNetMirror(scStreams);
                                     }
                                     for (let i = 1; i < priority.length; i++) {
                                         const nextKey = priority[i];
@@ -6501,11 +6520,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         const nextStreams = await nextTask;
                                         if (nextStreams.length > 0) {
                                             console.log(`[FastMode] StreamingCommunity senza ITA: returning 'vixsrc' + '${nextKey}'`);
-                                            return [...scStreams, ...nextStreams];
+                                            return appendNetMirror([...scStreams, ...nextStreams]);
                                         }
                                     }
                                     console.log(`[FastMode] StreamingCommunity senza ITA e nessun fallback disponibile: returning 'vixsrc' only`);
-                                    return scStreams;
+                                    return appendNetMirror(scStreams);
                                 }
                             }
                         }
@@ -6516,10 +6535,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const streams = await task;
                             if (streams.length > 0) {
                                 console.log(`[FastMode] Selected provider '${key}' with ${streams.length} streams`);
-                                return streams;
+                                return appendNetMirror(streams);
                             }
                         }
-                        return [];
+                        return appendNetMirror([]);
                     };
 
                     // VixSrc PRIMA di tutti (se abilitato)
@@ -8073,6 +8092,159 @@ app.get('/admin/mode', (req: Request, res: Response) => {
     }
     const fastDynamic = (process.env.FAST_DYNAMIC === '1' || process.env.FAST_DYNAMIC === 'true');
     res.json({ ok: true, fastDynamic });
+});
+// ================================================================
+
+// ===================== DEBUG FETCH PROXY ========================
+// Esegue una richiesta HTTP(S) arbitraria DALLA rete dell'addon e
+// restituisce status/headers/body. Utile quando non hai accesso al
+// server ma vuoi capire cosa vede l'addon (es. se un sito risponde
+// 403 solo da quell'IP).
+//
+// Protezione: richiede query param ?token=<DEBUG_PROXY_TOKEN>. Se la
+// env DEBUG_PROXY_TOKEN non è impostata l'endpoint è disabilitato.
+//
+// Esempi:
+//   GET /debug/fetch?token=XXX&url=https://vixsrc.to/movie/12345/
+//   GET /debug/fetch?token=XXX&url=https://...&method=HEAD
+//   GET /debug/fetch?token=XXX&url=https://...&h_user-agent=curl/8&h_referer=https://foo/
+//   GET /debug/fetch?token=XXX&url=https://...&raw=1   (restituisce il body grezzo)
+//   GET /debug/fetch?token=XXX&url=https://...&viaProxy=1  (usa env PROXY)
+//
+// Per richieste con body usa POST /debug/fetch?token=... con gli stessi
+// query param + corpo raw (inoltrato così com'è).
+const debugFetchHandler = async (req: Request, res: Response) => {
+    try {
+        const expected = String(process.env.DEBUG_PROXY_TOKEN || '').trim();
+        if (!expected) {
+            res.status(404).json({ error: 'debug proxy disabled (set DEBUG_PROXY_TOKEN env to enable)' });
+            return;
+        }
+        const token = String(req.query.token || req.headers['x-debug-token'] || '').trim();
+        if (token !== expected) {
+            res.status(401).json({ error: 'invalid or missing token' });
+            return;
+        }
+        const target = String(req.query.url || '').trim();
+        if (!target || !/^https?:\/\//i.test(target)) {
+            res.status(400).json({ error: 'missing or invalid "url" query param (must be http(s))' });
+            return;
+        }
+        const method = String(req.query.method || req.method || 'GET').toUpperCase();
+        const raw = ['1', 'true', 'yes'].includes(String(req.query.raw || '').toLowerCase());
+        const viaProxy = ['1', 'true', 'yes'].includes(String(req.query.viaProxy || '').toLowerCase());
+        const followRedirects = String(req.query.redirect || '1').toLowerCase() !== '0';
+        const timeoutMs = Math.max(1000, Math.min(60000, parseInt(String(req.query.timeout || '15000'), 10) || 15000));
+
+        // Build headers: accept h_<name>=<value> style + optional JSON in ?headers=
+        const headers: Record<string, string> = {};
+        try {
+            const hJson = String(req.query.headers || '').trim();
+            if (hJson) {
+                const parsed = JSON.parse(hJson);
+                if (parsed && typeof parsed === 'object') {
+                    for (const k of Object.keys(parsed)) headers[String(k)] = String((parsed as any)[k]);
+                }
+            }
+        } catch { /* ignore */ }
+        for (const k of Object.keys(req.query)) {
+            if (k.toLowerCase().startsWith('h_')) {
+                const name = k.slice(2);
+                if (name) headers[name] = String((req.query as any)[k]);
+            }
+        }
+        if (!headers['User-Agent'] && !headers['user-agent']) {
+            headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+        }
+
+        // Optional body for POST/PUT/PATCH
+        let body: Buffer | undefined;
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+            body = (req as any).rawBody || undefined;
+            if (!body && req.body && typeof req.body !== 'object') body = Buffer.from(String(req.body));
+        }
+
+        const proxyUrl = viaProxy ? String(process.env.PROXY || '').trim() : '';
+        const axiosMod = await import('axios');
+        const axReq: any = {
+            url: target,
+            method,
+            headers,
+            data: body,
+            timeout: timeoutMs,
+            maxRedirects: followRedirects ? 5 : 0,
+            validateStatus: () => true,
+            responseType: 'arraybuffer',
+            decompress: true
+        };
+        if (proxyUrl) {
+            if (/^socks/i.test(proxyUrl)) {
+                const { SocksProxyAgent } = await import('socks-proxy-agent');
+                const agent = new SocksProxyAgent(proxyUrl);
+                axReq.httpAgent = agent;
+                axReq.httpsAgent = agent;
+                axReq.proxy = false;
+            } else {
+                // Use HttpsProxyAgent for both http/https targets (CONNECT tunneling).
+                const { HttpsProxyAgent } = await import('https-proxy-agent');
+                const agent = new (HttpsProxyAgent as any)(proxyUrl);
+                axReq.httpAgent = agent;
+                axReq.httpsAgent = agent;
+                axReq.proxy = false;
+            }
+        }
+        const t0 = Date.now();
+        const r = await axiosMod.default.request(axReq);
+        const elapsedMs = Date.now() - t0;
+        const respHeaders: Record<string, any> = {};
+        try {
+            for (const k of Object.keys(r.headers || {})) respHeaders[k] = (r.headers as any)[k];
+        } catch { /* ignore */ }
+
+        if (raw) {
+            res.status(200);
+            res.setHeader('X-Debug-Upstream-Status', String(r.status));
+            res.setHeader('X-Debug-Elapsed-Ms', String(elapsedMs));
+            if (proxyUrl) res.setHeader('X-Debug-Via-Proxy', '1');
+            const ct = respHeaders['content-type'] || respHeaders['Content-Type'];
+            if (ct) res.setHeader('Content-Type', String(ct));
+            res.end(Buffer.from(r.data));
+            return;
+        }
+
+        // JSON response: decode body as text if looks textual, else base64
+        const buf: Buffer = Buffer.from(r.data);
+        const ct = String(respHeaders['content-type'] || respHeaders['Content-Type'] || '').toLowerCase();
+        const isText = /^(text\/|application\/(json|xml|javascript|xhtml|x-www-form-urlencoded|vnd\.apple\.mpegurl|x-mpegurl))/i.test(ct)
+            || ct.includes('charset')
+            || (!ct && buf.length < 1_000_000);
+        const outBody = isText ? { encoding: 'utf8', data: buf.toString('utf8').slice(0, 2_000_000) } : { encoding: 'base64', data: buf.toString('base64').slice(0, 2_666_666) };
+        res.json({
+            ok: r.status >= 200 && r.status < 400,
+            request: { url: target, method, viaProxy: !!proxyUrl, sentHeaders: headers },
+            response: {
+                status: r.status,
+                statusText: (r as any).statusText || '',
+                headers: respHeaders,
+                elapsedMs,
+                bodyBytes: buf.length,
+                body: outBody
+            }
+        });
+    } catch (e: any) {
+        res.status(500).json({
+            error: 'debug fetch failed',
+            message: e?.message || String(e),
+            code: e?.code || null,
+            responseStatus: e?.response?.status || null
+        });
+    }
+};
+app.get('/debug/fetch', debugFetchHandler);
+app.post('/debug/fetch', express.raw({ type: '*/*', limit: '10mb' }), (req: Request, res: Response, next: NextFunction) => {
+    // preserve raw body for forwarding
+    (req as any).rawBody = req.body && Buffer.isBuffer(req.body) ? req.body : undefined;
+    return debugFetchHandler(req, res).catch(next);
 });
 // ================================================================
 
