@@ -1,7 +1,7 @@
 // NetMirror provider — Stremio addon integration.
 // Scrapes net22.cc / net52.cc, returns ONLY Italian-audio streams (direct
 // playback via behaviorHints.proxyHeaders), keeping only the highest
-// available resolution (1080p > 720p > 480p, ignoring "auto"). 
+// available resolution (1080p > 720p > 480p, ignoring "auto").
 //
 // See netmirroreprovider.md for the full protocol spec.
 
@@ -9,7 +9,9 @@ import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { Stream } from 'stremio-addon-sdk';
 import { providerLabel } from '../utils/unifiedNames';
 
-const NETMIRROR_BASE = 'https://net22.cc';
+// NOTE (2026-04): net22.cc backend is offline (CF 522 / timeout on every
+// path). The same API is served by net52.cc, so we point BASE there too.
+const NETMIRROR_BASE = 'https://net52.cc';
 const NETMIRROR_PLAY = 'https://net52.cc';
 
 const BASE_HEADERS: Record<string, string> = {
@@ -289,8 +291,10 @@ interface RawSource { url: string; quality: string; }
 async function getStreamingLinks(contentId: string, title: string, platform: Platform): Promise<RawSource[]> {
     const cookie = await bypass();
     const ott = OTT_MAP[platform];
-    const token = await getVideoToken(contentId, cookie, ott);
-    if (!token) return [];
+    // NOTE (2026-04): /play.php now returns err:1003 (handshake broken
+    // server-side). /playlist.php still works with any dummy `h` value,
+    // so we skip the play.php token fetch entirely.
+    const token = 'x';
     const ep = endpoints(platform);
     const res = await request(
         `${ep.playlist}?id=${contentId}&t=${encodeURIComponent(title)}&tm=${unix()}&h=${token}`,
