@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.48](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.47...v1.17.48) (2026-04-24)
+
+
+### Bug Fixes
+
+* domains update ([9904123](https://github.com/qwertyuiop8899/streamvix/commit/99041234ece84e9f5f473bb79410621115d555fd))
+* netmirror.ts ([8e621eb](https://github.com/qwertyuiop8899/streamvix/commit/8e621ebd6f490a4aef11951a4b2e0deba83b069f))
+
 ## [1.17.47](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.46...v1.17.47) (2026-04-23)
 
 
