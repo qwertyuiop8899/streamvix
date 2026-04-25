@@ -50,7 +50,6 @@ import { startMpdpScheduler, updateMpdpChannels } from './utils/mpdpUpdater';
 // import { startZEventiScheduler, updateZEventiChannels } from './utils/zEventiUpdater';
 import { getGuardoserieStreams } from './providers/guardoserie';
 import { getGuardaflixStreams } from './providers/guardaflix';
-import { getNetMirrorStreams } from './providers/netmirror';
 import { getTrailerStreams, isTrailerProviderAvailable } from './providers/trailerProvider';
 // EasyProxy DVR integration
 import { getDvrStreamsForChannel, getDvrConfig, buildDvrRecordEntry } from './utils/easyproxyDvr';
@@ -878,7 +877,6 @@ const baseManifest: Manifest = {
         { key: "vixDirect", title: "SC: Direct (solo installazione locale)", type: "checkbox" },
         { key: "vixDirectFhd", title: "SC: Synthetic FHD (solo installazione locale)", type: "checkbox" },
         { key: "vixProxy", title: "SC: Proxy (richiede Proxy, consigliato)", type: "checkbox" },
-        { key: "netmirrorEnabled", title: "Enable NetMirror (solo ITA, direct)", type: "checkbox" },
         { key: "disableLiveTv", title: "Live TV 📺 [Molti canali hanno bisogno di MFP]", type: "checkbox" },
         { key: "trailerEnabled", title: "🎬▶️ Trailer", type: "checkbox", default: "checked" },
         { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
@@ -6110,17 +6108,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // API Mode: enable Guardoserie and Guardaflix by default
                 const guardoserieEnabled = isDirectAPICall || (config.guardoserieEnabled === true) || (rc?.guardoserieEnabled === true);
                 const guardaflixEnabled = isDirectAPICall || (config.guardaflixEnabled === true) || (rc?.guardaflixEnabled === true);
-                // Default ON: NetMirror runs unless explicitly disabled in config (key set to false).
-                // This keeps legacy configs (saved before the NetMirror key existed) working, since
-                // the landing page defaults the toggle to ON.
-                const netmirrorExplicitFalse = (config as any).netmirrorEnabled === false || rc?.netmirrorEnabled === false;
-                const netmirrorEnabled = envFlag('NETMIRROR_ENABLED') ?? (isDirectAPICall || !netmirrorExplicitFalse);
 
                 // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld + Loonex
                 // IMPORTANTE: includere trailerEnabled per permettere trailer standalone
                 const trailerEnabled = (config as any).trailerEnabled !== false && rc?.trailerEnabled !== false;
                 const fastModeEnabled = (config as any).fastMode === true;
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled || netmirrorEnabled)) {
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled)) {
                     // Rilevamento addonBase per AnimeUnity (stessa logica VixSrc)
                     let auAddonBase = '';
                     try {
@@ -6197,7 +6190,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const reverseProviderKey = (label: string): string => {
                         const l = label.toLowerCase();
                         if (l.includes('vixsrc') || l.includes('streamingcommunity')) return 'vixsrc';
-                        if (l.includes('netmirror')) return 'netmirror';
                         if (l.includes('anime unity')) return 'animeunity';
                         if (l.includes('anime saturn')) return 'animesaturn';
                         if (l.includes('anime world')) return 'animeworld';
@@ -6485,22 +6477,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     };
                     const pickFastModeStreams = async (): Promise<Stream[]> => {
                         const priority = getFastPriority();
-                        // NetMirror runs independently of the priority list: in FastMode we always
-                        // append its streams (if any) alongside the chosen provider, so that it
-                        // appears in the result even when vixsrc/guardaserie/etc. succeed first.
-                        const netmirrorTask = providerTasks['netmirror'];
-                        const appendNetMirror = async (base: Stream[]): Promise<Stream[]> => {
-                            if (!netmirrorTask) return base;
-                            try {
-                                const nm = await netmirrorTask;
-                                if (nm && nm.length) {
-                                    console.log(`[FastMode] Appending ${nm.length} NetMirror stream(s)`);
-                                    return [...base, ...nm];
-                                }
-                            } catch { /* ignore */ }
-                            return base;
-                        };
-                        if (!priority.length) return appendNetMirror([]);
+                        if (!priority.length) return [];
 
                         // Regola speciale film/serie:
                         // se StreamingCommunity risponde ma NON ha ITA, tieni SC + primo provider successivo con stream.
@@ -6511,7 +6488,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 if (scStreams.length > 0) {
                                     if (hasItalianStreams(scStreams)) {
                                         console.log(`[FastMode] Selected provider 'vixsrc' with ITA (${scStreams.length} streams)`);
-                                        return appendNetMirror(scStreams);
+                                        return scStreams;
                                     }
                                     for (let i = 1; i < priority.length; i++) {
                                         const nextKey = priority[i];
@@ -6520,11 +6497,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                         const nextStreams = await nextTask;
                                         if (nextStreams.length > 0) {
                                             console.log(`[FastMode] StreamingCommunity senza ITA: returning 'vixsrc' + '${nextKey}'`);
-                                            return appendNetMirror([...scStreams, ...nextStreams]);
+                                            return [...scStreams, ...nextStreams];
                                         }
                                     }
                                     console.log(`[FastMode] StreamingCommunity senza ITA e nessun fallback disponibile: returning 'vixsrc' only`);
-                                    return appendNetMirror(scStreams);
+                                    return scStreams;
                                 }
                             }
                         }
@@ -6535,10 +6512,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             const streams = await task;
                             if (streams.length > 0) {
                                 console.log(`[FastMode] Selected provider '${key}' with ${streams.length} streams`);
-                                return appendNetMirror(streams);
+                                return streams;
                             }
                         }
-                        return appendNetMirror([]);
+                        return [];
                     };
 
                     // VixSrc PRIMA di tutti (se abilitato)
@@ -6624,28 +6601,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                             return { streams: [] };
                         }, providerLabel('guardaflix'), false, 30000);
-                    }
-
-                    // === NETMIRROR PROVIDER (Movie + Series, ITA only, direct) ===
-                    if (netmirrorEnabled && (id.startsWith('tt') || id.startsWith('tmdb:')) && ((type as string) === 'movie' || (type as string) === 'series')) {
-                        scheduleProviderRun('NetMirror', true, async () => {
-                            try {
-                                const nmStreams = await getNetMirrorStreams({
-                                    type: type as 'movie' | 'series',
-                                    id,
-                                    seasonNumber,
-                                    episodeNumber,
-                                    tmdbApiKey: (config as any).tmdbApiKey || process.env.TMDB_API_KEY
-                                });
-                                if (nmStreams && nmStreams.length > 0) {
-                                    console.log(`✅ [NetMirror] Found ${nmStreams.length} streams for ${id}`);
-                                    return { streams: nmStreams };
-                                }
-                            } catch (e) {
-                                console.error(`❌ [NetMirror] Error processing ${id}:`, e);
-                            }
-                            return { streams: [] };
-                        }, providerLabel('netmirror'), false, 30000);
                     }
 
                     // AnimeUnity
@@ -6883,7 +6838,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const rank = (n: string): number => {
                         const l = n.toLowerCase();
                         if (l.includes('vixsrc') || l.includes('streamingcommunity')) return 0;
-                        if (l.includes('netmirror')) return 0.5;
                         if (l.includes('anime unity')) return 1;
                         if (l.includes('anime saturn')) return 2;
                         if (l.includes('anime world')) return 3;
