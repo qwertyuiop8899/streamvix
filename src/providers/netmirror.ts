@@ -314,6 +314,12 @@ async function getStreamingLinks(contentId: string, title: string, platform: Pla
             let full = String(src.file).replace('/tv/', '/');
             if (!full.startsWith('/')) full = '/' + full;
             full = NETMIRROR_PLAY + '/' + full;
+            // Upgrade signature suffix: the bypass returns "::ti" (ticket) URLs whose
+            // inner CDN video variants are rejected by the freecdn* edges with
+            // "Only Valid Users Allowed". Replacing the trailing "::ti" with "::su"
+            // (subscribed-user) yields a master whose inner stream-inf URL is
+            // accepted by the CDN and serves the real video segments.
+            full = full.replace(/::ti(?=$|[?&#])/g, '::su');
             out.push({ url: full, quality: String(src.label || '') });
         }
     }
