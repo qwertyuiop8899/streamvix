@@ -451,11 +451,11 @@ export class Cb01Provider {
             // 2. Direct mixdrop URL in href
             const directMixdrop = anchors.find(a => /mixdrop\./i.test(a.href));
             if (directMixdrop) { log('pickPreferredLink direct mixdrop href', { href: directMixdrop.href }); return directMixdrop.href; }
-            // 3. Any anchor whose text does NOT say "maxstream"
-            const notMaxText = anchors.find(a => !/maxstream/i.test(a.text) && !/maxstream\./i.test(a.href));
-            if (notMaxText) { log('pickPreferredLink non-maxstream fallback', { href: notMaxText.href, text: notMaxText.text }); return notMaxText.href; }
-            // 4. Last resort (only maxstream available)
-            log('pickPreferredLink only maxstream available', { href: anchors[0].href });
+            // 3. Maxstream label (now supported via wrapMediaFlow → MFP /extractor/video?host=Maxstream)
+            const maxstreamLabeled = anchors.find(a => /maxstream/i.test(a.text) || /maxstream\./i.test(a.href) || /uprot\.net/i.test(a.href));
+            if (maxstreamLabeled) { log('pickPreferredLink maxstream-labeled', { href: maxstreamLabeled.href, text: maxstreamLabeled.text }); return maxstreamLabeled.href; }
+            // 4. Generic anchor fallback (any non-empty href)
+            log('pickPreferredLink generic fallback', { href: anchors[0].href });
             return anchors[0].href;
         };
 
@@ -581,36 +581,57 @@ export class Cb01Provider {
         return url.endsWith('/') ? url : url + '/';
     }
 
-    private async wrapMediaFlow(mixdropEmbed: string, pageHtml: string, ep?: { season: number; episode: number }, metaOverride?: { file: string | null; size: string | null }): Promise<StreamForStremio | null> {
+    private async wrapMediaFlow(embedUrl: string, pageHtml: string, ep?: { season: number; episode: number }, metaOverride?: { file: string | null; size: string | null }): Promise<StreamForStremio | null> {
         const { mfpUrl, mfpPassword } = this.config; if (!mfpUrl) return null;
         // Normalizza base URL mediaflow evitando doppio slash
         const mfpBase = mfpUrl.replace(/\/+$/, '');
-        const originalEmbed = mixdropEmbed.trim();
-        // Costruisci forma corta: https://dominio/e/<id>/ mantenendo dominio originale, eliminando qualunque segmento extra (/2/filename.mp4)
-        let dUrl = originalEmbed;
-        const idMatch = originalEmbed.match(/^(https?:\/\/[^/]+)\/e\/([A-Za-z0-9]+)/);
-        if (idMatch) {
-            dUrl = `${idMatch[1]}/e/${idMatch[2]}/`;
-            if (dUrl !== originalEmbed) log('mixdrop canonical chosen', { original: originalEmbed, canonical: dUrl });
-        } else {
-            log('mixdrop embed no id pattern, using original', { original: originalEmbed });
-        }
-        const encodedD = encodeURIComponent(dUrl);
-        // Costruisci l'URL proxy stream
-        // api_password viene aggiunto solo se presente
+        const originalEmbed = embedUrl.trim();
+
+        // Detect MaxStream / Uprot URLs and route them through the MFP
+        // Maxstream extractor (which handles uprot captcha + msfld folder
+        // resolution server-side). Mixdrop / generic embeds keep using the
+        // legacy /proxy/stream auto-detect path.
+        const isMaxstream = /(?:^|\/\/)(?:[^/]*\.)?(?:uprot\.net|maxstream\.video)/i.test(originalEmbed);
+
         const passwordParam = mfpPassword ? `&api_password=${encodeURIComponent(mfpPassword)}` : '';
-        const extractorUrl = `${mfpBase}/proxy/stream?d=${encodedD}${passwordParam}`;
-        log('extractor url built (redirect_stream=true)', { dUrl, extractorUrl });
+        let extractorUrl: string;
+        let hostLabel: string;
+
+        if (isMaxstream) {
+            // Build the Maxstream extractor URL. For /msfld/ folders pass
+            // season+episode so the upstream extractor can pick the right
+            // /msfi/ (requires the realbestia1/EasyProxy folder-support
+            // patch — falls back gracefully on older MFP versions).
+            const params = new URLSearchParams({ host: 'Maxstream', d: originalEmbed, redirect_stream: 'true' });
+            if (ep && /\/msfld\//i.test(originalEmbed)) {
+                params.set('season', String(ep.season));
+                params.set('episode', String(ep.episode));
+            }
+            extractorUrl = `${mfpBase}/extractor/video?${params.toString()}${passwordParam}`;
+            hostLabel = 'Maxstream';
+            log('maxstream extractor url built', { embed: originalEmbed.substring(0, 120), extractorUrl: extractorUrl.substring(0, 140) });
+        } else {
+            // Mixdrop / generic: canonical /e/{id}/ then proxy/stream auto-extract
+            let dUrl = originalEmbed;
+            const idMatch = originalEmbed.match(/^(https?:\/\/[^/]+)\/e\/([A-Za-z0-9]+)/);
+            if (idMatch) {
+                dUrl = `${idMatch[1]}/e/${idMatch[2]}/`;
+                if (dUrl !== originalEmbed) log('mixdrop canonical chosen', { original: originalEmbed, canonical: dUrl });
+            } else {
+                log('mixdrop embed no id pattern, using original', { original: originalEmbed });
+            }
+            const encodedD = encodeURIComponent(dUrl);
+            extractorUrl = `${mfpBase}/proxy/stream?d=${encodedD}${passwordParam}`;
+            hostLabel = 'Mixdrop';
+            log('mixdrop extractor url built', { dUrl, extractorUrl });
+        }
 
         const meta = metaOverride || this.extractStayonlineMeta(pageHtml) || { file: null, size: undefined };
-        // Nuovo formato richiesto:
-        // Linea 1: Nome completo file (con estensione) + [ITA]
-        // Linea 2: "💾 <SIZE> Mixdrop [ITA]" (se size disponibile) altrimenti "💾 Mixdrop [ITA]"
         let line1 = meta.file ? meta.file.trim() : 'File';
         if (!/\[ITA\]/i.test(line1)) line1 += ' [ITA]';
-        const line2 = meta.size ? `💾 ${meta.size} • Mixdrop • [ITA]` : '💾 Mixdrop • [ITA]';
+        const line2 = meta.size ? `💾 ${meta.size} • ${hostLabel} • [ITA]` : `💾 ${hostLabel} • [ITA]`;
         const title = `${line1}\n${line2}`;
-        log('stream ready', { title, mixdrop: dUrl.substring(0, 120), extractorUrl: extractorUrl.substring(0, 120) });
+        log('stream ready', { hostLabel, title, extractorUrl: extractorUrl.substring(0, 140) });
         return { title, url: extractorUrl, behaviorHints: { notWebReady: true } } as StreamForStremio;
     }
 
