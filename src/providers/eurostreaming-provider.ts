@@ -185,6 +185,23 @@ export class EurostreamingProvider {
             const passwordParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
             finalUrl = `${base}/proxy/stream?d=${encoded}${passwordParam}`;
           }
+        } else if (h.includes('maxstream') || h.includes('uprot') || /^Maxstream$/i.test(s.player || '')) {
+          playerName = 'Maxstream';
+          // Skip captcha-protected variants that MFP cannot bypass
+          if (/\/msei\//i.test(s.url) || /maxstream\.video\/uprots\//i.test(s.url)) {
+            console.log('[Eurostreaming] skip maxstream captcha url', s.url.substring(0, 120));
+            continue;
+          }
+          // Maxstream / uprot: instradiamo via MFP extractor m3u8 (host=maxstream lowercase)
+          if (this.config.mfpUrl) {
+            const base = this.config.mfpUrl.replace(/\/$/, '');
+            const passwordParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
+            const params = new URLSearchParams({ host: 'maxstream', d: s.url, redirect_stream: 'true' });
+            finalUrl = `${base}/extractor/video.m3u8?${params.toString()}${passwordParam}`;
+          } else {
+            // Senza MFP non possiamo risolvere uprot/captcha: scarta lo stream
+            continue;
+          }
         } else if (/deltabit|\/delta\//i.test(s.url)) {
           playerName = 'Deltabit';
         }
