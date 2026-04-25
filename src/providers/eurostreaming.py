@@ -584,8 +584,8 @@ async def scraping_links(atag, MFP, client):
     """Raccoglie TUTTI i link DeltaBit e MixDrop (entrambi).
 
     Return:
-        list[ (url, name, hostType) ]  hostType in {'deltabit','mixdrop'}.
-        Mantiene l'ordine: prima tutti i DeltaBit risolti nell'ordine trovato, poi i MixDrop.
+        list[ (url, name, hostType) ]  hostType in {'deltabit','mixdrop','maxstream'}.
+        Mantiene l'ordine: prima tutti i DeltaBit risolti nell'ordine trovato, poi i MixDrop, poi i Maxstream.
     """
     log('scraping_links: in', ('...' if len(atag)>120 else atag))
     soup = BeautifulSoup(atag, _PARSER, parse_only=SoupStrainer('a'))
@@ -594,6 +594,7 @@ async def scraping_links(atag, MFP, client):
     # Store tuples (href, anchor_text_original)
     delta_raw = []
     mix_raw = []
+    max_raw = []
     for a in soup:
         original_text = a.get_text(strip=True) or ''
         text = original_text.lower()
@@ -605,6 +606,8 @@ async def scraping_links(atag, MFP, client):
             delta_raw.append((href, original_text))
         elif 'mixdrop' in combo:
             mix_raw.append((href, original_text))
+        elif 'maxstream' in combo or 'uprot' in combo:
+            max_raw.append((href, original_text))
     results = []
     # DeltaBit first (collect all)
     seen = set()
@@ -638,6 +641,30 @@ async def scraping_links(atag, MFP, client):
                 results.append((url, name or anchor_text, 'mixdrop'))
         except Exception as e:
             log('scraping_links: mixdrop error', e)
+    # Maxstream / uprot (collect all distinct) — pass through resolved URL,
+    # downstream wrapper will route via MFP /extractor/video.m3u8?host=maxstream
+    seen_max = set()
+    for raw, anchor_text in max_raw:
+        if raw in seen_max:
+            continue
+        seen_max.add(raw)
+        try:
+            resolved = await resolve_clicka_to_host(raw, client)
+            if not resolved:
+                continue
+            url = str(resolved).strip()
+            # Skip captcha-protected variants: MFP cannot bypass them server-side.
+            #  - uprot.net/msei/<base64>      : visual captcha
+            #  - maxstream.video/uprots/<b64> : encrypted wrapper (Error 131)
+            if re.search(r'/msei/', url, re.I):
+                log('scraping_links: maxstream skipped (uprot /msei/ captcha)', url[:120])
+                continue
+            if re.search(r'maxstream\.video/uprots/', url, re.I):
+                log('scraping_links: maxstream skipped (maxstream /uprots/ captcha wrapper)', url[:120])
+                continue
+            results.append((url, anchor_text, 'maxstream'))
+        except Exception as e:
+            log('scraping_links: maxstream error', e)
     if results:
         log('scraping_links: collected hosts', len(results))
     else:
@@ -1354,7 +1381,7 @@ if __name__ == "__main__":
                     host_type = 'deltabit'
                     original_name = raw_name
                     # Recover host type if sentinel present
-                    m_ht = re.match(r'^__HT__(deltabit|mixdrop)__::(.*)$', raw_name, re.IGNORECASE)
+                    m_ht = re.match(r'^__HT__(deltabit|mixdrop|maxstream)__::(.*)$', raw_name, re.IGNORECASE)
                     if m_ht:
                         host_type = m_ht.group(1).lower()
                         original_name = m_ht.group(2)
@@ -1365,7 +1392,12 @@ if __name__ == "__main__":
                         if re.search(pat, low, re.I):
                             lang = 'sub'
                             break
-                    player_label = 'Deltabit' if host_type == 'deltabit' else 'Mixdrop'
+                    if host_type == 'deltabit':
+                        player_label = 'Deltabit'
+                    elif host_type == 'maxstream':
+                        player_label = 'Maxstream'
+                    else:
+                        player_label = 'Mixdrop'
                     streams.append({ 'url': u, 'title': (original_name or None), 'player': player_label, 'lang': lang, 'match_pct': match_pct })
             out = { 'streams': streams }
             # Attach diagnostics to aid Node integration debugging
