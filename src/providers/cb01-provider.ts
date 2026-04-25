@@ -40,12 +40,16 @@ const warn = (...a: unknown[]) => { try { console.warn('[CB01]', ...a); } catch 
 
 interface Cb01Config { enabled: boolean; mfpUrl?: string; mfpPassword?: string; tmdbApiKey?: string }
 
-// Cache stores ONLY original embed URLs and metadata, NOT proxy-wrapped streams
-interface EmbedCacheEntry {
-    ts: number;
+interface FlowResult {
     mixdropUrl: string;
     meta: { file: string | null; size: string | null };
     title: string;
+}
+
+// Cache stores ONLY original embed URLs and metadata, NOT proxy-wrapped streams
+interface EmbedCacheEntry {
+    ts: number;
+    results: FlowResult[];
 }
 
 export class Cb01Provider {
@@ -63,53 +67,43 @@ export class Cb01Provider {
         // ✅ MODIFICATO: Permetti l'esecuzione anche se la password è vuota, purché ci sia l'URL
         if (!this.config.mfpUrl) return { streams: [] };
         const key = `${imdbId}|${isMovie ? 'movie' : 'series'}|${season || ''}|${episode || ''}`;
+        const epParam = (!isMovie && season != null && episode != null) ? { season, episode } : undefined;
 
         // Check cache
         const c = this.cache.get(key);
         if (c && Date.now() - c.ts < this.TTL) {
-            log('cache hit', { key, mixdropUrl: c.mixdropUrl });
-            // Re-apply proxy with current config at request time
-            const stream = await this.wrapMediaFlow(c.mixdropUrl, '', undefined, c.meta);
-            if (stream) return { streams: [stream] };
+            log('cache hit', { key, count: c.results.length });
+            const streams: StreamForStremio[] = [];
+            for (const r of c.results) {
+                const s = await this.wrapMediaFlow(r.mixdropUrl, '', epParam, r.meta);
+                if (s) streams.push(s);
+            }
+            if (streams.length) return { streams };
             // If resolution fails, fall through to refresh
         }
 
         try {
+            let results: FlowResult[] | null = null;
             if (isMovie) {
                 log('movieFlow start', { imdbId });
-                const result = await this.movieFlow(imdbId);
-                log('movieFlow done', { imdbId, found: !!result });
-
-                if (result) {
-                    // Cache ONLY the embed URL and metadata
-                    this.cache.set(key, {
-                        ts: Date.now(),
-                        mixdropUrl: result.mixdropUrl,
-                        meta: result.meta,
-                        title: result.title
-                    });
-                    // Resolve for current request
-                    const stream = await this.wrapMediaFlow(result.mixdropUrl, '', undefined, result.meta);
-                    return { streams: stream ? [stream] : [] };
-                }
-                return { streams: [] };
+                results = await this.movieFlow(imdbId);
+                log('movieFlow done', { imdbId, count: results?.length || 0 });
             } else if (season != null && episode != null) {
                 log('seriesFlow start', { imdbId, season, episode });
-                const result = await this.seriesFlow(imdbId, season, episode);
-                log('seriesFlow done', { imdbId, season, episode, found: !!result });
-
-                if (result) {
-                    this.cache.set(key, {
-                        ts: Date.now(),
-                        mixdropUrl: result.mixdropUrl,
-                        meta: result.meta,
-                        title: result.title
-                    });
-                    const stream = await this.wrapMediaFlow(result.mixdropUrl, '', { season, episode }, result.meta);
-                    return { streams: stream ? [stream] : [] };
-                }
-                return { streams: [] };
+                results = await this.seriesFlow(imdbId, season, episode);
+                log('seriesFlow done', { imdbId, season, episode, count: results?.length || 0 });
             }
+
+            if (results && results.length) {
+                this.cache.set(key, { ts: Date.now(), results });
+                const streams: StreamForStremio[] = [];
+                for (const r of results) {
+                    const s = await this.wrapMediaFlow(r.mixdropUrl, '', epParam, r.meta);
+                    if (s) streams.push(s);
+                }
+                return { streams };
+            }
+            return { streams: [] };
         } catch (e) { warn('handleImdbRequest error', String((e as Error).message || e)); }
         return { streams: [] };
     }
@@ -278,7 +272,7 @@ export class Cb01Provider {
         return first;
     }
 
-    private async movieFlow(imdbId: string): Promise<{ mixdropUrl: string; meta: { file: string | null; size: string | null }; title: string } | null> {
+    private async movieFlow(imdbId: string): Promise<FlowResult[] | null> {
         await this.ensureDomain();
         const meta = await this.resolveTitleYear(imdbId, true); const title = meta.title; const year = meta.year; log('meta chosen', { imdbId, source: meta.source, title, year });
         const q = this.norm(title);
@@ -287,29 +281,29 @@ export class Cb01Provider {
         const movieHref = this.pickYearMatch(searchHtml, year);
         if (!movieHref) { log('movie no match', { imdbId, title }); return null; }
         let pageHtml: string; try { pageHtml = await this.fetch(movieHref, this.baseFilm + '/'); } catch (e) { warn('movie page fetch fail', movieHref, String(e)); return null; }
-        // Preferisce blocco Streaming HD
-        // Pattern semplificato: trova iframen2 (mixdrop) o iframen1 fallback
+        // Raccogli sia iframen2 (Streaming HD / Mixdrop) sia iframen1 (Maxstream) come
+        // candidati distinti, così l'utente vede entrambi i mirror se disponibili.
         const iframe2 = pageHtml.match(/<div[^>]+id="iframen2"[^>]*data-src="([^"]+)"/i);
         const iframe1 = pageHtml.match(/<div[^>]+id="iframen1"[^>]*data-src="([^"]+)"/i);
-        let candidate = iframe2 ? iframe2[1] : (iframe1 ? iframe1[1] : null);
-        if (!candidate) { log('movie no iframe found', { imdbId, movieHref }); return null; }
-        // Se è un link stayonline, preleva meta (filename + size) dalla pagina /l/<id>/
-        let stayMeta: { file: string | null; size: string | null } | null = null;
-        if (/stayonline\./i.test(candidate)) {
-            stayMeta = await this.fetchStayMeta(candidate);
-        }
-        const mixdrop = await this.resolveToMixdrop(candidate, pageHtml);
-        if (!mixdrop) { log('movie resolveToMixdrop failed', { imdbId, candidate }); return null; }
+        const candidates: string[] = [];
+        if (iframe2) candidates.push(iframe2[1]);
+        if (iframe1 && iframe1[1] !== iframe2?.[1]) candidates.push(iframe1[1]);
+        if (!candidates.length) { log('movie no iframe found', { imdbId, movieHref }); return null; }
 
-        // Return only the embed URL and metadata - NOT the proxy-wrapped stream
-        return {
-            mixdropUrl: mixdrop,
-            meta: stayMeta || { file: null, size: null },
-            title: title
-        };
+        const results: FlowResult[] = [];
+        for (const candidate of candidates) {
+            let stayMeta: { file: string | null; size: string | null } | null = null;
+            if (/stayonline\./i.test(candidate)) {
+                stayMeta = await this.fetchStayMeta(candidate);
+            }
+            const resolved = await this.resolveToMixdrop(candidate, pageHtml);
+            if (!resolved) { log('movie resolveToMixdrop failed', { imdbId, candidate }); continue; }
+            results.push({ mixdropUrl: resolved, meta: stayMeta || { file: null, size: null }, title });
+        }
+        return results.length ? results : null;
     }
 
-    private async seriesFlow(imdbId: string, season: number, episode: number): Promise<{ mixdropUrl: string; meta: { file: string | null; size: string | null }; title: string } | null> {
+    private async seriesFlow(imdbId: string, season: number, episode: number): Promise<FlowResult[] | null> {
         await this.ensureDomain();
         const meta = await this.resolveTitleYear(imdbId, false);
         const title = meta.title;
@@ -425,10 +419,10 @@ export class Cb01Provider {
         const ePad = epPad(episode);
         const sPad = epPad(season);
 
-        // Helper: given a row of HTML, collect all <a href="URL">TEXT</a> pairs,
-        // pick the one whose anchor TEXT says "mixdrop" (not "maxstream").
-        // All hrefs may be stayonline shortlinks — the anchor text tells which host they resolve to.
-        const pickPreferredLink = (rowHtml: string): string | null => {
+        // Helper: given a row of HTML, return up to one URL per host group
+        // (Mixdrop + Maxstream). All hrefs may be stayonline shortlinks —
+        // the anchor text tells which host they will resolve to.
+        const pickPreferredLinks = (rowHtml: string): string[] => {
             const anchorRe = /<a[^>]+href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/a>/gi;
             const anchors: { href: string; text: string }[] = [];
             let am: RegExpExecArray | null;
@@ -438,25 +432,27 @@ export class Cb01Provider {
                 if (href) anchors.push({ href, text });
             }
             if (!anchors.length) {
-                // Fallback: plain href extraction if no <a> tags matched
                 const hrefRe = /href=['"]([^'"]+)['"]/gi;
                 let hm: RegExpExecArray | null;
                 while ((hm = hrefRe.exec(rowHtml)) !== null) anchors.push({ href: hm[1], text: '' });
             }
-            if (!anchors.length) return null;
-            log('pickPreferredLink anchors', anchors.map(a => ({ href: a.href.slice(0, 60), text: a.text })));
-            // 1. Anchor text says "mixdrop" (regardless of href domain — could be stayonline shortlink)
-            const mixdropLabeled = anchors.find(a => /mixdrop/i.test(a.text));
-            if (mixdropLabeled) { log('pickPreferredLink mixdrop-labeled', { href: mixdropLabeled.href }); return mixdropLabeled.href; }
-            // 2. Direct mixdrop URL in href
-            const directMixdrop = anchors.find(a => /mixdrop\./i.test(a.href));
-            if (directMixdrop) { log('pickPreferredLink direct mixdrop href', { href: directMixdrop.href }); return directMixdrop.href; }
-            // 3. Any anchor whose text does NOT say "maxstream"
-            const notMaxText = anchors.find(a => !/maxstream/i.test(a.text) && !/maxstream\./i.test(a.href));
-            if (notMaxText) { log('pickPreferredLink non-maxstream fallback', { href: notMaxText.href, text: notMaxText.text }); return notMaxText.href; }
-            // 4. Last resort (only maxstream available)
-            log('pickPreferredLink only maxstream available', { href: anchors[0].href });
-            return anchors[0].href;
+            if (!anchors.length) return [];
+            log('pickPreferredLinks anchors', anchors.map(a => ({ href: a.href.slice(0, 60), text: a.text })));
+            const out: string[] = [];
+            const seen = new Set<string>();
+            const push = (h: string) => { if (h && !seen.has(h)) { seen.add(h); out.push(h); } };
+            // Mixdrop: label first, then direct host
+            const mixdrop = anchors.find(a => /mixdrop/i.test(a.text)) || anchors.find(a => /mixdrop\./i.test(a.href));
+            if (mixdrop) { log('pickPreferredLinks mixdrop', { href: mixdrop.href, text: mixdrop.text }); push(mixdrop.href); }
+            // Maxstream / uprot: label first, then direct host
+            const maxstream = anchors.find(a => /maxstream/i.test(a.text) || /maxstream\./i.test(a.href) || /uprot\.net/i.test(a.href));
+            if (maxstream) { log('pickPreferredLinks maxstream', { href: maxstream.href, text: maxstream.text }); push(maxstream.href); }
+            // Generic fallback if neither host group matched
+            if (!out.length) {
+                log('pickPreferredLinks generic fallback', { href: anchors[0].href });
+                push(anchors[0].href);
+            }
+            return out;
         };
 
         // Extract the HTML row for the requested episode (from marker to next episode marker, max 800 chars)
@@ -468,34 +464,45 @@ export class Cb01Provider {
             return nextEpIdx > 0 ? after.slice(0, nextEpIdx + 10) : after.slice(0, 800);
         };
 
-        let candidate: string | null = null;
+        let candidates: string[] = [];
 
         // Pattern 1 (primary): {season}&#215;{episode} &#8211;
         const row2 = extractEpRow(segment, new RegExp(`${season}&#215;${ePad}\\s*&#8211;`, 'i'));
-        if (row2) candidate = pickPreferredLink(row2);
+        if (row2) candidates = pickPreferredLinks(row2);
 
         // Pattern 2: SXXEXX or XXxXX or SXXxXX
-        if (!candidate) {
+        if (!candidates.length) {
             const row1 = extractEpRow(segment, new RegExp(`S${sPad}E${ePad}|${season}x${ePad}|${sPad}x${ePad}`, 'i'));
-            if (row1) candidate = pickPreferredLink(row1);
+            if (row1) candidates = pickPreferredLinks(row1);
         }
 
-        if (!candidate) { log('series episode link not found', { imdbId, season, episode }); return null; }
-        log('series episode candidate', { candidate });
-
-        let stayMeta: { file: string | null; size: string | null } | null = null;
-        if (/stayonline\./i.test(candidate)) {
-            stayMeta = await this.fetchStayMeta(candidate);
+        // Fallback "TUTTA LA SERIE": scan whole page for uprot/maxstream msfld
+        // folder URLs. wrapMediaFlow forwards season+episode to MFP
+        // /extractor/video?host=Maxstream so the upstream resolver can pick the
+        // right /msfi/ inside the folder (requires the MFP folder-support patch).
+        if (!candidates.length) {
+            const msfldRe = /https?:\/\/(?:[^\/\s"'<>]+\.)?(?:uprot\.net|maxstream\.video)\/msfld\/[A-Za-z0-9]+\/?/gi;
+            const matches = Array.from(new Set(pageHtml.match(msfldRe) || []));
+            if (matches.length) {
+                log('series msfld fallback found', { imdbId, season, episode, urls: matches });
+                candidates = matches;
+            }
         }
 
-        const mixdrop = await this.resolveToMixdrop(candidate, pageHtml);
-        if (!mixdrop) { log('series resolveToMixdrop failed', { imdbId, candidate }); return null; }
+        if (!candidates.length) { log('series episode link not found', { imdbId, season, episode }); return null; }
+        log('series episode candidates', { candidates });
 
-        return {
-            mixdropUrl: mixdrop,
-            meta: stayMeta || { file: null, size: null },
-            title: title
-        };
+        const results: FlowResult[] = [];
+        for (const candidate of candidates) {
+            let stayMeta: { file: string | null; size: string | null } | null = null;
+            if (/stayonline\./i.test(candidate)) {
+                stayMeta = await this.fetchStayMeta(candidate);
+            }
+            const resolved = await this.resolveToMixdrop(candidate, pageHtml);
+            if (!resolved) { log('series resolveToMixdrop failed', { imdbId, candidate }); continue; }
+            results.push({ mixdropUrl: resolved, meta: stayMeta || { file: null, size: null }, title });
+        }
+        return results.length ? results : null;
     }
 
     private async resolveToMixdrop(raw: string, pageHtml: string): Promise<string | null> {
@@ -581,36 +588,69 @@ export class Cb01Provider {
         return url.endsWith('/') ? url : url + '/';
     }
 
-    private async wrapMediaFlow(mixdropEmbed: string, pageHtml: string, ep?: { season: number; episode: number }, metaOverride?: { file: string | null; size: string | null }): Promise<StreamForStremio | null> {
+    private async wrapMediaFlow(embedUrl: string, pageHtml: string, ep?: { season: number; episode: number }, metaOverride?: { file: string | null; size: string | null }): Promise<StreamForStremio | null> {
         const { mfpUrl, mfpPassword } = this.config; if (!mfpUrl) return null;
         // Normalizza base URL mediaflow evitando doppio slash
         const mfpBase = mfpUrl.replace(/\/+$/, '');
-        const originalEmbed = mixdropEmbed.trim();
-        // Costruisci forma corta: https://dominio/e/<id>/ mantenendo dominio originale, eliminando qualunque segmento extra (/2/filename.mp4)
-        let dUrl = originalEmbed;
-        const idMatch = originalEmbed.match(/^(https?:\/\/[^/]+)\/e\/([A-Za-z0-9]+)/);
-        if (idMatch) {
-            dUrl = `${idMatch[1]}/e/${idMatch[2]}/`;
-            if (dUrl !== originalEmbed) log('mixdrop canonical chosen', { original: originalEmbed, canonical: dUrl });
-        } else {
-            log('mixdrop embed no id pattern, using original', { original: originalEmbed });
-        }
-        const encodedD = encodeURIComponent(dUrl);
-        // Costruisci l'URL proxy stream
-        // api_password viene aggiunto solo se presente
+        const originalEmbed = embedUrl.trim();
+
+        // Detect MaxStream / Uprot URLs and route them through the MFP
+        // Maxstream extractor (which handles uprot captcha + msfld folder
+        // resolution server-side). Mixdrop / generic embeds keep using the
+        // legacy /proxy/stream auto-detect path.
+        const isMaxstream = /(?:^|\/\/)(?:[^/]*\.)?(?:uprot\.net|maxstream\.video)/i.test(originalEmbed);
+
         const passwordParam = mfpPassword ? `&api_password=${encodeURIComponent(mfpPassword)}` : '';
-        const extractorUrl = `${mfpBase}/proxy/stream?d=${encodedD}${passwordParam}`;
-        log('extractor url built (redirect_stream=true)', { dUrl, extractorUrl });
+        let extractorUrl: string;
+        let hostLabel: string;
+
+        if (isMaxstream) {
+            // uprot.net/msei/<base64> URLs are protected by a visual captcha
+            // (no redirect, no JS bypass, no IP whitelist). Standard MFP
+            // Maxstream extractors cannot resolve them server-side, so we
+            // suppress the stream rather than expose a broken link.
+            // /msf/ and /msfld/ paths are captcha-less and work fine.
+            if (/\/msei\//i.test(originalEmbed)) {
+                log('maxstream skipped (uprot /msei/ requires captcha solver)', { embed: originalEmbed.substring(0, 120) });
+                return null;
+            }
+            // Build the Maxstream extractor URL. Match the format of the
+            // known-working endpoint:
+            //   /extractor/video.m3u8?host=maxstream&d=<uprot>&redirect_stream=true
+            // (lowercase host, .m3u8 suffix). For /msfld/ folders also pass
+            // season+episode so the upstream extractor can pick the right
+            // /msfi/ (requires the realbestia1/EasyProxy folder-support
+            // patch — falls back gracefully on older MFP versions).
+            const params = new URLSearchParams({ host: 'maxstream', d: originalEmbed, redirect_stream: 'true' });
+            if (ep && /\/msfld\//i.test(originalEmbed)) {
+                params.set('season', String(ep.season));
+                params.set('episode', String(ep.episode));
+            }
+            extractorUrl = `${mfpBase}/extractor/video.m3u8?${params.toString()}${passwordParam}`;
+            hostLabel = 'Maxstream';
+            log('maxstream extractor url built', { embed: originalEmbed.substring(0, 120), extractorUrl: extractorUrl.substring(0, 140) });
+        } else {
+            // Mixdrop / generic: canonical /e/{id}/ then proxy/stream auto-extract
+            let dUrl = originalEmbed;
+            const idMatch = originalEmbed.match(/^(https?:\/\/[^/]+)\/e\/([A-Za-z0-9]+)/);
+            if (idMatch) {
+                dUrl = `${idMatch[1]}/e/${idMatch[2]}/`;
+                if (dUrl !== originalEmbed) log('mixdrop canonical chosen', { original: originalEmbed, canonical: dUrl });
+            } else {
+                log('mixdrop embed no id pattern, using original', { original: originalEmbed });
+            }
+            const encodedD = encodeURIComponent(dUrl);
+            extractorUrl = `${mfpBase}/proxy/stream?d=${encodedD}${passwordParam}`;
+            hostLabel = 'Mixdrop';
+            log('mixdrop extractor url built', { dUrl, extractorUrl });
+        }
 
         const meta = metaOverride || this.extractStayonlineMeta(pageHtml) || { file: null, size: undefined };
-        // Nuovo formato richiesto:
-        // Linea 1: Nome completo file (con estensione) + [ITA]
-        // Linea 2: "💾 <SIZE> Mixdrop [ITA]" (se size disponibile) altrimenti "💾 Mixdrop [ITA]"
         let line1 = meta.file ? meta.file.trim() : 'File';
         if (!/\[ITA\]/i.test(line1)) line1 += ' [ITA]';
-        const line2 = meta.size ? `💾 ${meta.size} • Mixdrop • [ITA]` : '💾 Mixdrop • [ITA]';
+        const line2 = meta.size ? `💾 ${meta.size} • ${hostLabel} • [ITA]` : `💾 ${hostLabel} • [ITA]`;
         const title = `${line1}\n${line2}`;
-        log('stream ready', { title, mixdrop: dUrl.substring(0, 120), extractorUrl: extractorUrl.substring(0, 120) });
+        log('stream ready', { hostLabel, title, extractorUrl: extractorUrl.substring(0, 140) });
         return { title, url: extractorUrl, behaviorHints: { notWebReady: true } } as StreamForStremio;
     }
 
@@ -641,3 +681,4 @@ export class Cb01Provider {
         } catch (e) { warn('stayMeta error', String(e)); return null; }
     }
 }
+
