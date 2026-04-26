@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.52](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.51...v1.17.52) (2026-04-26)
+
+
+### Bug Fixes
+
+* extractor.ts ([71efe31](https://github.com/qwertyuiop8899/streamvix/commit/71efe31d0744222d884f3ac3d3cbb8f481a4115a))
+
 ## [1.17.51](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.50...v1.17.51) (2026-04-25)
 
 
