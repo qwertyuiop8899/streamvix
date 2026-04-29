@@ -58,6 +58,7 @@ import { getDvrStreamsForChannel, getDvrConfig, buildDvrRecordEntry } from './ut
 const DISABLE_LIVE_EVENTS = process.env.DISABLE_LIVE_EVENTS === 'true';
 const IS_MH_DISABLED = (() => { try { const v = (process.env.DISABLE_MH || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
 const IS_SS_DISABLED = (() => { try { const v = (process.env.DISABLE_SPS || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
+const IS_SUB_DISABLED = (() => { try { const v = (process.env.DISABLE_SUB || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
 interface AddonConfig {
     tmdbApiKey?: string;
     mediaFlowProxyUrl?: string;
@@ -3183,6 +3184,22 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 console.log(`🔧 [MFP] User config: url=${mfpUrl || '(none)'} pass=${mfpPsw ? 'SET' : '(none)'} backend=${useMediaFlow ? 'MediaFlow' : 'EasyProxy'}`);
 
                 const allStreams: Stream[] = [];
+                const filterDisabledStreams = (streams: Stream[]): Stream[] => {
+                    if (!streams.length) return streams;
+
+                    let filtered = streams;
+                    if (IS_SUB_DISABLED) {
+                        filtered = filtered.filter(stream => {
+                            const title = String(stream.title || '');
+                            const name = String(stream.name || '');
+                            const bingeGroup = String(stream.behaviorHints?.bingeGroup || '');
+                            return !/(^|\n)\s*🗣\s*\[SUB\]/i.test(title)
+                                && !/\[SUB(?:\s*ITA)?\]/i.test(`${title}\n${name}`)
+                                && !/(^|-)sub($|-)/i.test(bingeGroup);
+                        });
+                    }
+                    return filtered;
+                };
 
                 // === DVR STREAM HANDLER ===
                 // Handle DVR recording playback (IDs starting with dvr:)
@@ -6945,8 +6962,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                 }
 
-                console.log(`✅ Total streams returned: ${allStreams.length}`);
-                return { streams: allStreams };
+                const result = { streams: filterDisabledStreams(allStreams) };
+                console.log(`✅ Total streams returned: ${result.streams.length}`);
+                return result;
             } catch (error) {
                 console.error('Stream extraction failed:', error);
                 return { streams: [] };
