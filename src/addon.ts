@@ -58,7 +58,6 @@ import { getDvrStreamsForChannel, getDvrConfig, buildDvrRecordEntry } from './ut
 const DISABLE_LIVE_EVENTS = process.env.DISABLE_LIVE_EVENTS === 'true';
 const IS_MH_DISABLED = (() => { try { const v = (process.env.DISABLE_MH || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
 const IS_SS_DISABLED = (() => { try { const v = (process.env.DISABLE_SPS || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
-const IS_SUB_DISABLED = (() => { try { const v = (process.env.DISABLE_SUB || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
 interface AddonConfig {
     tmdbApiKey?: string;
     mediaFlowProxyUrl?: string;
@@ -77,6 +76,7 @@ interface AddonConfig {
     loonexEnabled?: boolean;
     toonitaliaEnabled?: boolean;
     disableLiveTv?: boolean;
+    disableSub?: boolean;
     trailerEnabled?: boolean;
     disableVixsrc?: boolean;
     tvtapProxyEnabled?: boolean;
@@ -884,6 +884,7 @@ const baseManifest: Manifest = {
         { key: "vixDirectFhd", title: "SC: Synthetic FHD (solo installazione locale)", type: "checkbox" },
         { key: "vixProxy", title: "SC: Proxy (richiede Proxy, consigliato)", type: "checkbox" },
         { key: "disableLiveTv", title: "Live TV 📺 [Molti canali hanno bisogno di MFP]", type: "checkbox" },
+        { key: "disableSub", title: "Nascondi varianti SUB", type: "checkbox", default: false },
         { key: "trailerEnabled", title: "🎬▶️ Trailer", type: "checkbox", default: "checked" },
         { key: "animeunityEnabled", title: "Enable AnimeUnity", type: "checkbox" },
         { key: "animeunityDirect", title: "AnimeUnity Direct (solo installazione locale)", type: "checkbox" },
@@ -3184,11 +3185,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 console.log(`🔧 [MFP] User config: url=${mfpUrl || '(none)'} pass=${mfpPsw ? 'SET' : '(none)'} backend=${useMediaFlow ? 'MediaFlow' : 'EasyProxy'}`);
 
                 const allStreams: Stream[] = [];
+                const disableSubStreams = config.disableSub === true || config.disableSub === 'true' || config.disableSub === 'on' || config.disableSub === 1 || config.disableSub === '1';
                 const filterDisabledStreams = (streams: Stream[]): Stream[] => {
                     if (!streams.length) return streams;
 
                     let filtered = streams;
-                    if (IS_SUB_DISABLED) {
+                    if (disableSubStreams) {
                         filtered = filtered.filter(stream => {
                             const title = String(stream.title || '');
                             const name = String(stream.name || '');
@@ -6132,7 +6134,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const cfg = config as any;
                     // Check if user has explicitly set any provider or flag
                     const providerKeys = [
-                        'trailerEnabled', 'disableVixsrc', 'vixDirect', 'vixDirectFhd', 'vixProxy',
+                        'trailerEnabled', 'disableSub', 'disableVixsrc', 'vixDirect', 'vixDirectFhd', 'vixProxy',
                         'guardahdEnabled', 'guardaserieEnabled', 'guardoserieEnabled', 'guardaflixEnabled',
                         'eurostreamingEnabled', 'loonexEnabled', 'toonitaliaEnabled', 'cb01Enabled',
                         'animesaturnEnabled', 'animeworldEnabled', 'animeunityEnabled'
