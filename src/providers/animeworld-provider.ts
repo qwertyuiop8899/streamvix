@@ -21,6 +21,85 @@ const englishTitleCache = new Map<string, string>();
 const AW_FETCH_TIMEOUT = Number.parseInt(process.env.ANIMEWORLD_FETCH_TIMEOUT_MS || '10000', 10) || 10000;
 const awCaches = createCaches();
 
+// ─── Cloudflare/SecurityAW2 challenge bypass ───────────────
+// AnimeWorld serves a tiny HTML stub (HTTP 202) on the first hit to any page,
+// containing:
+//   <script>document.cookie="SecurityAW2-os=<hash>; path=/";
+//           location.href="http://www.animeworld.ac/<same>?d=1";</script>
+// The cookie value is stable per IP, so we extract it once and replay every
+// subsequent request with the cookie + ?d=1 to obtain the real page.
+let awSecurityCookie: string | null = null;
+
+const AW_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
+
+function extractSecurityCookieFromHtml(html: string): string | null {
+  const m = /SecurityAW2-os=([a-f0-9]+)/i.exec(String(html || ''));
+  return m && m[1] ? `SecurityAW2-os=${m[1]}` : null;
+}
+
+function looksLikeAwChallenge(html: string): boolean {
+  const s = String(html || '');
+  if (s.length > 4000) return false;
+  return /SecurityAW2-os=/.test(s) || /__CF\$cv\$params/.test(s);
+}
+
+function appendDParam(url: string): string {
+  try {
+    const u = new URL(url);
+    if (!u.searchParams.has('d')) u.searchParams.set('d', '1');
+    return u.toString();
+  } catch {
+    return url + (url.includes('?') ? '&' : '?') + 'd=1';
+  }
+}
+
+function mergeCookies(...parts: Array<string | null | undefined>): string {
+  return parts.filter(Boolean).join('; ');
+}
+
+/**
+ * Cached, challenge-aware HTML fetch for AnimeWorld.
+ * Returns the real page HTML, transparently solving the SecurityAW2 stub.
+ */
+async function awFetchHtml(
+  url: string,
+  opts: { ttlMs?: number; cacheKey?: string; extraCookie?: string | null; extraHeaders?: Record<string, string> } = {}
+): Promise<string> {
+  const { ttlMs = 0, cacheKey, extraCookie, extraHeaders } = opts;
+
+  const buildHeaders = (): Record<string, string> => {
+    const h: Record<string, string> = { ...(extraHeaders || {}) };
+    const cookie = mergeCookies(awSecurityCookie, extraCookie);
+    if (cookie) h.cookie = cookie;
+    return h;
+  };
+
+  const targetUrl = awSecurityCookie ? appendDParam(url) : url;
+  let html = await fetchResource(targetUrl, awCaches, {
+    ttlMs,
+    cacheKey: cacheKey ? `${cacheKey}:d=${awSecurityCookie ? 1 : 0}` : undefined,
+    timeoutMs: AW_FETCH_TIMEOUT,
+    headers: buildHeaders(),
+  });
+
+  if (looksLikeAwChallenge(html)) {
+    const extracted = extractSecurityCookieFromHtml(html);
+    if (extracted) {
+      awSecurityCookie = extracted;
+      console.log('[AnimeWorld][Challenge] captured SecurityAW2 cookie, replaying with d=1');
+      html = await fetchResource(appendDParam(url), awCaches, {
+        ttlMs,
+        cacheKey: cacheKey ? `${cacheKey}:d=1:retry` : undefined,
+        timeoutMs: AW_FETCH_TIMEOUT,
+        headers: buildHeaders(),
+      });
+    } else {
+      console.warn('[AnimeWorld][Challenge] stub detected but no cookie extracted for', url);
+    }
+  }
+  return String(html || '');
+}
+
 // ─── Page Context helpers (ported from easystreams) ─────────
 interface AwPageContext {
   html: string;
@@ -44,23 +123,40 @@ async function fetchAnimePageContext(animeUrl: string, cacheKeySuffix: string): 
   const cached = awCaches.http.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.value as AwPageContext;
 
-  const response = await fetch(animeUrl, {
-    method: 'GET',
-    headers: {
-      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+  const doFetch = async (url: string, cookieHeader: string | null) => {
+    const headers: Record<string, string> = {
+      'user-agent': AW_USER_AGENT,
       'accept-language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
-    },
-    redirect: 'follow',
-    signal: AbortSignal.timeout(AW_FETCH_TIMEOUT),
-  } as any);
+    };
+    if (cookieHeader) headers['cookie'] = cookieHeader;
+    return fetch(url, {
+      method: 'GET',
+      headers,
+      redirect: 'follow',
+      signal: AbortSignal.timeout(AW_FETCH_TIMEOUT),
+    } as any);
+  };
+
+  let response = await doFetch(awSecurityCookie ? appendDParam(animeUrl) : animeUrl, awSecurityCookie);
+  let html = response.ok ? await response.text() : '';
+  let setCookie = response.headers.get('set-cookie') || '';
+
+  if (response.ok && looksLikeAwChallenge(html)) {
+    const extracted = extractSecurityCookieFromHtml(html);
+    if (extracted) {
+      awSecurityCookie = extracted;
+      console.log('[AnimeWorld][Challenge][PageCtx] captured SecurityAW2, replaying with d=1');
+      response = await doFetch(appendDParam(animeUrl), awSecurityCookie);
+      html = response.ok ? await response.text() : '';
+      setCookie = response.headers.get('set-cookie') || '';
+    }
+  }
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} ${response.statusText} for ${animeUrl}`);
   }
 
-  const html = await response.text();
-  const rawSetCookie = response.headers.get('set-cookie') || '';
-  const sessionCookie = extractSessionCookie(rawSetCookie);
+  const sessionCookie = extractSessionCookie(setCookie);
   const csrfToken = extractCsrfTokenFromHtml(html);
 
   const ctx: AwPageContext = { html, sessionCookie, csrfToken };
@@ -70,9 +166,18 @@ async function fetchAnimePageContext(animeUrl: string, cacheKeySuffix: string): 
 
 function getWorldBaseUrl(): string {
   const configured = getProviderUrl('animeworld', ['ANIMEWORLD_BASE_URL', 'AW_BASE_URL']);
-  if (configured) return configured.replace(/\/+$/, '');
-  const host = getDomain('animeworld') || 'animeworld.ac';
-  return `https://www.${host}`;
+  let raw = configured || `https://${getDomain('animeworld') || 'animeworld.ac'}`;
+  raw = raw.replace(/\/+$/, '');
+  // Ensure the www. subdomain: the apex animeworld.ac issues a different
+  // SecurityAW2 cookie that does NOT unlock /play/ pages, so we always force
+  // www. regardless of what provider_urls.json / domains.json contain.
+  try {
+    const u = new URL(raw);
+    if (!/^www\./i.test(u.hostname)) u.hostname = `www.${u.hostname}`;
+    return u.origin;
+  } catch {
+    return raw;
+  }
 }
 
 function normalizeAnimeWorldPath(pathOrUrl: string | null | undefined): string | null {
@@ -213,7 +318,7 @@ async function awSearch(query: string, date?: string): Promise<AnimeWorldResult[
   for (const url of urls) {
     let html = '';
     try {
-      html = await fetchResource(url, awCaches, { ttlMs: 2 * 60 * 1000, cacheKey: `aw-search:${url}`, timeoutMs: AW_FETCH_TIMEOUT });
+      html = await awFetchHtml(url, { ttlMs: 2 * 60 * 1000, cacheKey: `aw-search:${url}` });
     } catch {
       continue;
     }
@@ -239,7 +344,7 @@ async function awGetEpisodes(slug: string): Promise<AnimeWorldEpisode[]> {
   const animeUrl = `${getWorldBaseUrl()}/play/${slug}`;
   let html = '';
   try {
-    html = await fetchResource(animeUrl, awCaches, { ttlMs: 5 * 60 * 1000, cacheKey: `aw-play:${slug}`, timeoutMs: AW_FETCH_TIMEOUT });
+    html = await awFetchHtml(animeUrl, { ttlMs: 5 * 60 * 1000, cacheKey: `aw-play:${slug}` });
   } catch {
     return [];
   }
@@ -257,65 +362,75 @@ async function awGetEpisodes(slug: string): Promise<AnimeWorldEpisode[]> {
   return episodes;
 }
 
-async function awGetStream(slug: string, episode?: number): Promise<{ mp4_url: string | null }> {
-  const animeUrl = `${getWorldBaseUrl()}/play/${slug}`;
-  let pageContext: AwPageContext;
-  try {
-    pageContext = await fetchAnimePageContext(animeUrl, slug);
-  } catch (err: any) {
-    console.error('[AnimeWorld][awGetStream] page fetch failed for', slug, err?.message);
-    return { mp4_url: null };
+/**
+ * Parse <a data-episode-num="N" data-id="..." href="/play/<slug>/<urlToken>"> entries
+ * from a play page HTML. Returns the urlToken (last path segment of the href)
+ * for the requested episode number; this is what is needed to fetch the episode
+ * page that contains the actual mp4 URL.
+ */
+function findEpisodeUrlTokenInHtml(html: string, episodeNumber: number | null | undefined): string | null {
+  const raw = String(html || '');
+  const anchorRegex = /<a\b[^>]*\bdata-episode-num=(?:"[^"]*"|'[^']*')[^>]*\bhref=(?:"([^"]*)"|'([^']*)')[^>]*>|<a\b[^>]*\bhref=(?:"([^"]*)"|'([^']*)')[^>]*\bdata-episode-num=(?:"[^"]*"|'[^']*')[^>]*>/gi;
+  const tags = raw.match(anchorRegex) || [];
+  let firstToken: string | null = null;
+  for (let i = 0; i < tags.length; i += 1) {
+    const attrs = parseTagAttributes(tags[i]);
+    const href = String(attrs['href'] || '').trim();
+    if (!href) continue;
+    const m = href.match(/\/play\/[^/?#]+\/([^/?#]+)/);
+    if (!m) continue;
+    const token = m[1];
+    if (!firstToken) firstToken = token;
+    const num = parseAwEpisodeNumber(attrs['data-episode-num'], i + 1);
+    if (episodeNumber == null) return token;
+    if (Number(num) === Number(episodeNumber)) return token;
   }
-
-  const { html, csrfToken, sessionCookie } = pageContext;
-  const episodes = await awGetEpisodes(slug);
-  const selected = episode != null ? episodes.find((entry) => Number(entry.number) === Number(episode)) : episodes[0];
-  const token = String((selected as any)?.id || '').trim();
-  if (!token) {
-    console.log('[AnimeWorld][awGetStream] no episode token found for', slug, 'ep=', episode, 'episodes found:', episodes.length);
-    return { mp4_url: null };
-  }
-
-  let info: any = null;
-  try {
-    const extraHeaders: Record<string, string> = {
-      referer: animeUrl,
-      'x-requested-with': 'XMLHttpRequest',
-    };
-    if (csrfToken) extraHeaders['csrf-token'] = csrfToken;
-    if (sessionCookie) extraHeaders['cookie'] = sessionCookie;
-
-    info = await fetchResource(`${getWorldBaseUrl()}/api/episode/info?id=${encodeURIComponent(token)}`, awCaches, {
-      as: 'json',
-      ttlMs: 2 * 60 * 1000,
-      cacheKey: `aw-info:${slug}:${token}:${csrfToken ? 'csrf' : 'nocsrf'}`,
-      timeoutMs: AW_FETCH_TIMEOUT,
-      headers: extraHeaders,
-    });
-  } catch (err: any) {
-    console.error('[AnimeWorld][awGetStream] info API failed for', slug, 'token=', token, err?.message);
-    return { mp4_url: null };
-  }
-
-  const direct = collectGrabberCandidates(info);
-  let first = direct.map((entry) => normalizePlayableMediaUrl(entry)).filter(Boolean)[0] || null;
-  if (first) return { mp4_url: first };
-
-  const target = info?.target;
-  if (typeof target === 'string' && target.trim()) {
-    try {
-      const targetHtml = await fetchResource(String(target), awCaches, {
-        ttlMs: 2 * 60 * 1000,
-        cacheKey: `aw-target:${target}`,
-        timeoutMs: AW_FETCH_TIMEOUT,
-      });
-      first = collectMediaLinksFromHtml(String(targetHtml || ''))[0] || null;
-    } catch {
-      first = null;
-    }
-  }
-  return { mp4_url: first };
+  return episodeNumber == null ? firstToken : null;
 }
+
+/**
+ * Fetch the episode page HTML and extract the first playable mp4/m3u8 URL.
+ * Bypasses the broken /api/episode/info endpoint (returns 401 with current
+ * AnimeWorld setup) by using the same direct-link approach the page itself
+ * exposes for the download button.
+ */
+async function awExtractEpisodeStreamFromPlayPage(slug: string, episodeNumber: number | null | undefined): Promise<string | null> {
+  const animeUrl = `${getWorldBaseUrl()}/play/${slug}`;
+  let playHtml = '';
+  try {
+    playHtml = await awFetchHtml(animeUrl, { ttlMs: 5 * 60 * 1000, cacheKey: `aw-play:${slug}` });
+  } catch (err: any) {
+    console.error('[AnimeWorld][Stream] play page fetch failed for', slug, err?.message);
+    return null;
+  }
+  const urlToken = findEpisodeUrlTokenInHtml(playHtml, episodeNumber == null ? null : Number(episodeNumber));
+  if (!urlToken) {
+    console.log('[AnimeWorld][Stream] no urlToken found for', slug, 'ep=', episodeNumber);
+    return null;
+  }
+  const epUrl = `${getWorldBaseUrl()}/play/${slug}/${urlToken}`;
+  let epHtml = '';
+  try {
+    epHtml = await awFetchHtml(epUrl, { ttlMs: 2 * 60 * 1000, cacheKey: `aw-ep:${slug}:${urlToken}` });
+  } catch (err: any) {
+    console.error('[AnimeWorld][Stream] episode page fetch failed for', slug, urlToken, err?.message);
+    return null;
+  }
+  const mp4 = collectMediaLinksFromHtml(epHtml)[0] || null;
+  if (!mp4) {
+    console.log('[AnimeWorld][Stream] no mp4 link in episode page for', slug, urlToken);
+  }
+  return mp4;
+}
+
+async function awGetStream(slug: string, episode?: number): Promise<{ mp4_url: string | null }> {
+  const mp4 = await awExtractEpisodeStreamFromPlayPage(slug, episode == null ? null : Number(episode));
+  return { mp4_url: mp4 };
+}
+
+// kept around in case some legacy code path still references collectGrabberCandidates;
+// no-op consumer to avoid "unused" tree-shaking surprises during refactors.
+void collectGrabberCandidates;
 
 async function invokePython(args: string[], _timeoutOverrideMs?: number): Promise<any> {
   const cmd = String(args?.[0] || '');
@@ -779,92 +894,23 @@ export class AnimeWorldProvider {
 
     console.log('[AnimeWorld][Mapping] extracting streams from path:', animePath, 'slug:', slug, 'ep:', requestedEpisode);
 
-    // Use fetchAnimePageContext to get HTML + session cookies (like easystreams)
-    const animeUrl = `${getWorldBaseUrl()}/play/${slug}`;
-    let pageContext: AwPageContext;
-    try {
-      pageContext = await fetchAnimePageContext(animeUrl, slug);
-    } catch (err: any) {
-      console.error('[AnimeWorld][Mapping] page fetch failed for', slug, err?.message);
-      return [];
-    }
-
-    // Parse episodes from page HTML (same regex as awGetEpisodes)
-    const raw = String(pageContext.html || '');
-    const episodesFromPage: AnimeWorldEpisode[] = [];
-    const anchorRegex = /<a\b[^>]*(?:data-episode-num=(?:"[^"]*"|'[^']*'))[^>]*(?:data-id=(?:"[^"]*"|'[^']*'))[^>]*>|<a\b[^>]*(?:data-id=(?:"[^"]*"|'[^']*'))[^>]*(?:data-episode-num=(?:"[^"]*"|'[^']*'))[^>]*>/gi;
-    const tags = raw.match(anchorRegex) || [];
-    for (let index = 0; index < tags.length; index += 1) {
-      const attrs = parseTagAttributes(tags[index]);
-      const token = String(attrs['data-id'] || '').trim();
-      if (!token) continue;
-      const num = parseAwEpisodeNumber(attrs['data-episode-num'], index + 1);
-      episodesFromPage.push({ id: token, number: num, name: attrs['data-comment'] || undefined });
-    }
-
-    console.log('[AnimeWorld][Mapping] episodes found on page:', episodesFromPage.length, 'for slug:', slug);
-    if (!episodesFromPage.length) return [];
-
-    let target: AnimeWorldEpisode | undefined;
-    if (isMovie) target = episodesFromPage[0];
-    else target = episodesFromPage.find((entry) => Number(entry.number) === Number(requestedEpisode)) || episodesFromPage[0];
-    if (!target) return [];
-
-    // Fetch episode info WITH session cookie + csrf (like easystreams fetchEpisodeInfo)
-    const token = String(target.id || '').trim();
-    if (!token) return [];
-
-    const extraHeaders: Record<string, string> = {
-      referer: animeUrl,
-      'x-requested-with': 'XMLHttpRequest',
-    };
-    if (pageContext.csrfToken) extraHeaders['csrf-token'] = pageContext.csrfToken;
-    if (pageContext.sessionCookie) extraHeaders['cookie'] = pageContext.sessionCookie;
-
-    let info: any = null;
-    try {
-      info = await fetchResource(`${getWorldBaseUrl()}/api/episode/info?id=${encodeURIComponent(token)}`, awCaches, {
-        as: 'json',
-        ttlMs: 2 * 60 * 1000,
-        cacheKey: `aw-info:${slug}:${token}:${pageContext.csrfToken ? 'csrf' : 'nocsrf'}`,
-        timeoutMs: AW_FETCH_TIMEOUT,
-        headers: extraHeaders,
-      });
-    } catch (err: any) {
-      console.error('[AnimeWorld][Mapping] info API failed for', slug, 'token=', token, err?.message);
-      return [];
-    }
-
-    // Extract grabber candidates (mp4/m3u8 URLs)
-    const direct = collectGrabberCandidates(info);
-    let mp4 = direct.map((entry) => normalizePlayableMediaUrl(entry)).filter(Boolean)[0] || null;
-
-    // Fallback: try target URL
-    if (!mp4 && info?.target && typeof info.target === 'string') {
-      try {
-        const targetHeaders: Record<string, string> = {
-          referer: animeUrl,
-          'x-requested-with': 'XMLHttpRequest',
-        };
-        if (pageContext.csrfToken) targetHeaders['csrf-token'] = pageContext.csrfToken;
-        if (pageContext.sessionCookie) targetHeaders['cookie'] = pageContext.sessionCookie;
-
-        const targetHtml = await fetchResource(String(info.target), awCaches, {
-          ttlMs: 2 * 60 * 1000,
-          cacheKey: `aw-target:${info.target}`,
-          timeoutMs: AW_FETCH_TIMEOUT,
-          headers: targetHeaders,
-        });
-        mp4 = collectMediaLinksFromHtml(String(targetHtml || ''))[0] || null;
-      } catch {
-        mp4 = null;
-      }
-    }
-
+    // The /api/episode/info endpoint currently rejects all programmatic clients
+    // with 401 (probably because of the SecurityAW2 challenge + browser fingerprint).
+    // Instead we fetch the play page (challenge-aware), find the urlToken for the
+    // requested episode, then fetch the episode page and extract the mp4 URL
+    // directly from its HTML (same link the in-page download button uses).
+    const epForExtractor = isMovie ? null : Number(requestedEpisode);
+    const mp4 = await awExtractEpisodeStreamFromPlayPage(slug, epForExtractor);
     if (!mp4) {
-      console.log('[AnimeWorld][Mapping] no stream URL extracted for', slug, 'ep=', requestedEpisode, 'grabbers:', direct.length);
+      console.log('[AnimeWorld][Mapping] no stream URL extracted for', slug, 'ep=', requestedEpisode);
       return [];
     }
+
+    // Synthesize a target episode shape used below for the stream label.
+    const target: AnimeWorldEpisode = {
+      id: '',
+      number: isMovie ? 1 : Number(requestedEpisode) || 1,
+    } as AnimeWorldEpisode;
 
     console.log('[AnimeWorld][Mapping] stream found for', slug, ':', mp4.substring(0, 80) + '...');
 
