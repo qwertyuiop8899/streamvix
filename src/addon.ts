@@ -73,7 +73,6 @@ interface AddonConfig {
     guardaflixEnabled?: boolean;
     guardahdEnabled?: boolean;
     eurostreamingEnabled?: boolean;
-    loonexEnabled?: boolean;
     toonitaliaEnabled?: boolean;
     disableLiveTv?: boolean;
     trailerEnabled?: boolean;
@@ -895,7 +894,6 @@ const baseManifest: Manifest = {
         { key: "guardaflixEnabled", title: "Enable Guardaflix", type: "checkbox" },
         { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
         { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox" },
-        { key: "loonexEnabled", title: "Enable Loonex", type: "checkbox" },
         { key: "toonitaliaEnabled", title: "Enable ToonItalia", type: "checkbox" },
         { key: "cb01Enabled", title: "Enable CB01 Mixdrop", type: "checkbox" },
         // { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: "checked" }, // TVTAP RIMOSSO
@@ -3159,7 +3157,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 } else if (requestConfig && typeof requestConfig === 'object' && Object.keys(requestConfig).length > 0) {
                     config = { ...requestConfig };
                 }
-                console.log(`[CONFIG-DEBUG] requestConfig type=${typeof requestConfig}, loonexEnabled=${(requestConfig as any)?.loonexEnabled}, config.loonexEnabled=${config.loonexEnabled}`);
+                console.log(`[CONFIG-DEBUG] requestConfig type=${typeof requestConfig}`);
                 // === SPORTZX DEBUG ENDPOINT ===
 
 
@@ -6117,7 +6115,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const providerKeys = [
                         'trailerEnabled', 'disableVixsrc', 'vixDirect', 'vixDirectFhd', 'vixProxy',
                         'guardahdEnabled', 'guardaserieEnabled', 'guardoserieEnabled', 'guardaflixEnabled',
-                        'eurostreamingEnabled', 'loonexEnabled', 'toonitaliaEnabled', 'cb01Enabled',
+                        'eurostreamingEnabled', 'toonitaliaEnabled', 'cb01Enabled',
                         'animesaturnEnabled', 'animeworldEnabled', 'animeunityEnabled'
                     ];
                     return providerKeys.some(k => cfg[k] !== undefined);
@@ -6148,9 +6146,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const eurostreamingEnabled = eurostreamingEnv !== undefined
                     ? eurostreamingEnv
                     : (isDirectAPICall || (config.eurostreamingEnabled !== false && rc?.eurostreamingEnabled !== false)); // default true
-                // Loonex: default OFF (nuovo provider) - API mode enables it
-                const loonexEnabled = envFlag('LOONEX_ENABLED') ?? (isDirectAPICall || config.loonexEnabled === true || rc?.loonexEnabled === true);
-                console.log(`[DEBUG-LOONEX] flag=${loonexEnabled} | config.loonexEnabled=${config.loonexEnabled} | rc.loonexEnabled=${rc?.loonexEnabled} | isDirectAPI=${isDirectAPICall}`);
                 // ToonItalia: default OFF (nuovo provider) - API mode enables it
                 const toonitaliaEnabled = envFlag('TOONITALIA_ENABLED') ?? (isDirectAPICall || config.toonitaliaEnabled === true || rc?.toonitaliaEnabled === true);
                 console.log(`[ToonItalia] Flag status: ${toonitaliaEnabled} (env: ${envFlag('TOONITALIA_ENABLED')}, config: ${config.toonitaliaEnabled})`);
@@ -6168,11 +6163,11 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const guardoserieEnabled = isDirectAPICall || (config.guardoserieEnabled === true) || (rc?.guardoserieEnabled === true);
                 const guardaflixEnabled = isDirectAPICall || (config.guardaflixEnabled === true) || (rc?.guardaflixEnabled === true);
 
-                // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld + Loonex
+                // Gestione parallela AnimeUnity / AnimeSaturn / AnimeWorld
                 // IMPORTANTE: includere trailerEnabled per permettere trailer standalone
                 const trailerEnabled = (config as any).trailerEnabled !== false && rc?.trailerEnabled !== false;
                 const fastModeEnabled = (config as any).fastMode === true;
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || loonexEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled)) {
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled)) {
                     // Rilevamento addonBase per AnimeUnity (stessa logica VixSrc)
                     let auAddonBase = '';
                     try {
@@ -6256,7 +6251,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (l.includes('guardahd')) return 'guardahd';
                         if (l.includes('cb01')) return 'cb01';
                         if (l.includes('eurostreaming')) return 'eurostreaming';
-                        if (l.includes('loonex')) return 'loonex';
                         if (l.includes('toonitalia')) return 'toonitalia';
                         if (l.includes('guardaflix')) return 'guardaflix';
                         if (l.includes('guardoserie')) return 'guardoserie';
@@ -6462,9 +6456,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     }
                                     case 'guardaserie':
                                         bingeGroup = 'guardaserie-std';
-                                        break;
-                                    case 'loonex':
-                                        bingeGroup = 'loonex-std';
                                         break;
                                     case 'toonitalia':
                                         bingeGroup = 'toonitalia-std';
@@ -6759,23 +6750,6 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             });
                             return esProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                         }, providerLabel('eurostreaming'), true, 30000);  // Eurostreaming: timeout 30s
-                    }
-
-                    // Loonex (serie TV + film) — catalog-based, no scraping
-                    if (loonexEnabled && (type === 'series' || type === 'movie') && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
-                        // Per le serie richiede stagione+episodio; per i film basta l'ID.
-                        const loonexSeriesOk = type === 'series' && seasonNumber != null && episodeNumber != null;
-                        const loonexMovieOk = type === 'movie';
-                        if (loonexSeriesOk || loonexMovieOk) {
-                            scheduleProviderRun('Loonex', true, async () => {
-                                const { getLoonexStreams } = await import('./providers/loonex-provider');
-                                const tmdbId = id.startsWith('tmdb:') ? id.replace('tmdb:', '').split(':')[0] : undefined;
-                                const imdbId = id.startsWith('tt') ? id.split(':')[0] : '';
-                                console.log(`[DEBUG-LOONEX] Calling getLoonexStreams: type=${type}, imdbId=${imdbId}, tmdbId=${tmdbId}, S${seasonNumber}E${episodeNumber}`);
-                                const streams = await getLoonexStreams(type, imdbId, undefined, seasonNumber ?? undefined, episodeNumber ?? undefined, tmdbId);
-                                return { streams };
-                            }, providerLabel('loonex'), false, 15000);  // Loonex: timeout 15s (lookup locale)
-                        }
                     }
 
                     // ToonItalia (serie TV/Anime) - Ricerca dinamica via TMDb
