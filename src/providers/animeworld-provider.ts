@@ -1,7 +1,6 @@
 import * as cheerio from 'cheerio';
 import { KitsuProvider } from './kitsu';
 import { getDomain } from '../utils/domains';
-// import { formatMediaFlowUrl } from '../utils/mediaflow'; // disabilitato: usiamo URL mp4 diretto
 import { AnimeWorldConfig, AnimeWorldResult, AnimeWorldEpisode, StreamForStremio } from '../types/animeunity';
 import { checkIsAnimeById, applyUniversalAnimeTitleNormalization } from '../utils/animeGate';
 import {
@@ -222,6 +221,36 @@ function parseTagAttributes(tag: string): Record<string, string> {
   return attrs;
 }
 
+function unwrapAnimeWorldDownloadUrl(absoluteUrl: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(absoluteUrl);
+  } catch {
+    return null;
+  }
+  if (!/\/download-file\.php$/i.test(parsed.pathname)) return null;
+
+  const rawId = parsed.searchParams.get('id');
+  if (!rawId) return null;
+  let target = rawId.trim();
+  try {
+    target = decodeURIComponent(target);
+  } catch {
+    target = rawId.trim();
+  }
+  if (!target) return null;
+
+  try {
+    const direct = /^https?:\/\//i.test(target)
+      ? new URL(target)
+      : new URL(target.replace(/^\/+/, ''), `${parsed.origin}/`);
+    if (/\.(?:mp4|m3u8)$/i.test(direct.pathname)) return direct.toString();
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function normalizePlayableMediaUrl(rawUrl: string | null | undefined, depth = 0): string | null {
   if (!rawUrl) return null;
   let absolute: string;
@@ -230,7 +259,14 @@ function normalizePlayableMediaUrl(rawUrl: string | null | undefined, depth = 0)
   } catch {
     return null;
   }
-  if (/\.(?:mp4|m3u8)(?:[?#].*)?$/i.test(absolute)) return absolute;
+  const unwrappedDownload = unwrapAnimeWorldDownloadUrl(absolute);
+  if (unwrappedDownload) return unwrappedDownload;
+  try {
+    const parsedForExtension = new URL(absolute);
+    if (/\.(?:mp4|m3u8)$/i.test(parsedForExtension.pathname)) return absolute;
+  } catch {
+    return null;
+  }
   if (depth >= 1) return null;
   let parsed: URL;
   try {
@@ -426,6 +462,43 @@ async function awExtractEpisodeStreamFromPlayPage(slug: string, episodeNumber: n
 async function awGetStream(slug: string, episode?: number): Promise<{ mp4_url: string | null }> {
   const mp4 = await awExtractEpisodeStreamFromPlayPage(slug, episode == null ? null : Number(episode));
   return { mp4_url: mp4 };
+}
+
+function getAnimeWorldStreamHeaders(slug: string): Record<string, string> {
+  return {
+    Referer: `${getWorldBaseUrl()}/play/${slug}`,
+    'User-Agent': AW_USER_AGENT,
+  };
+}
+
+function buildAnimeWorldStreamOutput(
+  mp4Url: string,
+  slug: string,
+  config: AnimeWorldConfig,
+  extraBehaviorHints: Record<string, any> = {}
+): { url: string; behaviorHints: Record<string, any> } {
+  const requestHeaders = getAnimeWorldStreamHeaders(slug);
+  const behaviorHints: Record<string, any> = {
+    notWebReady: true,
+    requestHeaders,
+    headers: requestHeaders,
+    proxyHeaders: { request: requestHeaders },
+    proxyUseFallback: true,
+    ...extraBehaviorHints,
+  };
+
+  const proxyBase = String(config.mfpUrl || '').trim().replace(/\/+$/, '');
+  if (!proxyBase) return { url: mp4Url, behaviorHints };
+
+  const params = new URLSearchParams({ d: mp4Url });
+  if (config.mfpPassword) params.set('api_password', config.mfpPassword);
+  params.set('h_Referer', requestHeaders.Referer);
+  params.set('h_User-Agent', requestHeaders['User-Agent']);
+
+  return {
+    url: `${proxyBase}/proxy/stream?${params.toString()}`,
+    behaviorHints,
+  };
 }
 
 // kept around in case some legacy code path still references collectGrabberCandidates;
@@ -943,7 +1016,8 @@ export class AnimeWorldProvider {
     let titleStream = `${capitalize(cleanName || titleFallback)} ▪ ${langLabel} ▪ S${sNum}`;
     if (!isMovie && epNum) titleStream += `E${epNum}`;
 
-    return [{ title: titleStream, url: mp4, behaviorHints: { notWebReady: true } }];
+    const streamOut = buildAnimeWorldStreamOutput(mp4, slug, this.config);
+    return [{ title: titleStream, url: streamOut.url, behaviorHints: streamOut.behaviorHints }];
   }
 
   private async getStreamsFromMapping(
@@ -1343,7 +1417,8 @@ export class AnimeWorldProvider {
           }
         }
 
-        const finalUrl = mp4;
+        const streamOut = buildAnimeWorldStreamOutput(mp4, v.slug, this.config);
+        const finalUrl = streamOut.url;
         if (seen.has(finalUrl)) return null;
         seen.add(finalUrl);
 
@@ -1380,7 +1455,7 @@ export class AnimeWorldProvider {
         let titleStream = `${capitalize(baseName)} ▪ ${langLabel} ▪ S${sNum}`;
         if (episodeNumber) titleStream += `E${episodeNumber}`;
 
-        return { title: titleStream, url: finalUrl } as StreamForStremio;
+        return { title: titleStream, url: finalUrl, behaviorHints: streamOut.behaviorHints } as StreamForStremio;
       } catch (e) {
         console.error('[AnimeWorld] get_stream error', v.slug, e);
         return null;
@@ -1447,7 +1522,8 @@ export class AnimeWorldProvider {
           if (baseName.includes('\n')) baseName = baseName.replace(/\s+/g,' ').trim();
           let titleStream = `${baseName} ▪ ${lang === 'Original' ? 'SUB' : 'ITA'} ▪ S${sNum}`;
           if (episodeNumber) titleStream += `E${episodeNumber}`;
-          streams.push({ title: titleStream, url: mp4, behaviorHints: { bingeGroup: 'animeworld-fallback' } });
+          const streamOut = buildAnimeWorldStreamOutput(mp4, slug, this.config, { bingeGroup: 'animeworld-fallback' });
+          streams.push({ title: titleStream, url: streamOut.url, behaviorHints: streamOut.behaviorHints });
           idx++;
         } catch (e) {
           console.warn('[AnimeWorld][FallbackFilter] error processing slug', r.slug, e);
