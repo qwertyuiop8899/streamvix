@@ -35,7 +35,6 @@ export function providerLabel(provider: string, isFhd?: boolean): string {
     case 'guardahd': return '🤌 GuardaHD 🎬';
     case 'cb01': return '🤌 CB01 🎞️';
     case 'eurostreaming': return '🤌 Eurostreaming 🇪🇺';
-    case 'loonex': return '🤌 Loonex 🎬';
     case 'toonitalia': return '🤌 ToonItalia 🎨';
     case 'netmirror': return '🤌 NetMirror 🪞';
     default: return provider;
@@ -86,7 +85,6 @@ export function mapLegacyProviderName(legacy: string): string {
   if (lower.includes('streamvix gh')) return providerLabel('guardahd');
   if (lower.includes('streamvix cb')) return providerLabel('cb01');
   if (lower.includes('streamvix es')) return providerLabel('eurostreaming');
-  if (lower.includes('loonex')) return providerLabel('loonex');
   if (lower.includes('toonitalia')) return providerLabel('toonitalia');
   return legacy;
 }
