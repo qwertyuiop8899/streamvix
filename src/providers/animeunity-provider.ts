@@ -753,18 +753,45 @@ export class AnimeUnityProvider {
       getUnityBaseUrl()
     );
 
-    if (!normalizedEpisodes.length) {
-      const fetched = await fetchEpisodesRangeFromApi(animeId, requestedEpisode, animeUrl);
-      normalizedEpisodes = normalizeEpisodesList(
-        fetched.map((entry, index) => ({
-          num: parseEpisodeNumber(entry.number, index + 1),
-          episodeId: entry.id,
-          link: null,
-          fileName: null,
-          embedUrl: null,
-        })),
-        getUnityBaseUrl()
-      );
+    const hasRequestedInList = (ep: number) =>
+      !!normalizedEpisodes.find((e: any) => Number(e?.num) === ep);
+
+    // AnimeUnity inserisce nell'HTML solo i primi ~120 episodi. Per serie lunghe
+    // (es. One Piece) gli episodi oltre il primo batch non sono presenti nel video-player.
+    // Fallback all'info_api anche quando la lista iniziale esiste ma non contiene
+    // l'episodio richiesto (per TV; per i movie non serve).
+    const needApiFallback = !isMovie && (
+      !normalizedEpisodes.length ||
+      (requestedEpisode > 0 && !hasRequestedInList(requestedEpisode))
+    );
+
+    if (needApiFallback) {
+      const fetched = await fetchEpisodesRangeFromApi(animeId, requestedEpisode || 1, animeUrl);
+      if (fetched.length) {
+        const apiEpisodes = normalizeEpisodesList(
+          fetched.map((entry, index) => ({
+            num: parseEpisodeNumber(entry.number, index + 1),
+            episodeId: entry.id,
+            link: null,
+            fileName: null,
+            embedUrl: null,
+          })),
+          getUnityBaseUrl()
+        );
+        if (!normalizedEpisodes.length) {
+          normalizedEpisodes = apiEpisodes;
+        } else {
+          // Unisci col batch iniziale evitando duplicati per num
+          const seenNums = new Set<number>(normalizedEpisodes.map((e: any) => Number(e?.num)));
+          for (const ep of apiEpisodes) {
+            const n = Number((ep as any)?.num);
+            if (!seenNums.has(n)) {
+              normalizedEpisodes.push(ep);
+              seenNums.add(n);
+            }
+          }
+        }
+      }
     }
 
     const selected = pickEpisodeEntry(normalizedEpisodes, requestedEpisode, isMovie ? 'movie' : 'tv');
