@@ -1,312 +1,266 @@
-import axios from 'axios';
-import * as cheerio from 'cheerio';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as zlib from 'zlib';
+import * as https from 'https';
+import * as http from 'http';
+import { URL } from 'url';
 import { Stream } from 'stremio-addon-sdk';
 import { getLoonexTitle } from '../config/loonexTitleMap';
 
-const BASE_URL = 'https://loonex.eu';
-const CATALOG_URL = 'https://loonex.eu/cartoni/';
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-
-interface LoonexSeries {
-    title: string;
-    url: string;
-    normalizedTitle: string;
-}
+/**
+ * Loonex provider — catalog-based.
+ *
 
 interface LoonexEpisode {
-    title: string;
-    episodeUrl: string;
-    seasonTitle: string;
+    id: string;
+    label?: string;
+    season: number | null;
+    episode: number | null;
+    masterUrl: string;
+    source?: string;
+    headers?: Record<string, string> | null;
 }
 
-/**
- * Normalizza un titolo per il confronto
- */
+interface LoonexTmdb {
+    id?: number | null;
+    type?: string;
+    title?: string;
+    year?: number | null;
+    imdbId?: string | null;
+    tvdbId?: number | null;
+}
+
+interface LoonexItem {
+    slug: string;
+    title: string;
+    year?: number | null;
+    type?: string;
+    tmdb?: LoonexTmdb;
+    episodes: LoonexEpisode[];
+}
+
+interface LoonexCatalog {
+    generatedAt?: string;
+    count?: number;
+    items: LoonexItem[];
+}
+
+// ---------------------------------------------------------------------------
+// Catalog loading & indexing (lazy, in-memory, singleton with TTL)
+// ---------------------------------------------------------------------------
+
+interface LoonexCatalogIndex {
+    byImdb: Map<string, LoonexItem>;
+    byTmdb: Map<string, LoonexItem>;
+    byNormalizedTitle: Map<string, LoonexItem>;
+    items: LoonexItem[];
+}
+
+let catalogPromise: Promise<LoonexCatalogIndex> | null = null;
+let catalogLoadedAt = 0;
+
 function normalizeTitle(title: string): string {
     return title
         .toLowerCase()
-        .replace(/[^\w\s]/g, '') // Rimuovi punteggiatura
-        .replace(/\s+/g, ' ')    // Normalizza spazi
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
         .trim();
 }
 
+function resolveLocalCatalogPath(): string {
+    const envPath = (process.env.LOONEX_CATALOG_PATH || '').trim();
+    if (envPath) return envPath;
+    const candidates = [
+        path.join(__dirname, 'loonex-catalog.json.gz'),
+        path.join(__dirname, '..', '..', 'src', 'providers', 'loonex-catalog.json.gz'),
+        path.join(process.cwd(), 'src', 'providers', 'loonex-catalog.json.gz'),
+        path.join(process.cwd(), 'dist', 'providers', 'loonex-catalog.json.gz'),
+    ];
+    for (const p of candidates) {
+        try { if (fs.existsSync(p)) return p; } catch { /* ignore */ }
+    }
+    return candidates[0];
+}
+
 /**
- * Estrae il numero di episodio dal titolo in tutti i formati usati da Loonex:
- * "1 - nome", "Episodio 01", "1x01", "episodio 1x01", "puntata 1", ecc.
+ * Scarica una URL seguendo i redirect (max 5 hop) restituendo un Buffer.
  */
-function extractEpisodeNumber(title: string): number | null {
-    const t = title.trim();
+function fetchUrlBuffer(urlStr: string, authHeader?: string, hops = 5): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        const doRequest = (target: string, left: number) => {
+            let u: URL;
+            try { u = new URL(target); } catch (e) { return reject(e as Error); }
+            const lib = u.protocol === 'http:' ? http : https;
+            const headers: Record<string, string> = {
+                'User-Agent': 'streamvix-loonex/1.0',
+                'Accept': 'application/json, application/octet-stream, */*'
+            };
+            if (authHeader) headers['Authorization'] = authHeader;
+            const req = lib.get({
+                hostname: u.hostname,
+                port: u.port || (u.protocol === 'http:' ? 80 : 443),
+                path: u.pathname + (u.search || ''),
+                headers,
+                timeout: 20000,
+            }, res => {
+                const status = res.statusCode || 0;
+                if (status >= 300 && status < 400 && res.headers.location && left > 0) {
+                    res.resume();
+                    const next = new URL(res.headers.location, target).toString();
+                    return doRequest(next, left - 1);
+                }
+                if (status < 200 || status >= 300) {
+                    res.resume();
+                    return reject(new Error(`HTTP ${status} fetching ${target}`));
+                }
+                const chunks: Buffer[] = [];
+                res.on('data', c => chunks.push(c));
+                res.on('end', () => resolve(Buffer.concat(chunks)));
+                res.on('error', reject);
+            });
+            req.on('timeout', () => req.destroy(new Error('timeout')));
+            req.on('error', reject);
+        };
+        doRequest(urlStr, hops);
+    });
+}
 
-    // "1x01", "S1E01", "episodio 1x01" → prende la parte DOPO x/E
-    let m = t.match(/(?:^|\s|[xXeE])\d+[xX](\d+)/);
-    if (m) return parseInt(m[1]);
+/**
+ * Carica i bytes grezzi del catalogo dalla sorgente attiva (URL o file).
+ * Restituisce anche un flag `gzipped` deciso da estensione/magic-byte.
+ */
+async function readCatalogBytes(): Promise<{ buf: Buffer; gzipped: boolean; source: string }> {
+    const url = (process.env.LOONEX_CATALOG_URL || '').trim();
+    if (url) {
+        const auth = (process.env.LOONEX_CATALOG_AUTH || '').trim() || undefined;
+        console.log(`[Loonex] Fetching catalog from URL: ${url.replace(/(token=)[^&]+/i, '$1***')}`);
+        const buf = await fetchUrlBuffer(url, auth);
+        const gzipped = /\.gz(\?|$)/i.test(url) || (buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b);
+        return { buf, gzipped, source: url };
+    }
+    const file = resolveLocalCatalogPath();
+    console.log(`[Loonex] Loading catalog from file: ${file}`);
+    const buf = await fs.promises.readFile(file);
+    const gzipped = /\.gz$/i.test(file) || (buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b);
+    return { buf, gzipped, source: file };
+}
 
-    m = t.match(/[Ss]\d+[Ee](\d+)/);
-    if (m) return parseInt(m[1]);
+function ttlMs(): number {
+    const raw = parseInt(process.env.LOONEX_CATALOG_TTL_MIN || '', 10);
+    const min = Number.isFinite(raw) && raw > 0 ? raw : 360; // default 6h
+    return min * 60 * 1000;
+}
 
-    // "Episodio 01", "episodio 1", "puntata 1", "Ep. 3"
-    m = t.match(/(?:episodio|puntata|ep\.?)\s*(\d+)/i);
-    if (m) return parseInt(m[1]);
+async function loadCatalog(force = false): Promise<LoonexCatalogIndex> {
+    const expired = Date.now() - catalogLoadedAt > ttlMs();
+    if (catalogPromise && !force && !expired) return catalogPromise;
+    const p = (async () => {
+        const { buf, gzipped, source } = await readCatalogBytes();
+        const json = gzipped ? zlib.gunzipSync(buf).toString('utf-8') : buf.toString('utf-8');
+        const data: LoonexCatalog = JSON.parse(json);
+        const items = Array.isArray(data.items) ? data.items : [];
 
-    // "1 - Titolo episodio" → numero all'inizio seguito da trattino
-    m = t.match(/^(\d+)\s*[-–]/);
-    if (m) return parseInt(m[1]);
+        const byImdb = new Map<string, LoonexItem>();
+        const byTmdb = new Map<string, LoonexItem>();
+        const byNormalizedTitle = new Map<string, LoonexItem>();
 
-    // Numero nudo all'inizio (es: "01", "1")
-    m = t.match(/^(\d+)(?:\s|$)/);
-    if (m) return parseInt(m[1]);
+        for (const it of items) {
+            const imdb = it.tmdb?.imdbId;
+            if (imdb && !byImdb.has(imdb)) byImdb.set(imdb, it);
+            const tmdbId = it.tmdb?.id;
+            if (tmdbId != null) {
+                const key = String(tmdbId);
+                if (!byTmdb.has(key)) byTmdb.set(key, it);
+            }
+            const titleKey = normalizeTitle(it.title || '');
+            if (titleKey && !byNormalizedTitle.has(titleKey)) byNormalizedTitle.set(titleKey, it);
+            const tmdbTitleKey = normalizeTitle(it.tmdb?.title || '');
+            if (tmdbTitleKey && !byNormalizedTitle.has(tmdbTitleKey)) byNormalizedTitle.set(tmdbTitleKey, it);
+        }
 
+        console.log(`[Loonex] Catalog indexed from ${source}: ${items.length} items (imdb=${byImdb.size}, tmdb=${byTmdb.size}, titles=${byNormalizedTitle.size})`);
+        catalogLoadedAt = Date.now();
+        return { byImdb, byTmdb, byNormalizedTitle, items };
+    })().catch(err => {
+        console.error('[Loonex] Failed to load catalog:', err);
+        catalogPromise = null;
+        catalogLoadedAt = 0;
+        throw err;
+    });
+    catalogPromise = p;
+    return p;
+}
+
+/** Forza il reload del catalogo (utile per endpoint admin). */
+export async function reloadLoonexCatalog(): Promise<number> {
+    const idx = await loadCatalog(true);
+    return idx.items.length;
+}
+
+// ---------------------------------------------------------------------------
+// Lookup helpers
+// ---------------------------------------------------------------------------
+
+function findItem(
+    idx: LoonexCatalogIndex,
+    imdbId?: string,
+    tmdbId?: string,
+    title?: string
+): LoonexItem | null {
+    if (imdbId) {
+        const hit = idx.byImdb.get(imdbId);
+        if (hit) return hit;
+    }
+    if (tmdbId) {
+        const hit = idx.byTmdb.get(String(tmdbId));
+        if (hit) return hit;
+    }
+    // Title mapping override (static map for edge cases)
+    const mapped = getLoonexTitle(imdbId, tmdbId);
+    const candidate = mapped || title;
+    if (candidate) {
+        const key = normalizeTitle(candidate);
+        const direct = idx.byNormalizedTitle.get(key);
+        if (direct) return direct;
+        // Fuzzy: substring match across titles
+        for (const it of idx.items) {
+            const t1 = normalizeTitle(it.title || '');
+            const t2 = normalizeTitle(it.tmdb?.title || '');
+            if (!t1 && !t2) continue;
+            if ((t1 && (t1.includes(key) || key.includes(t1))) ||
+                (t2 && (t2.includes(key) || key.includes(t2)))) {
+                return it;
+            }
+        }
+    }
     return null;
 }
 
-/**
- * Estrae il numero di stagione dal testo del bottone accordion.
- * Gestisce: "Stagione 1", "Season 2", "Stagione1", "Tutti gli episodi" (→ null = stagione unica)
- */
-function extractSeasonNumber(seasonTitle: string): number | null {
-    const t = seasonTitle.toLowerCase();
-    // Salta sezioni extra/speciali
-    if (/extra|special|speciali|hype|bonus/.test(t)) return -1;
-    const m = t.match(/(?:stagione|season)\s*(\d+)/);
-    return m ? parseInt(m[1]) : null; // null = stagione unica ("Tutti gli episodi")
-}
+function findEpisode(item: LoonexItem, season?: number, episode?: number): LoonexEpisode | null {
+    const eps = item.episodes || [];
+    if (eps.length === 0) return null;
 
-/**
- * Cerca una serie su Loonex
- */
-async function searchSeries(searchTitle: string, imdbId?: string, tmdbId?: string): Promise<LoonexSeries | null> {
-    try {
-        // 1. Controlla se c'è una normalizzazione statica per questo ID
-        let targetTitle = searchTitle;
-        const mappedTitle = getLoonexTitle(imdbId, tmdbId);
-        if (mappedTitle) {
-            targetTitle = mappedTitle;
-            console.log(`[Loonex] Using static mapping for ${imdbId || tmdbId}: "${targetTitle}"`);
-        }
-
-        const normalizedSearch = normalizeTitle(targetTitle);
-        console.log(`[Loonex] Searching for: "${searchTitle}" (normalized: "${normalizedSearch}")`);
-
-        // 2. Scarica il catalogo cartoni (homepage spostata su /cartoni/)
-        const response = await axios.get(CATALOG_URL, {
-            headers: { 'User-Agent': USER_AGENT },
-            timeout: 10000
-        });
-
-        const $ = cheerio.load(response.data);
-        const series: LoonexSeries[] = [];
-
-        // 3. Estrai tutte le serie usando data-title (attributo funzionale, immune ai redesign CSS)
-        // Ogni card del catalogo ha data-title="..." e un <a href="?cartone=..."> interno
-        $('[data-title]').each((_, element) => {
-            const $item = $(element);
-            const title = ($item.attr('data-title') || '').trim();
-
-            // href relativo tipo "?cartone=over-the-garden-wall-1772122256"
-            const rawHref = $item.find('a[href]').attr('href') || '';
-            if (!title || !rawHref) return;
-
-            let href: string;
-            if (rawHref.startsWith('http')) {
-                href = rawHref;
-            } else if (rawHref.startsWith('?')) {
-                href = CATALOG_URL + rawHref;
-            } else {
-                href = BASE_URL + (rawHref.startsWith('/') ? '' : '/') + rawHref;
-            }
-
-            series.push({
-                title,
-                url: href,
-                normalizedTitle: normalizeTitle(title)
-            });
-        });
-
-        console.log(`[Loonex] Found ${series.length} series on homepage`);
-
-        // 4. Cerca corrispondenza
-        for (const serie of series) {
-            if (serie.normalizedTitle.includes(normalizedSearch) ||
-                normalizedSearch.includes(serie.normalizedTitle)) {
-                console.log(`[Loonex] Found match: "${serie.title}" at ${serie.url}`);
-                return serie;
-            }
-        }
-
-        console.log(`[Loonex] No match found for "${searchTitle}"`);
-        return null;
-
-    } catch (error) {
-        console.error('[Loonex] Error searching series:', error);
+    // Series request: cerca match esatto su season+episode
+    if (season != null && episode != null) {
+        const exact = eps.find(e => e.season === season && e.episode === episode);
+        if (exact) return exact;
+        // Fallback: stagione null (catalogo "stagione unica") e episode match
+        const seasonless = eps.find(e => e.season == null && e.episode === episode);
+        if (seasonless) return seasonless;
+        // Fallback ulteriore: serie con un solo episodio
+        if (eps.length === 1 && season === 1 && episode === 1) return eps[0];
         return null;
     }
+
+    // Movie / single: prendi il primo episodio disponibile
+    const movieEntry = eps.find(e => e.season == null && e.episode == null);
+    return movieEntry || eps[0];
 }
 
-/**
- * Estrae gli episodi da una pagina serie
- */
-async function getEpisodes(seriesUrl: string): Promise<LoonexEpisode[]> {
-    try {
-        console.log(`[Loonex] Fetching episodes from: ${seriesUrl}`);
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
-        const response = await axios.get(seriesUrl, {
-            headers: { 'User-Agent': USER_AGENT },
-            timeout: 10000
-        });
-
-        const $ = cheerio.load(response.data);
-        const episodes: LoonexEpisode[] = [];
-
-        // Struttura reale: ogni stagione ha un <button data-bs-target="#collapseN">Stagione X</button>
-        // e un <div id="collapseN"> con i link agli episodi /guarda/...
-        $('button[data-bs-target]').each((_, btnElement) => {
-            const $btn = $(btnElement);
-            const seasonTitle = $btn.text().trim().replace(/\s+/g, ' ');
-            const target = $btn.attr('data-bs-target');
-            if (!target) return;
-
-            const $container = $(target);
-
-            // Cerca tutti i link a /guarda/ dentro il collapse
-            $container.find('a[href*="/guarda/"]').each((_, linkEl) => {
-                const $link = $(linkEl);
-                const episodeUrl = $link.attr('href') || '';
-                // Il titolo episodio è nel testo del link o in un <span> vicino
-                const episodeTitle = $link.text().trim() ||
-                    $link.closest('div').find('span').first().text().trim() ||
-                    'Episodio';
-
-                if (episodeUrl) {
-                    // Rendi assoluto se necessario
-                    const absUrl = episodeUrl.startsWith('http')
-                        ? episodeUrl
-                        : BASE_URL + (episodeUrl.startsWith('/') ? '' : '/') + episodeUrl;
-                    episodes.push({
-                        title: episodeTitle,
-                        episodeUrl: absUrl,
-                        seasonTitle
-                    });
-                }
-            });
-        });
-
-        console.log(`[Loonex] Found ${episodes.length} episodes`);
-        return episodes;
-
-    } catch (error) {
-        console.error('[Loonex] Error fetching episodes:', error);
-        return [];
-    }
-}
-
-/**
- * Estrae l'URL M3U8 da una pagina episodio
- */
-async function getM3U8Url(episodeUrl: string): Promise<string | null> {
-    try {
-        console.log(`[Loonex] Fetching M3U8 from: ${episodeUrl}`);
-
-        const response = await axios.get(episodeUrl, {
-            headers: { 'User-Agent': USER_AGENT },
-            timeout: 10000
-        });
-
-        const html: string = response.data;
-
-        // L'URL M3U8 è base64-encoded in una variabile JS:
-        // var encodedStr = "BASE64...";
-        // var videoSrc = atob(encodedStr);
-        const b64Match = html.match(/var\s+encodedStr\s*=\s*["']([A-Za-z0-9+/=]+)["']/);
-        if (b64Match) {
-            try {
-                let decoded = Buffer.from(b64Match[1], 'base64').toString('utf-8');
-                // Se il valore base64-decodificato è già URL-encoded (es. https%3A%2F%2F), decodificalo prima
-                if (decoded.includes('%3A') || decoded.includes('%2F')) {
-                    try { decoded = decodeURIComponent(decoded); } catch { /* ignore malformed */ }
-                }
-                if (decoded && decoded.startsWith('http') && !decoded.includes('nontrovato')) {
-                    // URL-encoda spazi e caratteri speciali mantenendo il protocollo/struttura
-                    const encoded = decoded
-                        .split('/')
-                        .map((seg, i) => i < 3 ? seg : encodeURIComponent(seg))
-                        .join('/');
-                    console.log(`[Loonex] Found M3U8 (base64): ${encoded}`);
-                    return encoded;
-                }
-            } catch { /* fallthrough */ }
-        }
-
-        // Fallback: cerca direttamente .m3u8 nell'HTML
-        const $ = cheerio.load(html);
-        const m3u8Url = $('#video-source').attr('src') ||
-            $('source[type="application/x-mpegURL"]').attr('src') ||
-            $('source').filter((_, el) => {
-                const src = $(el).attr('src') || '';
-                return src.includes('.m3u8');
-            }).attr('src');
-
-        if (m3u8Url && !m3u8Url.includes('1-second-blank-video')) {
-            console.log(`[Loonex] Found M3U8 (tag): ${m3u8Url}`);
-            return m3u8Url;
-        }
-
-        // Fallback regex generica su qualsiasi .m3u8 nell'HTML
-        const rawMatch = html.match(/https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/);
-        if (rawMatch && !rawMatch[0].includes('1-second-blank-video')) {
-            console.log(`[Loonex] Found M3U8 (regex): ${rawMatch[0]}`);
-            return rawMatch[0];
-        }
-
-        console.log('[Loonex] No M3U8 found in episode page');
-        return null;
-
-    } catch (error) {
-        console.error('[Loonex] Error fetching M3U8:', error);
-        return null;
-    }
-}
-
-/**
- * Ottiene il titolo da TMDb usando l'API
- */
-async function getTitleFromTMDb(imdbId: string, tmdbId?: string, tmdbApiKey?: string): Promise<string | null> {
-    try {
-        const apiKey = tmdbApiKey || '40a9faa1f6741afb2c0c40238d85f8d0';
-        let url: string;
-
-        if (tmdbId) {
-            // Se abbiamo TMDb ID, usalo direttamente
-            url = `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${apiKey}&language=it-IT`;
-        } else if (imdbId) {
-            // Se abbiamo IMDb ID, cerca prima il TMDb ID
-            url = `https://api.themoviedb.org/3/find/${imdbId}?api_key=${apiKey}&external_source=imdb_id&language=it-IT`;
-        } else {
-            return null;
-        }
-
-        console.log(`[Loonex] Fetching title from TMDb...`);
-        const response = await axios.get(url, { timeout: 5000 });
-
-        if (tmdbId) {
-            return response.data.name || response.data.original_name || null;
-        } else {
-            // Risposta da /find
-            const results = response.data.tv_results || [];
-            if (results.length > 0) {
-                return results[0].name || results[0].original_name || null;
-            }
-        }
-
-        return null;
-    } catch (error) {
-        console.error('[Loonex] Error fetching from TMDb:', error);
-        return null;
-    }
-}
-
-/**
- * Provider principale per Loonex
- */
 export async function getLoonexStreams(
     type: string,
     imdbId: string,
@@ -315,155 +269,78 @@ export async function getLoonexStreams(
     episode?: number,
     tmdbId?: string
 ): Promise<Stream[]> {
-    console.log(`[Loonex] Request: ${type} - ${title || 'N/A'} (IMDb: ${imdbId || 'N/A'}, TMDb: ${tmdbId || 'N/A'}) S${season}E${episode}`);
+    console.log(`[Loonex] Request: type=${type} title="${title || 'N/A'}" imdb=${imdbId || 'N/A'} tmdb=${tmdbId || 'N/A'} S${season ?? '-'}E${episode ?? '-'}`);
 
-    // Solo per serie TV
-    if (type !== 'series' || !season || !episode) {
-        console.log(`[Loonex] Skipping: type=${type}, season=${season}, episode=${episode}`);
+    if (!imdbId && !tmdbId && !title) {
+        console.log('[Loonex] No imdbId/tmdbId/title provided — abort');
         return [];
     }
 
-    // Se non abbiamo IDs, non possiamo cercare
-    if (!imdbId && !tmdbId) {
-        console.log('[Loonex] No IMDb or TMDb ID provided');
-        return [];
-    }
-
+    let idx: LoonexCatalogIndex;
     try {
-        // 1. Ottieni il titolo da TMDb se non fornito
-        let searchTitle = title;
-        if (!searchTitle) {
-            const tmdbTitle = await getTitleFromTMDb(imdbId, tmdbId);
-            if (!tmdbTitle) {
-                console.log('[Loonex] Could not fetch title from TMDb');
-                return [];
-            }
-            searchTitle = tmdbTitle;
-            console.log(`[Loonex] Got title from TMDb: "${searchTitle}"`);
-        }
-
-        // 2. Cerca la serie
-        const series = await searchSeries(searchTitle, imdbId, tmdbId);
-        if (!series) {
-            return [];
-        }
-
-        // 2. Ottieni gli episodi
-        let episodes = await getEpisodes(series.url);
-        if (episodes.length === 0) {
-            return [];
-        }
-
-        // IMPORTANTE: Loonex può avere un episodio 0x00 (prequel) che non esiste su IMDb/TMDb
-        // Filtra gli episodi che contengono "0x00" nell'URL o nel titolo
-        const filteredEpisodes = episodes.filter(ep => {
-            const title = ep.title.toLowerCase();
-            const url = ep.episodeUrl.toLowerCase();
-
-            // Rimuovi episodi con:
-            // - URL che contiene "0x00" (es: overthegardenwall_0x00)
-            // - Titolo che inizia con "0 -" (es: "0 - PREQUEL")
-            // - Titolo che contiene "0x00"
-            // - Titolo che contiene "prequel"
-            const isPrequel = url.includes('0x00') ||
-                url.includes('_0x0') ||
-                title.startsWith('0 -') ||
-                title.includes('0x00') ||
-                title.includes('prequel');
-
-            return !isPrequel;
-        });
-
-        if (filteredEpisodes.length < episodes.length) {
-            console.log(`[Loonex] Filtered out ${episodes.length - filteredEpisodes.length} prequel episode(s) (0x00)`);
-            episodes = filteredEpisodes;
-        }
-
-        // 3. Trova l'episodio richiesto
-        // Dopo aver rimosso il 0x00, episode 1 = indice 0, episode 2 = indice 1, ecc.
-        const streams: Stream[] = [];
-
-        console.log(`[Loonex] Searching for S${season}E${episode} among ${episodes.length} episodes`);
-
-        // Filtra per stagione usando extractSeasonNumber
-        // null = stagione unica ("Tutti gli episodi") → accetta qualunque season richiesta
-        // -1 = Extra/Speciali → escludi sempre per episodi normali
-        const seasonEpisodes = episodes.filter(ep => {
-            const sn = extractSeasonNumber(ep.seasonTitle);
-            if (sn === -1) return false;          // Salta Extra/Speciali
-            if (sn === null) return true;          // Stagione unica
-            return sn === season;
-        });
-
-        const episodeList = seasonEpisodes.length > 0 ? seasonEpisodes : episodes.filter(ep => extractSeasonNumber(ep.seasonTitle) !== -1);
-        console.log(`[Loonex] Season filter: ${seasonEpisodes.length} eps for S${season}, using ${episodeList.length} total`);
-
-        // Prova prima a trovare l'episodio per numero estratto dal titolo
-        let targetEpisode = episodeList.find(ep => extractEpisodeNumber(ep.title) === episode);
-
-        // Fallback: usa l'indice posizionale (episode 1 = indice 0)
-        if (!targetEpisode) {
-            const targetIndex = episode - 1;
-            console.log(`[Loonex] No title match for E${episode}, trying index ${targetIndex}`);
-            targetEpisode = (targetIndex >= 0 && targetIndex < episodeList.length)
-                ? episodeList[targetIndex]
-                : undefined;
-        } else {
-            console.log(`[Loonex] Matched E${episode} by title: "${targetEpisode.title}"`);
-        }
-
-        if (targetEpisode) {
-            console.log(`[Loonex] Fetching stream for: ${targetEpisode.episodeUrl}`);
-
-            const m3u8Url = await getM3U8Url(targetEpisode.episodeUrl);
-            if (m3u8Url) {
-                // Titolo con serie, stagione ed episodio
-                const streamTitle = `${searchTitle} S${season}E${episode}`;
-
-                // Descrizione dettagliata multi-linea
-                const streamDescription = [
-                    `🎬 ${streamTitle}`,
-                    `🗣 [ITA]`,
-                    `📺 1080p`,
-                    `📝 ${targetEpisode.title || `Episodio ${episode}`}`
-                ].join('\n');
-
-                streams.push({
-                    name: 'Loonex',  // Il nome verrà sostituito da providerLabel() in addon.ts
-                    title: streamDescription,
-                    url: m3u8Url,
-                    behaviorHints: {
-                        notWebReady: true,
-                        bingeGroup: `loonex-${imdbId || tmdbId || 'unknown'}`,
-                        proxyHeaders: {
-                            request: {
-                                'Origin': 'https://loonex.eu',
-                                'Referer': 'https://loonex.eu/',
-                                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
-                            }
-                        }
-                    } as any
-                });
-            }
-        } else {
-            console.log(`[Loonex] Episode E${episode} not found in ${episodeList.length} available episodes`);
-        }
-
-        console.log(`[Loonex] Returning ${streams.length} stream(s)`);
-        return streams;
-
-    } catch (error) {
-        console.error('[Loonex] Error in getLoonexStreams:', error);
+        idx = await loadCatalog();
+    } catch {
         return [];
     }
+
+    const item = findItem(idx, imdbId || undefined, tmdbId, title);
+    if (!item) {
+        console.log(`[Loonex] No catalog entry for imdb=${imdbId} tmdb=${tmdbId} title="${title}"`);
+        return [];
+    }
+    console.log(`[Loonex] Matched: "${item.title}" (slug=${item.slug}, episodes=${item.episodes.length})`);
+
+    const ep = findEpisode(item, season, episode);
+    if (!ep || !ep.masterUrl) {
+        console.log(`[Loonex] Episode not found for S${season}E${episode}`);
+        return [];
+    }
+
+    const seriesTitle = item.tmdb?.title || item.title;
+    const seLabel = (season != null && episode != null) ? ` S${season}E${episode}` : '';
+    const streamTitle = `${seriesTitle}${seLabel}`;
+    const description = [
+        `🎬 ${streamTitle}`,
+        `🗣 [ITA]`,
+        `📺 1080p`,
+        ep.label ? `📝 ${ep.label}` : null,
+    ].filter(Boolean).join('\n');
+
+    // Headers (Referer / Origin) per il videoserver
+    const reqHeaders: Record<string, string> = {
+        'Referer': (ep.headers && ep.headers['Referer']) || 'https://loonex.eu/',
+        'Origin': 'https://loonex.eu',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
+    };
+    if (ep.headers) {
+        for (const [k, v] of Object.entries(ep.headers)) {
+            if (v && !reqHeaders[k]) reqHeaders[k] = String(v);
+        }
+    }
+
+    const stream: Stream = {
+        name: 'Loonex',
+        title: description,
+        url: ep.masterUrl,
+        behaviorHints: {
+            notWebReady: true,
+            bingeGroup: `loonex-${imdbId || tmdbId || item.slug}`,
+            proxyHeaders: { request: reqHeaders }
+        } as any
+    };
+
+    console.log(`[Loonex] Returning stream for ${item.slug} → ${ep.masterUrl.substring(0, 120)}...`);
+    return [stream];
 }
 
 /**
- * Funzione helper per aggiungere una normalizzazione statica
- * Nota: Le mappature statiche vanno aggiunte in src/config/loonexTitleMap.ts
+ * Mantiene compatibilità con eventuali chiamate esterne. Le mappature statiche
+ * di titoli vivono in src/config/loonexTitleMap.ts.
  */
 export function addTitleNormalization(id: string, loonexTitle: string) {
-    const { LOONEX_TITLE_MAP } = require('../config/loonexTitleMap');
-    LOONEX_TITLE_MAP[id] = loonexTitle;
-    console.log(`[Loonex] Added static mapping: ${id} -> "${loonexTitle}"`);
+    const mod = require('../config/loonexTitleMap');
+    if (mod && mod.LOONEX_TITLE_MAP) {
+        mod.LOONEX_TITLE_MAP[id] = loonexTitle;
+        console.log(`[Loonex] Added static mapping: ${id} -> "${loonexTitle}"`);
+    }
 }
