@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.59](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.58...v1.17.59) (2026-05-13)
+
+
+### Bug Fixes
+
+* animeworld-provider.ts ([138e0bd](https://github.com/qwertyuiop8899/streamvix/commit/138e0bd9b7b4d5ebb5323dd4394e6ad25b3277ea))
+
 ## [1.17.58](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.57...v1.17.58) (2026-05-13)
 
 
