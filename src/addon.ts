@@ -6761,18 +6761,21 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }, providerLabel('eurostreaming'), true, 30000);  // Eurostreaming: timeout 30s
                     }
 
-                    // Loonex (serie TV)
-                    if (loonexEnabled && type === 'series' && seasonNumber != null && episodeNumber != null && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
-                        scheduleProviderRun('Loonex', true, async () => {
-                            const { getLoonexStreams } = await import('./providers/loonex-provider');
-                            // Extract IDs from the request
-                            const tmdbId = id.startsWith('tmdb:') ? id.replace('tmdb:', '').split(':')[0] : undefined;
-                            const imdbId = id.startsWith('tt') ? id.split(':')[0] : '';
-                            console.log(`[DEBUG-LOONEX] Calling getLoonexStreams: type=${type}, imdbId=${imdbId}, tmdbId=${tmdbId}, S${seasonNumber}E${episodeNumber}`);
-                            // Non passiamo il titolo, lo recupererà da TMDb
-                            const streams = await getLoonexStreams(type, imdbId, undefined, seasonNumber, episodeNumber, tmdbId);
-                            return { streams };
-                        }, providerLabel('loonex'), false, 30000);  // Loonex: timeout 30s
+                    // Loonex (serie TV + film) — catalog-based, no scraping
+                    if (loonexEnabled && (type === 'series' || type === 'movie') && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
+                        // Per le serie richiede stagione+episodio; per i film basta l'ID.
+                        const loonexSeriesOk = type === 'series' && seasonNumber != null && episodeNumber != null;
+                        const loonexMovieOk = type === 'movie';
+                        if (loonexSeriesOk || loonexMovieOk) {
+                            scheduleProviderRun('Loonex', true, async () => {
+                                const { getLoonexStreams } = await import('./providers/loonex-provider');
+                                const tmdbId = id.startsWith('tmdb:') ? id.replace('tmdb:', '').split(':')[0] : undefined;
+                                const imdbId = id.startsWith('tt') ? id.split(':')[0] : '';
+                                console.log(`[DEBUG-LOONEX] Calling getLoonexStreams: type=${type}, imdbId=${imdbId}, tmdbId=${tmdbId}, S${seasonNumber}E${episodeNumber}`);
+                                const streams = await getLoonexStreams(type, imdbId, undefined, seasonNumber ?? undefined, episodeNumber ?? undefined, tmdbId);
+                                return { streams };
+                            }, providerLabel('loonex'), false, 15000);  // Loonex: timeout 15s (lookup locale)
+                        }
                     }
 
                     // ToonItalia (serie TV/Anime) - Ricerca dinamica via TMDb
