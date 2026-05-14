@@ -402,7 +402,7 @@ function landingTemplate(manifest: any) {
 						</div>
 						<div class="preset-card" data-preset="film-serie-anime-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + Anime</div>
-							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity Proxy, CB01, GuardaHD, Guardoserie, Guardaflix, ToonItalia, AnimeSaturn, AnimeUnity Proxy, AnimeWorld</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity Proxy, CB01, GuardaHD, Guardoserie, Guardaflix, ToonItalia, TOON, AnimeSaturn, AnimeUnity Proxy, AnimeWorld</div>
 						</div>
 						<div class="preset-card" data-preset="film-serie-tv-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + TV Live</div>
@@ -410,7 +410,7 @@ function landingTemplate(manifest: any) {
 						</div>
 						<div class="preset-card" data-preset="film-serie-anime-tv-mfp" style="padding: 1rem; border: 2px solid rgba(0, 193, 110, 0.35); border-radius: 10px; background: rgba(0, 80, 45, 0.3); cursor: pointer; transition: all 0.3s ease;">
 							<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #c9b3ff;">🎬 Film + Serie + Anime + TV Live</div>
-							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity Proxy, CB01, GuardaHD, Guardoserie, Guardaflix, ToonItalia, AnimeSaturn, AnimeUnity Proxy, AnimeWorld, Live TV, Vavoo</div>
+							<div style="font-size: 0.7rem; color: #888; line-height: 1.4;">StreamingCommunity Proxy, CB01, GuardaHD, Guardoserie, Guardaflix, ToonItalia, TOON, AnimeSaturn, AnimeUnity Proxy, AnimeWorld, Live TV, Vavoo</div>
 						</div>
 					</div>
 				</div>
@@ -507,6 +507,7 @@ function landingTemplate(manifest: any) {
 					'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
 					'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Lento🐌)</span>', invert: false },
 					'toonitaliaEnabled': { title: 'ToonItalia 🎨 - 🔒', invert: false },
+					'toonEnabled': { title: 'TOON 🧩 - 🔓', invert: false },
 					'cb01Enabled': { title: 'CB01 🎞️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci Proxy URL per abilitare)</span>', invert: false },
 					// 'tvtapProxyEnabled': { title: 'TvTap NO MFP 🔓', invert: false }, // NASCOSTO
 					'vavooNoMfpEnabled': { title: 'Vavoo NO MFP 🔓', invert: false },
@@ -875,6 +876,8 @@ function landingTemplate(manifest: any) {
 				var cb01Row = cb01El ? cb01El.closest('[data-toggle-row]') : null;
 				var toonitaliaEl = document.getElementById('toonitaliaEnabled');
 				var toonitaliaRow = toonitaliaEl ? toonitaliaEl.closest('[data-toggle-row]') : null;
+				var toonEl = document.getElementById('toonEnabled');
+				var toonRow = toonEl ? toonEl.closest('[data-toggle-row]') : null;
 				var dvrEl = document.getElementById('dvrEnabled');
 				var dvrRow = dvrEl ? dvrEl.closest('[data-toggle-row]') : null;
 				var storedVixsrcState = null; // remember previous user choice
@@ -952,6 +955,12 @@ function landingTemplate(manifest: any) {
 							}
 						}
 						if (toonitaliaRow) setRowState(toonitaliaRow);
+					}
+					// TOON: nessun gating MFP. Maxstream m3u8 risolto direttamente
+					// dal resolver uprot, funziona anche senza proxy.
+					if (toonEl){
+						toonEl.disabled = false;
+						if (toonRow) { toonRow.classList.remove('dimmed'); setRowState(toonRow); }
 					}
 					// DVR toggle gating (richiede MFP attivo e configurato)
 					if (dvrEl){
@@ -1141,6 +1150,7 @@ function landingTemplate(manifest: any) {
 						'guardaflixEnabled',     // Guardaflix (Added)
 						'eurostreamingEnabled',  // Eurostreaming
 						'toonitaliaEnabled',     // ToonItalia
+						'toonEnabled',           // TOON
 						'animesaturnEnabled',    // Anime Saturn
 						'animeworldEnabled',     // Anime World
 						'animeunityEnabled'      // Anime Unity (moved LAST per richiesta)
@@ -1454,50 +1464,50 @@ function landingTemplate(manifest: any) {
 						name: '🎬 Film + Serie (Senza Proxy)',
 						mfp: false,
 						providers: ['GuardaHD', 'Guardoserie', 'Guardaflix'],
-						config: { disableVixsrc:true, cb01Enabled:false, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:true, animeunityEnabled:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, toonitaliaEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:false, trailerEnabled:false }
+						config: { disableVixsrc:true, cb01Enabled:false, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:true, animeunityEnabled:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, toonitaliaEnabled:false, toonEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:false, trailerEnabled:false }
 					},
 					'film-serie-anime-nomfp': {
 						name: '🎬 Film + Serie + Anime (Senza Proxy)',
 						mfp: false,
-						providers: ['GuardaHD', 'AnimeSaturn', 'AnimeWorld'],
-						config: { disableVixsrc:true, cb01Enabled:false, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:false, guardaflixEnabled:false, disableLiveTv:true, animeunityEnabled:false, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, toonitaliaEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:false, trailerEnabled:false }
+						providers: ['GuardaHD', 'AnimeSaturn', 'AnimeWorld', 'TOON'],
+						config: { disableVixsrc:true, cb01Enabled:false, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:false, guardaflixEnabled:false, disableLiveTv:true, animeunityEnabled:false, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, toonitaliaEnabled:false, toonEnabled:true, vavooNoMfpEnabled:false, mediaflowMaster:false, trailerEnabled:false }
 					},
 					'film-serie-tv-nomfp': {
 						name: '🎬 Film + Serie + TV Live (Senza Proxy)',
 						mfp: false,
 						providers: ['GuardaHD', 'Guardoserie', 'Guardaflix', 'Live TV', 'Vavoo NO MFP'],
-						config: { disableVixsrc:true, cb01Enabled:false, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, toonitaliaEnabled:false, vavooNoMfpEnabled:true, mediaflowMaster:false, trailerEnabled:false }
+						config: { disableVixsrc:true, cb01Enabled:false, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, toonitaliaEnabled:false, toonEnabled:false, vavooNoMfpEnabled:true, mediaflowMaster:false, trailerEnabled:false }
 					},
 					'film-serie-anime-tv-nomfp': {
 						name: '🎬 Film + Serie + Anime + TV Live (Senza Proxy)',
 						mfp: false,
-						providers: ['GuardaHD', 'Guardoserie', 'Guardaflix', 'AnimeSaturn', 'AnimeWorld', 'Live TV', 'Vavoo NO MFP'],
-						config: { disableVixsrc:true, cb01Enabled:false, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:false, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, toonitaliaEnabled:false, vavooNoMfpEnabled:true, mediaflowMaster:false, trailerEnabled:false }
+						providers: ['GuardaHD', 'Guardoserie', 'Guardaflix', 'AnimeSaturn', 'AnimeWorld', 'TOON', 'Live TV', 'Vavoo NO MFP'],
+						config: { disableVixsrc:true, cb01Enabled:false, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:false, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, toonitaliaEnabled:false, toonEnabled:true, vavooNoMfpEnabled:true, mediaflowMaster:false, trailerEnabled:false }
 					},
 					// ── con proxy (EP o MFP) ──
 					'film-serie-mfp': {
 						name: '🎬 Film + Serie (Con Proxy)',
 						mfp: true,
 						providers: ['StreamingCommunity Proxy', 'CB01', 'GuardaHD', 'Guardoserie', 'Guardaflix'],
-						config: { disableVixsrc:false, vixProxy:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:true, animeunityEnabled:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, toonitaliaEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
+						config: { disableVixsrc:false, vixProxy:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:true, animeunityEnabled:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, toonitaliaEnabled:false, toonEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
 					},
 					'film-serie-anime-mfp': {
 						name: '🎬 Film + Serie + Anime (Con Proxy)',
 						mfp: true,
-						providers: ['StreamingCommunity Proxy', 'CB01', 'GuardaHD', 'Guardoserie', 'Guardaflix', 'ToonItalia', 'AnimeSaturn', 'AnimeUnity Proxy', 'AnimeWorld'],
-						config: { disableVixsrc:false, vixProxy:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:true, animeunityEnabled:true, animeunityProxy:true, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, toonitaliaEnabled:true, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
+						providers: ['StreamingCommunity Proxy', 'CB01', 'GuardaHD', 'Guardoserie', 'Guardaflix', 'ToonItalia', 'TOON', 'AnimeSaturn', 'AnimeUnity Proxy', 'AnimeWorld'],
+						config: { disableVixsrc:false, vixProxy:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:true, animeunityEnabled:true, animeunityProxy:true, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, toonitaliaEnabled:true, toonEnabled:true, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
 					},
 					'film-serie-tv-mfp': {
 						name: '🎬 Film + Serie + TV Live (Con Proxy)',
 						mfp: true,
 						providers: ['StreamingCommunity Proxy', 'CB01', 'GuardaHD', 'Guardoserie', 'Guardaflix', 'Live TV', 'Vavoo'],
-						config: { disableVixsrc:false, vixProxy:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, toonitaliaEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
+						config: { disableVixsrc:false, vixProxy:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:false, animesaturnEnabled:false, animeworldEnabled:false, eurostreamingEnabled:false, toonitaliaEnabled:false, toonEnabled:false, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
 					},
 					'film-serie-anime-tv-mfp': {
 						name: '🎬 Film + Serie + Anime + TV Live (Con Proxy)',
 						mfp: true,
-						providers: ['StreamingCommunity Proxy', 'CB01', 'GuardaHD', 'Guardoserie', 'Guardaflix', 'Live TV', 'Vavoo', 'ToonItalia', 'AnimeSaturn', 'AnimeUnity Proxy', 'AnimeWorld'],
-						config: { disableVixsrc:false, vixProxy:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:true, animeunityProxy:true, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, toonitaliaEnabled:true, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
+						providers: ['StreamingCommunity Proxy', 'CB01', 'GuardaHD', 'Guardoserie', 'Guardaflix', 'Live TV', 'Vavoo', 'ToonItalia', 'TOON', 'AnimeSaturn', 'AnimeUnity Proxy', 'AnimeWorld'],
+						config: { disableVixsrc:false, vixProxy:true, cb01Enabled:true, guardahdEnabled:true, guardaserieEnabled:false, guardoserieEnabled:true, guardaflixEnabled:true, disableLiveTv:false, animeunityEnabled:true, animeunityProxy:true, animesaturnEnabled:true, animeworldEnabled:true, eurostreamingEnabled:false, toonitaliaEnabled:true, toonEnabled:true, vavooNoMfpEnabled:false, mediaflowMaster:true, trailerEnabled:false }
 					}
 				};
 
