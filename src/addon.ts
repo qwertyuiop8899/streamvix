@@ -8248,6 +8248,15 @@ function startServer(basePort: number, attempts = 0) {
     const PORT = basePort + attempts;
     const server = app.listen(PORT, () => {
         console.log(`Addon server running on http://127.0.0.1:${PORT}`);
+        // Avvia il warmup periodico dei shortener (uprot/clicka): risolve un captcha
+        // OCR su un seed URL così che l'IP del server resti whitelistato e tutte le
+        // chiamate runtime saltino direttamente il captcha (fast path).
+        try {
+            const { startWarmupLoop } = require('./utils/shortenerResolver');
+            startWarmupLoop();
+        } catch (e) {
+            console.warn('[addon] shortenerResolver warmup loop failed to start:', (e as Error).message);
+        }
     });
     server.on('error', (err: any) => {
         if (err.code === 'EADDRINUSE' && attempts < 10) {
