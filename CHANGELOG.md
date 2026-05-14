@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.17.61](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.60...v1.17.61) (2026-05-14)
+
+
+### Bug Fixes
+
+* domains update ([9b34041](https://github.com/qwertyuiop8899/streamvix/commit/9b34041152a954f22b8e841f73e3108d85d1bf96))
+* max clicka ([e7d4a0d](https://github.com/qwertyuiop8899/streamvix/commit/e7d4a0df24e7a0fc015dad164ebb54f828133d34))
+* max clicka ([ee1a1b2](https://github.com/qwertyuiop8899/streamvix/commit/ee1a1b2ed42df084fde958d93e0e0fb44b044972))
+* max clicka ([ada9a53](https://github.com/qwertyuiop8899/streamvix/commit/ada9a535a68465f72d7adf6a9fbb37b007cb0bff))
+* max clicka ([10b6865](https://github.com/qwertyuiop8899/streamvix/commit/10b686510499b6a4869149a079eb50bfd4444c35))
+* max clicka ([d1ffafd](https://github.com/qwertyuiop8899/streamvix/commit/d1ffafdb70cedda265f0704d5e9d83efe46b2fc0))
+
 ## [1.17.60](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.59...v1.17.60) (2026-05-13)
 
 
