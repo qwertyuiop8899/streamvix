@@ -74,6 +74,7 @@ interface AddonConfig {
     guardahdEnabled?: boolean;
     eurostreamingEnabled?: boolean;
     toonitaliaEnabled?: boolean;
+    toonEnabled?: boolean;
     disableLiveTv?: boolean;
     trailerEnabled?: boolean;
     disableVixsrc?: boolean;
@@ -895,6 +896,7 @@ const baseManifest: Manifest = {
         { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
         { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox" },
         { key: "toonitaliaEnabled", title: "Enable ToonItalia", type: "checkbox" },
+        { key: "toonEnabled", title: "Enable TOON", type: "checkbox" },
         { key: "cb01Enabled", title: "Enable CB01 Mixdrop", type: "checkbox" },
         // { key: "tvtapProxyEnabled", title: "TvTap NO MFP 🔓", type: "checkbox", default: "checked" }, // TVTAP RIMOSSO
         { key: "vavooNoMfpEnabled", title: "Vavoo NO MFP 🔓", type: "checkbox", default: false },
@@ -6115,7 +6117,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const providerKeys = [
                         'trailerEnabled', 'disableVixsrc', 'vixDirect', 'vixDirectFhd', 'vixProxy',
                         'guardahdEnabled', 'guardaserieEnabled', 'guardoserieEnabled', 'guardaflixEnabled',
-                        'eurostreamingEnabled', 'toonitaliaEnabled', 'cb01Enabled',
+                        'eurostreamingEnabled', 'toonitaliaEnabled', 'toonEnabled', 'cb01Enabled',
                         'animesaturnEnabled', 'animeworldEnabled', 'animeunityEnabled'
                     ];
                     return providerKeys.some(k => cfg[k] !== undefined);
@@ -6149,6 +6151,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // ToonItalia: default OFF (nuovo provider) - API mode enables it
                 const toonitaliaEnabled = envFlag('TOONITALIA_ENABLED') ?? (isDirectAPICall || config.toonitaliaEnabled === true || rc?.toonitaliaEnabled === true);
                 console.log(`[ToonItalia] Flag status: ${toonitaliaEnabled} (env: ${envFlag('TOONITALIA_ENABLED')}, config: ${config.toonitaliaEnabled})`);
+                // TOON (onlineserietv.lol): default OFF - API mode enables it
+                const toonEnabled = envFlag('TOON_ENABLED') ?? (isDirectAPICall || (config as any).toonEnabled === true || rc?.toonEnabled === true);
+                console.log(`[TOON] Flag status: ${toonEnabled} (env: ${envFlag('TOON_ENABLED')}, config: ${(config as any).toonEnabled})`);
                 // Nuovo flag per inserire VixSrc nell'esecuzione parallela (prima era fuori e poteva saltare)
                 // FIX: usa config dell'utente, NON configCache globale
                 const vixsrcEnabled = (() => {
@@ -6167,7 +6172,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // IMPORTANTE: includere trailerEnabled per permettere trailer standalone
                 const trailerEnabled = (config as any).trailerEnabled !== false && rc?.trailerEnabled !== false;
                 const fastModeEnabled = (config as any).fastMode === true;
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || toonitaliaEnabled || cb01Enabled || vixsrcEnabled)) {
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || toonitaliaEnabled || toonEnabled || cb01Enabled || vixsrcEnabled)) {
                     // Rilevamento addonBase per AnimeUnity (stessa logica VixSrc)
                     let auAddonBase = '';
                     try {
@@ -6252,6 +6257,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (l.includes('cb01')) return 'cb01';
                         if (l.includes('eurostreaming')) return 'eurostreaming';
                         if (l.includes('toonitalia')) return 'toonitalia';
+                        if (l === 'toon' || l.startsWith('toon ') || l.startsWith('toon\n') || l.startsWith('toon\t') || l.includes('[toon]')) return 'toon';
                         if (l.includes('guardaflix')) return 'guardaflix';
                         if (l.includes('guardoserie')) return 'guardoserie';
                         return 'generic';
@@ -6460,6 +6466,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     case 'toonitalia':
                                         bingeGroup = 'toonitalia-std';
                                         break;
+                                    case 'toon':
+                                        bingeGroup = 'toon-std';
+                                        break;
                                     default:
                                         bingeGroup = `${providerKey}-std`;
                                 }
@@ -6515,8 +6524,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     };
                     const getFastPriority = (): string[] => {
                         if (isAnimeFastRequest) return ['animeunity', 'animeworld', 'animesaturn'];
-                        if (type === 'movie') return ['vixsrc', 'guardahd', 'guardaflix', 'toonitalia'];
-                        if (type === 'series') return ['vixsrc', 'guardaserie', 'cb01', 'guardoserie', 'toonitalia', 'eurostreaming'];
+                        if (type === 'movie') return ['vixsrc', 'guardahd', 'guardaflix', 'toonitalia', 'toon'];
+                        if (type === 'series') return ['vixsrc', 'guardaserie', 'cb01', 'guardoserie', 'toonitalia', 'toon', 'eurostreaming'];
                         return [];
                     };
                     const hasItalianStreams = (streams: Stream[]): boolean => {
@@ -6786,6 +6795,56 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }, 'ToonItalia', false, 30000);  // ToonItalia: timeout 30s
                     }
 
+                    // TOON (onlineserietv.lol) - Ricerca dinamica via TMDb / Kitsu (serie + film)
+                    if (toonEnabled) {
+                        // Parse kitsu locale (seasonNumber/episodeNumber globali coprono solo tt/tmdb)
+                        let kitsuSeason: number | null = null;
+                        let kitsuEpisode: number | null = null;
+                        let kitsuIdLocal: string | null = null;
+                        let kitsuIsMovie = false;
+                        if (id.startsWith('kitsu:')) {
+                            const kp = id.split(':');
+                            kitsuIdLocal = kp[1] || null;
+                            if (kp.length === 2) kitsuIsMovie = true;
+                            else if (kp.length === 3) { kitsuSeason = 1; kitsuEpisode = parseInt(kp[2], 10); }
+                            else if (kp.length === 4) { kitsuSeason = parseInt(kp[2], 10); kitsuEpisode = parseInt(kp[3], 10); }
+                        }
+                        const isSeriesReq = (seasonNumber != null && episodeNumber != null) || (kitsuEpisode != null);
+                        const isMovieReq = isMovie || kitsuIsMovie;
+                        if (isSeriesReq || isMovieReq) {
+                            scheduleProviderRun('TOON', true, async () => {
+                                const { toon } = await import('./providers/toon-provider');
+                                let requestId: string;
+                                const reqType: 'movie' | 'series' = isSeriesReq ? 'series' : 'movie';
+                                if (id.startsWith('tt')) {
+                                    const baseId = id.split(':')[0];
+                                    requestId = isSeriesReq ? `${baseId}:${seasonNumber}:${episodeNumber}` : baseId;
+                                } else if (id.startsWith('tmdb:')) {
+                                    const tmdbId = id.replace('tmdb:', '').split(':')[0];
+                                    requestId = isSeriesReq ? `tmdb:${tmdbId}:${seasonNumber}:${episodeNumber}` : `tmdb:${tmdbId}`;
+                                } else if (id.startsWith('kitsu:') && kitsuIdLocal) {
+                                    requestId = isSeriesReq
+                                        ? `kitsu:${kitsuIdLocal}:${kitsuSeason}:${kitsuEpisode}`
+                                        : `kitsu:${kitsuIdLocal}`;
+                                } else {
+                                    console.log('[TOON] Unknown ID format:', id);
+                                    return { streams: [] };
+                                }
+                                console.log(`[TOON] Calling provider with: ${requestId} (${reqType})`);
+                                const streams = await toon({
+                                    id: requestId,
+                                    type: reqType,
+                                    config: {
+                                        mfpUrl: mfpUrl || '',
+                                        mfpPsw: mfpPsw || '',
+                                        tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
+                                    }
+                                });
+                                return { streams };
+                            }, 'TOON', false, 30000);
+                        }
+                    }
+
 
                     if (fastModeEnabled) {
                         const picked = await pickFastModeStreams();
@@ -6828,6 +6887,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }
                     } catch (e) {
                         console.warn('[ToonItalia][LabelPass] errore post-process label:', (e as any)?.message || e);
+                    }
+
+                    // Post-process TOON streams to apply unified label
+                    try {
+                        for (const s of allStreams) {
+                            const n = (s.name || '').toLowerCase();
+                            // match SOLO 'toon' standalone (non 'toonitalia')
+                            if (n === 'toon' || /^toon($|\s|\b)/.test(n) && !n.includes('toonitalia')) {
+                                s.name = mapLegacyProviderName(s.name || 'TOON');
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[TOON][LabelPass] errore post-process label:', (e as any)?.message || e);
                     }
                 }
 
