@@ -48,6 +48,7 @@ function resolvePython(): string {
   return cachedPythonCmd;
 }
 import type { StreamForStremio } from '../types/animeunity';
+import { resolveShortener, triggerWarmupAsync } from '../utils/shortenerResolver';
 
 export interface EurostreamingConfig { enabled: boolean; mfpUrl?: string; mfpPassword?: string; tmdbApiKey?: string; useMediaFlow?: boolean; }
 
@@ -133,7 +134,7 @@ export class EurostreamingProvider {
     } catch { return null; }
   }
 
-  private formatStreams(list: PyResult['streams']): StreamForStremio[] {
+  private async formatStreams(list: PyResult['streams']): Promise<StreamForStremio[]> {
     if (!list) return [];
   // Mostra sempre entrambi gli host (DeltaBit + MixDrop). Ordina con DeltaBit prima.
   const ordered = [...list].sort((a,b)=>{
@@ -193,36 +194,67 @@ export class EurostreamingProvider {
           }
         } else if (h.includes('maxstream') || h.includes('uprot') || /^Maxstream$/i.test(s.player || '')) {
           playerName = 'Maxstream';
-          // Skip captcha-protected variants that MFP cannot bypass
-          if (/\/msei\//i.test(s.url) || /maxstream\.video\/uprots\//i.test(s.url)) {
-            console.log('[Eurostreaming] skip maxstream captcha url', s.url.substring(0, 120));
+          // Resolver interno OBBLIGATORIO: uprot.net/* -> m3u8 diretto.
+          // Nessun fallback proxy con URL grezzo (uprot non sarebbe risolvibile da EP).
+          // Se captcha_required: trigger warmup e SKIP questo stream.
+          try {
+            const resolved = await resolveShortener(s.url);
+            if (resolved.ok && resolved.kind === 'maxstream') {
+              finalUrl = resolved.m3u8;
+            } else if (!resolved.ok && resolved.error === 'captcha_required') {
+              console.log('[Eurostreaming] maxstream captcha_required -> trigger warmup, skip stream');
+              triggerWarmupAsync();
+              continue;
+            } else {
+              console.log('[Eurostreaming] maxstream resolve failed:', (resolved as any).error, 'url=', s.url.substring(0, 120));
+              continue;
+            }
+          } catch (e) {
+            console.log('[Eurostreaming] maxstream resolver error', (e as Error).message);
             continue;
           }
-          // Maxstream / uprot: instradiamo via MFP extractor m3u8 (host=maxstream lowercase)
-          if (this.config.mfpUrl) {
-            const base = this.config.mfpUrl.replace(/\/$/, '');
-            const passwordParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
-            const params = new URLSearchParams({ host: 'maxstream', d: s.url, redirect_stream: 'true' });
-            finalUrl = `${base}/extractor/video.m3u8?${params.toString()}${passwordParam}`;
-          } else {
-            // Senza MFP non possiamo risolvere uprot/captcha: scarta lo stream
-            continue;
-          }
-        } else if (/deltabit|\/delta\//i.test(s.url) || /clicka\.cc\/delta\//i.test(s.url)) {
+        } else if (/clicka\.cc\/(?:delta|adelta)\//i.test(s.url) || /deltabit\.co/i.test(s.url) || /deltabit|\/delta\//i.test(s.url)) {
           playerName = 'Deltabit';
-          // L'URL grezzo è del tipo https://clicka.cc/delta/<id>: serve passarlo all'extractor
-          // EasyProxy (host=deltabit) che gestisce safego/captcha + risoluzione XFileSharing server-side.
-          // MediaFlow Proxy NON ha l'extractor deltabit -> scartiamo lo stream in quel caso.
-          if (this.config.mfpUrl && !(this.config as any).useMediaFlow) {
-            const base = this.config.mfpUrl.replace(/\/$/, '');
-            const encoded = encodeURIComponent(s.url);
-            const passwordParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
-            // EasyProxy: /extractor/video.mp4?host=deltabit (DeltaBit serve MP4 diretto).
+          // Strategia: il resolver Python segue il chain clicka -> safego -> adelta via PROXY env
+          // e ritorna l'URL finale deltabit.co/<id>. Quell'URL finale viene wrappato in EP
+          // /proxy/stream (traffico video SEMPRE su EP, MAI su PROXY env).
+          // Mai passare clicka.cc grezzo a EP/MFP: non lo risolvono piu' -> skip se non risolto.
+          let deltabitUrl: string | null = null;
+          if (/deltabit\.co/i.test(s.url) && !/clicka\.cc/i.test(s.url)) {
+            // Gia' URL finale deltabit.
+            deltabitUrl = s.url;
+          } else {
+            try {
+              const resolved = await resolveShortener(s.url);
+              if (resolved.ok && resolved.kind === 'deltabit') {
+                deltabitUrl = resolved.deltabit;
+                console.log('[Eurostreaming] deltabit resolved', s.url.substring(0, 80), '->', deltabitUrl.substring(0, 120));
+              } else if (!resolved.ok && resolved.error === 'captcha_required') {
+                console.log('[Eurostreaming] deltabit captcha_required -> trigger warmup, skip stream');
+                triggerWarmupAsync();
+              } else {
+                console.log('[Eurostreaming] deltabit resolve failed:', (resolved as any).error, '-> skip stream');
+              }
+            } catch (e) {
+              console.log('[Eurostreaming] deltabit resolver error', (e as Error).message, '-> skip stream');
+            }
+          }
+          if (!deltabitUrl) {
+            continue;
+          }
+          if (!this.config.mfpUrl) {
+            console.log('[Eurostreaming] skip deltabit (no MFP/EP configurato)', deltabitUrl.substring(0, 120));
+            continue;
+          }
+          const base = this.config.mfpUrl.replace(/\/$/, '');
+          const encoded = encodeURIComponent(deltabitUrl);
+          const passwordParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
+          if ((this.config as any).useMediaFlow) {
+            // MediaFlow: extractor esplicito XFileSharing su deltabit.co/<id>.
             finalUrl = `${base}/extractor/video.mp4?host=deltabit&d=${encoded}&redirect_stream=true${passwordParam}`;
           } else {
-            // Senza EasyProxy non possiamo risolvere clicka.cc -> safego -> deltabit: scarta lo stream.
-            console.log('[Eurostreaming] skip deltabit (requires EasyProxy; MediaFlow has no deltabit extractor)', s.url.substring(0, 120));
-            continue;
+            // EasyProxy: /proxy/stream con URL finale gia' risolto.
+            finalUrl = `${base}/proxy/stream?d=${encoded}${passwordParam}`;
           }
         }
       } catch { /* ignore parse */ }
@@ -241,7 +273,7 @@ export class EurostreamingProvider {
       console.log('[Eurostreaming] handleImdbRequest imdbId=', imdbId, 'season=', season, 'episode=', episode, 'isMovie=', isMovie);
       const py = await runPythonEuro({ imdb: imdbId, season, episode, mfp: !!this.config.mfpUrl, isMovie, tmdbKey: this.config.tmdbApiKey });
       console.log('[Eurostreaming] python result keys=', Object.keys(py||{}));
-      const formatted = this.formatStreams(py.streams);
+      const formatted = await this.formatStreams(py.streams);
       console.log('[Eurostreaming] formatted count=', formatted.length);
       if (!formatted.length) console.log('[Eurostreaming] EMPTY after formatting original_count=', py.streams ? py.streams.length : 0);
       return { streams: formatted };
@@ -278,7 +310,7 @@ export class EurostreamingProvider {
       console.log('[Eurostreaming][TMDB] imdb not resolved -> fallback python tmdb flow');
       const py = await runPythonEuro({ tmdb: raw, season: sSeason, episode: sEpisode, mfp: !!this.config.mfpUrl, isMovie, tmdbKey: this.config.tmdbApiKey });
       console.log('[Eurostreaming][TMDB] python result keys=', Object.keys(py||{}));
-      const formatted = this.formatStreams(py.streams);
+      const formatted = await this.formatStreams(py.streams);
       console.log('[Eurostreaming][TMDB] formatted count=', formatted.length);
       if (!formatted.length) console.log('[Eurostreaming][TMDB] EMPTY after formatting original_count=', py.streams ? py.streams.length : 0);
       return { streams: formatted };
