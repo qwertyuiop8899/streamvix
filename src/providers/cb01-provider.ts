@@ -288,7 +288,19 @@ export class Cb01Provider {
         const candidates: string[] = [];
         if (iframe2) candidates.push(iframe2[1]);
         if (iframe1 && iframe1[1] !== iframe2?.[1]) candidates.push(iframe1[1]);
+        // Fallback / arricchimento: alcune pagine film cb01 espongono nelle tabelle
+        // <table class="tableinside"> i link diretti Maxstream (uprot.net/msf/...)
+        // e Mixdrop (stayonline.pro/l/...) per i blocchi "Streaming" e
+        // "Streaming HD". iframen1/iframen2 a volte coprono solo uno dei mirror,
+        // quindi aggiungiamo qui tutti i link shortener trovati nella pagina,
+        // deduplicati. wrapMediaFlow li smista poi su Maxstream/Mixdrop.
+        const extraLinkRe = /https?:\/\/(?:uprot\.net\/(?:msf|msfi|msei|mse)\/[A-Za-z0-9]+|stayonline\.pro\/l\/[A-Za-z0-9]+)\/?/gi;
+        const extra = Array.from(new Set(pageHtml.match(extraLinkRe) || []));
+        for (const u of extra) {
+            if (!candidates.includes(u)) candidates.push(u);
+        }
         if (!candidates.length) { log('movie no iframe found', { imdbId, movieHref }); return null; }
+        log('movie candidates', { imdbId, total: candidates.length, candidates });
 
         const results: FlowResult[] = [];
         for (const candidate of candidates) {
@@ -605,30 +617,57 @@ export class Cb01Provider {
         let hostLabel: string;
 
         if (isMaxstream) {
-            // uprot.net/msei/<base64> URLs are protected by a visual captcha
-            // (no redirect, no JS bypass, no IP whitelist). Standard MFP
-            // Maxstream extractors cannot resolve them server-side, so we
-            // suppress the stream rather than expose a broken link.
-            // /msf/ and /msfld/ paths are captcha-less and work fine.
-            if (/\/msei\//i.test(originalEmbed)) {
-                log('maxstream skipped (uprot /msei/ requires captcha solver)', { embed: originalEmbed.substring(0, 120) });
+            // Internal resolver: bypass MFP entirely for uprot/maxstream.
+            // The streamvix host IP is whitelisted by the periodic warmup, so
+            // GETs to uprot resolve without captcha. Final m3u8 from maxstream
+            // is NOT IP-locked and can be returned directly to Stremio.
+            let targetUprot = originalEmbed;
+            // If we received a /msfld/ folder URL and have season+episode info,
+            // parse the folder and pick the matching SxxEyy /msfi/ link.
+            if (ep && /\/msfld\//i.test(originalEmbed)) {
+                try {
+                    const { parseUprotFolder } = await import('../utils/shortenerResolver');
+                    const folder = await parseUprotFolder(originalEmbed);
+                    if (folder.ok && folder.kind === 'folder') {
+                        const match = folder.entries.find(e => e.season === ep.season && e.episode === ep.episode);
+                        if (match) {
+                            targetUprot = match.msfi;
+                            log('msfld -> msfi picked', { season: ep.season, episode: ep.episode, msfi: targetUprot, filename: match.filename });
+                        } else {
+                            log('msfld parsed but no matching episode', { season: ep.season, episode: ep.episode, entryCount: folder.entries.length });
+                            return null;
+                        }
+                    } else {
+                        log('msfld parse failed', { error: (folder as any).error });
+                        return null;
+                    }
+                } catch (e) {
+                    warn('msfld parse error', String(e));
+                    return null;
+                }
+            }
+            try {
+                const { resolveShortener, triggerWarmupAsync } = await import('../utils/shortenerResolver');
+                const resolved = await resolveShortener(targetUprot);
+                if (resolved.ok && resolved.kind === 'maxstream') {
+                    extractorUrl = resolved.m3u8;
+                    hostLabel = 'Maxstream';
+                    log('maxstream resolved', { uprot: targetUprot.substring(0, 120), m3u8: extractorUrl.substring(0, 140) });
+                } else {
+                    // NIENTE fallback EP con uprot grezzo: EP/MFP non risolvono piu' gli shortener.
+                    // Skip lo stream; il warmup periodico riallineera' lo stato.
+                    if (!resolved.ok && resolved.error === 'captcha_required') {
+                        log('maxstream captcha_required -> trigger warmup, skip stream');
+                        triggerWarmupAsync();
+                    } else {
+                        log('maxstream resolve failed -> skip stream', { error: (resolved as any).error, url: targetUprot.substring(0, 120) });
+                    }
+                    return null;
+                }
+            } catch (e) {
+                warn('maxstream resolver error -> skip stream', String(e));
                 return null;
             }
-            // Build the Maxstream extractor URL. Match the format of the
-            // known-working endpoint:
-            //   /extractor/video.m3u8?host=maxstream&d=<uprot>&redirect_stream=true
-            // (lowercase host, .m3u8 suffix). For /msfld/ folders also pass
-            // season+episode so the upstream extractor can pick the right
-            // /msfi/ (requires the realbestia1/EasyProxy folder-support
-            // patch — falls back gracefully on older MFP versions).
-            const params = new URLSearchParams({ host: 'maxstream', d: originalEmbed, redirect_stream: 'true' });
-            if (ep && /\/msfld\//i.test(originalEmbed)) {
-                params.set('season', String(ep.season));
-                params.set('episode', String(ep.episode));
-            }
-            extractorUrl = `${mfpBase}/extractor/video.m3u8?${params.toString()}${passwordParam}`;
-            hostLabel = 'Maxstream';
-            log('maxstream extractor url built', { embed: originalEmbed.substring(0, 120), extractorUrl: extractorUrl.substring(0, 140) });
         } else {
             // Mixdrop / generic: canonical /e/{id}/ then proxy/stream auto-extract
             let dUrl = originalEmbed;
