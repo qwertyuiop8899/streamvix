@@ -250,11 +250,11 @@ export class EurostreamingProvider {
           const encoded = encodeURIComponent(deltabitUrl);
           const passwordParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
           if ((this.config as any).useMediaFlow) {
-            // MediaFlow: extractor esplicito XFileSharing su deltabit.co/<id>.
-            finalUrl = `${base}/extractor/video.mp4?host=deltabit&d=${encoded}&redirect_stream=true${passwordParam}`;
-          } else {
-            // EasyProxy: /proxy/stream con URL finale gia' risolto.
+            // MediaFlow: nessun extractor deltabit -> usa il default /proxy/stream.
             finalUrl = `${base}/proxy/stream?d=${encoded}${passwordParam}`;
+          } else {
+            // EasyProxy: extractor esplicito XFileSharing su deltabit.co/<id>.
+            finalUrl = `${base}/extractor/video.mp4?host=deltabit&d=${encoded}&redirect_stream=true${passwordParam}`;
           }
         }
       } catch { /* ignore parse */ }
