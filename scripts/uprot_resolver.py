@@ -625,6 +625,16 @@ def resolve_uprot_fast(url):
         if state and state.get('cookies'):
             headers['Cookie'] = '; '.join(f'{k}={v}' for k, v in state['cookies'].items())
     st, _hdrs, raw = http(target_url, method, body, headers)
+    # IP whitelistato: uprot risponde 30x verso il next-hop senza body. Segui
+    # direttamente la Location se punta a maxstream/clicka.
+    if st in (301, 302, 303, 307, 308):
+        loc = _hdrs.get('location') or ''
+        loc_low = loc.lower()
+        if 'maxstream' in loc_low or '/uprots/' in loc_low:
+            return _follow_maxstream_chain(loc)
+        if 'clicka' in loc_low and '/adelta/' in loc_low:
+            return resolve_clicka_fast(loc)
+        return {'ok': False, 'error': f'GET status {st} loc={loc[:80]}'}
     if st != 200:
         return {'ok': False, 'error': f'GET status {st}'}
     body_text = raw.decode('utf-8', 'replace')
