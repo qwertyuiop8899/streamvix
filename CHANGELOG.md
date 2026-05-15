@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.64](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.63...v1.17.64) (2026-05-15)
+
+
+### Bug Fixes
+
+* toon_overrides.json ([668bcf6](https://github.com/qwertyuiop8899/streamvix/commit/668bcf64e0e3fc4ef6987f0a5f1201eae91c2823))
+
 ## [1.17.63](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.62...v1.17.63) (2026-05-15)
 
 
