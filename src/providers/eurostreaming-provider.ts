@@ -202,8 +202,7 @@ export class EurostreamingProvider {
             if (resolved.ok && resolved.kind === 'maxstream') {
               finalUrl = resolved.m3u8;
             } else if (!resolved.ok && resolved.error === 'captcha_required') {
-              console.log('[Eurostreaming] maxstream captcha_required -> trigger warmup, skip stream');
-              triggerWarmupAsync();
+              console.log('[Eurostreaming] maxstream captcha_required -> skip stream (warmup periodico gestira\' lo state)');
               continue;
             } else {
               console.log('[Eurostreaming] maxstream resolve failed:', (resolved as any).error, 'url=', s.url.substring(0, 120));
@@ -230,8 +229,7 @@ export class EurostreamingProvider {
                 deltabitUrl = resolved.deltabit;
                 console.log('[Eurostreaming] deltabit resolved', s.url.substring(0, 80), '->', deltabitUrl.substring(0, 120));
               } else if (!resolved.ok && resolved.error === 'captcha_required') {
-                console.log('[Eurostreaming] deltabit captcha_required -> trigger warmup, skip stream');
-                triggerWarmupAsync();
+                console.log('[Eurostreaming] deltabit captcha_required -> skip stream (warmup periodico gestira\' lo state)');
               } else {
                 console.log('[Eurostreaming] deltabit resolve failed:', (resolved as any).error, '-> skip stream');
               }
