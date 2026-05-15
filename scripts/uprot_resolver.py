@@ -114,9 +114,9 @@ def _clicka_state_save(cookies, data):
 DEBUG_BASE = os.environ.get('STREAMVIX_DEBUG_BASE', '').rstrip('/')
 DEBUG_TOKEN = os.environ.get('STREAMVIX_DEBUG_TOKEN', '')
 # Proxy HTTP per uscire da IP whitelistato verso clicka/uprot/maxstream.
-# Ordine: STREAMVIX_HTTP_PROXY (esplicito, prioritario) -> PROXY + PROXY_BACKUP
-# alternati round-robin per spalmare il carico (cookies/captcha possono divergere
-# tra IP differenti, ma WAF ringraziano) -> HTTPS_PROXY / HTTP_PROXY (fallback).
+# SOLO env PROXY + PROXY_BACKUP, alternati round-robin. Nessun fallback su
+# HTTPS_PROXY/HTTP_PROXY: vogliamo controllo esplicito sugli IP di uscita.
+# STREAMVIX_HTTP_PROXY (esplicito) resta come override single-proxy per debug.
 def _build_proxy_list():
     explicit = os.environ.get('STREAMVIX_HTTP_PROXY', '').strip()
     if explicit:
@@ -126,10 +126,7 @@ def _build_proxy_list():
     lst = []
     if primary: lst.append(primary)
     if backup: lst.append(backup)
-    if lst:
-        return lst
-    fb = os.environ.get('HTTPS_PROXY', '').strip() or os.environ.get('HTTP_PROXY', '').strip()
-    return [fb] if fb else []
+    return lst
 
 HTTP_PROXIES = _build_proxy_list()
 HTTP_PROXY = HTTP_PROXIES[0] if HTTP_PROXIES else ''
@@ -144,18 +141,22 @@ def _next_proxy():
     _PROXY_RR_IDX += 1
     return p
 
-HTTP_TIMEOUT = int(os.environ.get('UPROT_HTTP_TIMEOUT', '25'))
-# Default conservativi: ogni attempt = 1 GET (+ eventuale 1 POST) sul server uprot/safego.
-# Troppi tentativi -> rischio ban IP. 8 dovrebbe bastare con OCR ~30-40% hit rate.
-WARMUP_MAX_ATTEMPTS = int(os.environ.get('UPROT_WARMUP_ATTEMPTS', '8'))
+HTTP_TIMEOUT = int(os.environ.get('UPROT_HTTP_TIMEOUT', '10'))
+# Warmup: budget 10 tentativi OCR. Default abbassato da 8->10 per dare margine
+# all'OCR (hit rate ~30-40%). Sleep tra tentativi 3-15s -> max ~2.5 min totali.
+WARMUP_MAX_ATTEMPTS = int(os.environ.get('UPROT_WARMUP_ATTEMPTS', '10'))
 WARMUP_BASE_SLEEP = float(os.environ.get('UPROT_WARMUP_BASE_SLEEP', '3.0'))
 WARMUP_MAX_SLEEP = float(os.environ.get('UPROT_WARMUP_MAX_SLEEP', '15.0'))
 # Stop anticipato se troppi 503/429 di fila (IP probabilmente rate-limited).
 WARMUP_ABORT_ON_BLOCKS = int(os.environ.get('UPROT_WARMUP_ABORT_ON_BLOCKS', '3'))
-# Tentativi inline al resolve runtime (più bassi del warmup: serve risposta veloce).
-RESOLVE_MAX_ATTEMPTS = int(os.environ.get('UPROT_RESOLVE_ATTEMPTS', '5'))
-RESOLVE_SLEEP = float(os.environ.get('UPROT_RESOLVE_SLEEP', '3.0'))
-RESOLVE_503_SLEEP = float(os.environ.get('UPROT_RESOLVE_503_SLEEP', '6.0'))
+# Runtime: 1 attempt, NIENTE OCR, NIENTE retry. Se la prima richiesta fallisce
+# (captcha page o errore HTTP) il provider chiamante deve fare skip immediato.
+# Il warmup periodico (ogni 2h se OK, ogni 30min se KO) e' l'UNICO responsabile
+# di ripopolare lo state. Cosi' evitiamo di bombardare uprot con migliaia di
+# request al minuto quando il proxy e' bannato.
+RESOLVE_MAX_ATTEMPTS = int(os.environ.get('UPROT_RESOLVE_ATTEMPTS', '1'))
+RESOLVE_SLEEP = float(os.environ.get('UPROT_RESOLVE_SLEEP', '0'))
+RESOLVE_503_SLEEP = float(os.environ.get('UPROT_RESOLVE_503_SLEEP', '0'))
 
 # Cookie-jar persistente su file. Il warmup salva i cookies dopo aver risolto il
 # captcha; resolve_uprot_fast li carica così le successive richieste runtime
@@ -241,7 +242,7 @@ def _via_debug(url, method, body, headers, via_proxy, redirect):
     return int(resp['status']), out_hdrs, data
 
 
-def _via_direct(url, method, body, headers, redirect, via_proxy=False):
+def _via_direct(url, method, body, headers, redirect, via_proxy=True):
     h = {'User-Agent': UA}
     h.update(headers or {})
     # Inject persisted cookies for this domain (se non gia presenti in header).
@@ -278,14 +279,16 @@ def _via_direct(url, method, body, headers, redirect, via_proxy=False):
 
 
 def http(url, method='GET', body=None, headers=None, redirect=False, via_proxy=True):
-    # NOTA: default via_proxy=True (proxy WARP via PROXY env). Tutta la chain
-    # uprot/maxstream/clicka esce dallo stesso IP per coerenza cookies/captcha.
+    # NOTA: via_proxy e' SEMPRE forzato True. Tutta la chain uprot/maxstream/
+    # clicka deve uscire dall'IP del proxy (PROXY env / PROXY_BACKUP, RR) per
+    # coerenza cookies/captcha e per non bruciare l'IP del VPS.
+    # Il parametro via_proxy resta per compatibilita' ma viene ignorato.
     if isinstance(body, str):
         body = body.encode('utf-8')
     headers = headers or {}
     if DEBUG_BASE and DEBUG_TOKEN:
-        return _via_debug(url, method, body, headers, via_proxy, redirect)
-    return _via_direct(url, method, body, headers, redirect, via_proxy)
+        return _via_debug(url, method, body, headers, True, redirect)
+    return _via_direct(url, method, body, headers, redirect, True)
 
 
 def cookies_from(hdrs):
@@ -625,21 +628,11 @@ def resolve_uprot_fast(url):
     if st != 200:
         return {'ok': False, 'error': f'GET status {st}'}
     body_text = raw.decode('utf-8', 'replace')
-    # Se la prima POST/GET ritorna una pagina captcha esplicita:
-    #   - per /msfi/ e /msei/: NIENTE inline OCR. L'immagine captcha su quelle
-    #     pagine è praticamente illeggibile da tesseract (4-5 su 5 attempt
-    #     "no candidate") e quando il warmup state non basta, lo sforzo è
-    #     sprecato e fa sforare il timeout 30s del provider chiamante. Mollo
-    #     subito così il caller fallisce su Mixdrop in <2s.
-    #   - per altri path (msf/mse/...): tenta OCR come prima (raro).
+    # Se la prima POST/GET ritorna una pagina captcha esplicita: NIENTE OCR
+    # inline runtime. Il provider chiamante deve fare skip immediato dello
+    # stream. Il warmup periodico ripopolera' lo state.
     if _is_captcha_page(body_text):
-        if is_msfi:
-            return {'ok': False, 'error': 'msfi_no_warmup (captcha required, OCR disabled for /msfi|msei/)'}
-        solved = _solve_captcha_inline(target_url, 'captcha', 'https://uprot.net',
-                                       via_proxy=True, label='msfi')
-        if solved is None:
-            return {'ok': False, 'error': 'captcha_required (inline OCR failed)'}
-        body_text = solved
+        return {'ok': False, 'error': 'captcha_required'}
     cont = _find_continue_link(body_text)
     if not cont:
         preview = re.sub(r'\s+', ' ', body_text[:200])
@@ -685,12 +678,8 @@ def resolve_clicka_fast(url):
         m = ADELTA_RE.search(body)
         if not m:
             if _is_captcha_page(body):
-                solved = _solve_captcha_inline(safego_url, 'captch5', 'https://safego.cc', via_proxy=True, label='clicka')
-                if not solved:
-                    return {'ok': False, 'error': 'captcha_required'}
-                m = ADELTA_RE.search(solved)
-                if not m:
-                    return {'ok': False, 'error': 'captcha solved but no adelta link in body'}
+                # NIENTE OCR inline runtime. Skip immediato.
+                return {'ok': False, 'error': 'captcha_required'}
             else:
                 return {'ok': False, 'error': 'no adelta link on safego page'}
         adelta = m.group(0)
