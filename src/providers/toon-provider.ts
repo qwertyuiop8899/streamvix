@@ -44,6 +44,69 @@ const SEARCH_TTL = 6 * 60 * 60 * 1000; // 6h
 const PAGE_TTL = 60 * 60 * 1000; // 1h
 
 // ------------------------------------------------------------------
+// Manual title overrides (src/config/toon_overrides.json)
+// Schema: array di { title, imdb?, tmdb?, kitsu? } (almeno uno fra imdb/tmdb/kitsu).
+// Quando una request arriva con un id che combacia su uno dei 3 campi,
+// invece di interrogare TMDB/Kitsu si usa `title` come query di ricerca.
+// Hot-reload via cache + check mtime: overhead ~1 stat() per request.
+// ------------------------------------------------------------------
+interface ToonOverride {
+    title: string;
+    imdb?: string;
+    tmdb?: string;
+    kitsu?: string;
+}
+
+// Candidate paths: src layout (dev/ts-node) e dist layout (prod compiled).
+const OVERRIDES_CANDIDATES = [
+    path.join(__dirname, '..', 'config', 'toon_overrides.json'),
+    path.join(__dirname, '..', '..', 'src', 'config', 'toon_overrides.json'),
+    path.join(process.cwd(), 'src', 'config', 'toon_overrides.json'),
+];
+
+let _overridesCache: ToonOverride[] = [];
+let _overridesMtime = 0;
+let _overridesPath: string | null = null;
+
+function _resolveOverridesPath(): string | null {
+    if (_overridesPath && fs.existsSync(_overridesPath)) return _overridesPath;
+    for (const p of OVERRIDES_CANDIDATES) {
+        if (fs.existsSync(p)) { _overridesPath = p; return p; }
+    }
+    return null;
+}
+
+function loadOverrides(): ToonOverride[] {
+    const p = _resolveOverridesPath();
+    if (!p) return [];
+    try {
+        const st = fs.statSync(p);
+        if (st.mtimeMs === _overridesMtime) return _overridesCache;
+        const raw = fs.readFileSync(p, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            _overridesCache = parsed.filter((e: any) => e && typeof e.title === 'string' && (e.imdb || e.tmdb || e.kitsu));
+            _overridesMtime = st.mtimeMs;
+            console.log(`[TOON][overrides] loaded ${_overridesCache.length} entries from ${p}`);
+        }
+    } catch (e) {
+        console.warn('[TOON][overrides] parse error:', (e as Error).message);
+    }
+    return _overridesCache;
+}
+
+function findOverrideTitle(ids: { imdb?: string; tmdb?: string; kitsu?: string }): string | null {
+    const list = loadOverrides();
+    if (!list.length) return null;
+    for (const e of list) {
+        if (ids.imdb && e.imdb && String(e.imdb) === String(ids.imdb)) return e.title;
+        if (ids.tmdb && e.tmdb && String(e.tmdb) === String(ids.tmdb)) return e.title;
+        if (ids.kitsu && e.kitsu && String(e.kitsu) === String(ids.kitsu)) return e.title;
+    }
+    return null;
+}
+
+// ------------------------------------------------------------------
 // TMDB title fetch (IT locale)
 // ------------------------------------------------------------------
 async function getTitleFromTMDb(opts: { imdbId?: string; tmdbId?: string; type: 'movie' | 'series'; apiKey?: string }): Promise<string | null> {
@@ -242,8 +305,7 @@ async function resolveMsfToStream(msfUrl: string, label: string): Promise<Stream
         const resolved = await resolveShortener(msfUrl);
         if (!resolved.ok) {
             if (resolved.error === 'captcha_required') {
-                console.log('[TOON] maxstream captcha_required -> warmup async, skip');
-                triggerWarmupAsync();
+                console.log('[TOON] maxstream captcha_required -> skip (warmup periodico gestira\' lo state)');
             } else {
                 console.log('[TOON] maxstream resolve fail:', (resolved as any).error);
             }
@@ -323,16 +385,24 @@ export async function toon(req: StreamRequest): Promise<Stream[]> {
             return streams;
         }
 
-        const title = kitsuId
-            ? await getTitleFromKitsu(kitsuId)
-            : await getTitleFromTMDb({ imdbId, tmdbId, type: req.type, apiKey: req.config?.tmdbApiKey });
-        if (!title) {
+        const title = (() => {
+            const ov = findOverrideTitle({ imdb: imdbId, tmdb: tmdbId, kitsu: kitsuId });
+            if (ov) {
+                console.log(`[TOON][overrides] match: id=${req.id} -> "${ov}"`);
+                return Promise.resolve(ov as string | null);
+            }
+            return kitsuId
+                ? getTitleFromKitsu(kitsuId)
+                : getTitleFromTMDb({ imdbId, tmdbId, type: req.type, apiKey: req.config?.tmdbApiKey });
+        })();
+        const resolvedTitle = await title;
+        if (!resolvedTitle) {
             console.log('[TOON] could not fetch title from', kitsuId ? 'Kitsu' : 'TMDB');
             return streams;
         }
-        console.log(`[TOON] ${kitsuId ? 'Kitsu' : 'TMDB'} title: "${title}"`);
+        console.log(`[TOON] title: "${resolvedTitle}"`);
 
-        const query = normalizeQuery(title);
+        const query = normalizeQuery(resolvedTitle);
         if (!query) return streams;
 
         const pageUrl = await searchSite(query, req.type);
