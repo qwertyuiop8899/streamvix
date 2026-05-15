@@ -137,8 +137,40 @@ function runResolver(flag: '--resolve' | '--warmup' | '--folder', url: string,
   });
 }
 
-/** Fast-path resolve. Spawns python, returns resolved playable URL or error. */
-export function resolveShortener(url: string, timeoutMs = 30000): Promise<ResolverResult> {
+// ---------------------------------------------------------------------------
+// State file freshness check (NO Python spawn if state is stale or missing)
+// ---------------------------------------------------------------------------
+// I file di state vengono scritti dal warmup Python. Se non esistono o sono
+// troppo vecchi (>8h) saltiamo lo spawn Python: l'addon ha migliaia di
+// request al minuto, spawnare Python per ognuna quando il proxy e' bannato
+// = bomba di risorse + timeout 10s lato provider. Skip immediato.
+const UPROT_STATE_PATH = process.env.UPROT_STATE_PATH || '/tmp/uprot_state.json';
+const CLICKA_STATE_PATH = process.env.CLICKA_STATE_PATH || '/tmp/clicka_state.json';
+const STATE_MAX_AGE_MS = parseInt(process.env.UPROT_STATE_MAX_AGE_MS || '', 10) || (8 * 60 * 60 * 1000); // 8h
+
+function _isStateFresh(p: string): boolean {
+  try {
+    const st = fs.statSync(p);
+    if (!st.isFile()) return false;
+    return (Date.now() - st.mtimeMs) <= STATE_MAX_AGE_MS;
+  } catch {
+    return false;
+  }
+}
+
+function _stateForUrl(url: string): string | null {
+  if (/uprot\.net\//i.test(url)) return UPROT_STATE_PATH;
+  if (/clicka\.cc\/|safego\.cc\/|deltabit\.co\//i.test(url)) return CLICKA_STATE_PATH;
+  return null;
+}
+
+/** Fast-path resolve. Pre-check state file freshness, then spawn python. */
+export function resolveShortener(url: string, timeoutMs = 10000): Promise<ResolverResult> {
+  // Pre-check: se non c'e' state file fresco, skip immediato senza spawn.
+  const statePath = _stateForUrl(url);
+  if (statePath && !_isStateFresh(statePath)) {
+    return Promise.resolve({ ok: false, error: 'no_warmup_state' });
+  }
   return runResolver('--resolve', url, timeoutMs);
 }
 
@@ -173,50 +205,75 @@ export function getWarmupState(): WarmupState & { lastWarmupOk: number } {
   return { ...warmupState, lastWarmupOk };
 }
 
-async function runWarmupOnce(): Promise<void> {
+// ---------------------------------------------------------------------------
+// Background warmup loop — per-domain scheduler
+// ---------------------------------------------------------------------------
+// Strategia:
+//   - Ogni dominio (uprot, clicka) ha il suo nextRetry indipendente.
+//   - OK     -> nextRetry = now + WARMUP_PERIOD_OK     (default 2h)
+//   - FAIL   -> nextRetry = now + WARMUP_PERIOD_FAIL   (default 30min)
+//   - tick ogni 60s sceglie quale dominio rilanciare in base a nextRetry.
+//   - Un solo warmup attivo alla volta (lock globale `warmupRunning`).
+//   - Niente trigger on-demand dal runtime: l'unica fonte di richieste a
+//     uprot/clicka e' questo loop -> protegge dal bombardamento.
+
+const WARMUP_PERIOD_OK = parseInt(process.env.UPROT_WARMUP_PERIOD_OK_MS || '', 10) || (2 * 60 * 60 * 1000); // 2h
+const WARMUP_PERIOD_FAIL = parseInt(process.env.UPROT_WARMUP_PERIOD_FAIL_MS || '', 10) || (30 * 60 * 1000); // 30min
+const WARMUP_TICK_MS = parseInt(process.env.UPROT_WARMUP_TICK_MS || '', 10) || (60 * 1000); // 60s
+
+type DomainKey = 'uprot' | 'clicka';
+const nextRetry: Record<DomainKey, number> = { uprot: 0, clicka: 0 };
+
+async function _warmupDomain(dom: DomainKey): Promise<void> {
+  const seed = dom === 'uprot'
+    ? (process.env.STREAMVIX_UPROT_WARMUP_URL || 'https://uprot.net/msf/rizwh38f389b')
+    : (process.env.STREAMVIX_CLICKA_WARMUP_URL || 'https://clicka.cc/delta/mfua6zl4cb9p');
+  console.log(`[shortenerResolver] warmup START ${dom}=`, seed);
+  warmupState[dom].lastAttempt = Date.now();
+  const r = await warmupShortener(seed);
+  if (r.ok) {
+    warmupState[dom].lastOk = Date.now();
+    lastWarmupOk = Date.now();
+    nextRetry[dom] = Date.now() + WARMUP_PERIOD_OK;
+    console.log(`[shortenerResolver] ${dom} warmup OK -> next in ${Math.round(WARMUP_PERIOD_OK / 60000)} min`);
+  } else {
+    warmupState[dom].lastError = (r as ResolverFailure).error;
+    nextRetry[dom] = Date.now() + WARMUP_PERIOD_FAIL;
+    console.warn(`[shortenerResolver] ${dom} warmup FAIL`, warmupState[dom].lastError,
+      `-> retry in ${Math.round(WARMUP_PERIOD_FAIL / 60000)} min`);
+  }
+}
+
+async function runWarmupTick(): Promise<void> {
   if (warmupRunning) return;
   warmupRunning = true;
-  const uprotSeed = process.env.STREAMVIX_UPROT_WARMUP_URL
-    || 'https://uprot.net/msf/rizwh38f389b';
-  const clickaSeed = process.env.STREAMVIX_CLICKA_WARMUP_URL
-    || 'https://clicka.cc/delta/mfua6zl4cb9p';
   try {
-    console.log('[shortenerResolver] warmup START uprot=', uprotSeed);
-    warmupState.uprot.lastAttempt = Date.now();
-    const u = await warmupShortener(uprotSeed);
-    if (u.ok) {
-      warmupState.uprot.lastOk = Date.now();
-      lastWarmupOk = Date.now();
-      console.log('[shortenerResolver] uprot warmup OK');
-    } else {
-      warmupState.uprot.lastError = (u as ResolverFailure).error;
-      console.warn('[shortenerResolver] uprot warmup FAIL', warmupState.uprot.lastError);
-    }
-    console.log('[shortenerResolver] warmup START clicka=', clickaSeed);
-    warmupState.clicka.lastAttempt = Date.now();
-    const c = await warmupShortener(clickaSeed);
-    if (c.ok) {
-      warmupState.clicka.lastOk = Date.now();
-      lastWarmupOk = Date.now();
-      console.log('[shortenerResolver] clicka warmup OK');
-    } else {
-      warmupState.clicka.lastError = (c as ResolverFailure).error;
-      console.warn('[shortenerResolver] clicka warmup FAIL', warmupState.clicka.lastError);
+    const now = Date.now();
+    // Sceglie i domini scaduti. Se ce ne sono piu' di uno scaduto, li lancia
+    // in sequenza (no parallel: rispetta il lock e gli IP del proxy).
+    const due: DomainKey[] = [];
+    if (now >= nextRetry.uprot) due.push('uprot');
+    if (now >= nextRetry.clicka) due.push('clicka');
+    for (const dom of due) {
+      await _warmupDomain(dom);
     }
   } finally {
     warmupRunning = false;
   }
 }
 
-/** Trigger a single warmup pass in the background (non-blocking). */
+/**
+ * Deprecato: il warmup runtime on-demand e' stato rimosso per evitare
+ * di bombardare uprot/clicka. Il loop periodico (OK 2h / FAIL 30min) e'
+ * l'unica fonte di richieste. Mantenuto come no-op per compatibilita'
+ * con i provider che lo chiamavano (eurostreaming, toon).
+ */
 export function triggerWarmupAsync(): void {
-  void runWarmupOnce().catch((e) => {
-    console.error('[shortenerResolver] warmup error', e);
-  });
+  // no-op: il loop periodico gestisce tutto.
 }
 
 /** Start the periodic warmup loop. Called from addon.ts on boot. */
-export function startWarmupLoop(periodMs: number = 2 * 60 * 60 * 1000): void {
+export function startWarmupLoop(_periodMs?: number): void {
   if (process.env.STREAMVIX_DISABLE_UPROT_WARMUP === '1') {
     console.log('[shortenerResolver] warmup disabled by STREAMVIX_DISABLE_UPROT_WARMUP=1');
     return;
@@ -225,8 +282,12 @@ export function startWarmupLoop(periodMs: number = 2 * 60 * 60 * 1000): void {
     clearInterval(warmupTimer);
     warmupTimer = null;
   }
-  // First run shortly after boot (give the addon time to bind).
-  setTimeout(() => { triggerWarmupAsync(); }, 5000);
-  warmupTimer = setInterval(triggerWarmupAsync, periodMs);
-  console.log('[shortenerResolver] warmup loop started, period', periodMs, 'ms');
+  // First run shortly after boot (give the addon time to bind). Forza
+  // entrambi i domini come due immediatamente (nextRetry = 0 by init).
+  setTimeout(() => { void runWarmupTick().catch(e => console.error('[shortenerResolver] tick error', e)); }, 5000);
+  warmupTimer = setInterval(() => {
+    void runWarmupTick().catch(e => console.error('[shortenerResolver] tick error', e));
+  }, WARMUP_TICK_MS);
+  console.log(`[shortenerResolver] warmup loop started, tick=${WARMUP_TICK_MS}ms,`,
+    `period OK=${Math.round(WARMUP_PERIOD_OK / 60000)}min FAIL=${Math.round(WARMUP_PERIOD_FAIL / 60000)}min`);
 }
