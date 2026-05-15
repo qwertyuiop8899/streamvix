@@ -114,32 +114,50 @@ def _clicka_state_save(cookies, data):
 DEBUG_BASE = os.environ.get('STREAMVIX_DEBUG_BASE', '').rstrip('/')
 DEBUG_TOKEN = os.environ.get('STREAMVIX_DEBUG_TOKEN', '')
 # Proxy HTTP per uscire da IP whitelistato verso clicka/uprot/maxstream.
-# SOLO env PROXY + PROXY_BACKUP, alternati round-robin. Nessun fallback su
-# HTTPS_PROXY/HTTP_PROXY: vogliamo controllo esplicito sugli IP di uscita.
-# STREAMVIX_HTTP_PROXY (esplicito) resta come override single-proxy per debug.
+# Strategia MammaMia: lista proxy + random.choice UNA VOLTA per processo,
+# sticky per tutta la chain. Cosi' uprot/maxstream vedono sempre lo stesso IP
+# durante una singola risoluzione (cookies/sessione coerenti).
+# Env supportati (in ordine di priorita'):
+#   STREAMVIX_HTTP_PROXY  -> override single-proxy per debug (usato da solo)
+#   PROXY_LIST            -> lista comma-separated di proxies
+#   PROXY, PROXY_BACKUP   -> 2 slot classici
+#   PROXY_1..PROXY_9      -> slot numerati
+import random as _random
+
 def _build_proxy_list():
     explicit = os.environ.get('STREAMVIX_HTTP_PROXY', '').strip()
     if explicit:
         return [explicit]
-    primary = os.environ.get('PROXY', '').strip()
-    backup = os.environ.get('PROXY_BACKUP', '').strip()
     lst = []
-    if primary: lst.append(primary)
-    if backup: lst.append(backup)
+    raw_list = os.environ.get('PROXY_LIST', '').strip()
+    if raw_list:
+        for p in raw_list.split(','):
+            p = p.strip()
+            if p:
+                lst.append(p)
+    for env_name in ('PROXY', 'PROXY_BACKUP'):
+        v = os.environ.get(env_name, '').strip()
+        if v and v not in lst:
+            lst.append(v)
+    for i in range(1, 10):
+        v = os.environ.get(f'PROXY_{i}', '').strip()
+        if v and v not in lst:
+            lst.append(v)
     return lst
 
 HTTP_PROXIES = _build_proxy_list()
-HTTP_PROXY = HTTP_PROXIES[0] if HTTP_PROXIES else ''
-_PROXY_RR_IDX = 0
-
-def _next_proxy():
-    """Round-robin sulla lista proxy. Ritorna stringa proxy o '' se nessuno."""
-    global _PROXY_RR_IDX
-    if not HTTP_PROXIES:
-        return ''
-    p = HTTP_PROXIES[_PROXY_RR_IDX % len(HTTP_PROXIES)]
-    _PROXY_RR_IDX += 1
-    return p
+# Sticky pick: scelto UNA VOLTA all'avvio del processo (ogni invocation Python
+# e' un singolo --resolve / --warmup, quindi 1 processo == 1 chain).
+SELECTED_PROXY = _random.choice(HTTP_PROXIES) if HTTP_PROXIES else ''
+HTTP_PROXY = SELECTED_PROXY  # alias retrocompatibilita'
+if SELECTED_PROXY:
+    try:
+        # Log su stderr: utile per capire da quale IP usciamo in caso di 403/302.
+        _proxy_host = SELECTED_PROXY.split('@')[-1].split('/')[0]
+        print(f'[proxy] pinned {_proxy_host} (pool size={len(HTTP_PROXIES)})',
+              file=sys.stderr, flush=True)
+    except Exception:
+        pass
 
 HTTP_TIMEOUT = int(os.environ.get('UPROT_HTTP_TIMEOUT', '10'))
 # Warmup: budget 10 tentativi OCR. Default abbassato da 8->10 per dare margine
@@ -250,11 +268,9 @@ def _via_direct(url, method, body, headers, redirect, via_proxy=True):
     if persisted and 'Cookie' not in h and 'cookie' not in h:
         h['Cookie'] = '; '.join(f'{k}={v}' for k, v in persisted.items())
     proxies = None
-    if via_proxy and HTTP_PROXIES:
-        sel = _next_proxy()
-        if sel:
-            scheme_proxy = sel if sel.startswith('http') else f'http://{sel}'
-            proxies = {'http': scheme_proxy, 'https': scheme_proxy}
+    if via_proxy and SELECTED_PROXY:
+        scheme_proxy = SELECTED_PROXY if SELECTED_PROXY.startswith('http') else f'http://{SELECTED_PROXY}'
+        proxies = {'http': scheme_proxy, 'https': scheme_proxy}
     # curl_cffi.Session.request: usa impersonate='chrome' per ottenere il
     # fingerprint TLS/JA3 di Chrome, requisito per non venire challenged da
     # Cloudflare ad ogni richiesta.
@@ -619,11 +635,10 @@ def resolve_uprot_fast(url):
         if '/msf/' in target_url:
             target_url = target_url.replace('/msf/', '/mse/')
         headers['Referer'] = 'https://uprot.net/'
-        # Inietta cookies salvati dal warmup (es. captcha=<hash>) anche sui GET,
-        # altrimenti uprot considera la sessione nuova e ripropone il captcha.
-        state = _uprot_state_load()
-        if state and state.get('cookies'):
-            headers['Cookie'] = '; '.join(f'{k}={v}' for k, v in state['cookies'].items())
+        # NIENTE Cookie header: MammaMia su /mse/ fa GET pulita, lascia solo
+        # curl_cffi+impersonate='chrome' a bypassare CF. Iniettare i cookies
+        # del warmup qui rompeva la sessione (cookie IP-bound da un IP, GET
+        # da un altro).
     st, _hdrs, raw = http(target_url, method, body, headers)
     # IP whitelistato: uprot risponde 30x verso il next-hop senza body. Segui
     # direttamente la Location se punta a maxstream/clicka.
