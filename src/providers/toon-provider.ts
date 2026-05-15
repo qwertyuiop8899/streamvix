@@ -1,4 +1,6 @@
 import axios from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Stream } from 'stremio-addon-sdk';
 import { resolveShortener, triggerWarmupAsync } from '../utils/shortenerResolver';
 
