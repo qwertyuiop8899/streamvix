@@ -701,6 +701,18 @@ def resolve_clicka_fast(url):
 
 def _captcha_solve_attempt(url, field, origin, via_proxy):
     st, hdrs, raw = http(url, 'GET', via_proxy=via_proxy)
+    # IP gia' whitelistato: uprot/clicka non mostra il captcha, ma reindirizza
+    # direttamente al next-hop della chain. Trattiamo come success.
+    if st in (301, 302, 303, 307, 308):
+        loc = hdrs.get('location') or ''
+        loc_low = loc.lower()
+        next_hop_markers = ('uprots/', 'adelta/', 'maxstream.video', 'clicka.cc', 'safego')
+        if loc and any(mk in loc_low for mk in next_hop_markers):
+            # Cookie correnti dal jar persistito (set durante questa GET).
+            current_cookies = dict(_cookies_for(url))
+            return {'ok': True, 'body': loc, 'already_open': True,
+                    'cookies': current_cookies, 'data': {}}
+        return {'ok': False, 'error': f'GET status {st} loc={loc[:80]}'}
     if st != 200:
         return {'ok': False, 'error': f'GET status {st}'}
     body = raw.decode('utf-8', 'replace')
