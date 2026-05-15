@@ -114,14 +114,35 @@ def _clicka_state_save(cookies, data):
 DEBUG_BASE = os.environ.get('STREAMVIX_DEBUG_BASE', '').rstrip('/')
 DEBUG_TOKEN = os.environ.get('STREAMVIX_DEBUG_TOKEN', '')
 # Proxy HTTP per uscire da IP whitelistato verso clicka/uprot/maxstream.
-# Ordine: STREAMVIX_HTTP_PROXY (esplicito) -> PROXY (env del processo streamvix)
-# -> HTTPS_PROXY / HTTP_PROXY (standard).
-HTTP_PROXY = (
-    os.environ.get('STREAMVIX_HTTP_PROXY', '').strip()
-    or os.environ.get('PROXY', '').strip()
-    or os.environ.get('HTTPS_PROXY', '').strip()
-    or os.environ.get('HTTP_PROXY', '').strip()
-)
+# Ordine: STREAMVIX_HTTP_PROXY (esplicito, prioritario) -> PROXY + PROXY_BACKUP
+# alternati round-robin per spalmare il carico (cookies/captcha possono divergere
+# tra IP differenti, ma WAF ringraziano) -> HTTPS_PROXY / HTTP_PROXY (fallback).
+def _build_proxy_list():
+    explicit = os.environ.get('STREAMVIX_HTTP_PROXY', '').strip()
+    if explicit:
+        return [explicit]
+    primary = os.environ.get('PROXY', '').strip()
+    backup = os.environ.get('PROXY_BACKUP', '').strip()
+    lst = []
+    if primary: lst.append(primary)
+    if backup: lst.append(backup)
+    if lst:
+        return lst
+    fb = os.environ.get('HTTPS_PROXY', '').strip() or os.environ.get('HTTP_PROXY', '').strip()
+    return [fb] if fb else []
+
+HTTP_PROXIES = _build_proxy_list()
+HTTP_PROXY = HTTP_PROXIES[0] if HTTP_PROXIES else ''
+_PROXY_RR_IDX = 0
+
+def _next_proxy():
+    """Round-robin sulla lista proxy. Ritorna stringa proxy o '' se nessuno."""
+    global _PROXY_RR_IDX
+    if not HTTP_PROXIES:
+        return ''
+    p = HTTP_PROXIES[_PROXY_RR_IDX % len(HTTP_PROXIES)]
+    _PROXY_RR_IDX += 1
+    return p
 
 HTTP_TIMEOUT = int(os.environ.get('UPROT_HTTP_TIMEOUT', '25'))
 # Default conservativi: ogni attempt = 1 GET (+ eventuale 1 POST) sul server uprot/safego.
@@ -228,9 +249,11 @@ def _via_direct(url, method, body, headers, redirect, via_proxy=False):
     if persisted and 'Cookie' not in h and 'cookie' not in h:
         h['Cookie'] = '; '.join(f'{k}={v}' for k, v in persisted.items())
     proxies = None
-    if via_proxy and HTTP_PROXY:
-        scheme_proxy = HTTP_PROXY if HTTP_PROXY.startswith('http') else f'http://{HTTP_PROXY}'
-        proxies = {'http': scheme_proxy, 'https': scheme_proxy}
+    if via_proxy and HTTP_PROXIES:
+        sel = _next_proxy()
+        if sel:
+            scheme_proxy = sel if sel.startswith('http') else f'http://{sel}'
+            proxies = {'http': scheme_proxy, 'https': scheme_proxy}
     # curl_cffi.Session.request: usa impersonate='chrome' per ottenere il
     # fingerprint TLS/JA3 di Chrome, requisito per non venire challenged da
     # Cloudflare ad ogni richiesta.
