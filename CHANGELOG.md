@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.17.65](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.64...v1.17.65) (2026-05-15)
+
+
+### Bug Fixes
+
+* eurostreaming-provider.ts ([61bc301](https://github.com/qwertyuiop8899/streamvix/commit/61bc301c8074bec2576efc44aef2b4ef2183a974))
+* shortenerResolver.ts ([c018bbc](https://github.com/qwertyuiop8899/streamvix/commit/c018bbcfa7e173fe45762d6db39c7ab3bc72b82b))
+* toon-provider.ts ([6300c4c](https://github.com/qwertyuiop8899/streamvix/commit/6300c4c452b71ab1e0049f9f3734e5368c684712))
+* uprot_resolver.py ([45e73f6](https://github.com/qwertyuiop8899/streamvix/commit/45e73f6a145dc1340f3d63b7647f0d1a9d2b298d))
+
 ## [1.17.64](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.63...v1.17.64) (2026-05-15)
 
 
