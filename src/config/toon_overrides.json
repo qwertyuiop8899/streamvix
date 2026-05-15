@@ -1,0 +1,9 @@
+[
+  {
+    "_comment": "Esempio template (rimuovi o sostituisci). I campi extra come _comment vengono ignorati dal loader. Schema: title (obbligatorio) + almeno uno fra imdb/tmdb/kitsu. Per le series il match avviene solo sull'id principale (stagione/episodio ignorati). Gli id imdb/tmdb/kitsu sono in OR: basta che uno combaci.",
+    "title": "Esempio Titolo TOON",
+    "imdb": "tt0000000 opzionali",
+    "tmdb": "0 opzionali",
+    "kitsu": "0 opzionali "
+  }
+]
