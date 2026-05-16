@@ -72,9 +72,11 @@ interface AddonConfig {
     animesaturnEnabled?: boolean;
     animeworldEnabled?: boolean;
     guardaserieEnabled?: boolean;
+    vidxgoEnabled?: boolean;
     guardoserieEnabled?: boolean;
     guardaflixEnabled?: boolean;
     guardahdEnabled?: boolean;
+    cinemacityEnabled?: boolean;
     eurostreamingEnabled?: boolean;
     toonitaliaEnabled?: boolean;
     toonEnabled?: boolean;
@@ -900,10 +902,11 @@ const baseManifest: Manifest = {
         { key: "animeunityProxy", title: "AnimeUnity Proxy (richiede Proxy, consigliato)", type: "checkbox" },
         { key: "animesaturnEnabled", title: "Enable AnimeSaturn", type: "checkbox" },
         { key: "animeworldEnabled", title: "Enable AnimeWorld", type: "checkbox" },
-        { key: "guardaserieEnabled", title: "Enable GuardaSerie", type: "checkbox" },
+        { key: "vidxgoEnabled", title: "Enable VidXgo", type: "checkbox" },
         { key: "guardoserieEnabled", title: "Enable Guardoserie", type: "checkbox" },
         { key: "guardaflixEnabled", title: "Enable Guardaflix", type: "checkbox" },
         { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
+        { key: "cinemacityEnabled", title: "Enable CinemaCity (EasyProxy only)", type: "checkbox" },
         { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox" },
         { key: "toonitaliaEnabled", title: "Enable ToonItalia", type: "checkbox" },
         { key: "toonEnabled", title: "Enable TOON", type: "checkbox" },
@@ -6135,7 +6138,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // Check if user has explicitly set any provider or flag
                     const providerKeys = [
                         'trailerEnabled', 'disableVixsrc', 'vixDirect', 'vixDirectFhd', 'vixProxy',
-                        'guardahdEnabled', 'guardaserieEnabled', 'guardoserieEnabled', 'guardaflixEnabled',
+                        'guardahdEnabled', 'guardaserieEnabled', 'vidxgoEnabled', 'guardoserieEnabled', 'guardaflixEnabled', 'cinemacityEnabled',
                         'eurostreamingEnabled', 'toonitaliaEnabled', 'toonEnabled', 'cb01Enabled',
                         'animesaturnEnabled', 'animeworldEnabled', 'animeunityEnabled'
                     ];
@@ -6160,6 +6163,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const animeSaturnEnabled = envFlag('ANIMESATURN_ENABLED') ?? (isDirectAPICall || config.animesaturnEnabled === true || rc?.animesaturnEnabled === true);
                 const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (isDirectAPICall || config.animeworldEnabled === true || rc?.animeworldEnabled === true);
                 const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (isDirectAPICall || config.guardaserieEnabled === true || rc?.guardaserieEnabled === true);
+                const vidxgoEnabled = envFlag('VIDXGO_ENABLED') ?? (isDirectAPICall || config.vidxgoEnabled === true || rc?.vidxgoEnabled === true);
+                const cinemacityEnabled = envFlag('CINEMACITY_ENABLED') ?? (isDirectAPICall || config.cinemacityEnabled === true || rc?.cinemacityEnabled === true);
                 const guardaHdEnabled = envFlag('GUARDAHD_ENABLED') ?? (isDirectAPICall || config.guardahdEnabled === true || rc?.guardahdEnabled === true);
                 const cb01Enabled = envFlag('CB01_ENABLED') ?? (isDirectAPICall || (config as any).cb01Enabled === true || rc?.cb01Enabled === true);
                 // Eurostreaming: default ON unless explicitly disabled (config false) or env sets true/false
@@ -6191,7 +6196,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // IMPORTANTE: includere trailerEnabled per permettere trailer standalone
                 const trailerEnabled = (config as any).trailerEnabled !== false && rc?.trailerEnabled !== false;
                 const fastModeEnabled = (config as any).fastMode === true;
-                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || toonitaliaEnabled || toonEnabled || cb01Enabled || vixsrcEnabled)) {
+                if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || vidxgoEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || eurostreamingEnabled || toonitaliaEnabled || toonEnabled || cb01Enabled || vixsrcEnabled || cinemacityEnabled)) {
                     // Rilevamento addonBase per AnimeUnity (stessa logica VixSrc)
                     let auAddonBase = '';
                     try {
@@ -6272,6 +6277,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (l.includes('anime saturn')) return 'animesaturn';
                         if (l.includes('anime world')) return 'animeworld';
                         if (l.includes('guardaserie')) return 'guardaserie';
+                        if (l.includes('vidxgo')) return 'vidxgo';
+                        if (l.includes('cinemacity')) return 'cinemacity';
                         if (l.includes('guardahd')) return 'guardahd';
                         if (l.includes('cb01')) return 'cb01';
                         if (l.includes('eurostreaming')) return 'eurostreaming';
@@ -6309,7 +6316,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
                         }
                         const hostMap: Record<string, string> = {
-                            'mixdrop': 'Mixdrop', 'dropload': 'Dropload', 'streamtape': 'Streamtape', 'supervideo': 'SuperVideo', 'doodstream': 'Doodstream', 'deltabit': 'Deltabit', 'delta bit': 'Deltabit', 'loadm': 'LoadM', 'maxstream': 'Maxstream'
+                            'mixdrop': 'Mixdrop', 'dropload': 'Dropload', 'streamtape': 'Streamtape', 'supervideo': 'SuperVideo', 'doodstream': 'Doodstream', 'deltabit': 'Deltabit', 'delta bit': 'Deltabit', 'loadm': 'LoadM', 'maxstream': 'Maxstream', 'streamhg': 'StreamHG', 'audinifer': 'StreamHG', 'vidxgo': 'VidXgo', 'cinemacity': 'CinemaCity'
                         };
                         return original.map(st => {
                             const url = (st as any).url || '';
@@ -6482,6 +6489,12 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     case 'guardaserie':
                                         bingeGroup = 'guardaserie-std';
                                         break;
+                                    case 'vidxgo':
+                                        bingeGroup = 'vidxgo-std';
+                                        break;
+                                    case 'cinemacity':
+                                        bingeGroup = 'cinemacity-std';
+                                        break;
                                     case 'toonitalia':
                                         bingeGroup = 'toonitalia-std';
                                         break;
@@ -6543,8 +6556,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     };
                     const getFastPriority = (): string[] => {
                         if (isAnimeFastRequest) return ['animeunity', 'animeworld', 'animesaturn'];
-                        if (type === 'movie') return ['vixsrc', 'guardahd', 'guardaflix', 'toonitalia', 'toon'];
-                        if (type === 'series') return ['vixsrc', 'guardaserie', 'cb01', 'guardoserie', 'toonitalia', 'toon', 'eurostreaming'];
+                        if (type === 'movie') return ['vixsrc', 'guardahd', 'vidxgo', 'cinemacity', 'guardaflix', 'toonitalia', 'toon'];
+                        if (type === 'series') return ['vixsrc', 'guardaserie', 'vidxgo', 'cinemacity', 'cb01', 'guardoserie', 'toonitalia', 'toon', 'eurostreaming'];
                         return [];
                     };
                     const hasItalianStreams = (streams: Stream[]): boolean => {
@@ -6731,6 +6744,38 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             if (id.startsWith('tmdb:')) return gsProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
                             return { streams: [] };
                         }, providerLabel('guardaserie'), false, 30000);  // GuardaSerie: timeout 30s
+                    }
+
+                    // VidXgo (movies + series). Uses TMDB only if api key configured.
+                    if (vidxgoEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
+                        scheduleProviderRun('VidXgo', true, async () => {
+                            const { VidXgoProvider } = await import('./providers/vidxgo-provider');
+                            const vxProvider = new VidXgoProvider({
+                                enabled: true,
+                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
+                                mfpUrl: mfpUrl,
+                                mfpPassword: mfpPsw
+                            });
+                            if (id.startsWith('tt')) return vxProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            if (id.startsWith('tmdb:')) return vxProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            return { streams: [] };
+                        }, providerLabel('vidxgo'), false, 30000);  // VidXgo: timeout 30s
+                    }
+
+                    // CinemaCity (movies + series). EasyProxy-only: requires MFP url.
+                    if (cinemacityEnabled && (id.startsWith('tt') || id.startsWith('tmdb:')) && mfpUrl) {
+                        scheduleProviderRun('CinemaCity', true, async () => {
+                            const { CinemaCityProvider } = await import('./providers/cinemacity-provider');
+                            const ccProvider = new CinemaCityProvider({
+                                enabled: true,
+                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
+                                mfpUrl: mfpUrl,
+                                mfpPassword: mfpPsw
+                            });
+                            if (id.startsWith('tt')) return ccProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
+                            if (id.startsWith('tmdb:')) return ccProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
+                            return { streams: [] };
+                        }, providerLabel('cinemacity'), false, 30000);  // CinemaCity: timeout 30s
                     }
 
                     // GuardaHD
@@ -6973,6 +7018,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         if (l.includes('anime saturn')) return 2;
                         if (l.includes('anime world')) return 3;
                         if (l.includes('guardaserie')) return 4;
+                        if (l.includes('vidxgo')) return 4;
+                        if (l.includes('cinemacity')) return 4;
                         if (l.includes('guardahd')) return 5;
                         if (l.includes('cb01')) return 6;
                         if (l.includes('eurostreaming')) return 8;
