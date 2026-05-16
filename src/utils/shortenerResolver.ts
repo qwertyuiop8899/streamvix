@@ -87,19 +87,16 @@ function scriptPath(): string {
   return candidates[0];
 }
 
-function runResolver(flag: '--resolve' | '--warmup' | '--folder', url: string,
-                     timeoutMs: number): Promise<ResolverResult> {
+function runResolverArgs(args: string[], timeoutMs: number,
+                        envExtra?: Record<string, string>): Promise<ResolverResult> {
   return new Promise((resolve) => {
     const py = resolvePython();
     const script = scriptPath();
     let finished = false;
     let stdout = '';
     let stderr = '';
-    const proc = spawn(py, [script, flag, url], {
-      env: {
-        ...process.env,
-        // Ensure script picks up debug/proxy env vars from parent process.
-      },
+    const proc = spawn(py, [script, ...args], {
+      env: { ...process.env, ...(envExtra || {}) },
     });
     const killer = setTimeout(() => {
       if (finished) return;
@@ -135,6 +132,11 @@ function runResolver(flag: '--resolve' | '--warmup' | '--folder', url: string,
       resolve({ ok: false, error: `spawn error: ${err.message}` });
     });
   });
+}
+
+function runResolver(flag: '--resolve' | '--warmup' | '--folder', url: string,
+                     timeoutMs: number): Promise<ResolverResult> {
+  return runResolverArgs([flag, url], timeoutMs);
 }
 
 // ---------------------------------------------------------------------------
@@ -239,8 +241,20 @@ async function _warmupDomain(dom: DomainKey): Promise<void> {
   } else {
     warmupState[dom].lastError = (r as ResolverFailure).error;
     nextRetry[dom] = Date.now() + WARMUP_PERIOD_FAIL;
-    console.warn(`[shortenerResolver] ${dom} warmup FAIL`, warmupState[dom].lastError,
-      `-> retry in ${Math.round(WARMUP_PERIOD_FAIL / 60000)} min`);
+    // FLIP proxy slot per il prossimo tentativo: se PROXY ha fallito, prova
+    // PROXY_BACKUP fra 30 min (e viceversa). Cosi' anche il warmup runtime,
+    // il resolve dei link e /chapta usciranno dal nuovo IP.
+    // Invalidiamo anche lo state file vecchio (era legato al proxy precedente).
+    try {
+      const next = flipProxySlot(dom);
+      const statePath = dom === 'uprot' ? UPROT_STATE_PATH : CLICKA_STATE_PATH;
+      try { if (fs.existsSync(statePath)) fs.unlinkSync(statePath); } catch { /* ignore */ }
+      console.warn(`[shortenerResolver] ${dom} warmup FAIL ${warmupState[dom].lastError}`,
+        `-> flipped proxy slot to ${next}, retry in ${Math.round(WARMUP_PERIOD_FAIL / 60000)} min`);
+    } catch (e) {
+      console.warn(`[shortenerResolver] ${dom} warmup FAIL ${warmupState[dom].lastError}`,
+        `(slot flip error: ${(e as Error).message}) retry in ${Math.round(WARMUP_PERIOD_FAIL / 60000)} min`);
+    }
   }
 }
 
@@ -290,4 +304,171 @@ export function startWarmupLoop(_periodMs?: number): void {
   }, WARMUP_TICK_MS);
   console.log(`[shortenerResolver] warmup loop started, tick=${WARMUP_TICK_MS}ms,`,
     `period OK=${Math.round(WARMUP_PERIOD_OK / 60000)}min FAIL=${Math.round(WARMUP_PERIOD_FAIL / 60000)}min`);
+}
+
+// ---------------------------------------------------------------------------
+// Per-domain active proxy slot (file-based, shared with Python script)
+// ---------------------------------------------------------------------------
+// Python (uprot_resolver.py) legge gli stessi file per scegliere il proxy a
+// runtime. Cosi' warmup, resolve dei link e /chapta escono dallo stesso IP
+// per dominio. Se un warmup fallisce, flippiamo lo slot e ritentiamo dopo
+// 30 min sull'altro proxy (--> ping-pong tra PROXY e PROXY_BACKUP).
+//
+// I valori scritti nel file sono i NOMI degli env: 'PROXY' o 'PROXY_BACKUP'.
+
+export type ProxySlot = 'PROXY' | 'PROXY_BACKUP';
+const VALID_SLOTS: ProxySlot[] = ['PROXY', 'PROXY_BACKUP'];
+
+const UPROT_ACTIVE_SLOT_PATH = process.env.UPROT_ACTIVE_SLOT_PATH || '/tmp/uprot_active_proxy_slot.txt';
+const CLICKA_ACTIVE_SLOT_PATH = process.env.CLICKA_ACTIVE_SLOT_PATH || '/tmp/clicka_active_proxy_slot.txt';
+
+function slotPathFor(domain: DomainKey): string {
+  return domain === 'uprot' ? UPROT_ACTIVE_SLOT_PATH : CLICKA_ACTIVE_SLOT_PATH;
+}
+
+export function getActiveSlot(domain: DomainKey): ProxySlot {
+  try {
+    const v = fs.readFileSync(slotPathFor(domain), 'utf8').trim();
+    if (v === 'PROXY' || v === 'PROXY_BACKUP') return v;
+  } catch { /* file mancante: default */ }
+  return 'PROXY';
+}
+
+export function setActiveSlot(domain: DomainKey, slot: ProxySlot): void {
+  try {
+    fs.writeFileSync(slotPathFor(domain), slot);
+  } catch (e) {
+    console.warn(`[shortenerResolver] setActiveSlot(${domain}, ${slot}) failed:`, (e as Error).message);
+  }
+}
+
+export function flipProxySlot(domain: DomainKey): ProxySlot {
+  const cur = getActiveSlot(domain);
+  const next: ProxySlot = cur === 'PROXY' ? 'PROXY_BACKUP' : 'PROXY';
+  setActiveSlot(domain, next);
+  return next;
+}
+
+// ---------------------------------------------------------------------------
+// Manual captcha solve API (per /chapta endpoint)
+// ---------------------------------------------------------------------------
+
+export interface ChaptaSession {
+  domain: 'uprot' | 'clicka';
+  url: string;
+  field: string;
+  origin: string;
+  cookie: string;
+  proxy_slot: ProxySlot;
+  created_ms: number;
+}
+
+export interface ChaptaPrepareResult {
+  ok: boolean;
+  domain: 'uprot' | 'clicka';
+  alreadyWhitelisted?: boolean;
+  pngB64?: string;
+  session?: ChaptaSession;
+  proxySlot: ProxySlot;
+  proxyHost: string;
+  error?: string;
+}
+
+export interface ChaptaSubmitResult {
+  ok: boolean;
+  domain: 'uprot' | 'clicka';
+  proxySlot: ProxySlot;
+  error?: string;
+  guess?: string;
+}
+
+function _proxyHostForSlot(slot: ProxySlot): string {
+  const v = (process.env[slot] || '').trim();
+  if (!v) return '(unset)';
+  try {
+    return v.split('@').pop()!.split('/')[0] || '(unset)';
+  } catch { return '(unset)'; }
+}
+
+/** Scarica il captcha per `domain` attraverso lo slot proxy attivo. */
+export async function prepareManualSolve(domain: DomainKey): Promise<ChaptaPrepareResult> {
+  const slot = getActiveSlot(domain);
+  const proxyHost = _proxyHostForSlot(slot);
+  const r = await runResolverArgs(['--prepare-manual', domain], 30000) as any;
+  if (!r || !r.ok) {
+    return {
+      ok: false, domain, proxySlot: slot, proxyHost,
+      error: (r && r.error) ? String(r.error) : 'prepare failed (no payload)',
+    };
+  }
+  if (r.already_whitelisted) {
+    return { ok: true, domain, alreadyWhitelisted: true, proxySlot: slot, proxyHost };
+  }
+  if (!r.png_b64 || !r.session) {
+    return { ok: false, domain, proxySlot: slot, proxyHost, error: 'prepare: missing png/session in python output' };
+  }
+  return { ok: true, domain, pngB64: r.png_b64, session: r.session as ChaptaSession, proxySlot: slot, proxyHost };
+}
+
+/** Invia il guess. Forza il proxy slot salvato nella session per coerenza IP. */
+export async function submitManualSolve(sessionFilePath: string, guess: string): Promise<ChaptaSubmitResult> {
+  // Leggiamo la session per estrarre domain+slot (per il return value, anche
+  // se fallisce). Il Python rilegge a sua volta.
+  let domain: 'uprot' | 'clicka' = 'uprot';
+  let slot: ProxySlot = 'PROXY';
+  try {
+    const sess = JSON.parse(fs.readFileSync(sessionFilePath, 'utf8'));
+    if (sess && (sess.domain === 'uprot' || sess.domain === 'clicka')) domain = sess.domain;
+    if (sess && (sess.proxy_slot === 'PROXY' || sess.proxy_slot === 'PROXY_BACKUP')) slot = sess.proxy_slot;
+  } catch { /* ignore */ }
+  const r = await runResolverArgs(['--submit-manual', sessionFilePath, '--guess', guess], 30000) as any;
+  if (!r || !r.ok) {
+    return {
+      ok: false, domain, proxySlot: slot,
+      error: (r && r.error) ? String(r.error) : 'submit failed (no payload)',
+      guess,
+    };
+  }
+  // SUCCESS: aggiorna warmupState cosi' il loop non ricalcia subito.
+  try {
+    warmupState[domain].lastOk = Date.now();
+    lastWarmupOk = Date.now();
+    nextRetry[domain] = Date.now() + WARMUP_PERIOD_OK;
+  } catch { /* ignore */ }
+  return { ok: true, domain, proxySlot: slot, guess: r.guess || guess };
+}
+
+/** Stato di whitelisting per la pagina /chapta. */
+export interface WhitelistDomainStatus {
+  domain: 'uprot' | 'clicka';
+  whitelisted: boolean;
+  stateAgeMs: number | null;
+  activeSlot: ProxySlot;
+  activeProxyHost: string;
+  lastError?: string;
+}
+
+export function getWhitelistStatus(): { uprot: WhitelistDomainStatus; clicka: WhitelistDomainStatus } {
+  const build = (domain: DomainKey): WhitelistDomainStatus => {
+    const p = domain === 'uprot' ? UPROT_STATE_PATH : CLICKA_STATE_PATH;
+    let age: number | null = null;
+    let wl = false;
+    try {
+      const st = fs.statSync(p);
+      if (st.isFile()) {
+        age = Date.now() - st.mtimeMs;
+        wl = age <= STATE_MAX_AGE_MS;
+      }
+    } catch { /* missing */ }
+    const slot = getActiveSlot(domain);
+    return {
+      domain,
+      whitelisted: wl,
+      stateAgeMs: age,
+      activeSlot: slot,
+      activeProxyHost: _proxyHostForSlot(slot),
+      lastError: warmupState[domain].lastError,
+    };
+  };
+  return { uprot: build('uprot'), clicka: build('clicka') };
 }
