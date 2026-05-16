@@ -151,7 +151,7 @@ DEBUG_TOKEN = os.environ.get('STREAMVIX_DEBUG_TOKEN', '')
 
 UPROT_ACTIVE_SLOT_PATH = os.environ.get('UPROT_ACTIVE_SLOT_PATH', '/tmp/uprot_active_proxy_slot.txt')
 CLICKA_ACTIVE_SLOT_PATH = os.environ.get('CLICKA_ACTIVE_SLOT_PATH', '/tmp/clicka_active_proxy_slot.txt')
-_VALID_SLOTS = ('PROXY', 'PROXY_BACKUP')
+_VALID_SLOTS = ('PROXY', 'PROXY_BACKUP', 'DIRECT')
 
 
 def _read_slot(path: str) -> str:
@@ -184,6 +184,9 @@ def _proxy_for(url: str) -> str:
     else:
         # uprot.net, maxstream.video, e qualsiasi altro host della chain uprot
         slot = _read_slot(UPROT_ACTIVE_SLOT_PATH)
+    if slot == 'DIRECT':
+        # Bypass proxy: usa l'egress diretto del container (WARP).
+        return ''
     return os.environ.get(slot, '').strip()
 
 
