@@ -57,8 +57,28 @@ except Exception:
 # riconosce il client come bot ad ogni richiesta e ripropone il captcha.
 from curl_cffi import requests as _cffi_requests  # type: ignore
 
-UA = ("Mozilla/5.0 (X11; Linux x86_64; rv:146.0) "
-      "Gecko/20100101 Firefox/146.0")
+UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
+
+# Headers "full browser" per le POST captcha verso uprot.net — copiati 1:1 da
+# MammaMia (Src/API/extractors/uprot.py). Servono per non differire dal pattern
+# che uprot accetta: alcuni endpoint diventano piu' rigidi senza Sec-Fetch-*/DNT.
+UPROT_FULL_HEADERS = {
+    'User-Agent': UA,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Origin': 'https://uprot.net',
+    'Sec-GPC': '1',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-User': '?1',
+    'DNT': '1',
+    'Priority': 'u=0, i',
+}
 
 # Sessione curl_cffi persistente in-process (cookies condivisi tra le call).
 _cffi_session = _cffi_requests.Session()
@@ -594,6 +614,8 @@ def resolve_uprot_fast(url):
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
         'Upgrade-Insecure-Requests': '1',
+        # Origin presente anche su GET /mse/ come MammaMia (random_headers + Origin/Referer).
+        'Origin': 'https://uprot.net',
     }
     if is_msfi:
         state = _uprot_state_load()
@@ -605,9 +627,9 @@ def resolve_uprot_fast(url):
         method = 'POST'
         post_data = urllib.parse.urlencode(state['data'])
         body = post_data
+        # Headers "full browser" MammaMia-style + state cookies + Referer al target.
+        headers = dict(UPROT_FULL_HEADERS)
         headers['Cookie'] = '; '.join(f'{k}={v}' for k, v in state['cookies'].items())
-        headers['Content-Type'] = 'application/x-www-form-urlencoded'
-        headers['Origin'] = 'https://uprot.net'
         headers['Referer'] = target_url
     else:
         # msf -> mse trick (MammaMia): la variante 'mse' non chiede captcha.
@@ -619,6 +641,10 @@ def resolve_uprot_fast(url):
         # del warmup qui rompeva la sessione (cookie IP-bound da un IP, GET
         # da un altro).
     st, _hdrs, raw = http(target_url, method, body, headers)
+    # 403 = IP bloccato lato uprot (MammaMia bypass_uprot: logger.info 'Uprot
+    # blocked the request: 403'). Skip immediato senza altre richieste.
+    if st == 403:
+        return {'ok': False, 'error': 'uprot 403 (ip blocked) — flip proxy slot'}
     # IP whitelistato: uprot risponde 30x verso il next-hop senza body. Segui
     # direttamente la Location se punta a maxstream/clicka.
     if st in (301, 302, 303, 307, 308):
