@@ -491,11 +491,10 @@ def _follow_maxstream_chain(uprots_link):
     Niente piu' chain .load('premium_embed.php'): MammaMia non la usa, e il
     player attuale espone l'm3u8 inline.
     """
-    headers = {
-        'Referer': 'https://uprot.net/',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-    }
+    # Full browser headers anche qui: la chain uprots/ esce da uprot.net e
+    # passa per maxstream.video, entrambi dietro CF. Header minimi -> 403.
+    headers = dict(UPROT_FULL_HEADERS)
+    headers['Referer'] = 'https://uprot.net/'
 
     def _find_m3u8(body_str):
         m = M3U8_SRC_RE.search(body_str) or M3U8_FILE_RE.search(body_str) or M3U8_ANY_RE.search(body_str)
@@ -554,11 +553,11 @@ def _follow_maxstream_chain(uprots_link):
         return {'ok': False, 'error': f'no m3u8/watchfree on final page (final_url={final_url[:80]})'}
 
     # Step 4: GET player page con redirect=True e cerca m3u8.
+    player_hdrs = dict(UPROT_FULL_HEADERS)
+    player_hdrs['Referer'] = final_url
+    player_hdrs['Origin'] = 'https://maxstream.video'
     try:
-        st2, hdrs2, raw2 = http(target, 'GET', headers={
-            'Referer': final_url,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        }, redirect=True)
+        st2, hdrs2, raw2 = http(target, 'GET', headers=player_hdrs, redirect=True)
     except Exception as e:
         return {'ok': False, 'error': f'player GET failed: {e}'}
     body2 = raw2.decode('utf-8', 'replace') if raw2 else ''
@@ -620,13 +619,10 @@ def resolve_uprot_fast(url):
     target_url = url
     method = 'GET'
     body = None
-    headers = {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Upgrade-Insecure-Requests': '1',
-        # Origin presente anche su GET /mse/ come MammaMia (random_headers + Origin/Referer).
-        'Origin': 'https://uprot.net',
-    }
+    # Full browser headers (MammaMia-style): Cloudflare su uprot.net rifiuta
+    # con 403 anche con curl_cffi+chrome impersonation se mancano Sec-Fetch-*,
+    # DNT, Priority, Upgrade-Insecure-Requests, ecc. Vedi UPROT_FULL_HEADERS.
+    headers = dict(UPROT_FULL_HEADERS)
     if is_msfi:
         state = _uprot_state_load()
         if not state:
@@ -690,7 +686,11 @@ def resolve_uprot_fast(url):
 
 
 def resolve_clicka_fast(url):
-    st, hdrs, _raw = http(url, 'GET', via_proxy=True)
+    # Full browser headers su entry GET (CF su clicka.cc).
+    seed_hdrs = dict(UPROT_FULL_HEADERS)
+    seed_hdrs['Origin'] = 'https://clicka.cc'
+    seed_hdrs['Referer'] = url
+    st, hdrs, _raw = http(url, 'GET', headers=seed_hdrs, via_proxy=True)
     loc = hdrs.get('location')
     if loc and 'safego' in loc:
         safego_url = loc
@@ -700,12 +700,11 @@ def resolve_clicka_fast(url):
         state = _clicka_state_load()
         if state:
             post_data = urllib.parse.urlencode(state['data'])
-            post_hdrs = {
-                'Cookie': '; '.join(f'{k}={v}' for k, v in state['cookies'].items()),
-                'Referer': safego_url,
-                'Origin': 'https://safego.cc',
-                'Content-Type': 'application/x-www-form-urlencoded',
-            }
+            post_hdrs = dict(UPROT_FULL_HEADERS)
+            post_hdrs['Cookie'] = '; '.join(f'{k}={v}' for k, v in state['cookies'].items())
+            post_hdrs['Referer'] = safego_url
+            post_hdrs['Origin'] = 'https://safego.cc'
+            post_hdrs['Content-Type'] = 'application/x-www-form-urlencoded'
             stp, _hp, rawp = http(safego_url, 'POST', post_data, post_hdrs, via_proxy=True)
             if stp == 200:
                 bodyp = rawp.decode('utf-8', 'replace')
@@ -713,7 +712,10 @@ def resolve_clicka_fast(url):
                     body = bodyp
         # Se lo state non c'era o non ha funzionato, GET normale + OCR inline.
         if body is None:
-            st, hdrs, raw = http(safego_url, 'GET', via_proxy=True)
+            safego_hdrs = dict(UPROT_FULL_HEADERS)
+            safego_hdrs['Origin'] = 'https://safego.cc'
+            safego_hdrs['Referer'] = safego_url
+            st, hdrs, raw = http(safego_url, 'GET', headers=safego_hdrs, via_proxy=True)
             body = raw.decode('utf-8', 'replace')
         m = ADELTA_RE.search(body)
         if not m:
@@ -728,7 +730,12 @@ def resolve_clicka_fast(url):
         if not m:
             return {'ok': False, 'error': f'unexpected clicka response (status {st}, loc {loc})'}
         adelta = m.group(0)
-    st, hdrs, _raw = http(adelta, 'GET', via_proxy=True, headers={'Referer': 'https://safego.cc/'})
+    # Full headers anche sull'adelta GET: CF su clicka.cc applica gli stessi
+    # check WAF dell'entry GET, header minimi -> 403.
+    adelta_hdrs = dict(UPROT_FULL_HEADERS)
+    adelta_hdrs['Origin'] = 'https://safego.cc'
+    adelta_hdrs['Referer'] = 'https://safego.cc/'
+    st, hdrs, _raw = http(adelta, 'GET', via_proxy=True, headers=adelta_hdrs)
     loc = hdrs.get('location')
     if not loc or 'deltabit.co' not in loc:
         return {'ok': False, 'error': f'no deltabit redirect (status {st}, loc {loc})'}
@@ -740,7 +747,12 @@ def resolve_clicka_fast(url):
 # ---------------------------------------------------------------------------
 
 def _captcha_solve_attempt(url, field, origin, via_proxy):
-    st, hdrs, raw = http(url, 'GET', via_proxy=via_proxy)
+    # Full browser headers: CF su uprot.net/safego.cc richiede l'header set
+    # completo anche con TLS chrome impersonation. Vedi prepare_manual().
+    get_hdrs = dict(UPROT_FULL_HEADERS)
+    get_hdrs['Origin'] = origin
+    get_hdrs['Referer'] = url
+    st, hdrs, raw = http(url, 'GET', headers=get_hdrs, via_proxy=via_proxy)
     # IP gia' whitelistato: uprot/clicka non mostra il captcha, ma reindirizza
     # direttamente al next-hop della chain. Trattiamo come success.
     if st in (301, 302, 303, 307, 308):
@@ -772,12 +784,12 @@ def _captcha_solve_attempt(url, field, origin, via_proxy):
         return {'ok': False, 'error': 'OCR produced no candidate'}
     post_data = {field: guess}
     post_body = urllib.parse.urlencode(post_data)
-    post_hdrs = {
-        'Cookie': cookie,
-        'Referer': url,
-        'Origin': origin,
-        'Content-Type': 'application/x-www-form-urlencoded',
-    }
+    # Full headers anche per la POST (allineato a MammaMia).
+    post_hdrs = dict(UPROT_FULL_HEADERS)
+    post_hdrs['Cookie'] = cookie
+    post_hdrs['Referer'] = url
+    post_hdrs['Origin'] = origin
+    post_hdrs['Content-Type'] = 'application/x-www-form-urlencoded'
     st2, hdrs2, raw2 = http(url, 'POST', post_body, post_hdrs, via_proxy=via_proxy)
     body2 = raw2.decode('utf-8', 'replace')
     if UPROTS_RE.search(body2) or ADELTA_RE.search(body2):
@@ -833,13 +845,9 @@ def _uprot_whitelist_probe(url):
     elif '/msei/' in target:
         target = target.replace('/msei/', '/msdi/')
     # Se l'URL e' gia' una variante bypass (/mse/, /msdi/) usalo tale e quale.
-    headers = {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Upgrade-Insecure-Requests': '1',
-        'Origin': 'https://uprot.net',
-        'Referer': 'https://uprot.net/',
-    }
+    # Full headers MammaMia: senza Sec-Fetch-*/DNT/Priority CF risponde 403.
+    headers = dict(UPROT_FULL_HEADERS)
+    headers['Referer'] = 'https://uprot.net/'
     try:
         st, hdrs, raw = http(target, 'GET', headers=headers, via_proxy=True)
     except Exception as e:
@@ -937,7 +945,10 @@ def warmup_clicka(url):
     diag = {'attempts': []}
     print(f'warmup_clicka start url={url} max_attempts={WARMUP_MAX_ATTEMPTS}', file=sys.stderr, flush=True)
     try:
-        st, hdrs, _raw = http(url, 'GET', via_proxy=True)
+        seed_hdrs = dict(UPROT_FULL_HEADERS)
+        seed_hdrs['Origin'] = 'https://clicka.cc'
+        seed_hdrs['Referer'] = url
+        st, hdrs, _raw = http(url, 'GET', headers=seed_hdrs, via_proxy=True)
     except Exception as e:
         print(f'warmup_clicka FAILED at GET: {e}', file=sys.stderr, flush=True)
         return {'ok': False, 'error': f'clicka GET failed: {e}'}
@@ -984,7 +995,10 @@ def warmup_clicka(url):
 # ---------------------------------------------------------------------------
 
 def parse_folder(url):
-    st, _hdrs, raw = http(url, 'GET')
+    # Full browser headers anche sul folder GET: uprot.net e' dietro CF.
+    folder_hdrs = dict(UPROT_FULL_HEADERS)
+    folder_hdrs['Referer'] = 'https://uprot.net/'
+    st, _hdrs, raw = http(url, 'GET', headers=folder_hdrs)
     if st != 200:
         return {'ok': False, 'error': f'folder GET returned {st}'}
     body = raw.decode('utf-8', 'replace')
@@ -1077,7 +1091,12 @@ def prepare_manual(domain):
     elif domain == 'clicka':
         seed = os.environ.get('STREAMVIX_CLICKA_WARMUP_URL', 'https://clicka.cc/delta/mfua6zl4cb9p')
         try:
-            st, hdrs, _raw = http(seed, 'GET', via_proxy=True)
+            # Full browser headers anche per il seed clicka: stesso motivo
+            # (CF su clicka.cc accetta solo richieste con header completi).
+            seed_hdrs = dict(UPROT_FULL_HEADERS)
+            seed_hdrs['Origin'] = 'https://clicka.cc'
+            seed_hdrs['Referer'] = seed
+            st, hdrs, _raw = http(seed, 'GET', headers=seed_hdrs, via_proxy=True)
         except Exception as e:
             return {'ok': False, 'error': f'clicka GET failed: {e}'}
         loc = hdrs.get('location')
@@ -1090,7 +1109,15 @@ def prepare_manual(domain):
     else:
         return {'ok': False, 'error': f'unknown domain: {domain}'}
     try:
-        st, hdrs, raw = http(url, 'GET', via_proxy=True)
+        # Pass FULL browser headers (UPROT_FULL_HEADERS-style) on the GET.
+        # Without these, Cloudflare on uprot.net/safego.cc replies 403 even
+        # with curl_cffi+chrome impersonation. MammaMia (Src/API/extractors/
+        # uprot.py) uses the same header set and it works behind the same
+        # WARP egress that fails for us when only User-Agent is sent.
+        get_hdrs = dict(UPROT_FULL_HEADERS)
+        get_hdrs['Origin'] = origin
+        get_hdrs['Referer'] = url
+        st, hdrs, raw = http(url, 'GET', headers=get_hdrs, via_proxy=True)
     except Exception as e:
         return {'ok': False, 'error': f'GET failed: {e}'}
     if st in (301, 302, 303, 307, 308):
@@ -1149,12 +1176,12 @@ def submit_manual(session_path, guess):
         os.environ['_FORCE_PROXY_SLOT'] = slot
     post_data = {field: guess}
     post_body = urllib.parse.urlencode(post_data)
-    post_hdrs = {
-        'Cookie': cookie,
-        'Referer': url,
-        'Origin': origin,
-        'Content-Type': 'application/x-www-form-urlencoded',
-    }
+    # Full browser headers (allineato a MammaMia / prepare_manual GET).
+    post_hdrs = dict(UPROT_FULL_HEADERS)
+    post_hdrs['Cookie'] = cookie
+    post_hdrs['Referer'] = url
+    post_hdrs['Origin'] = origin
+    post_hdrs['Content-Type'] = 'application/x-www-form-urlencoded'
     try:
         st, hdrs, raw = http(url, 'POST', post_body, post_hdrs, via_proxy=True)
     except Exception as e:
