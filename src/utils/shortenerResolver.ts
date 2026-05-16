@@ -311,13 +311,16 @@ export function startWarmupLoop(_periodMs?: number): void {
 // ---------------------------------------------------------------------------
 // Python (uprot_resolver.py) legge gli stessi file per scegliere il proxy a
 // runtime. Cosi' warmup, resolve dei link e /chapta escono dallo stesso IP
-// per dominio. Se un warmup fallisce, flippiamo lo slot e ritentiamo dopo
-// 30 min sull'altro proxy (--> ping-pong tra PROXY e PROXY_BACKUP).
+// per dominio. Se un warmup fallisce, ruotiamo lo slot e ritentiamo dopo
+// 30 min sul prossimo (--> rotazione circolare PROXY -> PROXY_BACKUP -> DIRECT).
 //
-// I valori scritti nel file sono i NOMI degli env: 'PROXY' o 'PROXY_BACKUP'.
+// I valori scritti nel file sono: 'PROXY' (env), 'PROXY_BACKUP' (env) o
+// 'DIRECT' (bypass proxy: usa l'egress diretto del container).
 
-export type ProxySlot = 'PROXY' | 'PROXY_BACKUP';
-const VALID_SLOTS: ProxySlot[] = ['PROXY', 'PROXY_BACKUP'];
+export type ProxySlot = 'PROXY' | 'PROXY_BACKUP' | 'DIRECT';
+const VALID_SLOTS: ProxySlot[] = ['PROXY', 'PROXY_BACKUP', 'DIRECT'];
+// Ordine di rotazione su fallimento warmup (circolare).
+const SLOT_ROTATION: ProxySlot[] = ['PROXY', 'PROXY_BACKUP', 'DIRECT'];
 
 const UPROT_ACTIVE_SLOT_PATH = process.env.UPROT_ACTIVE_SLOT_PATH || '/tmp/uprot_active_proxy_slot.txt';
 const CLICKA_ACTIVE_SLOT_PATH = process.env.CLICKA_ACTIVE_SLOT_PATH || '/tmp/clicka_active_proxy_slot.txt';
@@ -329,7 +332,7 @@ function slotPathFor(domain: DomainKey): string {
 export function getActiveSlot(domain: DomainKey): ProxySlot {
   try {
     const v = fs.readFileSync(slotPathFor(domain), 'utf8').trim();
-    if (v === 'PROXY' || v === 'PROXY_BACKUP') return v;
+    if ((VALID_SLOTS as string[]).includes(v)) return v as ProxySlot;
   } catch { /* file mancante: default */ }
   return 'PROXY';
 }
@@ -342,9 +345,15 @@ export function setActiveSlot(domain: DomainKey, slot: ProxySlot): void {
   }
 }
 
+/**
+ * Ruota lo slot attivo al prossimo nella sequenza SLOT_ROTATION
+ * (PROXY -> PROXY_BACKUP -> DIRECT -> PROXY -> ...). Cosi' su fallimento
+ * warmup proviamo prima il backup, poi l'egress diretto del container.
+ */
 export function flipProxySlot(domain: DomainKey): ProxySlot {
   const cur = getActiveSlot(domain);
-  const next: ProxySlot = cur === 'PROXY' ? 'PROXY_BACKUP' : 'PROXY';
+  const idx = SLOT_ROTATION.indexOf(cur);
+  const next: ProxySlot = SLOT_ROTATION[(idx + 1) % SLOT_ROTATION.length] || 'PROXY';
   setActiveSlot(domain, next);
   return next;
 }
