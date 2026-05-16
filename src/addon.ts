@@ -7080,6 +7080,241 @@ app.get(/^\/(.+)\/configure\/?$/, (req: Request, res: Response) => {
 
 app.use('/public', express.static(path.join(__dirname, '..', 'public')));
 
+// ---------------------------------------------------------------------------
+// /chapta — manual captcha solver per uprot/clicka (fallback all'OCR warmup)
+// ---------------------------------------------------------------------------
+// Flusso:
+//   GET  /chapta  -> per ognuno tra uprot/clicka: se gia' whitelistato (state
+//                    file fresco) mostra spunta verde; altrimenti scarica il
+//                    PNG captcha tramite il proxy slot attivo del dominio e
+//                    lo mostra inline con un input numerico.
+//   POST /chapta  -> riceve { uprot_sid, uprot_code, clicka_sid, clicka_code },
+//                    per ciascuna coppia presente fa --submit-manual usando
+//                    LO STESSO proxy slot della prepare (sticky via session).
+// Errori sempre visibili nella pagina (sia prepare che submit).
+{
+    const chaptaSessions = new Map<string, { filePath: string; createdMs: number; domain: 'uprot' | 'clicka' }>();
+    const CHAPTA_SESSION_TTL_MS = 10 * 60 * 1000;
+    function _genSid(): string {
+        return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+    }
+    function _cleanupChaptaSessions(): void {
+        const now = Date.now();
+        for (const [sid, info] of chaptaSessions) {
+            if (now - info.createdMs > CHAPTA_SESSION_TTL_MS) {
+                try { if (fs.existsSync(info.filePath)) fs.unlinkSync(info.filePath); } catch { /* ignore */ }
+                chaptaSessions.delete(sid);
+            }
+        }
+    }
+    function _escapeHtml(s: string): string {
+        return String(s).replace(/[&<>"']/g, (c) =>
+            (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;'));
+    }
+
+    interface CardData {
+        domain: 'uprot' | 'clicka';
+        label: string;
+        whitelisted: boolean;
+        stateAgeMs: number | null;
+        activeSlot: string;
+        activeProxyHost: string;
+        prepareError?: string;
+        pngB64?: string;
+        sid?: string;
+        sessionProxySlot?: string;
+        submitError?: string;
+        submitOk?: boolean;
+        submitGuess?: string;
+    }
+
+    function _renderChapta(cards: CardData[], topMessage?: { kind: 'ok' | 'err' | 'info'; text: string }): string {
+        const card = (c: CardData) => {
+            const ageMin = (c.stateAgeMs != null) ? Math.round(c.stateAgeMs / 60000) : null;
+            const statusLine = c.whitelisted
+                ? `<span style="color:#22c55e;font-weight:700">&#10003; gi&agrave; whitelistato</span>`
+                  + (ageMin != null ? ` <span style="opacity:.7;font-size:.85em">(state ${ageMin}m fa)</span>` : '')
+                : `<span style="color:#ef4444;font-weight:700">&times; non whitelistato</span>`;
+            const proxyLine = `proxy slot attivo: <code>${_escapeHtml(c.activeSlot)}</code> &rarr; <code>${_escapeHtml(c.activeProxyHost)}</code>`;
+            let body = '';
+            if (c.whitelisted) {
+                body = `<p style="opacity:.8;margin:.6em 0 0">Nessuna azione necessaria.</p>`;
+            } else if (c.prepareError) {
+                body = `<p style="color:#ef4444"><b>Errore caricamento captcha:</b><br><code>${_escapeHtml(c.prepareError)}</code></p>`
+                     + `<p style="opacity:.7;font-size:.9em">Suggerimento: il proxy attivo (${_escapeHtml(c.activeProxyHost)}) potrebbe essere bannato o down. Il warmup loop ruoter&agrave; automaticamente lo slot fra ${30} min, oppure premi <i>Ricarica</i>.</p>`;
+            } else if (c.pngB64 && c.sid) {
+                body = `<div><img alt="captcha ${c.domain}" src="data:image/png;base64,${c.pngB64}" style="background:#fff;padding:6px;border-radius:6px;max-width:240px"></div>`
+                     + `<input type="hidden" name="${c.domain}_sid" value="${_escapeHtml(c.sid)}">`
+                     + `<p style="margin:.6em 0 .3em">Cifre captcha:</p>`
+                     + `<input type="text" name="${c.domain}_code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" style="font-size:1.4em;padding:.4em;width:7em;border-radius:6px;border:1px solid #555;background:#222;color:#eee">`
+                     + `<p style="opacity:.7;font-size:.85em;margin:.4em 0 0">la POST uscir&agrave; dallo slot <code>${_escapeHtml(c.sessionProxySlot || c.activeSlot)}</code> (lo stesso della GET).</p>`;
+            } else {
+                body = `<p style="opacity:.7">Nessun captcha caricato.</p>`;
+            }
+            let submit = '';
+            if (c.submitOk) {
+                submit = `<p style="color:#22c55e;margin-top:.5em"><b>&#10003; submit OK</b> (guess <code>${_escapeHtml(c.submitGuess || '')}</code>, slot <code>${_escapeHtml(c.sessionProxySlot || '')}</code>) &mdash; state file scritto.</p>`;
+            } else if (c.submitError) {
+                submit = `<p style="color:#ef4444;margin-top:.5em"><b>&times; submit FAIL:</b> <code>${_escapeHtml(c.submitError)}</code> (slot <code>${_escapeHtml(c.sessionProxySlot || '')}</code>)</p>`;
+            }
+            return `
+            <div style="border:1px solid #444;border-radius:10px;padding:1em;margin:1em 0;background:#181818">
+              <h2 style="margin:0 0 .3em">${c.label}</h2>
+              <p style="margin:.2em 0">${statusLine}</p>
+              <p style="margin:.2em 0;opacity:.85;font-size:.9em">${proxyLine}</p>
+              ${body}
+              ${submit}
+            </div>`;
+        };
+        const banner = topMessage ? `
+          <div style="padding:.7em 1em;border-radius:8px;margin:.5em 0;background:${
+              topMessage.kind === 'ok' ? '#064e3b' : topMessage.kind === 'err' ? '#7f1d1d' : '#1e3a8a'
+          };color:#fff">${_escapeHtml(topMessage.text)}</div>` : '';
+        return `<!doctype html><html><head><meta charset="utf-8"><title>StreamVix /chapta</title>
+        <style>body{font-family:ui-sans-serif,system-ui,sans-serif;background:#0b0b0b;color:#eee;max-width:780px;margin:1.5em auto;padding:0 1em;line-height:1.4}h1{margin:0 0 .5em}code{background:#1e1e1e;padding:1px 4px;border-radius:3px}button{font-size:1.05em;padding:.6em 1.2em;border-radius:8px;border:0;background:#2563eb;color:#fff;cursor:pointer}button:hover{background:#1d4ed8}a{color:#60a5fa}</style></head>
+        <body><h1>StreamVix &mdash; risoluzione captcha manuale</h1>
+        <p style="opacity:.8">Per ciascun dominio: se &egrave; gi&agrave; whitelistato vedi la spunta verde. Altrimenti inserisci le cifre del captcha e premi <b>Invia</b>. La POST esce dallo stesso proxy che ha scaricato l'immagine.</p>
+        ${banner}
+        <form method="POST" action="/chapta">
+          ${cards.map(card).join('')}
+          <p style="text-align:center"><button type="submit">Invia captcha</button>
+          &nbsp;&nbsp;<a href="/chapta">Ricarica</a></p>
+        </form>
+        </body></html>`;
+    }
+
+    async function _buildCardForGET(domain: 'uprot' | 'clicka', label: string): Promise<CardData> {
+        const { getWhitelistStatus, prepareManualSolve } = require('./utils/shortenerResolver');
+        const status = getWhitelistStatus()[domain];
+        const card: CardData = {
+            domain, label,
+            whitelisted: status.whitelisted,
+            stateAgeMs: status.stateAgeMs,
+            activeSlot: status.activeSlot,
+            activeProxyHost: status.activeProxyHost,
+        };
+        if (status.whitelisted) return card;
+        try {
+            const r = await prepareManualSolve(domain);
+            if (!r.ok) {
+                card.prepareError = r.error || 'unknown prepare error';
+                return card;
+            }
+            if (r.alreadyWhitelisted) {
+                card.whitelisted = true; // race con un warmup appena passato
+                return card;
+            }
+            // Salva session su file e tiene mapping sid->path
+            const sid = _genSid();
+            const filePath = path.join('/tmp', `chapta_sess_${sid}.json`);
+            try { fs.writeFileSync(filePath, JSON.stringify(r.session)); } catch (e) {
+                card.prepareError = `cannot persist session: ${(e as Error).message}`;
+                return card;
+            }
+            chaptaSessions.set(sid, { filePath, createdMs: Date.now(), domain });
+            card.pngB64 = r.pngB64;
+            card.sid = sid;
+            card.sessionProxySlot = r.session?.proxy_slot;
+        } catch (e) {
+            card.prepareError = `prepare exception: ${(e as Error).message}`;
+        }
+        return card;
+    }
+
+    app.get('/chapta', async (_req: Request, res: Response) => {
+        try {
+            _cleanupChaptaSessions();
+            const [u, c] = await Promise.all([
+                _buildCardForGET('uprot', 'uprot.net'),
+                _buildCardForGET('clicka', 'clicka.cc'),
+            ]);
+            res.type('html').send(_renderChapta([u, c]));
+        } catch (e) {
+            res.status(500).type('html').send(`<pre>chapta GET error: ${_escapeHtml((e as Error).message)}</pre>`);
+        }
+    });
+
+    app.post('/chapta', express.urlencoded({ extended: false }), async (req: Request, res: Response) => {
+        try {
+            _cleanupChaptaSessions();
+            const { submitManualSolve, getWhitelistStatus } = require('./utils/shortenerResolver');
+            const body = (req.body || {}) as Record<string, string>;
+            const cards: CardData[] = [];
+            let anySuccess = false;
+            let anyFail = false;
+
+            for (const domain of ['uprot', 'clicka'] as const) {
+                const label = domain === 'uprot' ? 'uprot.net' : 'clicka.cc';
+                const status = getWhitelistStatus()[domain];
+                const card: CardData = {
+                    domain, label,
+                    whitelisted: status.whitelisted,
+                    stateAgeMs: status.stateAgeMs,
+                    activeSlot: status.activeSlot,
+                    activeProxyHost: status.activeProxyHost,
+                };
+                const sid = (body[`${domain}_sid`] || '').trim();
+                const code = (body[`${domain}_code`] || '').trim();
+                if (!sid && !code) { cards.push(card); continue; }
+                if (sid && !code) {
+                    card.submitError = 'codice non inserito';
+                    anyFail = true;
+                    cards.push(card);
+                    continue;
+                }
+                const sess = chaptaSessions.get(sid);
+                if (!sess) {
+                    card.submitError = 'sessione scaduta o invalida (sid sconosciuto). Ricarica la pagina.';
+                    anyFail = true;
+                    cards.push(card);
+                    continue;
+                }
+                card.sessionProxySlot = sess.domain === domain ? card.activeSlot : card.activeSlot;
+                if (!/^\d{1,6}$/.test(code)) {
+                    card.submitError = `codice non valido: "${code}" (solo cifre)`;
+                    anyFail = true;
+                    cards.push(card);
+                    continue;
+                }
+                try {
+                    const r = await submitManualSolve(sess.filePath, code);
+                    if (r.ok) {
+                        card.submitOk = true;
+                        card.submitGuess = r.guess || code;
+                        card.sessionProxySlot = r.proxySlot;
+                        // Aggiorna lo status post-submit per riflettere la whitelist
+                        const s2 = getWhitelistStatus()[domain];
+                        card.whitelisted = s2.whitelisted;
+                        card.stateAgeMs = s2.stateAgeMs;
+                        anySuccess = true;
+                    } else {
+                        card.submitError = r.error || 'unknown submit error';
+                        card.sessionProxySlot = r.proxySlot;
+                        anyFail = true;
+                    }
+                } catch (e) {
+                    card.submitError = `submit exception: ${(e as Error).message}`;
+                    anyFail = true;
+                } finally {
+                    try { if (fs.existsSync(sess.filePath)) fs.unlinkSync(sess.filePath); } catch { /* ignore */ }
+                    chaptaSessions.delete(sid);
+                }
+                cards.push(card);
+            }
+            const top = anySuccess && !anyFail
+                ? { kind: 'ok' as const, text: 'Captcha accettato. State file aggiornato.' }
+                : anyFail && anySuccess
+                    ? { kind: 'info' as const, text: 'Risultati misti: alcuni captcha sono passati, altri no.' }
+                    : anyFail
+                        ? { kind: 'err' as const, text: 'Submit fallito. Vedi dettagli sotto.' }
+                        : undefined;
+            res.type('html').send(_renderChapta(cards, top));
+        } catch (e) {
+            res.status(500).type('html').send(`<pre>chapta POST error: ${_escapeHtml((e as Error).message)}</pre>`);
+        }
+    });
+}
+
 // Redirect convenience: allow /stream/tv/<id> (no .json) -> proper .json endpoint
 app.get('/stream/tv/:id', (req: Request, res: Response, next: NextFunction) => {
     // Se già termina con .json non fare nulla
