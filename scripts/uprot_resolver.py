@@ -803,9 +803,71 @@ def _solve_captcha_inline(url, field, origin, via_proxy, label):
     return None
 
 
+def _uprot_whitelist_probe(url):
+    """Probe "whitelist reale" senza captcha: trasforma /msf/<id> in /mse/<id>
+    (trick MammaMia) e fa GET. Se il body contiene un link maxstream/clicka
+    significa che l'IP corrente e' whitelistato e uprot ha servito direttamente
+    la pagina post-bypass.
+
+    Returns: dict {ok: bool, body?: str, error?: str}.
+    Non solleva eccezioni.
+    """
+    target = url
+    if '/msf/' in target and '/msfi/' not in target:
+        target = target.replace('/msf/', '/mse/')
+    elif '/msei/' in target:
+        target = target.replace('/msei/', '/msdi/')
+    # Se l'URL e' gia' una variante bypass (/mse/, /msdi/) usalo tale e quale.
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Upgrade-Insecure-Requests': '1',
+        'Origin': 'https://uprot.net',
+        'Referer': 'https://uprot.net/',
+    }
+    try:
+        st, hdrs, raw = http(target, 'GET', headers=headers, via_proxy=True)
+    except Exception as e:
+        return {'ok': False, 'error': f'probe exception: {e}'}
+    if st in (301, 302, 303, 307, 308):
+        loc = (hdrs.get('location') or '').lower()
+        if any(mk in loc for mk in ('uprots/', 'adelta/', 'maxstream.video', 'clicka.cc', 'safego')):
+            return {'ok': True, 'body': hdrs.get('location') or ''}
+        return {'ok': False, 'error': f'probe status {st} loc={loc[:80]}'}
+    if st == 403:
+        return {'ok': False, 'error': 'probe 403 (ip blocked)'}
+    if st != 200:
+        return {'ok': False, 'error': f'probe status {st}'}
+    body = raw.decode('utf-8', 'replace') if raw else ''
+    if UPROTS_RE.search(body) or ADELTA_RE.search(body):
+        return {'ok': True, 'body': body}
+    return {'ok': False, 'error': 'probe: no maxstream/clicka link (not whitelisted)'}
+
+
 def warmup_uprot(url):
     diag = {'attempts': []}
     print(f'warmup_uprot start url={url} max_attempts={WARMUP_MAX_ATTEMPTS}', file=sys.stderr, flush=True)
+    # STEP 0: probe whitelist reale via /mse/ trick. Se l'IP corrente vede
+    # gia' la pagina post-bypass senza captcha, saltiamo l'intero loop OCR
+    # e salviamo uno state "vuoto" (cookies dal jar, data={}) sufficiente a
+    # rinfrescare la mtime del file di state per la UI /chapta.
+    probe = _uprot_whitelist_probe(url)
+    if probe.get('ok'):
+        body0 = probe.get('body') or ''
+        merged = dict(_cookies_for(url))
+        _uprot_state_save(merged, {})
+        print(f'warmup_uprot SUCCESS (whitelist probe) state refreshed cookies={list(merged.keys())}',
+              file=sys.stderr, flush=True)
+        m = UPROTS_RE.search(body0)
+        if m:
+            chain = _follow_maxstream_chain(m.group(0))
+            if chain.get('ok'):
+                return {'ok': True, 'kind': 'maxstream', 'm3u8': chain['m3u8'],
+                        'headers': chain['headers'], 'diag': {'probe': True}}
+        return {'ok': True, 'kind': 'whitelisted', 'diag': {'probe': True}}
+    print(f'  whitelist probe FAIL: {probe.get("error","?")[:80]} — falling back to OCR loop',
+          file=sys.stderr, flush=True)
+    diag['probe_error'] = probe.get('error')
     consecutive_blocks = 0
     for attempt in range(1, WARMUP_MAX_ATTEMPTS + 1):
         try:
@@ -987,6 +1049,14 @@ def prepare_manual(domain):
         field = 'captcha'
         origin = 'https://uprot.net'
         slot = _read_slot(UPROT_ACTIVE_SLOT_PATH)
+        # Probe whitelist reale prima di scaricare la captcha PNG: se l'IP
+        # corrente bypassa gia' /mse/, segnala already_whitelisted e refresh
+        # state mtime cosi' la UI /chapta resta coerente.
+        probe = _uprot_whitelist_probe(url)
+        if probe.get('ok'):
+            merged = dict(_cookies_for(url))
+            _uprot_state_save(merged, {})
+            return {'ok': True, 'already_whitelisted': True, 'domain': domain}
     elif domain == 'clicka':
         seed = os.environ.get('STREAMVIX_CLICKA_WARMUP_URL', 'https://clicka.cc/delta/mfua6zl4cb9p')
         try:
