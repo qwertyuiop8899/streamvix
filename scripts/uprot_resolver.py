@@ -114,50 +114,68 @@ def _clicka_state_save(cookies, data):
 DEBUG_BASE = os.environ.get('STREAMVIX_DEBUG_BASE', '').rstrip('/')
 DEBUG_TOKEN = os.environ.get('STREAMVIX_DEBUG_TOKEN', '')
 # Proxy HTTP per uscire da IP whitelistato verso clicka/uprot/maxstream.
-# Strategia MammaMia: lista proxy + random.choice UNA VOLTA per processo,
-# sticky per tutta la chain. Cosi' uprot/maxstream vedono sempre lo stesso IP
-# durante una singola risoluzione (cookies/sessione coerenti).
-# Env supportati (in ordine di priorita'):
-#   STREAMVIX_HTTP_PROXY  -> override single-proxy per debug (usato da solo)
-#   PROXY_LIST            -> lista comma-separated di proxies
-#   PROXY, PROXY_BACKUP   -> 2 slot classici
-#   PROXY_1..PROXY_9      -> slot numerati
-import random as _random
+#
+# Modello "sticky per-dominio":
+#   - Slot disponibili: 'PROXY' (env PROXY) e 'PROXY_BACKUP' (env PROXY_BACKUP).
+#   - Slot attivo per uprot:  letto da /tmp/uprot_active_proxy_slot.txt
+#   - Slot attivo per clicka: letto da /tmp/clicka_active_proxy_slot.txt
+#   - Default se file mancante: 'PROXY'.
+#   - Lo slot file viene scritto/ruotato dal lato Node (warmup loop o /chapta)
+#     quando un warmup/solve fallisce: cosi' garantiamo che warmup, resolve
+#     runtime e captcha manuale escano TUTTI dallo stesso IP per dominio.
+#   - urls maxstream.video usano lo slot di uprot (sono il next-hop della chain).
+#   - Per i comandi --submit-manual che devono usare LO STESSO proxy della
+#     prepare-manual (anche se nel frattempo lo slot e' cambiato), si puo'
+#     forzare via env _FORCE_PROXY_SLOT=PROXY|PROXY_BACKUP.
+# Env legacy ancora supportati (override su tutto): STREAMVIX_HTTP_PROXY.
 
-def _build_proxy_list():
-    explicit = os.environ.get('STREAMVIX_HTTP_PROXY', '').strip()
-    if explicit:
-        return [explicit]
-    lst = []
-    raw_list = os.environ.get('PROXY_LIST', '').strip()
-    if raw_list:
-        for p in raw_list.split(','):
-            p = p.strip()
-            if p:
-                lst.append(p)
-    for env_name in ('PROXY', 'PROXY_BACKUP'):
-        v = os.environ.get(env_name, '').strip()
-        if v and v not in lst:
-            lst.append(v)
-    for i in range(1, 10):
-        v = os.environ.get(f'PROXY_{i}', '').strip()
-        if v and v not in lst:
-            lst.append(v)
-    return lst
+UPROT_ACTIVE_SLOT_PATH = os.environ.get('UPROT_ACTIVE_SLOT_PATH', '/tmp/uprot_active_proxy_slot.txt')
+CLICKA_ACTIVE_SLOT_PATH = os.environ.get('CLICKA_ACTIVE_SLOT_PATH', '/tmp/clicka_active_proxy_slot.txt')
+_VALID_SLOTS = ('PROXY', 'PROXY_BACKUP')
 
-HTTP_PROXIES = _build_proxy_list()
-# Sticky pick: scelto UNA VOLTA all'avvio del processo (ogni invocation Python
-# e' un singolo --resolve / --warmup, quindi 1 processo == 1 chain).
-SELECTED_PROXY = _random.choice(HTTP_PROXIES) if HTTP_PROXIES else ''
-HTTP_PROXY = SELECTED_PROXY  # alias retrocompatibilita'
-if SELECTED_PROXY:
+
+def _read_slot(path: str) -> str:
     try:
-        # Log su stderr: utile per capire da quale IP usciamo in caso di 403/302.
-        _proxy_host = SELECTED_PROXY.split('@')[-1].split('/')[0]
-        print(f'[proxy] pinned {_proxy_host} (pool size={len(HTTP_PROXIES)})',
-              file=sys.stderr, flush=True)
+        with open(path, 'r') as f:
+            v = f.read().strip()
+        if v in _VALID_SLOTS:
+            return v
     except Exception:
         pass
+    return 'PROXY'
+
+
+def _proxy_for(url: str) -> str:
+    """Ritorna l'URL del proxy da usare per `url` in base allo slot attivo.
+    Override (in ordine): _FORCE_PROXY_SLOT > STREAMVIX_HTTP_PROXY > slot file."""
+    forced = os.environ.get('_FORCE_PROXY_SLOT', '').strip()
+    if forced in _VALID_SLOTS:
+        return os.environ.get(forced, '').strip()
+    explicit = os.environ.get('STREAMVIX_HTTP_PROXY', '').strip()
+    if explicit:
+        return explicit
+    host = ''
+    try:
+        host = (urllib.parse.urlparse(url).hostname or '').lower()
+    except Exception:
+        pass
+    if 'clicka' in host or 'safego' in host or 'deltabit' in host:
+        slot = _read_slot(CLICKA_ACTIVE_SLOT_PATH)
+    else:
+        # uprot.net, maxstream.video, e qualsiasi altro host della chain uprot
+        slot = _read_slot(UPROT_ACTIVE_SLOT_PATH)
+    return os.environ.get(slot, '').strip()
+
+
+try:
+    _u_slot = _read_slot(UPROT_ACTIVE_SLOT_PATH)
+    _c_slot = _read_slot(CLICKA_ACTIVE_SLOT_PATH)
+    _u_host = (os.environ.get(_u_slot, '').split('@')[-1].split('/')[0]) or '(unset)'
+    _c_host = (os.environ.get(_c_slot, '').split('@')[-1].split('/')[0]) or '(unset)'
+    print(f'[proxy] uprot slot={_u_slot} ({_u_host})  clicka slot={_c_slot} ({_c_host})',
+          file=sys.stderr, flush=True)
+except Exception:
+    pass
 
 HTTP_TIMEOUT = int(os.environ.get('UPROT_HTTP_TIMEOUT', '10'))
 # Warmup: budget 10 tentativi OCR. Default abbassato da 8->10 per dare margine
@@ -268,9 +286,11 @@ def _via_direct(url, method, body, headers, redirect, via_proxy=True):
     if persisted and 'Cookie' not in h and 'cookie' not in h:
         h['Cookie'] = '; '.join(f'{k}={v}' for k, v in persisted.items())
     proxies = None
-    if via_proxy and SELECTED_PROXY:
-        scheme_proxy = SELECTED_PROXY if SELECTED_PROXY.startswith('http') else f'http://{SELECTED_PROXY}'
-        proxies = {'http': scheme_proxy, 'https': scheme_proxy}
+    if via_proxy:
+        proxy_url = _proxy_for(url)
+        if proxy_url:
+            scheme_proxy = proxy_url if proxy_url.startswith('http') else f'http://{proxy_url}'
+            proxies = {'http': scheme_proxy, 'https': scheme_proxy}
     # curl_cffi.Session.request: usa impersonate='chrome' per ottenere il
     # fingerprint TLS/JA3 di Chrome, requisito per non venire challenged da
     # Cloudflare ad ogni richiesta.
