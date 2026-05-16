@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.17.70](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.69...v1.17.70) (2026-05-16)
+
+
+### Bug Fixes
+
+* addon ([141fe23](https://github.com/qwertyuiop8899/streamvix/commit/141fe235b99e634c065c9d761deec357b8916d2d))
+* cinemacity-provider.ts ([73d3fce](https://github.com/qwertyuiop8899/streamvix/commit/73d3fced8e69098568b9d8f8ac035c3a82d6ae26))
+* index.ts ([18dc381](https://github.com/qwertyuiop8899/streamvix/commit/18dc381205f40d1badc16822aaa92703da468046))
+* index.ts ([fe48f3d](https://github.com/qwertyuiop8899/streamvix/commit/fe48f3de483d4adeb42fd806632ab74b1c571428))
+* landingPage.ts ([2d24a92](https://github.com/qwertyuiop8899/streamvix/commit/2d24a92bf6667a1a54c358867546ce1678709cd9))
+* nifiedNames.ts ([023d6e8](https://github.com/qwertyuiop8899/streamvix/commit/023d6e80708c102ad89140335ca995f632603af3))
+* streamhg.ts ([8f90270](https://github.com/qwertyuiop8899/streamvix/commit/8f90270c61cd688ed3f9f9735f30fadb50a03ebd))
+* uprot_resolver.py ([7a7a8d8](https://github.com/qwertyuiop8899/streamvix/commit/7a7a8d8f18151fa45103dda84bb5b888c7457ffb))
+* uprot_resolver.py ([fd8b0e2](https://github.com/qwertyuiop8899/streamvix/commit/fd8b0e2b9a6dee355aad02a4d4bb11633bbb5725))
+* uprot_resolver.py ([d32f561](https://github.com/qwertyuiop8899/streamvix/commit/d32f561583361195043df4dc606efbb97cc4babf))
+* vidxgo-provider.ts ([e81e958](https://github.com/qwertyuiop8899/streamvix/commit/e81e95845402f31a57a0211045de310bf76d020d))
+* vidxgo.ts ([2b82e69](https://github.com/qwertyuiop8899/streamvix/commit/2b82e69e600adbb47832d679ec594a167a10c8a0))
+
 ## [1.17.69](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.68...v1.17.69) (2026-05-16)
 
 
