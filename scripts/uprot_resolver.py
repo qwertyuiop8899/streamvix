@@ -298,6 +298,12 @@ def _via_direct(url, method, body, headers, redirect, via_proxy=True):
                               allow_redirects=redirect, timeout=HTTP_TIMEOUT,
                               proxies=proxies, impersonate='chrome')
     out_hdrs = {k.lower(): v for k, v in r.headers.items()}
+    # Esponi l'URL finale post-redirect (key custom, non-HTTP) cosi' il caller
+    # puo' ricostruire path tipo /emvvv/<id> da watchfree/X/Y/.
+    try:
+        out_hdrs['_final_url'] = str(r.url)
+    except Exception:
+        pass
     # curl_cffi expone i Set-Cookie come stringa singola sotto 'set-cookie',
     # ma noi vogliamo una lista. Ricostruiamo dai cookies della session.
     try:
@@ -443,28 +449,23 @@ JQ_COOKIE_RE = re.compile(r"""\$\.cookie\(\s*['"]([A-Za-z0-9_-]+)['"]\s*,\s*['"]
 
 
 def _follow_maxstream_chain(uprots_link):
-    """Maxstream chain (variabile nel tempo):
+    """Maxstream chain MammaMia-style.
 
-    Possibili percorsi:
-      A) uprots -> 302 -> watchfree/<id>/<token>/ -> body con iframe emhuih/<id> -> body con m3u8
-      B) uprots -> 302 -> emhuih/<id>             -> body con player + .load('premium_embed.php') -> m3u8
-      C) uprots -> 200 con redirect via meta/JS al prossimo step
+    Strategia (allineata a Src/API/extractors/maxstream.py + uprot.py upstream):
+      1) GET <uprots_link> con allow_redirects=True. curl_cffi+impersonate=chrome
+         segue la catena uprots -> watchfree -> player automaticamente. Sul body
+         finale cerchiamo m3u8 con la stessa regex di MammaMia (sources/src).
+      2) Se non lo troviamo nel body finale, estraiamo l'id da `watchfree/X/Y/`
+         (presente nel final URL o nel body) e costruiamo
+         https://maxstream.video/emvvv/<Y>, poi GET e cerchiamo m3u8.
+    Niente piu' chain .load('premium_embed.php'): MammaMia non la usa, e il
+    player attuale espone l'm3u8 inline.
     """
-    chain_cookies = {}
-
-    def _absorb_cookies(html_body, hdrs_obj):
-        for k, v in JQ_COOKIE_RE.findall(html_body or ''):
-            chain_cookies[k] = v
-        sc = (hdrs_obj or {}).get('set-cookie') if hdrs_obj else None
-        if sc:
-            items = sc if isinstance(sc, list) else [sc]
-            for entry in items:
-                mm = re.match(r'([A-Za-z0-9_\-]+)=([^;]+)', entry)
-                if mm:
-                    chain_cookies[mm.group(1)] = mm.group(2)
-
-    def _cookie_header():
-        return '; '.join(f'{k}={v}' for k, v in chain_cookies.items()) if chain_cookies else ''
+    headers = {
+        'Referer': 'https://uprot.net/',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+    }
 
     def _find_m3u8(body_str):
         m = M3U8_SRC_RE.search(body_str) or M3U8_FILE_RE.search(body_str) or M3U8_ANY_RE.search(body_str)
@@ -473,113 +474,70 @@ def _follow_maxstream_chain(uprots_link):
     def _dump(name, url, status, body):
         try:
             with open(f'/tmp/uprot_debug_{name}.html', 'w') as fdbg:
-                fdbg.write(f'<!-- url={url} status={status} cookies={list(chain_cookies.keys())} -->\n')
+                fdbg.write(f'<!-- url={url} status={status} -->\n')
                 fdbg.write(body[:24576])
             print(f'  [debug] {name} dumped to /tmp/uprot_debug_{name}.html ({len(body)} bytes)',
                   file=sys.stderr, flush=True)
         except Exception:
             pass
 
-    # Step 1: GET uprots, follow Location o estrai dal body.
-    st, hdrs, raw = http(uprots_link, 'GET', headers={'Referer': 'https://uprot.net/'})
+    # Step 1: GET uprots con redirect=True (delega chain redirect a curl_cffi).
+    try:
+        st, hdrs, raw = http(uprots_link, 'GET', headers=headers, redirect=True)
+    except Exception as e:
+        return {'ok': False, 'error': f'uprots GET failed: {e}'}
+    if st != 200:
+        return {'ok': False, 'error': f'uprots GET status {st}'}
     body = raw.decode('utf-8', 'replace') if raw else ''
-    _absorb_cookies(body, hdrs)
-    loc = hdrs.get('location')
-    if not loc:
-        cand = None
-        m = WATCHFREE_URL_RE.search(body)
-        if m:
-            cand = m.group(0)
-        if not cand:
-            m = META_REFRESH_RE.search(body)
-            if m:
-                cand = m.group(1)
-        if not cand:
-            m = JS_LOC_RE.search(body)
-            if m and ('maxstream' in m.group(1) or 'watchfree' in m.group(1) or 'emhuih' in m.group(1)):
-                cand = m.group(1)
-        if not cand:
-            preview = re.sub(r'\s+', ' ', body[:300])
-            return {'ok': False, 'error': f'no Location from uprots (status {st}); body preview: {preview[:200]}'}
-        loc = cand
-    next_url = urllib.parse.urljoin(uprots_link, loc)
+    final_url = hdrs.get('_final_url') or uprots_link
 
-    # Step 2: se next_url è già una player page (emhuih/embed/e/), saltiamo direttamente.
-    # Altrimenti fetch della pagina e cerchiamo iframe emhuih oppure ripieghiamo.
-    is_player_url = bool(re.search(r'maxstream\.[a-z]+/(?:emhuih|embed|e)/', next_url, re.I))
-    page_url = next_url
-    page_body = None
-
-    if not is_player_url:
-        st2, hdrs2, raw2 = http(next_url, 'GET', headers={'Referer': uprots_link, 'Cookie': _cookie_header()})
-        wf_body = raw2.decode('utf-8', 'replace')
-        _absorb_cookies(wf_body, hdrs2)
-        # Prova subito m3u8 sul body intermedio.
-        m3u = _find_m3u8(wf_body)
-        if m3u:
-            return {'ok': True, 'kind': 'maxstream', 'm3u8': m3u,
-                    'headers': {'Referer': 'https://maxstream.video/'}}
-        m_if = EMHUIH_RE.search(wf_body)
-        if m_if:
-            page_url = m_if.group(1)
-        else:
-            mv = WATCHFREE_VID_RE.search(next_url)
-            if mv:
-                page_url = f'https://maxstream.video/emhuih/{mv.group(1)}'
-            else:
-                # Nessun iframe trovato — magari questo body È già il player.
-                page_url = next_url
-                page_body = wf_body
-
-    # Step 3: fetch della player page (se non già scaricata).
-    if page_body is None:
-        ref = uprots_link if is_player_url else next_url
-        st3, hdrs3, raw3 = http(page_url, 'GET', headers={'Referer': ref, 'Cookie': _cookie_header()})
-        page_body = raw3.decode('utf-8', 'replace')
-        _absorb_cookies(page_body, hdrs3)
-
-    # Step 4a: m3u8 diretto sulla player page.
-    m3u = _find_m3u8(page_body)
+    # Step 2: m3u8 sul body finale (caso comune MammaMia per /msf/->/mse/).
+    m3u = _find_m3u8(body)
     if m3u:
         return {'ok': True, 'kind': 'maxstream', 'm3u8': m3u,
                 'headers': {'Referer': 'https://maxstream.video/'}}
 
-    # Step 4b: nuova chain — body contiene $('#prediv').load('../premium_embed.php')
-    load_m = EMBED_LOAD_RE.search(page_body)
-    if load_m:
-        embed_path = load_m.group(1)
-        embed_url = urllib.parse.urljoin(page_url, embed_path)
-        st4, hdrs4, raw4 = http(embed_url, 'GET', headers={
-            'Referer': page_url,
-            'X-Requested-With': 'XMLHttpRequest',
-            'Cookie': _cookie_header(),
-        })
-        emb_body = raw4.decode('utf-8', 'replace')
-        _absorb_cookies(emb_body, hdrs4)
-        m3u = _find_m3u8(emb_body)
-        if m3u:
-            return {'ok': True, 'kind': 'maxstream', 'm3u8': m3u,
-                    'headers': {'Referer': 'https://maxstream.video/'}}
-        # Forse l'embed contiene un altro iframe verso il player vero
-        m_if2 = re.search(r'<iframe[^>]+src=[\'"]([^\'"]+)[\'"]', emb_body, re.I)
-        if m_if2:
-            inner_iframe = urllib.parse.urljoin(embed_url, m_if2.group(1))
-            st5, hdrs5, raw5 = http(inner_iframe, 'GET', headers={
-                'Referer': embed_url,
-                'Cookie': _cookie_header(),
-            })
-            inner_body = raw5.decode('utf-8', 'replace')
-            m3u = _find_m3u8(inner_body)
-            if m3u:
-                return {'ok': True, 'kind': 'maxstream', 'm3u8': m3u,
-                        'headers': {'Referer': 'https://maxstream.video/'}}
-            _dump('iframe', inner_iframe, st5, inner_body)
-        _dump('embed', embed_url, st4, emb_body)
-        return {'ok': False, 'error': f'no m3u8 in embed ({embed_path})'}
+    # Step 3: ricostruisci /emvvv/<id> da watchfree path (MammaMia get_maxstream_link).
+    target = None
+    src_for_target = ''
+    if 'watchfree/' in final_url:
+        src_for_target = final_url
+    else:
+        mw = WATCHFREE_URL_RE.search(body)
+        if mw:
+            src_for_target = mw.group(0)
+    if src_for_target:
+        try:
+            parts = src_for_target.split('watchfree/', 1)[1].split('/')
+            # MammaMia: response.url.split('watchfree/')[1].split('/')[1]
+            if len(parts) >= 2 and parts[1]:
+                target = f'https://maxstream.video/emvvv/{parts[1]}'
+        except Exception:
+            pass
+    if not target:
+        # Fallback: iframe maxstream nel body finale
+        m_if = EMHUIH_RE.search(body)
+        if m_if:
+            target = m_if.group(1)
+    if not target:
+        _dump('player', final_url, st, body)
+        return {'ok': False, 'error': f'no m3u8/watchfree on final page (final_url={final_url[:80]})'}
 
-    # Nessuna fonte trovata — dump per diagnosi
-    _dump('player', page_url, '?', page_body)
-    return {'ok': False, 'error': 'no m3u8/iframe/.load on player page'}
+    # Step 4: GET player page con redirect=True e cerca m3u8.
+    try:
+        st2, hdrs2, raw2 = http(target, 'GET', headers={
+            'Referer': final_url,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        }, redirect=True)
+    except Exception as e:
+        return {'ok': False, 'error': f'player GET failed: {e}'}
+    body2 = raw2.decode('utf-8', 'replace') if raw2 else ''
+    m3u = _find_m3u8(body2)
+    if m3u:
+        return {'ok': True, 'kind': 'maxstream', 'm3u8': m3u,
+                'headers': {'Referer': 'https://maxstream.video/'}}
+    _dump('player', target, st2, body2)
+    return {'ok': False, 'error': f'no m3u8 on player page ({target[:80]})'}
 
 
 # ---------------------------------------------------------------------------
@@ -641,8 +599,9 @@ def resolve_uprot_fast(url):
         state = _uprot_state_load()
         if not state:
             return {'ok': False, 'error': 'no warmup state (uprot_state.json missing) — run warmup first'}
-        # Normalizza path: msfi vuole essere msfi, msei resta msei (MammaMia trasforma
-        # mse->msf solo se necessario; il POST va fatto sull'URL come arriva).
+        # Normalizza msei -> msfi (MammaMia fa l'analogo mse->msf prima del POST).
+        if '/msei/' in target_url:
+            target_url = target_url.replace('/msei/', '/msfi/')
         method = 'POST'
         post_data = urllib.parse.urlencode(state['data'])
         body = post_data
@@ -979,11 +938,143 @@ def warmup(url):
     return {'ok': False, 'error': f'unsupported warmup url: {u[:120]}'}
 
 
+# ---------------------------------------------------------------------------
+# Manual captcha solve (per /chapta endpoint)
+# ---------------------------------------------------------------------------
+# Flusso:
+#   1) Node chiama --prepare-manual <uprot|clicka>: il Python scarica la pagina
+#      captcha attraverso lo slot proxy attivo del dominio, estrae il PNG e
+#      ritorna { ok, png_b64, session: { url, field, origin, cookie, proxy_slot } }.
+#      Node memorizza la session su file (/tmp/chapta_sess_<sid>.json) e mostra
+#      l'immagine all'utente.
+#   2) Node chiama --submit-manual <session_path> --guess <NNN>: il Python
+#      ricarica la session, FORZA il proxy slot salvato (cosi' anche se nel
+#      frattempo lo slot del dominio e' stato ruotato, la POST esce dallo
+#      stesso IP della prepare) e tenta la POST captcha. Se accettata, scrive
+#      il file di state (uprot_state.json / clicka_state.json) come warmup.
+
+
+def prepare_manual(domain):
+    domain = (domain or '').strip().lower()
+    if domain == 'uprot':
+        url = os.environ.get('STREAMVIX_UPROT_WARMUP_URL', 'https://uprot.net/msf/rizwh38f389b')
+        field = 'captcha'
+        origin = 'https://uprot.net'
+        slot = _read_slot(UPROT_ACTIVE_SLOT_PATH)
+    elif domain == 'clicka':
+        seed = os.environ.get('STREAMVIX_CLICKA_WARMUP_URL', 'https://clicka.cc/delta/mfua6zl4cb9p')
+        try:
+            st, hdrs, _raw = http(seed, 'GET', via_proxy=True)
+        except Exception as e:
+            return {'ok': False, 'error': f'clicka GET failed: {e}'}
+        loc = hdrs.get('location')
+        if not loc or 'safego' not in loc:
+            return {'ok': False, 'error': f'no safego redirect (status {st})'}
+        url = loc
+        field = 'captch5'
+        origin = 'https://safego.cc'
+        slot = _read_slot(CLICKA_ACTIVE_SLOT_PATH)
+    else:
+        return {'ok': False, 'error': f'unknown domain: {domain}'}
+    try:
+        st, hdrs, raw = http(url, 'GET', via_proxy=True)
+    except Exception as e:
+        return {'ok': False, 'error': f'GET failed: {e}'}
+    if st in (301, 302, 303, 307, 308):
+        loc = hdrs.get('location') or ''
+        if any(mk in loc.lower() for mk in ('uprots/', 'adelta/', 'maxstream.video', 'clicka.cc', 'safego')):
+            return {'ok': True, 'already_whitelisted': True, 'domain': domain}
+        return {'ok': False, 'error': f'GET status {st} loc={loc[:80]}'}
+    if st != 200:
+        return {'ok': False, 'error': f'GET status {st}'}
+    body = raw.decode('utf-8', 'replace')
+    if UPROTS_RE.search(body) or ADELTA_RE.search(body):
+        return {'ok': True, 'already_whitelisted': True, 'domain': domain}
+    png = _extract_captcha_png(body)
+    if not png:
+        return {'ok': False, 'error': 'no captcha png on GET'}
+    cookie = cookies_from(hdrs)
+    session = {
+        'domain': domain,
+        'url': url,
+        'field': field,
+        'origin': origin,
+        'cookie': cookie,
+        'proxy_slot': slot,
+        'created_ms': int(time.time() * 1000),
+    }
+    return {
+        'ok': True,
+        'domain': domain,
+        'png_b64': base64.b64encode(png).decode('ascii'),
+        'session': session,
+    }
+
+
+def submit_manual(session_path, guess):
+    try:
+        with open(session_path, 'r') as f:
+            sess = json.load(f)
+    except Exception as e:
+        return {'ok': False, 'error': f'session load failed: {e}'}
+    if not isinstance(sess, dict):
+        return {'ok': False, 'error': 'invalid session file'}
+    domain = sess.get('domain')
+    url = sess.get('url')
+    field = sess.get('field')
+    origin = sess.get('origin')
+    cookie = sess.get('cookie') or ''
+    slot = sess.get('proxy_slot') or 'PROXY'
+    if not (domain and url and field and origin):
+        return {'ok': False, 'error': 'session missing required fields'}
+    guess = (guess or '').strip()
+    if not re.match(r'^\d{1,6}$', guess):
+        return {'ok': False, 'error': 'invalid guess (digits only)'}
+    # Forza lo slot della session: anche se nel frattempo il file slot e' stato
+    # ruotato, la POST esce dallo stesso IP della GET fatta da prepare_manual.
+    if slot in _VALID_SLOTS:
+        os.environ['_FORCE_PROXY_SLOT'] = slot
+    post_data = {field: guess}
+    post_body = urllib.parse.urlencode(post_data)
+    post_hdrs = {
+        'Cookie': cookie,
+        'Referer': url,
+        'Origin': origin,
+        'Content-Type': 'application/x-www-form-urlencoded',
+    }
+    try:
+        st, hdrs, raw = http(url, 'POST', post_body, post_hdrs, via_proxy=True)
+    except Exception as e:
+        return {'ok': False, 'error': f'POST failed: {e}'}
+    body = raw.decode('utf-8', 'replace')
+    if UPROTS_RE.search(body) or ADELTA_RE.search(body):
+        # Salva state esattamente come fa warmup_uprot / warmup_clicka.
+        merged_cookies = dict(_cookies_for(url))
+        sc = hdrs.get('set-cookie')
+        if sc:
+            items = sc if isinstance(sc, list) else [sc]
+            for entry in items:
+                m_kv = re.match(r'([A-Za-z0-9_\-]+)=([^;]+)', entry)
+                if m_kv:
+                    merged_cookies[m_kv.group(1)] = m_kv.group(2)
+        if domain == 'uprot':
+            _uprot_state_save(merged_cookies, post_data)
+        elif domain == 'clicka':
+            _clicka_state_save(merged_cookies, post_data)
+        return {'ok': True, 'domain': domain, 'guess': guess, 'proxy_slot': slot}
+    return {'ok': False, 'error': f'wrong guess (status {st})', 'guess': guess, 'proxy_slot': slot}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--resolve', help='URL to resolve (fast path, no captcha)')
     ap.add_argument('--warmup', help='URL for warmup (OCR captcha solve)')
     ap.add_argument('--folder', help='Folder URL to parse (uprot /msfld/)')
+    ap.add_argument('--prepare-manual', dest='prepare_manual',
+                    help='Domain (uprot|clicka): scarica captcha tramite proxy attivo, ritorna PNG b64 + session')
+    ap.add_argument('--submit-manual', dest='submit_manual',
+                    help='Path al session JSON salvato da --prepare-manual')
+    ap.add_argument('--guess', help='Captcha guess (cifre) per --submit-manual')
     args = ap.parse_args()
     try:
         if args.folder:
@@ -992,6 +1083,10 @@ def main():
             print(json.dumps(warmup(args.warmup))); return
         if args.resolve:
             print(json.dumps(resolve(args.resolve))); return
+        if args.prepare_manual:
+            print(json.dumps(prepare_manual(args.prepare_manual))); return
+        if args.submit_manual:
+            print(json.dumps(submit_manual(args.submit_manual, args.guess or ''))); return
     except Exception as e:
         print(json.dumps({'ok': False, 'error': f'exception: {e}'}))
         return
