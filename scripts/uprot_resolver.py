@@ -194,6 +194,16 @@ try:
     _c_host = (os.environ.get(_c_slot, '').split('@')[-1].split('/')[0]) or '(unset)'
     print(f'[proxy] uprot slot={_u_slot} ({_u_host})  clicka slot={_c_slot} ({_c_host})',
           file=sys.stderr, flush=True)
+    # Warning: se PROXY e PROXY_BACKUP puntano allo stesso endpoint, il flip
+    # slot e' inutile e qualsiasi rotazione esce sempre dallo stesso IP. Lo
+    # segnaliamo a startup cosi' l'operatore se ne accorge subito.
+    _ep_main = (os.environ.get('PROXY', '').split('@')[-1].strip()) or ''
+    _ep_back = (os.environ.get('PROXY_BACKUP', '').split('@')[-1].strip()) or ''
+    if _ep_main and _ep_back and _ep_main == _ep_back:
+        print(f'[proxy] WARNING: PROXY and PROXY_BACKUP point to the SAME endpoint '
+              f'({_ep_main}). Slot rotation has no effect — configure a different '
+              f'PROXY_BACKUP to enable real IP failover.',
+              file=sys.stderr, flush=True)
 except Exception:
     pass
 
@@ -747,7 +757,12 @@ def _captcha_solve_attempt(url, field, origin, via_proxy):
         return {'ok': False, 'error': f'GET status {st}'}
     body = raw.decode('utf-8', 'replace')
     if UPROTS_RE.search(body) or ADELTA_RE.search(body):
-        return {'ok': True, 'body': body, 'already_open': True, 'cookies': {}, 'data': {}}
+        # Body gia' contiene il link bypass: l'IP e' whitelistato. Popoliamo i
+        # cookies dal jar persistito cosi' il caller puo' salvare uno state
+        # coerente (mtime fresca per la UI /chapta).
+        current_cookies = dict(_cookies_for(url))
+        return {'ok': True, 'body': body, 'already_open': True,
+                'cookies': current_cookies, 'data': {}}
     cookie = cookies_from(hdrs)
     png = _extract_captcha_png(body)
     if not png:
@@ -889,11 +904,13 @@ def warmup_uprot(url):
         else:
             consecutive_blocks = 0
         if r.get('ok'):
-            # Salva state (cookies + POST data) per riuso runtime sui link msfi/msei.
-            if r.get('cookies') or r.get('data'):
-                _uprot_state_save(r.get('cookies'), r.get('data'))
-                print(f'  state saved: cookies={list((r.get("cookies") or {}).keys())} data={r.get("data")}',
-                      file=sys.stderr, flush=True)
+            # Salva SEMPRE lo state (anche con cookies/data vuoti): il file di
+            # state e' il marker che la UI /chapta usa per dire "whitelisted"
+            # (controlla mtime). Se non lo aggiorniamo, la UI continua a dire
+            # "non whitelistato" anche dopo un warmup OK su ramo already_open.
+            _uprot_state_save(r.get('cookies') or {}, r.get('data') or {})
+            print(f'  state saved: cookies={list((r.get("cookies") or {}).keys())} data={r.get("data")}',
+                  file=sys.stderr, flush=True)
             # IP è ora whitelistato (il captcha è stato accettato). Indipendentemente
             # dal fatto che il chain maxstream completi o meno, il goal del warmup
             # è raggiunto: non ci servono altri tentativi.
@@ -941,11 +958,11 @@ def warmup_clicka(url):
         print(f'  clicka attempt {attempt}/{WARMUP_MAX_ATTEMPTS} guess={r.get("guess","-")} -> {status_short}',
               file=sys.stderr, flush=True)
         if r.get('ok'):
-            # Salva state (cookies + POST data) per riuso runtime sui link clicka/safego.
-            if r.get('cookies') or r.get('data'):
-                _clicka_state_save(r.get('cookies'), r.get('data'))
-                print(f'  clicka state saved: cookies={list((r.get("cookies") or {}).keys())} data={r.get("data")}',
-                      file=sys.stderr, flush=True)
+            # Salva SEMPRE lo state (anche con cookies/data vuoti) per
+            # refresh mtime: la UI /chapta usa questo come marker whitelist.
+            _clicka_state_save(r.get('cookies') or {}, r.get('data') or {})
+            print(f'  clicka state saved: cookies={list((r.get("cookies") or {}).keys())} data={r.get("data")}',
+                  file=sys.stderr, flush=True)
             print(f'warmup_clicka SUCCESS (whitelisted)', file=sys.stderr, flush=True)
             return {'ok': True, 'kind': 'whitelisted', 'safego': safego, 'diag': diag}
         err_str = str(r.get('error', ''))
@@ -1158,6 +1175,16 @@ def submit_manual(session_path, guess):
         elif domain == 'clicka':
             _clicka_state_save(merged_cookies, post_data)
         return {'ok': True, 'domain': domain, 'guess': guess, 'proxy_slot': slot}
+    # Distingui errori upstream (IP bloccato/rate-limit) dal vero "guess sbagliato".
+    # 503/429: rate-limit. 403: IP bloccato. In questi casi la captcha non e' mai
+    # stata valutata: dire "wrong guess" e' fuorviante.
+    if st in (403, 429, 503, 502, 504):
+        kind = 'ip blocked' if st == 403 else 'rate-limited / upstream busy'
+        return {'ok': False,
+                'error': f'upstream {st} ({kind}) — captcha non valutato; cambia proxy/IP',
+                'guess': guess, 'proxy_slot': slot, 'upstream_status': st}
+    if st != 200:
+        return {'ok': False, 'error': f'POST status {st}', 'guess': guess, 'proxy_slot': slot}
     return {'ok': False, 'error': f'wrong guess (status {st})', 'guess': guess, 'proxy_slot': slot}
 
 
