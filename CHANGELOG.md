@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.17.68](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.67...v1.17.68) (2026-05-16)
+
+
+### Bug Fixes
+
+* addon.ts ([a761361](https://github.com/qwertyuiop8899/streamvix/commit/a761361f817123299662c9046b6ec10da097f8c4))
+* domains update ([29f4433](https://github.com/qwertyuiop8899/streamvix/commit/29f443309b7312a35df7f500d4bcac24a12a9819))
+* dynamicChannels.ts ([a773623](https://github.com/qwertyuiop8899/streamvix/commit/a773623c73bb5a9a2894d3655cc9930797304e48))
+* epg.ts ([6094631](https://github.com/qwertyuiop8899/streamvix/commit/60946316ce283e2b1eaa0fff6d34ed4f18f23eff))
+
 ## [1.17.67](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.66...v1.17.67) (2026-05-15)
 
 
