@@ -34,6 +34,15 @@ let dynamicCache: DynamicChannel[] | null = null;
 let lastLoad = 0;
 let lastKnownMtimeMs = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minuti
+// Verbose per-request logging (path selezionato, RAW count, KEPT count, merge categorie...).
+// Default OFF per evitare flood: in produzione il catalog viene chiamato di continuo.
+// Per riabilitare: DC_VERBOSE=1
+const DC_VERBOSE: boolean = (() => {
+  try {
+    const v = (process?.env?.DC_VERBOSE ?? '0').toString().toLowerCase();
+    return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+  } catch { return false; }
+})();
 // Flag per disabilitare completamente la cache (di default ON per provare senza cache)
 const NO_DYNAMIC_CACHE: boolean = (() => {
   try {
@@ -121,7 +130,7 @@ function resolveDynamicFile(): string {
     });
     const chosen = existing[0];
     if (process.env.DISABLE_LIVE_EVENTS === 'true') return chosen.p;
-    try { console.log('[DynamicChannels] Path selezionato:', chosen.p, 'size=', chosen.size, 'nested=', chosen.nested, 'tiny=', chosen.tiny); } catch { }
+    try { if (DC_VERBOSE) console.log('[DynamicChannels] Path selezionato:', chosen.p, 'size=', chosen.size, 'nested=', chosen.nested, 'tiny=', chosen.tiny); } catch { }
     return chosen.p;
   }
   try { console.warn('[DynamicChannels] dynamic_channels.json non trovato in nessuno dei path candidati, uso primo fallback:', candidates[0]); } catch { }
@@ -187,10 +196,10 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
         try {
           data = JSON.parse(raw);
         } catch (perr) {
-          // Retry una volta dopo breve sleep sincrono (busy wait minimo) in caso di race (writer ancora in corso)
+          // Race con writer (file troncato): riprova UNA volta a leggere subito,
+          // senza busy-wait (il vecchio while spinnava la CPU bloccando l'event loop).
+          // Se anche il retry fallisce, ripieghiamo sulla cache precedente o vuota.
           try {
-            const start = Date.now();
-            while (Date.now() - start < 25) {/* piccolo delay */ }
             const raw2 = fs.readFileSync(DYNAMIC_FILE, 'utf-8');
             if (raw2.trim().length >= 2) {
               data = JSON.parse(raw2);
@@ -219,7 +228,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           const thisnotParsed = JSON.parse(thisnotRaw);
           if (Array.isArray(thisnotParsed)) {
             thisnotData = thisnotParsed;
-            try { console.log(`[DynamicChannels] 🔗 Mergiati ${thisnotData.length} canali ThisNot da ${THISNOT_FILE}`); } catch { }
+            try { if (DC_VERBOSE) console.log(`[DynamicChannels] 🔗 Mergiati ${thisnotData.length} canali ThisNot da ${THISNOT_FILE}`); } catch { }
           }
         }
       } catch (thisnotErr) {
@@ -237,7 +246,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           const ppvParsed = JSON.parse(ppvRaw);
           if (Array.isArray(ppvParsed)) {
             ppvData = ppvParsed;
-            try { console.log(`[DynamicChannels] 🔗 Mergiati ${ppvData.length} canali PPV da ${PPV_FILE}`); } catch { }
+            try { if (DC_VERBOSE) console.log(`[DynamicChannels] 🔗 Mergiati ${ppvData.length} canali PPV da ${PPV_FILE}`); } catch { }
           }
         }
       } catch (ppvErr) {
@@ -255,7 +264,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           const xeParsed = JSON.parse(xeRaw);
           if (Array.isArray(xeParsed)) {
             xEventiData = xeParsed;
-            try { console.log(`[DynamicChannels] 🔗 Mergiati ${xEventiData.length} canali X-Eventi da ${XEVENTI_FILE}`); } catch { }
+            try { if (DC_VERBOSE) console.log(`[DynamicChannels] 🔗 Mergiati ${xEventiData.length} canali X-Eventi da ${XEVENTI_FILE}`); } catch { }
           }
         }
       } catch (xeErr) {
@@ -273,7 +282,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           const zeParsed = JSON.parse(zeRaw);
           if (Array.isArray(zeParsed)) {
             zEventiData = zeParsed;
-            try { console.log(`[DynamicChannels] 🔗 Mergiati ${zEventiData.length} canali Z-Eventi da ${ZEVENTI_FILE}`); } catch { }
+            try { if (DC_VERBOSE) console.log(`[DynamicChannels] 🔗 Mergiati ${zEventiData.length} canali Z-Eventi da ${ZEVENTI_FILE}`); } catch { }
           }
         }
       } catch (zeErr) {
@@ -291,7 +300,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           const akParsed = JSON.parse(akRaw);
           if (Array.isArray(akParsed)) {
             akEventiData = akParsed;
-            try { console.log(`[DynamicChannels] 🔗 Mergiati ${akEventiData.length} canali AK-Eventi da ${AKEVENTI_FILE}`); } catch { }
+            try { if (DC_VERBOSE) console.log(`[DynamicChannels] 🔗 Mergiati ${akEventiData.length} canali AK-Eventi da ${AKEVENTI_FILE}`); } catch { }
           }
         }
       } catch (akErr) {
@@ -315,7 +324,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
         const c = (ch?.category || 'unknown').toString().toLowerCase();
         catMapRaw[c] = (catMapRaw[c] || 0) + 1;
       }
-      console.log(`[DynamicChannels] RAW count=${data.length} per categoria:`, catMapRaw);
+      if (DC_VERBOSE) console.log(`[DynamicChannels] RAW count=${data.length} per categoria:`, catMapRaw);
     } catch { }
     // Normalizza titoli stream
     const normStreamTitle = (t?: string): string | undefined => {
@@ -418,7 +427,7 @@ export function loadDynamicChannels(force = false): DynamicChannel[] {
           const c = (ch?.category || 'unknown').toString().toLowerCase();
           catMapKept[c] = (catMapKept[c] || 0) + 1;
         }
-        console.log(`[DynamicChannels] KEPT count=${filtered.length} per categoria:`, catMapKept);
+        if (DC_VERBOSE) console.log(`[DynamicChannels] KEPT count=${filtered.length} per categoria:`, catMapKept);
       } catch { }
       dynamicCache = filtered;
       lastLoad = now;
@@ -585,7 +594,7 @@ export function mergeDynamic(staticList: any[]): any[] {
       const c = (ch.category || 'unknown').toString().toLowerCase();
       perCat[c] = (perCat[c] || 0) + 1;
     }
-    console.log('[DynamicChannels] merge: categorie dinamiche disponibili:', perCat);
+    if (DC_VERBOSE) console.log('[DynamicChannels] merge: categorie dinamiche disponibili:', perCat);
   } catch { }
   const existingIds = new Set(staticList.map(c => c.id));
   const merged = [...staticList];
