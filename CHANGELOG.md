@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.71](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.70...v1.17.71) (2026-05-16)
+
+
+### Bug Fixes
+
+* header uprot_resolver.py ([5ccdfb1](https://github.com/qwertyuiop8899/streamvix/commit/5ccdfb176f141a25783027701b42a56b6db798cb))
+
 ## [1.17.70](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.69...v1.17.70) (2026-05-16)
 
 
