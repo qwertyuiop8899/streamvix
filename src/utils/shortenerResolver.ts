@@ -241,9 +241,9 @@ async function _warmupDomain(dom: DomainKey): Promise<void> {
   } else {
     warmupState[dom].lastError = (r as ResolverFailure).error;
     nextRetry[dom] = Date.now() + WARMUP_PERIOD_FAIL;
-    // FLIP proxy slot per il prossimo tentativo: se PROXY ha fallito, prova
-    // PROXY_BACKUP fra 30 min (e viceversa). Cosi' anche il warmup runtime,
-    // il resolve dei link e /chapta usciranno dal nuovo IP.
+    // RUOTA proxy slot per il prossimo tentativo: PROXY -> PROXY_BACKUP ->
+    // DIRECT -> PROXY -> ... . Cosi' anche il warmup runtime, il resolve
+    // dei link e /chapta usciranno dal nuovo IP.
     // Invalidiamo anche lo state file vecchio (era legato al proxy precedente).
     try {
       const next = flipProxySlot(dom);
