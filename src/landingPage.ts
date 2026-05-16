@@ -501,7 +501,8 @@ function landingTemplate(manifest: any) {
 					'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
 					'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
 					'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
-					'guardaserieEnabled': { title: 'GuardaSerie 🎥 - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600; color:#ff5555;">(Temporaneamente disabilitato)</span>', invert: false, forceDisabled: true },
+					'vidxgoEnabled': { title: 'VidXgo 🎯 - 🔓', invert: false },
+					'cinemacityEnabled': { title: 'CinemaCity 🏙️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(richiede EasyProxy)</span>', invert: false },
 					'guardoserieEnabled': { title: 'Guardoserie 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
 					'guardaflixEnabled': { title: 'Guardaflix 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
 					'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
@@ -1145,7 +1146,8 @@ function landingTemplate(manifest: any) {
 						'disableVixsrc',         // VixSrc directly under Live TV block
 						'cb01Enabled',           // CB01
 						'guardahdEnabled',       // GuardaHD
-						'guardaserieEnabled',    // GuardaSerie
+						'vidxgoEnabled',         // VidXgo (replaces former GuardaSerie slot)
+						'cinemacityEnabled',     // CinemaCity (EasyProxy only)
 						'guardoserieEnabled',    // Guardoserie (Added)
 						'guardaflixEnabled',     // Guardaflix (Added)
 						'eurostreamingEnabled',  // Eurostreaming
