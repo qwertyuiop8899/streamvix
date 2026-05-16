@@ -64,6 +64,10 @@ export class EPGManager {
     private assumeZone: string = 'Europe/Rome';
     private liveOffsetMinutesAdj: number = 0;
     private dynamicOffsetMinutesAdj: number = 0;
+    // Indice per canale: per ogni channelId la lista dei programmi gia' parsati
+    // (start/stop in ms) e ordinati per start crescente. Viene ricostruito ad ogni
+    // load/update dell'EPG. Senza indice: scan O(N*P) per ogni catalog request.
+    private programsByChannel: Map<string, Array<{ startMs: number; stopMs: number; program: EPGProgram }>> | null = null;
 
     constructor(config: EPGConfig) {
         this.config = {
@@ -152,6 +156,7 @@ export class EPGManager {
                 const cacheData = JSON.parse(fs.readFileSync(this.cacheFile, 'utf8'));
                 this.epgData = cacheData.epgData;
                 this.lastUpdate = new Date(cacheData.lastUpdate);
+                this.rebuildProgramIndex();
                 console.log(`📺 EPG caricato dalla cache: ${this.epgData?.channels.length} canali, ${this.epgData?.programs.length} programmi`);
             }
         } catch (error) {
@@ -229,6 +234,7 @@ export class EPGManager {
                     if (parsed) {
                         this.epgData = parsed;
                         this.lastUpdate = new Date();
+                        this.rebuildProgramIndex();
                         this.saveToCache();
                         this.initialized = true;
                         console.log(`✅ EPG(light) ok: ${this.epgData.channels.length} canali, ${this.epgData.programs.length} programmi`);
@@ -248,6 +254,7 @@ export class EPGManager {
                     if (parsedData) {
                         this.epgData = parsedData;
                         this.lastUpdate = new Date();
+                        this.rebuildProgramIndex();
                         this.saveToCache();
                         this.initialized = true;
                         console.log(`✅ EPG aggiornato con successo da ${url}: ${this.epgData.channels.length} canali, ${this.epgData.programs.length} programmi`);
@@ -451,18 +458,31 @@ export class EPGManager {
             return null;
         }
 
+        const nowMs = Date.now();
+        // Path veloce: usa indice per canale (parsing date gia' fatto una volta sola al load).
+        const idx = this.programsByChannel?.get(channelId);
+        if (idx && idx.length > 0) {
+            // Lista ordinata per startMs crescente: scan lineare ma su pochi elementi (~50/canale).
+            // Si potrebbe binary-searchare, ma il guadagno marginale non vale la complessita'.
+            for (const it of idx) {
+                if (it.startMs <= nowMs && (it.stopMs === 0 || it.stopMs > nowMs)) {
+                    return it.program;
+                }
+                if (it.startMs > nowMs) break; // ordinata: niente di utile piu' avanti
+            }
+            return null;
+        }
+
+        // Fallback (indice non disponibile): vecchio scan O(N) sull'intero array.
         const now = new Date();
         const programs = this.epgData.programs.filter(p => p.channel === channelId);
-
         for (const program of programs) {
             const startTime = this.parseEPGDate(program.start);
             const endTime = program.stop ? this.parseEPGDate(program.stop) : null;
-
             if (startTime <= now && (!endTime || endTime > now)) {
                 return program;
             }
         }
-
         return null;
     }
 
@@ -477,12 +497,55 @@ export class EPGManager {
             return null;
         }
 
+        const nowMs = Date.now();
+        const idx = this.programsByChannel?.get(channelId);
+        if (idx && idx.length > 0) {
+            for (const it of idx) {
+                if (it.startMs > nowMs) return it.program;
+            }
+            return null;
+        }
+
+        // Fallback (indice non disponibile)
         const now = new Date();
         const programs = this.epgData.programs
             .filter(p => p.channel === channelId && this.parseEPGDate(p.start) > now)
             .sort((a, b) => this.parseEPGDate(a.start).getTime() - this.parseEPGDate(b.start).getTime());
-
         return programs.length > 0 ? programs[0] : null;
+    }
+
+    /**
+     * Costruisce l'indice programmsByChannel a partire da this.epgData.
+     * Parsa le date UNA VOLTA al load (non a ogni richiesta) e ordina per startMs.
+     */
+    private rebuildProgramIndex(): void {
+        try {
+            if (!this.epgData || !Array.isArray(this.epgData.programs)) {
+                this.programsByChannel = null;
+                return;
+            }
+            const map = new Map<string, Array<{ startMs: number; stopMs: number; program: EPGProgram }>>();
+            for (const p of this.epgData.programs) {
+                if (!p || !p.channel || !p.start) continue;
+                let startMs = 0; let stopMs = 0;
+                try { startMs = this.parseEPGDate(p.start).getTime(); } catch { startMs = 0; }
+                if (p.stop) {
+                    try { stopMs = this.parseEPGDate(p.stop).getTime(); } catch { stopMs = 0; }
+                }
+                if (!Number.isFinite(startMs) || startMs <= 0) continue;
+                let bucket = map.get(p.channel);
+                if (!bucket) { bucket = []; map.set(p.channel, bucket); }
+                bucket.push({ startMs, stopMs, program: p });
+            }
+            for (const arr of map.values()) {
+                arr.sort((a, b) => a.startMs - b.startMs);
+            }
+            this.programsByChannel = map;
+            console.log(`📇 EPG index built: ${map.size} canali indicizzati`);
+        } catch (e) {
+            console.warn('⚠️ EPG index rebuild failed (fallback su scan lineare):', (e as Error)?.message || e);
+            this.programsByChannel = null;
+        }
     }
 
     /**
