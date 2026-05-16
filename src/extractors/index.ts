@@ -10,6 +10,7 @@ import { StreamtapeExtractor } from './streamtape';
 import { DoodStreamExtractor } from './doodstream';
 import { VixCloudHlsExtractor } from './vixcloud';
 import { StreamHgExtractor } from './streamhg';
+import { VidXgoExtractor } from './vidxgo';
 // Temporarily disabled adapters to avoid pulling full webstreamr TS tree into build
 // import { WsDroploadAdapter, WsDoodAdapter } from './webstreamr-adapters';
 
@@ -22,6 +23,7 @@ const extractors: HostExtractor[] = [
   new DoodStreamExtractor(), // legacy
   new VixCloudHlsExtractor(),
   new StreamHgExtractor(),
+  new VidXgoExtractor(),
   // new WsDoodAdapter()
 ];
 
