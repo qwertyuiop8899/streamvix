@@ -58,6 +58,9 @@ import { getDvrStreamsForChannel, getDvrConfig, buildDvrRecordEntry } from './ut
 const DISABLE_LIVE_EVENTS = process.env.DISABLE_LIVE_EVENTS === 'true';
 const IS_MH_DISABLED = (() => { try { const v = (process.env.DISABLE_MH || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
 const IS_SS_DISABLED = (() => { try { const v = (process.env.DISABLE_SPS || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
+// ThisNot e Sports99: OPT-IN (default OFF). Per accenderli: THISNOT_ENABLE=1 / SP99_ENABLE=1.
+const IS_TN_ENABLED  = (() => { try { const v = (process.env.THISNOT_ENABLE || '0').toLowerCase(); return v === 'true' || v === '1' || v === 'on' || v === 'yes'; } catch { return false; } })();
+const IS_SP99_ENABLED = (() => { try { const v = (process.env.SP99_ENABLE || '0').toLowerCase(); return v === 'true' || v === '1' || v === 'on' || v === 'yes'; } catch { return false; } })();
 interface AddonConfig {
     tmdbApiKey?: string;
     mediaFlowProxyUrl?: string;
@@ -85,7 +88,14 @@ interface AddonConfig {
     dvrEnabled?: boolean;
 }
 
-function debugLog(...args: any[]) { try { console.log('[DEBUG]', ...args); } catch { } }
+// debugLog: gated by DEBUG_LOG env (default OFF) to evitare flood per-request in prod.
+const DEBUG_LOG_ENABLED: boolean = (() => {
+    try {
+        const v = (process.env.DEBUG_LOG || '').toString().trim().toLowerCase();
+        return v === '1' || v === 'true' || v === 'on' || v === 'yes';
+    } catch { return false; }
+})();
+function debugLog(...args: any[]) { if (!DEBUG_LOG_ENABLED) return; try { console.log('[DEBUG]', ...args); } catch { } }
 
 const VAVOO_DEBUG: boolean = (() => {
     try {
@@ -741,7 +751,7 @@ function isCfDlhdProxy(u: string): boolean { return extractDlhdIdFromCf(u) !== n
 // ================= MANIFEST BASE (restored) =================
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "12.0.23",
+    version: "11.0.23",
     name: "StreamViX | Elfhosted",
     description: "StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, Eurostreaming, TV ed Eventi Live",
     background: "https://raw.githubusercontent.com/qwertyuiop8899/StreamViX/refs/heads/main/public/backround.png",
@@ -1744,12 +1754,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     url: lastReq0?.url
                 });
             } catch { }
-            // === Catalogo TV: modalità NO CACHE per test (di default attiva) ===
+            // === Catalogo TV: cache in memoria (default ON) ===
+            // La cache e' GLOBALE per processo: condivisa tra tutti gli utenti dello stesso pod.
+            // Si invalida automaticamente quando:
+            //  - cambia il numero di canali statici (staticSig)
+            //  - cambia mtime del file dinamico (un updater ha riscritto eventi)
+            //  - sono passati piu' di 30 min dall'ultimo build (TTL di sicurezza)
+            // Per disabilitarla del tutto: NO_TV_CATALOG_CACHE=1
             const disableCatalogCache = (() => {
                 try {
-                    const v = (process?.env?.NO_TV_CATALOG_CACHE ?? '1').toString().toLowerCase();
+                    const v = (process?.env?.NO_TV_CATALOG_CACHE ?? '0').toString().toLowerCase();
                     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
-                } catch { return true; }
+                } catch { return false; }
             })();
 
             if (disableCatalogCache) {
@@ -1762,17 +1778,20 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     console.error('❌ Merge dynamic channels failed (NO_CACHE):', e);
                 }
             } else {
-                // Fallback: usa cache leggera in memoria
+                // Cache leggera in memoria con invalidation su staticSig + mtime + TTL 30min
+                const CATALOG_CACHE_TTL = 30 * 60 * 1000;
                 const staticSig = staticBaseChannels.length;
-                const cacheKey = `${staticSig}`;
+                const dynMtime = (() => { try { return getDynamicFileStats().mtimeMs || 0; } catch { return 0; } })();
+                const cacheKey = `${staticSig}|${dynMtime}`;
                 const g: any = global as any;
-                if (!g.__tvCatalogCache) g.__tvCatalogCache = { key: '', channels: [] };
-                if (g.__tvCatalogCache.key !== cacheKey) {
+                if (!g.__tvCatalogCache) g.__tvCatalogCache = { key: '', channels: [], builtMs: 0 };
+                const ageMs = Date.now() - (g.__tvCatalogCache.builtMs || 0);
+                if (g.__tvCatalogCache.key !== cacheKey || ageMs > CATALOG_CACHE_TTL) {
                     try {
                         loadDynamicChannels(false);
                         tvChannels = mergeDynamic([...staticBaseChannels]);
-                        g.__tvCatalogCache = { key: cacheKey, channels: tvChannels };
-                        debugLog(`⚡ Catalog rebuild (cache miss) newKey=${cacheKey} count=${tvChannels.length}`);
+                        g.__tvCatalogCache = { key: cacheKey, channels: tvChannels, builtMs: Date.now() };
+                        debugLog(`⚡ Catalog rebuild (cache miss/expired) newKey=${cacheKey} count=${tvChannels.length}`);
                     } catch (e) {
                         console.error('❌ Merge dynamic channels failed:', e);
                     }
@@ -8661,14 +8680,16 @@ if (!DISABLE_LIVE_EVENTS) {
 
 
 // =============== THISNOT AUTO-UPDATER ==============================
-// Avvia aggiornamento automatico canali ThisNot ogni 2 ore
-if (!DISABLE_LIVE_EVENTS) {
+// Avvia aggiornamento automatico canali ThisNot ogni 2 ore (opt-in via THISNOT_ENABLE=1)
+if (!DISABLE_LIVE_EVENTS && IS_TN_ENABLED) {
     try {
         startThisNotUpdater(2);
         console.log('✅ ThisNot auto-updater attivato (ogni 2 ore)');
     } catch (e) {
         console.error('❌ Errore avvio ThisNot updater:', e);
     }
+} else if (!IS_TN_ENABLED) {
+    console.log('⏭️ ThisNot DISABILITATO (default). Per attivarlo: THISNOT_ENABLE=1');
 }
 // ====================================================================
 
@@ -8685,14 +8706,16 @@ if (!DISABLE_LIVE_EVENTS) {
 // ====================================================================
 
 // =============== SPORTS99 AUTO-UPDATER ==============================
-// Avvia aggiornamento automatico canali Sports99 ogni 15 minuti
-if (!DISABLE_LIVE_EVENTS) {
+// Avvia aggiornamento automatico canali Sports99 ogni 15 minuti (opt-in via SP99_ENABLE=1)
+if (!DISABLE_LIVE_EVENTS && IS_SP99_ENABLED) {
     try {
         startSports99Scheduler();
         console.log('✅ Sports99 auto-updater attivato (ogni 15 min)');
     } catch (e) {
         console.error('❌ Errore avvio Sports99 updater:', e);
     }
+} else if (!IS_SP99_ENABLED) {
+    console.log('⏭️ Sports99 DISABILITATO (default). Per attivarlo: SP99_ENABLE=1');
 }
 
 // =============== SPORTSTREAM AUTO-UPDATER ==============================
