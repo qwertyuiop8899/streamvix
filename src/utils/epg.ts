@@ -68,6 +68,12 @@ export class EPGManager {
     // (start/stop in ms) e ordinati per start crescente. Viene ricostruito ad ogni
     // load/update dell'EPG. Senza indice: scan O(N*P) per ogni catalog request.
     private programsByChannel: Map<string, Array<{ startMs: number; stopMs: number; program: EPGProgram }>> | null = null;
+    // Indice di normalizzazione: chiave normalizzata -> EPGChannel.
+    // findEPGChannelId viene chiamato ~1 volta per canale TV ad ogni catalog
+    // request; senza indice ogni chiamata normalizzava (toLowerCase + 2 regex)
+    // tutti i ~200 EPGChannel per match esatto + match parziale. Con ~200 canali
+    // TV in catalogo questo era O(N^2) di normalizzazioni ad ogni request.
+    private channelNormalizedIndex: Map<string, EPGChannel> | null = null;
 
     constructor(config: EPGConfig) {
         this.config = {
@@ -546,6 +552,48 @@ export class EPGManager {
             console.warn('⚠️ EPG index rebuild failed (fallback su scan lineare):', (e as Error)?.message || e);
             this.programsByChannel = null;
         }
+        // Anche l'indice di normalizzazione canale viene ricostruito qui.
+        this.rebuildChannelNormalizationIndex();
+    }
+
+    /**
+     * Normalizzazione canonica usata da findEPGChannelId. Estratta come funzione
+     * statica per non ricomputare la stessa stringa ad ogni iterazione.
+     */
+    private static _normChannelString(s: string): string {
+        return s.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+    }
+
+    /**
+     * Pre-normalizza id e displayName di ogni EPGChannel UNA volta al load,
+     * e costruisce una Map<normalized, EPGChannel> per i match esatti
+     * (O(1) invece di O(N)). I match parziali (includes()) continuano a fare
+     * scan lineare, ma leggono il campo pre-normalizzato (_normId,
+     * _normDisplayName) invece di ricomputare toLowerCase + 2 regex per
+     * ogni iterazione di ogni chiamata.
+     */
+    private rebuildChannelNormalizationIndex(): void {
+        try {
+            if (!this.epgData || !Array.isArray(this.epgData.channels)) {
+                this.channelNormalizedIndex = null;
+                return;
+            }
+            const index = new Map<string, EPGChannel>();
+            for (const ch of this.epgData.channels) {
+                if (!ch) continue;
+                const normId = EPGManager._normChannelString(ch.id || '');
+                const normName = EPGManager._normChannelString(ch.displayName || '');
+                (ch as any)._normId = normId;
+                (ch as any)._normDisplayName = normName;
+                if (normId && !index.has(normId)) index.set(normId, ch);
+                if (normName && !index.has(normName)) index.set(normName, ch);
+            }
+            this.channelNormalizedIndex = index;
+            console.log(`📇 EPG channel-norm index built: ${index.size} key(s) for ${this.epgData.channels.length} canali`);
+        } catch (e) {
+            console.warn('⚠️ EPG channel-norm rebuild failed (fallback su scan lineare):', (e as Error)?.message || e);
+            this.channelNormalizedIndex = null;
+        }
     }
 
     /**
@@ -646,7 +694,7 @@ export class EPGManager {
         if (epgChannelIds && Array.isArray(epgChannelIds)) {
             for (const epgId of epgChannelIds) {
                 // Cerca match esatto nell'EPG
-                const foundChannel = this.epgData.channels.find(ch => 
+                const foundChannel = this.epgData.channels.find(ch =>
                     ch.id === epgId || ch.displayName === epgId
                 );
                 if (foundChannel) {
@@ -654,14 +702,22 @@ export class EPGManager {
                     return foundChannel.id;
                 }
             }
-            
+
             // Cerca match parziale con epgChannelIds
             for (const epgId of epgChannelIds) {
-                const normalizedEpgId = epgId.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+                const normalizedEpgId = EPGManager._normChannelString(epgId);
+                // Fast path: match esatto via index O(1) prima dello scan.
+                const direct = this.channelNormalizedIndex?.get(normalizedEpgId);
+                if (direct) {
+                    console.log(`📺 EPG Partial match via epgChannelIds (indexed): ${tvChannelName} -> ${direct.id} (${direct.displayName}) via ${epgId}`);
+                    return direct.id;
+                }
                 for (const channel of this.epgData.channels) {
-                    const normalizedChannelId = channel.id.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
-                    const normalizedDisplayName = channel.displayName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
-                    
+                    // Leggi i campi pre-normalizzati invece di ricomputare
+                    // toLowerCase + 2 regex per ogni iterazione.
+                    const normalizedChannelId = (channel as any)._normId || EPGManager._normChannelString(channel.id);
+                    const normalizedDisplayName = (channel as any)._normDisplayName || EPGManager._normChannelString(channel.displayName);
+
                     if (normalizedChannelId.includes(normalizedEpgId) || normalizedEpgId.includes(normalizedChannelId) ||
                         normalizedDisplayName.includes(normalizedEpgId) || normalizedEpgId.includes(normalizedDisplayName)) {
                         console.log(`📺 EPG Partial match via epgChannelIds: ${tvChannelName} -> ${channel.id} (${channel.displayName}) via ${epgId}`);
@@ -672,20 +728,18 @@ export class EPGManager {
         }
 
         // 2. Fallback: usa il nome del canale per la ricerca automatica
-        const normalizedName = tvChannelName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+        const normalizedName = EPGManager._normChannelString(tvChannelName);
 
-        // Cerca match esatto
-        for (const channel of this.epgData.channels) {
-            const normalizedEPGName = channel.displayName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
-            if (normalizedEPGName === normalizedName) {
-                console.log(`📺 EPG Auto-match found: ${tvChannelName} -> ${channel.id} (${channel.displayName})`);
-                return channel.id;
-            }
+        // Fast path: exact-match via index O(1).
+        const directHit = this.channelNormalizedIndex?.get(normalizedName);
+        if (directHit) {
+            console.log(`📺 EPG Auto-match found (indexed): ${tvChannelName} -> ${directHit.id} (${directHit.displayName})`);
+            return directHit.id;
         }
 
-        // Cerca match parziale
+        // Cerca match parziale (richiede scan: .includes su entrambe le direzioni)
         for (const channel of this.epgData.channels) {
-            const normalizedEPGName = channel.displayName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+            const normalizedEPGName = (channel as any)._normDisplayName || EPGManager._normChannelString(channel.displayName);
             if (normalizedEPGName.includes(normalizedName) || normalizedName.includes(normalizedEPGName)) {
                 console.log(`📺 EPG Partial auto-match found: ${tvChannelName} -> ${channel.id} (${channel.displayName})`);
                 return channel.id;
