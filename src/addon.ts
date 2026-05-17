@@ -7175,6 +7175,31 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
         submitGuess?: string;
     }
 
+    function _renderSlotPicker(c: CardData): string {
+        // Mostra 3 link/pulsanti per forzare manualmente lo slot del dominio.
+        // Clic -> GET /chapta?set_<domain>=<slot> -> handler setta lo slot,
+        // pulisce lo state file vecchio e re-renderizza la pagina (fa una
+        // nuova prepare con il nuovo proxy).
+        const slots: Array<{ key: 'PROXY' | 'PROXY_BACKUP' | 'DIRECT'; label: string; host: string }> = [
+            { key: 'PROXY',        label: 'PROXY',        host: (process.env.PROXY        || '').split('@').pop()!.split('/')[0] || '(unset)' },
+            { key: 'PROXY_BACKUP', label: 'PROXY_BACKUP', host: (process.env.PROXY_BACKUP || '').split('@').pop()!.split('/')[0] || '(unset)' },
+            { key: 'DIRECT',       label: 'DIRECT (WARP)', host: 'egress diretto' },
+        ];
+        const btns = slots.map(s => {
+            const isCurrent = s.key === c.activeSlot;
+            const style = isCurrent
+                ? 'background:#374151;color:#9ca3af;cursor:default;border:1px solid #4b5563'
+                : 'background:#2563eb;color:#fff;border:0';
+            const href = isCurrent ? '#' : `/chapta?set_${c.domain}=${s.key}`;
+            const onclick = isCurrent ? 'return false;' : '';
+            return `<a href="${href}" onclick="${onclick}" style="display:inline-block;margin:.25em;padding:.45em .8em;border-radius:6px;text-decoration:none;font-size:.9em;${style}" title="${_escapeHtml(s.host)}">${_escapeHtml(s.label)}${isCurrent ? ' &check;' : ''}</a>`;
+        }).join('');
+        return `<div style="margin-top:.6em;padding-top:.5em;border-top:1px dashed #444">`
+             + `<p style="margin:.2em 0;font-size:.85em;opacity:.8">Forza slot manualmente:</p>`
+             + `<div>${btns}</div>`
+             + `</div>`;
+    }
+
     function _renderChapta(cards: CardData[], topMessage?: { kind: 'ok' | 'err' | 'info'; text: string }): string {
         const card = (c: CardData) => {
             const ageMin = (c.stateAgeMs != null) ? Math.round(c.stateAgeMs / 60000) : null;
@@ -7188,7 +7213,8 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
                 body = `<p style="opacity:.8;margin:.6em 0 0">Nessuna azione necessaria.</p>`;
             } else if (c.prepareError) {
                 body = `<p style="color:#ef4444"><b>Errore caricamento captcha:</b><br><code>${_escapeHtml(c.prepareError)}</code></p>`
-                     + `<p style="opacity:.7;font-size:.9em">Suggerimento: il proxy attivo (${_escapeHtml(c.activeProxyHost)}) potrebbe essere bannato o down. Il warmup loop ruoter&agrave; automaticamente lo slot fra ${30} min, oppure premi <i>Ricarica</i>.</p>`;
+                     + `<p style="opacity:.7;font-size:.9em">Suggerimento: il proxy attivo (${_escapeHtml(c.activeProxyHost)}) potrebbe essere bannato o down. Il warmup loop ruoter&agrave; automaticamente lo slot fra ${30} min, oppure scegli manualmente uno slot qui sotto.</p>`
+                     + _renderSlotPicker(c);
             } else if (c.pngB64 && c.sid) {
                 body = `<div><img alt="captcha ${c.domain}" src="data:image/png;base64,${c.pngB64}" style="background:#fff;padding:6px;border-radius:6px;max-width:240px"></div>`
                      + `<input type="hidden" name="${c.domain}_sid" value="${_escapeHtml(c.sid)}">`
@@ -7268,9 +7294,23 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
         return card;
     }
 
-    app.get('/chapta', async (_req: Request, res: Response) => {
+    app.get('/chapta', async (req: Request, res: Response) => {
         try {
             _cleanupChaptaSessions();
+            // Handle manual slot override: ?set_uprot=PROXY|PROXY_BACKUP|DIRECT
+            // Setta lo slot, cancella lo state file vecchio (era legato a un
+            // altro proxy), e rifresca anche il nextRetry cosi' il loop di
+            // background non scavalca la scelta dell'utente.
+            const { setActiveSlot } = require('./utils/shortenerResolver');
+            const VALID = new Set(['PROXY', 'PROXY_BACKUP', 'DIRECT']);
+            for (const domain of ['uprot', 'clicka'] as const) {
+                const q = (req.query[`set_${domain}`] as string | undefined || '').trim();
+                if (q && VALID.has(q)) {
+                    try { setActiveSlot(domain, q as any); } catch { /* ignore */ }
+                    const statePath = domain === 'uprot' ? '/tmp/uprot_state.json' : '/tmp/clicka_state.json';
+                    try { if (fs.existsSync(statePath)) fs.unlinkSync(statePath); } catch { /* ignore */ }
+                }
+            }
             const [u, c] = await Promise.all([
                 _buildCardForGET('uprot', 'uprot.net'),
                 _buildCardForGET('clicka', 'clicka.cc'),
