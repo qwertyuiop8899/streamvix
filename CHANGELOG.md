@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.17.74](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.73...v1.17.74) (2026-05-17)
+
+
+### Bug Fixes
+
+* addon.ts ([23af8bb](https://github.com/qwertyuiop8899/streamvix/commit/23af8bb8ca300564aef7285b538e0cd6c00e4f64))
+* adn-provider.ts ([23eb692](https://github.com/qwertyuiop8899/streamvix/commit/23eb6923bd942bd925ab3e586a23e7ce57ac732f))
+* landingPage.ts ([cb4ede1](https://github.com/qwertyuiop8899/streamvix/commit/cb4ede104b2faf804933d3e25c9ac2aeb28f54f3))
+* unifiedNames.ts ([45965a8](https://github.com/qwertyuiop8899/streamvix/commit/45965a820823ce0d3844308a7fb78e03613feeb8))
+
 ## [1.17.73](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.72...v1.17.73) (2026-05-17)
 
 
