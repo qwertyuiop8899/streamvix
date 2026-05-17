@@ -268,9 +268,15 @@ def parse_event_datetime(day_str: str, time_uk: str) -> datetime.datetime:
     except Exception:
         hour, minute = 0, 0
     naive = datetime.datetime(year, month, daynum, hour, minute)
-    if pytz and TZ_LONDON:
-        aware = TZ_LONDON.localize(naive)
+    # La sorgente daddyliveSchedule.json fornisce orari in Europe/Rome.
+    # Convertiamo a UTC usando zoneinfo (stdlib, no pytz richiesto).
+    if ZI_ROME is not None:
+        aware = naive.replace(tzinfo=ZI_ROME)
+        return aware.astimezone(datetime.timezone.utc)
+    if pytz and TZ_ROME:
+        aware = TZ_ROME.localize(naive)
         return aware.astimezone(pytz.UTC)
+    # Ultimo fallback: assume UTC (comportamento pre-fix, errato ma evita crash)
     return naive.replace(tzinfo=datetime.timezone.utc)
 
 def to_rome(dt_utc: datetime.datetime) -> datetime.datetime:
