@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.75](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.74...v1.17.75) (2026-05-17)
+
+
+### Bug Fixes
+
+* timezone ([b9e862c](https://github.com/qwertyuiop8899/streamvix/commit/b9e862c35c3cf4a8b7e6b18857aa8e8ea0fea7cd))
+
 ## [1.17.74](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.73...v1.17.74) (2026-05-17)
 
 
