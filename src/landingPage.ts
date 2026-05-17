@@ -502,10 +502,11 @@ function landingTemplate(manifest: any) {
 					'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
 					'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
 					'vidxgoEnabled': { title: 'VidXgo 🎯 - 🔓', invert: false },
-					'cinemacityEnabled': { title: 'CinemaCity 🏙️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(richiede EasyProxy)</span>', invert: false },
+					'cinemacityEnabled': { title: 'CinemaCity 🏙️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci Proxy URL per abilitare)</span>', invert: false },
 					'guardoserieEnabled': { title: 'Guardoserie 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
 					'guardaflixEnabled': { title: 'Guardaflix 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
 					'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
+					'adnEnabled': { title: 'ADN 🎬 - 🔓', invert: false },
 					'eurostreamingEnabled': { title: 'Eurostreaming ▶️ - 🔓 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Lento🐌)</span>', invert: false },
 					'toonitaliaEnabled': { title: 'ToonItalia 🎨 - 🔒', invert: false },
 					'toonEnabled': { title: 'TOON 🧩 - 🔓', invert: false },
@@ -875,6 +876,8 @@ function landingTemplate(manifest: any) {
 				var animeUnityRow = animeUnityEl ? animeUnityEl.closest('[data-toggle-row]') : null;
 				var cb01El = document.getElementById('cb01Enabled');
 				var cb01Row = cb01El ? cb01El.closest('[data-toggle-row]') : null;
+				var cinemacityEl = document.getElementById('cinemacityEnabled');
+				var cinemacityRow = cinemacityEl ? cinemacityEl.closest('[data-toggle-row]') : null;
 				var toonitaliaEl = document.getElementById('toonitaliaEnabled');
 				var toonitaliaRow = toonitaliaEl ? toonitaliaEl.closest('[data-toggle-row]') : null;
 				var toonEl = document.getElementById('toonEnabled');
@@ -883,6 +886,7 @@ function landingTemplate(manifest: any) {
 				var dvrRow = dvrEl ? dvrEl.closest('[data-toggle-row]') : null;
 				var storedVixsrcState = null; // remember previous user choice
 				var storedCb01State = null; // remember previous cb01 state
+				var storedCinemacityState = null; // remember previous cinemacity state
 				var storedToonitaliaState = null; // remember previous toonitalia state
 				var storedDvrState = null; // remember previous dvr state
 				function syncMfp(){
@@ -937,7 +941,25 @@ function landingTemplate(manifest: any) {
 						}
 						if (cb01Row) setRowState(cb01Row);
 					}
-					// ToonItalia toggle gating (richiede MFP attivo, password opzionale)
+					// CinemaCity toggle gating (richiede MFP attivo, password opzionale)
+					if (cinemacityEl){
+						if (!on) { // Master OFF
+							if (storedCinemacityState === null) storedCinemacityState = cinemacityEl.checked;
+							cinemacityEl.checked = false;
+							cinemacityEl.disabled = true;
+							if (cinemacityRow) cinemacityRow.classList.add('dimmed');
+						} else { // Master ON
+							if (cinemacityRow) cinemacityRow.classList.remove('dimmed');
+							cinemacityEl.disabled = !canEnableWithUrl;
+							if (canEnableWithUrl) {
+								if (storedCinemacityState !== null) { cinemacityEl.checked = storedCinemacityState; storedCinemacityState = null; }
+							} else {
+								if (storedCinemacityState === null) storedCinemacityState = cinemacityEl.checked;
+								cinemacityEl.checked = false;
+							}
+						}
+						if (cinemacityRow) setRowState(cinemacityRow);
+					}
 					if (toonitaliaEl){
 						if (!on) { // Master OFF
 							if (storedToonitaliaState === null) storedToonitaliaState = toonitaliaEl.checked;
@@ -1146,6 +1168,7 @@ function landingTemplate(manifest: any) {
 						'disableVixsrc',         // VixSrc directly under Live TV block
 						'cb01Enabled',           // CB01
 						'guardahdEnabled',       // GuardaHD
+						'adnEnabled',            // ADN (AltadefinizioneStreaming)
 						'vidxgoEnabled',         // VidXgo (replaces former GuardaSerie slot)
 						'cinemacityEnabled',     // CinemaCity (EasyProxy only)
 						'guardoserieEnabled',    // Guardoserie (Added)
