@@ -54,8 +54,87 @@ export interface EurostreamingConfig { enabled: boolean; mfpUrl?: string; mfpPas
 
 interface PyResult { streams?: Array<{ url: string; title?: string; player?: string; size?: string; res?: string; lang?: string; match_pct?: number|null }>; error?: string }
 
-// Central runner with enhanced python binary discovery & debug
+// Cache runPythonEuro results to avoid the ~1s Python interpreter startup +
+// `requests`/lxml import cost per stream request. Profiles on a real
+// deployment showed runPythonEuro at 4.7% of total CPU time (with most of
+// that being the python startup itself). Same imdb/tmdb id gets clicked by
+// many users in succession; results are stable for at least minutes, so a
+// 5 min TTL is conservative and safe. Disable with
+// EUROSTREAMING_PY_CACHE_DISABLE=1.
+const EURO_PY_CACHE_TTL_MS = (() => {
+  try {
+    const n = parseInt(process.env.EUROSTREAMING_PY_CACHE_TTL_MS || '300000', 10);
+    return Number.isFinite(n) && n > 0 ? n : 300000;
+  } catch { return 300000; }
+})();
+const EURO_PY_CACHE_MAX = (() => {
+  try {
+    const n = parseInt(process.env.EUROSTREAMING_PY_CACHE_MAX || '500', 10);
+    return Number.isFinite(n) && n > 10 ? n : 500;
+  } catch { return 500; }
+})();
+const EURO_PY_CACHE_DISABLED: boolean = (() => {
+  try {
+    const v = (process.env.EUROSTREAMING_PY_CACHE_DISABLE || '').toString().toLowerCase();
+    return v === '1' || v === 'true' || v === 'on' || v === 'yes';
+  } catch { return false; }
+})();
+const _euroPyCache = new Map<string, { result: PyResult; ts: number }>();
+// Coalesce concurrent identical calls so we don't spawn N Pythons at once
+// while the first is still running. Map key -> in-flight promise.
+const _euroPyInFlight = new Map<string, Promise<PyResult>>();
+
+function _euroPyCacheKey(argsObj: { imdb?: string; tmdb?: string; season?: number|null; episode?: number|null; mfp: boolean; isMovie: boolean }): string {
+  return [
+    argsObj.imdb || '',
+    argsObj.tmdb || '',
+    argsObj.season ?? '',
+    argsObj.episode ?? '',
+    argsObj.isMovie ? '1' : '0',
+    argsObj.mfp ? '1' : '0',
+  ].join('|');
+}
+
+// Public entrypoint is a thin cache-aware wrapper; the real spawn lives in
+// _runPythonEuroSpawn below.
 function runPythonEuro(argsObj: { imdb?: string; tmdb?: string; season?: number|null; episode?: number|null; mfp: boolean; isMovie: boolean; tmdbKey?: string }, timeoutMs = 60000): Promise<PyResult> {
+  if (EURO_PY_CACHE_DISABLED) return _runPythonEuroSpawn(argsObj, timeoutMs);
+  const key = _euroPyCacheKey(argsObj);
+  const cached = _euroPyCache.get(key);
+  if (cached && Date.now() - cached.ts < EURO_PY_CACHE_TTL_MS) {
+    console.log('[Eurostreaming][PY] cache hit', key);
+    return Promise.resolve(cached.result);
+  }
+  const inflight = _euroPyInFlight.get(key);
+  if (inflight) {
+    console.log('[Eurostreaming][PY] coalescing in-flight', key);
+    return inflight;
+  }
+  const p = _runPythonEuroSpawn(argsObj, timeoutMs).then((r) => {
+    try {
+      // Only cache results that actually produced streams; let errors retry.
+      if (r && !r.error && Array.isArray(r.streams) && r.streams.length > 0) {
+        _euroPyCache.set(key, { result: r, ts: Date.now() });
+        // Bounded: drop expired first, then oldest.
+        if (_euroPyCache.size > EURO_PY_CACHE_MAX) {
+          const now = Date.now();
+          for (const [k, v] of _euroPyCache) {
+            if (now - v.ts > EURO_PY_CACHE_TTL_MS) _euroPyCache.delete(k);
+          }
+          if (_euroPyCache.size > EURO_PY_CACHE_MAX) {
+            const drop = Array.from(_euroPyCache.keys()).slice(0, _euroPyCache.size - EURO_PY_CACHE_MAX);
+            for (const dk of drop) _euroPyCache.delete(dk);
+          }
+        }
+      }
+    } catch { /* ignore */ }
+    return r;
+  }).finally(() => { _euroPyInFlight.delete(key); });
+  _euroPyInFlight.set(key, p);
+  return p;
+}
+
+function _runPythonEuroSpawn(argsObj: { imdb?: string; tmdb?: string; season?: number|null; episode?: number|null; mfp: boolean; isMovie: boolean; tmdbKey?: string }, timeoutMs = 60000): Promise<PyResult> {
   const script = path.join(__dirname, 'eurostreaming.py');
   return new Promise((resolve) => {
     let finished = false; let stdout = ''; let stderr = '';
