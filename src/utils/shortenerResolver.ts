@@ -212,14 +212,17 @@ export function getWarmupState(): WarmupState & { lastWarmupOk: number } {
 // ---------------------------------------------------------------------------
 // Strategia:
 //   - Ogni dominio (uprot, clicka) ha il suo nextRetry indipendente.
-//   - OK     -> nextRetry = now + WARMUP_PERIOD_OK     (default 2h)
+//   - OK     -> nextRetry = now + WARMUP_PERIOD_OK     (default 7h30min)
 //   - FAIL   -> nextRetry = now + WARMUP_PERIOD_FAIL   (default 30min)
+//     L'IP/slot vincente rimane lo stesso per tutta la finestra OK;
+//     solo i FAIL ruotano lo slot (PROXY -> PROXY_BACKUP -> DIRECT -> ...).
+//     Quindi: trovato un IP che funziona, lo si tiene per 7h30.
 //   - tick ogni 60s sceglie quale dominio rilanciare in base a nextRetry.
 //   - Un solo warmup attivo alla volta (lock globale `warmupRunning`).
 //   - Niente trigger on-demand dal runtime: l'unica fonte di richieste a
 //     uprot/clicka e' questo loop -> protegge dal bombardamento.
 
-const WARMUP_PERIOD_OK = parseInt(process.env.UPROT_WARMUP_PERIOD_OK_MS || '', 10) || (2 * 60 * 60 * 1000); // 2h
+const WARMUP_PERIOD_OK = parseInt(process.env.UPROT_WARMUP_PERIOD_OK_MS || '', 10) || ((7 * 60 + 30) * 60 * 1000); // 7h30min
 const WARMUP_PERIOD_FAIL = parseInt(process.env.UPROT_WARMUP_PERIOD_FAIL_MS || '', 10) || (30 * 60 * 1000); // 30min
 const WARMUP_TICK_MS = parseInt(process.env.UPROT_WARMUP_TICK_MS || '', 10) || (60 * 1000); // 60s
 
