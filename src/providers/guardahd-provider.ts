@@ -183,6 +183,7 @@ export class GuardaHdProvider {
             if (!/^https?:/i.test(u)) return;
             if (/mostraguarda/i.test(u)) return; // skip self links (Server 4K)
             if (/streamtape\.com/i.test(u)) return;
+            if (/supervideo/i.test(u)) return;
             results.push(`${u}#res=1080p`);
         });
 
@@ -194,6 +195,7 @@ export class GuardaHdProvider {
             if (!/^https?:/i.test(u)) return;
             if (/mostraguarda/i.test(u)) return;
             if (/streamtape\.com/i.test(u)) return;
+            if (/supervideo/i.test(u)) return;
             results.push(`${u}#res=720p`);
         });
 
@@ -206,6 +208,7 @@ export class GuardaHdProvider {
                 if (!/^https?:/i.test(u)) return;
                 if (/mostraguarda/i.test(u)) return;
                 if (/streamtape\.com/i.test(u)) return;
+                if (/supervideo/i.test(u)) return;
                 results.push(u);
             });
         }
