@@ -8509,6 +8509,148 @@ app.get('/live/purge', (req: Request, res: Response) => {
 // =============================================================
 // ================================================================
 
+// ================= /admin/cpu-profile, /admin/heap-snapshot =====
+// Live profiling endpoints for diagnosing CPU/memory issues without a
+// pod restart. Always require ADMIN_TOKEN — these are heavyweight and
+// can affect a live deployment.
+//
+// /admin/cpu-profile/start?durationMs=N — begins a V8 CPU profile
+// /admin/cpu-profile/stop                — stops + streams .cpuprofile
+// /admin/heap-snapshot                   — writes .heapsnapshot to /tmp
+//
+// Multi-replica note: profile session state lives in pod memory, so
+// the start and stop must hit the SAME pod. Use sessionAffinity:
+// ClientIP on the Service or scale to one replica before profiling.
+function _addonAdminAuthRequire(req: Request, res: Response): boolean {
+    const tok = (process.env.ADMIN_TOKEN || '').trim();
+    if (!tok) {
+        res.status(403).json({ ok: false, error: 'ADMIN_TOKEN not configured on this pod' });
+        return false;
+    }
+    const provided = ((req.query.token as string) || req.headers['x-admin-token'] || '').toString();
+    if (provided !== tok) {
+        res.status(403).json({ ok: false, error: 'Forbidden' });
+        return false;
+    }
+    return true;
+}
+let _addonProfilerSession: any = null;
+let _addonProfilerStartedAt: number = 0;
+app.get('/admin/cpu-profile/start', async (req: Request, res: Response) => {
+    if (!_addonAdminAuthRequire(req, res)) return;
+    if (_addonProfilerSession) {
+        res.status(409).json({ ok: false, error: 'profile already running', startedAt: _addonProfilerStartedAt });
+        return;
+    }
+    try {
+        const inspector = require('node:inspector') || require('inspector');
+        const session = new inspector.Session();
+        session.connect();
+        await new Promise<void>((resolve, reject) => {
+            session.post('Profiler.enable', (err: any) => err ? reject(err) : resolve());
+        });
+        await new Promise<void>((resolve, reject) => {
+            session.post('Profiler.start', (err: any) => err ? reject(err) : resolve());
+        });
+        _addonProfilerSession = session;
+        _addonProfilerStartedAt = Date.now();
+        const durationMs = Math.max(1000, Math.min(600000, parseInt((req.query.durationMs as string) || '30000', 10)));
+        // Auto-stop after duration so a forgotten profile doesn't run forever.
+        setTimeout(() => {
+            if (_addonProfilerSession) {
+                _addonProfilerSession.post('Profiler.stop', () => {
+                    try { _addonProfilerSession.disconnect(); } catch { /* ignore */ }
+                    _addonProfilerSession = null;
+                    console.log('[admin] CPU profile auto-stopped after timeout');
+                });
+            }
+        }, durationMs + 60000);
+        res.json({ ok: true, startedAt: _addonProfilerStartedAt, autoStopAfterMs: durationMs + 60000 });
+    } catch (e: any) {
+        res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+app.get('/admin/cpu-profile/stop', async (req: Request, res: Response) => {
+    if (!_addonAdminAuthRequire(req, res)) return;
+    if (!_addonProfilerSession) {
+        res.status(409).json({ ok: false, error: 'no profile running' });
+        return;
+    }
+    try {
+        const profileResult: any = await new Promise((resolve, reject) => {
+            _addonProfilerSession.post('Profiler.stop', (err: any, result: any) => err ? reject(err) : resolve(result));
+        });
+        try { _addonProfilerSession.disconnect(); } catch { /* ignore */ }
+        _addonProfilerSession = null;
+        const durationMs = Date.now() - _addonProfilerStartedAt;
+        _addonProfilerStartedAt = 0;
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="streamvix-${Date.now()}.cpuprofile"`);
+        res.send(JSON.stringify({ ...profileResult.profile, _meta: { durationMs } }));
+    } catch (e: any) {
+        res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+app.get('/admin/heap-snapshot', async (req: Request, res: Response) => {
+    if (!_addonAdminAuthRequire(req, res)) return;
+    try {
+        // v8.getHeapSnapshot() blocks the event loop AND requires ~2x the
+        // current heap as working memory for serialization. Calling it when
+        // the pod is near its memory limit will OOM the pod. Refuse unless
+        // we have headroom — or the caller passes ?force=1.
+        const force = String(req.query.force || '') === '1';
+        const mem = process.memoryUsage();
+        const heapNeededBytes = Math.ceil(mem.heapUsed * 2.5);
+        let memLimitBytes = 0;
+        try {
+            // cgroups v2
+            const raw = fs.readFileSync('/sys/fs/cgroup/memory.max', 'utf8').trim();
+            if (raw && raw !== 'max') memLimitBytes = parseInt(raw, 10) || 0;
+        } catch { /* try v1 */ }
+        if (!memLimitBytes) {
+            try {
+                const raw = fs.readFileSync('/sys/fs/cgroup/memory/memory.limit_in_bytes', 'utf8').trim();
+                memLimitBytes = parseInt(raw, 10) || 0;
+                // Many containers report a huge sentinel value when unlimited;
+                // treat anything > 64 GiB as "unknown".
+                if (memLimitBytes > 64 * 1024 * 1024 * 1024) memLimitBytes = 0;
+            } catch { /* still unknown */ }
+        }
+        const effectiveLimit = memLimitBytes || (800 * 1024 * 1024);
+        const headroom = effectiveLimit - mem.rss;
+        if (!force && headroom < heapNeededBytes) {
+            res.status(409).json({
+                ok: false,
+                error: 'insufficient memory headroom; would likely OOM the pod',
+                memory: {
+                    rssMb: +(mem.rss / 1024 / 1024).toFixed(1),
+                    heapUsedMb: +(mem.heapUsed / 1024 / 1024).toFixed(1),
+                    needHeadroomMb: +(heapNeededBytes / 1024 / 1024).toFixed(1),
+                    headroomMb: +(headroom / 1024 / 1024).toFixed(1),
+                    limitMb: +(effectiveLimit / 1024 / 1024).toFixed(1),
+                    limitSource: memLimitBytes ? 'cgroups' : 'fallback-800Mi',
+                },
+                hint: 'pass ?force=1 to override (risk: OOMKill), or restart the pod to take a snapshot at low memory',
+            });
+            return;
+        }
+        const v8 = require('v8');
+        const outPath = `/tmp/streamvix-${Date.now()}.heapsnapshot`;
+        const stream = v8.getHeapSnapshot();
+        const ws = fs.createWriteStream(outPath);
+        stream.pipe(ws);
+        await new Promise<void>((resolve, reject) => {
+            ws.on('finish', () => resolve());
+            ws.on('error', (e: any) => reject(e));
+        });
+        const st = fs.statSync(outPath);
+        res.json({ ok: true, path: outPath, sizeMb: +(st.size / 1024 / 1024).toFixed(1) });
+    } catch (e: any) {
+        res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+// ================================================================
+
 // ================= RUNTIME TOGGLE FAST/EXTRACTOR ================
 // /admin/mode?fast=1 abilita fast mode (diretto); ?fast=0 torna extractor
 // Restituisce lo stato corrente. Non persiste su restart (solo runtime)
