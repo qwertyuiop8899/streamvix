@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.17.72](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.71...v1.17.72) (2026-05-17)
+
+
+### Bug Fixes
+
+* shortenerResolver.ts ([0138199](https://github.com/qwertyuiop8899/streamvix/commit/0138199107ef6d20950608032a000f3a1e9b2d32))
+* shortenerResolver.ts ([2d62419](https://github.com/qwertyuiop8899/streamvix/commit/2d624191b74a794ed74fdc2b9486fda06234cc4c))
+* shortenerResolver.ts ([8bb73f8](https://github.com/qwertyuiop8899/streamvix/commit/8bb73f830261da7afd581d513fd022b94465fdd4))
+* uprot_resolver.py ([4343ff3](https://github.com/qwertyuiop8899/streamvix/commit/4343ff32a7599cd0358319894889966926a645f2))
+
 ## [1.17.71](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.70...v1.17.71) (2026-05-16)
 
 
