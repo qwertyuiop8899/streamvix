@@ -1752,6 +1752,108 @@ function getMergedTvChannelsCached(opts?: { forceRefresh?: boolean }): { channel
     return { channels: g.__tvCatalogCache.channels, hit: true, key: cacheKey };
 }
 
+// Provider extraction cache (movie/series stream requests).
+// CPU profile showed the dominant CPU consumer was provider URL extraction
+// (eurostreaming Python spawn, vidxgo/toonitalia/guardaflix/guardoserie
+// cheerio+parse5 HTML parsing) on movie/series stream requests. The same
+// imdbId gets clicked by many users in quick succession, each click re-runs
+// the full provider fan-out. Caching the resulting Stream[] for 5 min
+// coalesces repeat plays.
+//
+// Cache key includes the user config that affects output (MFP creds + the
+// enabled-provider set + fastMode + a few other toggles) so different user
+// setups don't share entries. Within the same shared-config group, repeat
+// plays hit the cache.
+//
+// IMPORTANT: cached values are JSON-roundtripped to flatten V8 sliced
+// strings. Without this, Stream.title/url/name from provider extractors
+// often hold sliced-string views of the source upstream HTML pages — a
+// heap snapshot showed each cached entry pinning ~2 MB of HTML in heap
+// (59 cached entries → ~120 MB leaked).
+//
+// Disable with PROVIDER_CACHE_DISABLE=1.
+const PROVIDER_CACHE_TTL_MS = (() => {
+    try {
+        const n = parseInt(process.env.PROVIDER_CACHE_TTL_MS || '300000', 10);
+        return Number.isFinite(n) && n > 0 ? n : 300000;
+    } catch { return 300000; }
+})();
+const PROVIDER_CACHE_MAX_ENTRIES = (() => {
+    try {
+        const n = parseInt(process.env.PROVIDER_CACHE_MAX_ENTRIES || '500', 10);
+        return Number.isFinite(n) && n > 10 ? n : 500;
+    } catch { return 500; }
+})();
+const PROVIDER_CACHE_DISABLED: boolean = (() => {
+    try {
+        const v = (process?.env?.PROVIDER_CACHE_DISABLE || '').toString().toLowerCase();
+        return v === '1' || v === 'true' || v === 'on' || v === 'yes';
+    } catch { return false; }
+})();
+const _providerStreamCache = new Map<string, { streams: any[]; ts: number }>();
+
+function _providerFnv1aHash(s: string): string {
+    // Small FNV-1a 32-bit hash for stable, short cache keys.
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) {
+        h = (h ^ s.charCodeAt(i)) >>> 0;
+        h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h.toString(36);
+}
+function _providerCacheKey(id: string, configHashInput: string): string {
+    return `${id}|${_providerFnv1aHash(configHashInput)}`;
+}
+function _providerCacheGet(id: string, configHashInput: string): any[] | null {
+    if (PROVIDER_CACHE_DISABLED) return null;
+    const k = _providerCacheKey(id, configHashInput);
+    const e = _providerStreamCache.get(k);
+    if (!e) return null;
+    if (Date.now() - e.ts > PROVIDER_CACHE_TTL_MS) {
+        _providerStreamCache.delete(k);
+        return null;
+    }
+    return e.streams;
+}
+function _providerCacheSet(id: string, configHashInput: string, streams: any[]): void {
+    if (PROVIDER_CACHE_DISABLED) return;
+    if (!Array.isArray(streams) || streams.length === 0) return; // never cache empty results
+    const k = _providerCacheKey(id, configHashInput);
+    // Flatten cached streams to break V8 sliced-string retention of upstream
+    // HTML. Without this, Stream.title/url often hold sliced-string views of
+    // the source HTML page, pinning megabytes per cache entry. JSON roundtrip
+    // materializes every string into a fresh contiguous buffer.
+    let toStore: any[];
+    try {
+        toStore = JSON.parse(JSON.stringify(streams));
+    } catch (_e) {
+        // Stream may contain non-JSON-safe values (Buffer in proxyHeaders).
+        // Fall back to a shallow flatten of common string fields.
+        toStore = streams.map((s: any) => {
+            if (!s || typeof s !== 'object') return s;
+            const out: any = { ...s };
+            for (const field of ['title', 'name', 'url', 'description']) {
+                if (typeof out[field] === 'string' && out[field].length > 0) {
+                    out[field] = Buffer.from(out[field], 'utf8').toString('utf8');
+                }
+            }
+            return out;
+        });
+    }
+    _providerStreamCache.set(k, { streams: toStore, ts: Date.now() });
+    // Bounded LRU-ish: when over limit, drop expired first, then oldest.
+    if (_providerStreamCache.size > PROVIDER_CACHE_MAX_ENTRIES) {
+        const now = Date.now();
+        for (const [key, val] of _providerStreamCache) {
+            if (now - val.ts > PROVIDER_CACHE_TTL_MS) _providerStreamCache.delete(key);
+        }
+        if (_providerStreamCache.size > PROVIDER_CACHE_MAX_ENTRIES) {
+            const keys = Array.from(_providerStreamCache.keys()).slice(0, _providerStreamCache.size - PROVIDER_CACHE_MAX_ENTRIES);
+            for (const dk of keys) _providerStreamCache.delete(dk);
+        }
+    }
+}
+
 // Funzione per creare il builder con configurazione dinamica
 function createBuilder(initialConfig: AddonConfig = {}) {
     const manifest = loadCustomConfig();
@@ -6219,7 +6321,32 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // IMPORTANTE: includere trailerEnabled per permettere trailer standalone
                 const trailerEnabled = (config as any).trailerEnabled !== false && rc?.trailerEnabled !== false;
                 const fastModeEnabled = (config as any).fastMode === true;
+                // Cache key for the movie/series provider extraction cache.
+                // Includes every user-facing flag that affects which providers
+                // run and the URL shape they produce. Same imdb/tmdb id with
+                // same config = same cache entry.
+                const _providerConfigSig = JSON.stringify([
+                    !!trailerEnabled, !!animeUnityEnabled, !!animeSaturnEnabled, !!animeWorldEnabled,
+                    !!guardaSerieEnabled, !!vidxgoEnabled, !!guardoserieEnabled, !!guardaflixEnabled,
+                    !!guardaHdEnabled, !!adnEnabled, !!eurostreamingEnabled, !!toonitaliaEnabled, !!toonEnabled,
+                    !!cb01Enabled, !!vixsrcEnabled, !!cinemacityEnabled, !!fastModeEnabled,
+                    mfpUrl || '', mfpPsw ? 'mfppsw' : '',
+                    (config as any).vavooNoMfpEnabled ? '1' : '0',
+                    (config as any).animeunityDirect ? '1' : '0',
+                    (config as any).animeunityDirectFhd ? '1' : '0',
+                    (config as any).animeunityProxy ? '1' : '0',
+                    (config as any).vixDirect ? '1' : '0',
+                    (config as any).vixDirectFhd ? '1' : '0',
+                    (config as any).vixProxy ? '1' : '0',
+                    (config as any).tvtapProxyEnabled ? '1' : '0',
+                ]);
                 if ((id.startsWith('kitsu:') || id.startsWith('mal:') || id.startsWith('tt') || id.startsWith('tmdb:')) && (trailerEnabled || animeUnityEnabled || animeSaturnEnabled || animeWorldEnabled || guardaSerieEnabled || vidxgoEnabled || guardoserieEnabled || guardaflixEnabled || guardaHdEnabled || adnEnabled || eurostreamingEnabled || toonitaliaEnabled || toonEnabled || cb01Enabled || vixsrcEnabled || cinemacityEnabled)) {
+                    // Cache check before the expensive fan-out.
+                    const _cachedStreams = _providerCacheGet(id, _providerConfigSig);
+                    if (_cachedStreams) {
+                        debugLog(`⚡ Provider cache HIT for ${id} (${_cachedStreams.length} streams)`);
+                        return { streams: _cachedStreams };
+                    }
                     // Rilevamento addonBase per AnimeUnity (stessa logica VixSrc)
                     let auAddonBase = '';
                     try {
@@ -7102,6 +7229,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 }
 
                 console.log(`✅ Total streams returned: ${allStreams.length}`);
+                // Cache the fan-out result for repeat plays. Only the
+                // imdb/tmdb/kitsu/mal id branch reaches here with a non-empty
+                // _providerConfigSig; tv:* ids have their own short-circuits
+                // above so _providerConfigSig isn't always in scope — guard.
+                if (typeof _providerConfigSig === 'string' && (id.startsWith('tt') || id.startsWith('tmdb:') || id.startsWith('kitsu:') || id.startsWith('mal:'))) {
+                    _providerCacheSet(id, _providerConfigSig, allStreams);
+                }
                 return { streams: allStreams };
             } catch (error) {
                 console.error('Stream extraction failed:', error);
