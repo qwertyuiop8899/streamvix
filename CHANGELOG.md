@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.2](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.1...v1.18.2) (2026-05-18)
+
+
+### Bug Fixes
+
+* shortenerResolver.ts ([954428a](https://github.com/qwertyuiop8899/streamvix/commit/954428abca6152d92cb2eff20932cc68ab324292))
+
 ## [1.18.1](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.0...v1.18.1) (2026-05-18)
 
 
