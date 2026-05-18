@@ -287,23 +287,29 @@ export class EPGManager {
                 try {
                     const channels: EPGChannel[] = [];
                     const programs: EPGProgram[] = [];
+                    // Force V8 to materialize a fresh, contiguous string buffer,
+                    // severing any "sliced string" parent reference. Without this,
+                    // xml2js-parsed substrings retain a pointer to the entire
+                    // ~40 MB XML document via Program.title slice views, leaking
+                    // the whole EPG payload across the cache lifetime.
+                    const _flat = EPGManager._materializeString;
 
                     // Parsa i canali
                     if (result.tv && result.tv.channel) {
                         for (const channel of result.tv.channel) {
                             const channelId = channel.$.id;
-                            const displayName = channel['display-name'] ? 
-                                (Array.isArray(channel['display-name']) ? channel['display-name'][0]._ || channel['display-name'][0] : channel['display-name']) : 
+                            const displayName = channel['display-name'] ?
+                                (Array.isArray(channel['display-name']) ? channel['display-name'][0]._ || channel['display-name'][0] : channel['display-name']) :
                                 channelId;
-                            
-                            const icon = channel.icon ? 
-                                (Array.isArray(channel.icon) ? channel.icon[0].$.src : channel.icon.$.src) : 
+
+                            const icon = channel.icon ?
+                                (Array.isArray(channel.icon) ? channel.icon[0].$.src : channel.icon.$.src) :
                                 undefined;
 
                             channels.push({
-                                id: channelId,
-                                displayName: displayName,
-                                icon: icon
+                                id: _flat(channelId)!,
+                                displayName: _flat(displayName)!,
+                                icon: _flat(icon),
                             });
                         }
                     }
@@ -311,25 +317,25 @@ export class EPGManager {
                     // Parsa i programmi
                     if (result.tv && result.tv.programme) {
                         for (const programme of result.tv.programme) {
-                            const title = programme.title ? 
-                                (Array.isArray(programme.title) ? programme.title[0]._ || programme.title[0] : programme.title) : 
+                            const title = programme.title ?
+                                (Array.isArray(programme.title) ? programme.title[0]._ || programme.title[0] : programme.title) :
                                 'Programma sconosciuto';
-                            
-                            const description = programme.desc ? 
-                                (Array.isArray(programme.desc) ? programme.desc[0]._ || programme.desc[0] : programme.desc) : 
+
+                            const description = programme.desc ?
+                                (Array.isArray(programme.desc) ? programme.desc[0]._ || programme.desc[0] : programme.desc) :
                                 undefined;
 
-                            const category = programme.category ? 
-                                (Array.isArray(programme.category) ? programme.category[0]._ || programme.category[0] : programme.category) : 
+                            const category = programme.category ?
+                                (Array.isArray(programme.category) ? programme.category[0]._ || programme.category[0] : programme.category) :
                                 undefined;
 
                             programs.push({
-                                start: programme.$.start,
-                                stop: programme.$.stop,
-                                title: title,
-                                description: description,
-                                category: category,
-                                channel: programme.$.channel
+                                start: _flat(programme.$.start)!,
+                                stop: _flat(programme.$.stop),
+                                title: _flat(title)!,
+                                description: _flat(description),
+                                category: _flat(category),
+                                channel: _flat(programme.$.channel)!,
                             });
                         }
                     }
@@ -343,6 +349,18 @@ export class EPGManager {
         });
     }
 
+    // Force V8 to materialize a fresh, contiguous string buffer, severing
+    // any "sliced string" parent reference. Without this, SAX-parsed
+    // substrings of the EPG XML retain a pointer to the entire ~40 MB XML
+    // document — heap snapshots showed every Program.title pinning the
+    // source XML. Buffer round-trip is the most reliable way to force a
+    // flatten across V8 versions.
+    private static _materializeString(s: string | undefined): string | undefined {
+        if (s === undefined || s === null) return s;
+        if (typeof s !== 'string' || s.length === 0) return s;
+        return Buffer.from(s, 'utf8').toString('utf8');
+    }
+
     // Parsing leggero SAX (lightMode)
     private parseSaxLight(xmlContent: string): EPGData | null {
         try {
@@ -352,6 +370,7 @@ export class EPGManager {
             const channelIdSet = new Set<string>();
             const windowHours = this.keepWindowHours;
             const now = Date.now();
+            const _flat = EPGManager._materializeString;
             const minTs = now - 2 * 60 * 60 * 1000; // -2h
             const maxTs = now + windowHours * 60 * 60 * 1000; // + keepWindowHours
             let currentElement: string | null = null;
@@ -374,7 +393,11 @@ export class EPGManager {
                     // ignored in light mode
                 } else if (tag === 'channel') {
                     if (currentChannel && currentChannel.id) {
-                        channels.push({ id: currentChannel.id, displayName: currentChannel.displayName || currentChannel.id });
+                        // Flatten strings to break sliced-string retention of source XML.
+                        channels.push({
+                            id: _flat(currentChannel.id)!,
+                            displayName: _flat(currentChannel.displayName || currentChannel.id)!,
+                        });
                         channelIdSet.add(currentChannel.id);
                     }
                     currentChannel = null;
@@ -387,13 +410,16 @@ export class EPGManager {
                         const startDate = this.parseEPGDate(currentProgramme.start);
                         const startMs = startDate.getTime();
                         if (startMs >= minTs && startMs <= maxTs) {
+                            // Flatten every persisted string. Each Program is
+                            // retained across the EPG refresh cycle (12h) so any
+                            // sliced-string view pins the source XML in heap.
                             programs.push({
-                                start: currentProgramme.start,
-                                stop: currentProgramme.stop,
-                                title: currentProgramme.title || 'Programma',
-                                description: this.storeDescription ? currentProgramme.description : undefined,
-                                category: currentProgramme.category || undefined,
-                                channel: currentProgramme.channel
+                                start: _flat(currentProgramme.start)!,
+                                stop: _flat(currentProgramme.stop),
+                                title: _flat(currentProgramme.title) || 'Programma',
+                                description: this.storeDescription ? _flat(currentProgramme.description) : undefined,
+                                category: _flat(currentProgramme.category) || undefined,
+                                channel: _flat(currentProgramme.channel)!,
                             });
                         }
                         currentProgramme = null;
