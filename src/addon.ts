@@ -1807,12 +1807,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             } catch { }
             try {
                 const lastReq0: any = (global as any).lastExpressRequest;
-                console.log('📥 Catalog TV request:', {
-                    id,
-                    extra,
-                    path: lastReq0?.path,
-                    url: lastReq0?.url
-                });
+                // Gated behind DEBUG_LOG: fires on every catalog request from
+                // every connected Stremio client (~once per minute per user).
+                debugLog('📥 Catalog TV request:', { id, extra, path: lastReq0?.path, url: lastReq0?.url });
             } catch { }
             // Catalogo TV: cache in memoria condivisa tramite helper, usata
             // anche dallo stream handler e dal meta handler. Vedi
@@ -2373,7 +2370,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 return channelWithPrefix;
             }));
 
-            console.log(`✅ Returning ${tvChannelsWithPrefix.length} TV channels for catalog ${id}${isPlaceholder ? ' (placeholder, cacheMaxAge=0)' : ''}`);
+            // Gated behind DEBUG_LOG (per-request).
+            debugLog(`✅ Returning ${tvChannelsWithPrefix.length} TV channels for catalog ${id}${isPlaceholder ? ' (placeholder, cacheMaxAge=0)' : ''}`);
             return isPlaceholder
                 ? { metas: tvChannelsWithPrefix, cacheMaxAge: 0 }
                 : { metas: tvChannelsWithPrefix, cacheMaxAge: 3600 };
@@ -2391,12 +2389,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
     // === HANDLER META ===
     builder.defineMetaHandler(async ({ type, id, config: requestConfig }: { type: string; id: string; config?: any }) => {
-        console.log(`📺 META REQUEST: type=${type}, id=${id}`);
+        // Gated behind DEBUG_LOG (per-request).
+        debugLog(`📺 META REQUEST: type=${type}, id=${id}`);
         if (type === "tv") {
             // Server-side cache check (user-independent, EPG-enriched)
             const cached = tvMetaCache.get(id);
             if (cached && (Date.now() - cached.ts) < TV_META_CACHE_TTL) {
-                console.log(`⚡ META CACHE HIT: ${id}`);
+                debugLog(`⚡ META CACHE HIT: ${id}`);
                 return cached.data;
             }
 
@@ -2887,7 +2886,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 // Use normalized type for all downstream logic
                 type = normalizedType;
 
-                console.log(`🔍 Stream request: ${normalizedType}/${id}`);
+                // Gated behind DEBUG_LOG (per-request).
+                debugLog(`🔍 Stream request: ${normalizedType}/${id}`);
 
                 // Runtime disable live TV — blocca TUTTI gli stream TV (SportZX, Sports99, MediaHosting, Freeshot, ThisNot, canali statici)
                 // FIX: usa config dell'utente (requestConfig) con fallback a configCache globale
