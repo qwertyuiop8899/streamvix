@@ -166,6 +166,12 @@ function _stateForUrl(url: string): string | null {
   return null;
 }
 
+// In-flight cap per /resolve: con poca RAM, evitiamo che un picco utenti
+// spawni decine di processi python in parallelo (~80 MB RSS ciascuno).
+// Sopra la soglia ritorniamo subito un fail "soft" (skip) senza spawn.
+const RESOLVE_MAX_INFLIGHT = parseInt(process.env.UPROT_MAX_INFLIGHT || '', 10) || 11;
+let _resolveInflight = 0;
+
 /** Fast-path resolve. Pre-check state file freshness, then spawn python. */
 export function resolveShortener(url: string, timeoutMs = 10000): Promise<ResolverResult> {
   // Pre-check: se non c'e' state file fresco, skip immediato senza spawn.
@@ -173,7 +179,14 @@ export function resolveShortener(url: string, timeoutMs = 10000): Promise<Resolv
   if (statePath && !_isStateFresh(statePath)) {
     return Promise.resolve({ ok: false, error: 'no_warmup_state' });
   }
-  return runResolver('--resolve', url, timeoutMs);
+  // Cap concorrenza: oltre RESOLVE_MAX_INFLIGHT spawn attivi -> skip.
+  if (_resolveInflight >= RESOLVE_MAX_INFLIGHT) {
+    return Promise.resolve({ ok: false, error: 'too_many_inflight' });
+  }
+  _resolveInflight++;
+  return runResolver('--resolve', url, timeoutMs).finally(() => {
+    _resolveInflight = Math.max(0, _resolveInflight - 1);
+  }) as Promise<ResolverResult>;
 }
 
 /** OCR-based warmup. Long-running. Use periodically to keep IP whitelisted. */
