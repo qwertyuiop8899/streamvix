@@ -1752,6 +1752,32 @@ function getMergedTvChannelsCached(opts?: { forceRefresh?: boolean }): { channel
     return { channels: g.__tvCatalogCache.channels, hit: true, key: cacheKey };
 }
 
+// Lightweight in-process counters exposed via /admin/cpu-stats. Every
+// increment is wrapped in try/catch so it cannot break a request if
+// anything goes wrong with the counters themselves.
+interface AddonStats {
+    bootMs: number;
+    catalogRequests: number;
+    metaRequests: number;
+    metaCacheHits: number;
+    streamRequests: number;
+    epgFindCalls: number;
+    epgFindHits: number;
+    epgFindMisses: number;
+    epgFindTotalNs: bigint;
+}
+const _addonStats: AddonStats = {
+    bootMs: Date.now(),
+    catalogRequests: 0,
+    metaRequests: 0,
+    metaCacheHits: 0,
+    streamRequests: 0,
+    epgFindCalls: 0,
+    epgFindHits: 0,
+    epgFindMisses: 0,
+    epgFindTotalNs: 0n,
+};
+
 // Funzione per creare il builder con configurazione dinamica
 function createBuilder(initialConfig: AddonConfig = {}) {
     const manifest = loadCustomConfig();
@@ -1807,6 +1833,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
             } catch { }
             try {
                 const lastReq0: any = (global as any).lastExpressRequest;
+                try { _addonStats.catalogRequests++; } catch { /* ignore */ }
                 // Gated behind DEBUG_LOG: fires on every catalog request from
                 // every connected Stremio client (~once per minute per user).
                 debugLog('📥 Catalog TV request:', { id, extra, path: lastReq0?.path, url: lastReq0?.url });
@@ -2345,7 +2372,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // Canali tradizionali: EPG
                     try {
                         const epgChannelIds = (channel as any).epgChannelIds;
+                        const _epgFindStartNs: bigint = process.hrtime.bigint();
                         const epgChannelId = epgManager.findEPGChannelId(channel.name, epgChannelIds);
+                        try {
+                            _addonStats.epgFindCalls++;
+                            const _elapsedNs: bigint = process.hrtime.bigint() - _epgFindStartNs;
+                            _addonStats.epgFindTotalNs = _addonStats.epgFindTotalNs + _elapsedNs;
+                            if (epgChannelId) _addonStats.epgFindHits++;
+                            else _addonStats.epgFindMisses++;
+                        } catch { /* ignore */ }
                         if (epgChannelId) {
                             const currentProgram = await epgManager.getCurrentProgram(epgChannelId);
                             if (currentProgram) {
@@ -2391,11 +2426,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
     builder.defineMetaHandler(async ({ type, id, config: requestConfig }: { type: string; id: string; config?: any }) => {
         // Gated behind DEBUG_LOG (per-request).
         debugLog(`📺 META REQUEST: type=${type}, id=${id}`);
+        try { _addonStats.metaRequests++; } catch { /* ignore */ }
         if (type === "tv") {
             // Server-side cache check (user-independent, EPG-enriched)
             const cached = tvMetaCache.get(id);
             if (cached && (Date.now() - cached.ts) < TV_META_CACHE_TTL) {
                 debugLog(`⚡ META CACHE HIT: ${id}`);
+                try { _addonStats.metaCacheHits++; } catch { /* ignore */ }
                 return cached.data;
             }
 
@@ -2801,7 +2838,15 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // Meta: canali tradizionali con EPG
                     try {
                         const epgChannelIds = (channel as any).epgChannelIds;
+                        const _epgFindStartNs: bigint = process.hrtime.bigint();
                         const epgChannelId = epgManager.findEPGChannelId(channel.name, epgChannelIds);
+                        try {
+                            _addonStats.epgFindCalls++;
+                            const _elapsedNs: bigint = process.hrtime.bigint() - _epgFindStartNs;
+                            _addonStats.epgFindTotalNs = _addonStats.epgFindTotalNs + _elapsedNs;
+                            if (epgChannelId) _addonStats.epgFindHits++;
+                            else _addonStats.epgFindMisses++;
+                        } catch { /* ignore */ }
                         if (epgChannelId) {
                             const currentProgram = await epgManager.getCurrentProgram(epgChannelId);
                             const nextProgram = await epgManager.getNextProgram(epgChannelId);
@@ -2888,6 +2933,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                 // Gated behind DEBUG_LOG (per-request).
                 debugLog(`🔍 Stream request: ${normalizedType}/${id}`);
+                try { _addonStats.streamRequests++; } catch { /* ignore */ }
 
                 // Runtime disable live TV — blocca TUTTI gli stream TV (SportZX, Sports99, MediaHosting, Freeshot, ThisNot, canali statici)
                 // FIX: usa config dell'utente (requestConfig) con fallback a configCache globale
@@ -8668,6 +8714,94 @@ app.get('/admin/heap-snapshot', async (req: Request, res: Response) => {
     } catch (e: any) {
         res.status(500).json({ ok: false, error: e?.message || String(e) });
     }
+});
+// ================================================================
+
+// ================= /admin/cpu-stats =============================
+// Read-only in-process counters: request rates, EPG-find timing,
+// memory usage, uptime, cache state. Useful for live debugging of
+// CPU/memory issues without a heap snapshot or profile.
+//
+// Auth: optional. If ADMIN_TOKEN env is set, require ?token=... or
+// X-Admin-Token header. If unset, the endpoint is readable.
+function _addonAdminAuth(req: Request, res: Response, requireToken: boolean): boolean {
+    const tok = (process.env.ADMIN_TOKEN || '').trim();
+    if (!tok) {
+        if (requireToken) {
+            res.status(403).json({ ok: false, error: 'ADMIN_TOKEN not configured on this pod' });
+            return false;
+        }
+        return true;
+    }
+    const provided = ((req.query.token as string) || req.headers['x-admin-token'] || '').toString();
+    if (provided !== tok) {
+        res.status(403).json({ ok: false, error: 'Forbidden' });
+        return false;
+    }
+    return true;
+}
+app.get('/admin/cpu-stats', (req: Request, res: Response) => {
+    if (!_addonAdminAuth(req, res, false)) return;
+    try {
+        const mem = process.memoryUsage();
+        const upMs = Date.now() - _addonStats.bootMs;
+        const epgFindCalls = _addonStats.epgFindCalls;
+        const epgFindAvgUs = epgFindCalls > 0
+            ? Number(_addonStats.epgFindTotalNs / BigInt(epgFindCalls)) / 1000
+            : 0;
+        const metaHitRate = _addonStats.metaRequests > 0
+            ? (_addonStats.metaCacheHits / _addonStats.metaRequests)
+            : null;
+        const g: any = global as any;
+        res.json({
+            ok: true,
+            uptimeMs: upMs,
+            uptimeHumanS: Math.round(upMs / 1000),
+            memory: {
+                rssMb: +(mem.rss / 1024 / 1024).toFixed(1),
+                heapUsedMb: +(mem.heapUsed / 1024 / 1024).toFixed(1),
+                heapTotalMb: +(mem.heapTotal / 1024 / 1024).toFixed(1),
+                externalMb: +(mem.external / 1024 / 1024).toFixed(1),
+                arrayBuffersMb: +(mem.arrayBuffers / 1024 / 1024).toFixed(1),
+            },
+            catalog: {
+                requests: _addonStats.catalogRequests,
+                cacheKey: g.__tvCatalogCache?.key || null,
+                cacheBuiltAgeMs: g.__tvCatalogCache?.builtMs ? (Date.now() - g.__tvCatalogCache.builtMs) : null,
+                cacheSize: Array.isArray(g.__tvCatalogCache?.channels) ? g.__tvCatalogCache.channels.length : 0,
+            },
+            meta: {
+                requests: _addonStats.metaRequests,
+                cacheHits: _addonStats.metaCacheHits,
+                cacheHitRate: metaHitRate,
+            },
+            stream: {
+                requests: _addonStats.streamRequests,
+            },
+            epg: {
+                findCalls: epgFindCalls,
+                hits: _addonStats.epgFindHits,
+                misses: _addonStats.epgFindMisses,
+                avgUs: +epgFindAvgUs.toFixed(2),
+                totalMs: +(Number(_addonStats.epgFindTotalNs) / 1e6).toFixed(1),
+            },
+        });
+    } catch (e: any) {
+        res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+});
+app.get('/admin/cpu-stats/reset', (req: Request, res: Response) => {
+    if (!_addonAdminAuth(req, res, true)) return;
+    _addonStats.bootMs = Date.now();
+    _addonStats.catalogRequests = 0;
+    _addonStats.metaRequests = 0;
+    _addonStats.metaCacheHits = 0;
+    _addonStats.streamRequests = 0;
+    _addonStats.epgFindCalls = 0;
+    _addonStats.epgFindHits = 0;
+    _addonStats.epgFindMisses = 0;
+    _addonStats.epgFindTotalNs = 0n;
+    res.json({ ok: true, resetAt: new Date().toISOString() });
 });
 // ================================================================
 
