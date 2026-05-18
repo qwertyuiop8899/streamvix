@@ -13,8 +13,9 @@
 
 import { HostExtractor, ExtractResult, ExtractorContext } from './base';
 import type { StreamForStremio } from '../types/animeunity';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const cheerio = require('cheerio');
+// cheerio.load was replaced by a streaming regex scan in decodeVidXgoHtml —
+// see the comment there. Building a full DOM via parse5 just to look up
+// the 6th <script> tag was ~3% of total CPU in production profiles.
 
 const VIDXGO_DEFAULT_DOMAIN = 'https://v.vidxgo.co';
 const VIDXGO_HOST_RE = /vidxgo/i;
@@ -90,17 +91,37 @@ export async function fetchAndExtractVidXgo(
 /**
  * Decode the VidXgo HTML payload to the final HLS URL. Pure function (no IO).
  * Exported for tests; returns null if any step fails.
+ *
+ * The previous implementation used `cheerio.load(html)` to find the 6th
+ * <script> tag, which invokes parse5's full HTML tokenizer and builds a
+ * complete DOM tree. Per CPU profile this was ~3% of total profile time
+ * on this hot path. We only need to find the script tag and regex on its
+ * contents, which a streaming regex does in microseconds with zero
+ * retained DOM allocations (was also driving GC pressure).
  */
 export function decodeVidXgoHtml(html: string): string | null {
   try {
-    const $ = cheerio.load(html);
-    const scripts = $('script').toArray();
-    if (scripts.length <= 5) {
-      console.log('[VidXgo][decode] not enough <script> tags:', scripts.length);
+    // Walk all <script>...</script> blocks via regex. cheerio's `$('script')`
+    // returned ALL script tags (inline + external) and indexed by position;
+    // .html() on an external script returns empty string. Mirror that exact
+    // shape so external scripts still take their index slot.
+    const scriptRe = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+    const scriptBodies: string[] = [];
+    let sm: RegExpExecArray | null;
+    while ((sm = scriptRe.exec(html)) !== null) {
+      const attrs = sm[1] || '';
+      if (/\bsrc\s*=/i.test(attrs)) {
+        scriptBodies.push(''); // external: index slot preserved, body empty
+      } else {
+        scriptBodies.push(sm[2] || '');
+      }
+    }
+    if (scriptBodies.length <= 5) {
+      console.log('[VidXgo][decode] not enough <script> tags:', scriptBodies.length);
       return null;
     }
     // MammaMia uses scripts[5] (the 6th script tag). Get its inline text.
-    const target = $(scripts[5]).html() || '';
+    const target = scriptBodies[5] || '';
     if (!target) {
       console.log('[VidXgo][decode] script[5] empty');
       return null;
