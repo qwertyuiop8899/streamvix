@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.18.0](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.75...v1.18.0) (2026-05-18)
+
+
+### Features
+
+* add /admin/cpu-profile + /admin/heap-snapshot endpoints ([04c77a0](https://github.com/qwertyuiop8899/streamvix/commit/04c77a0492af13542c5c436a83f0ce89a4d3e1af))
+* add /admin/cpu-profile + /admin/heap-snapshot endpoints ([b333b23](https://github.com/qwertyuiop8899/streamvix/commit/b333b23a428207409b6bb4c334a89c16309f985a))
+* add /admin/cpu-stats endpoint for live diagnostics (rebased fro… ([275072b](https://github.com/qwertyuiop8899/streamvix/commit/275072b80e94af0d007eca8a42654393e4fc06fa))
+* add /admin/cpu-stats endpoint for live diagnostics (rebased from [#711](https://github.com/qwertyuiop8899/streamvix/issues/711)) ([7e9f8c1](https://github.com/qwertyuiop8899/streamvix/commit/7e9f8c1f36d8b1babd4da2ea772301e063cdac8c))
+* **logging:** gate per-request hot-path logs behind DEBUG_LOG ([2c389fa](https://github.com/qwertyuiop8899/streamvix/commit/2c389fab552a5862d6b4d652b25353950d1b6a16))
+* **logging:** gate per-request hot-path logs behind DEBUG_LOG ([8d5dc0d](https://github.com/qwertyuiop8899/streamvix/commit/8d5dc0dece0d8946a562acaadbec44f285d030eb))
+
+
+### Bug Fixes
+
+* **epg:** prevent ~40MB XML retention via sliced strings ([8c20af2](https://github.com/qwertyuiop8899/streamvix/commit/8c20af2db3054ffd7a12c8c5e99a9993ed3a9235))
+* **epg:** prevent ~40MB XML retention via sliced strings ([40573ee](https://github.com/qwertyuiop8899/streamvix/commit/40573ee1252e1029c186fa48bac822dc072c4f1b))
+
+
+### Performance Improvements
+
+* cache movie/series provider extraction results (rebased from [#709](https://github.com/qwertyuiop8899/streamvix/issues/709)) ([65833da](https://github.com/qwertyuiop8899/streamvix/commit/65833dadaf2899a12504567aa86aded9c59a9812))
+* cache movie/series provider extraction results (rebased from [#709](https://github.com/qwertyuiop8899/streamvix/issues/709)) ([055c81b](https://github.com/qwertyuiop8899/streamvix/commit/055c81bf30dcee135f3231ac2bc063802ede1804))
+* **catalog:** share TV catalog cache across catalog/stream/meta handlers ([1e534d2](https://github.com/qwertyuiop8899/streamvix/commit/1e534d2d50529d77da6705b919b1a3cc73df7c21))
+* **catalog:** share TV catalog cache across catalog/stream/meta handlers ([2effd45](https://github.com/qwertyuiop8899/streamvix/commit/2effd4546a157ff266bf93bcc3cdfb224296ad34))
+* **epg:** cache normalized channel ids for O(1) findEPGChannelId ([85137da](https://github.com/qwertyuiop8899/streamvix/commit/85137da921dd238b325e202d4054c61379fb63c3))
+* **epg:** cache normalized channel ids for O(1) findEPGChannelId ([8de9773](https://github.com/qwertyuiop8899/streamvix/commit/8de977325028143bcb2c5ec3ccde00e4342091e2))
+* **eurostreaming:** cache python results to avoid repeat process spawn ([00bebf1](https://github.com/qwertyuiop8899/streamvix/commit/00bebf1d8c74ed8e3b6d5aac53304f8ffd8f1a5d))
+* **eurostreaming:** cache python results to avoid repeat process spawn ([04d0bb2](https://github.com/qwertyuiop8899/streamvix/commit/04d0bb270cdb8ff1587fd2beb25153126080ae43))
+* **vidxgo:** scan &lt;script&gt; tags via regex instead of loading cheerio ([1b9b37e](https://github.com/qwertyuiop8899/streamvix/commit/1b9b37ed01c292a82b5482a1c253cdc481c6ac14))
+* **vidxgo:** scan &lt;script&gt; tags via regex instead of loading cheerio ([7475b8d](https://github.com/qwertyuiop8899/streamvix/commit/7475b8da38de5762f108e1e3a46598ea8ba37adb))
+
 ## [1.17.75](https://github.com/qwertyuiop8899/streamvix/compare/v1.17.74...v1.17.75) (2026-05-17)
 
 
