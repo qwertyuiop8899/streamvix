@@ -617,7 +617,7 @@ function getStreamPriority(stream: { url: string; title: string }): number {
     if (/\[🎬MPDp\]/i.test(title)) return 4.7;
 
     // 6. Daddy con 🇮🇹 (estratti, wrappati MFP o diretti ma NON 🔄 e NON [Player Esterno])
-    if (/^🇮🇹(?!🔄)/.test(title) && !/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 6;
+    if (/^🇮🇹(?!🔄)/.test(title) && !/\[Player Esterno\]/i.test(title) && /dlhd\.pk|mfp.*dlhd/i.test(url)) return 6;
 
     // 7. Vavoo MFP (contiene "Vavoo" E contiene mfp/mediaflow nel URL)
     if (/vavoo/i.test(title) && /mfp|mediaflow|proxy.*stream/i.test(url)) return 7;
@@ -635,10 +635,10 @@ function getStreamPriority(stream: { url: string; title: string }): number {
     if (/\[SP99\]/i.test(title)) return 9.9;
 
     // 13. Altri daddy FAST dynamic (estratti ma non italiani, non leftover)
-    if (!/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 13;
+    if (!/\[Player Esterno\]/i.test(title) && /dlhd\.pk|mfp.*dlhd/i.test(url)) return 13;
 
     // 14. [Player Esterno] daddy leftover (oltre CAP)
-    if (/\[Player Esterno\]/i.test(title) && /dlhd\.dad|mfp.*dlhd/i.test(url)) return 14;
+    if (/\[Player Esterno\]/i.test(title) && /dlhd\.pk|mfp.*dlhd/i.test(url)) return 14;
 
     // Default: altri stream non categorizzati (mettiamo dopo i daddy ma prima dei leftover)
     return 13.5;
@@ -702,7 +702,7 @@ function getStreamName(url: string): string {
     return hasMfp ? 'Live 🔴' : 'Live 🔓';
 }
 
-// ===== CF DLHD PROXY HELPERS (supporta formati ?url=https://dlhd.dad/watch.php?id=123 e ?id=123) =====
+// ===== CF DLHD PROXY HELPERS (supporta formati ?url=https://dlhd.pk/watch.php?id=123 e ?id=123) =====
 function extractDlhdIdFromCf(u: string): string | null {
     if (!u) return null;
     // Normalizza senza parametri extra
@@ -712,7 +712,7 @@ function extractDlhdIdFromCf(u: string): string | null {
         const query = u.substring(qIndex + 1);
         const params = new URLSearchParams(query);
 
-        // Nuovo formato: /dlhd.m3u8?src=https://dlhd.dad/watch.php?id=123
+        // Nuovo formato: /dlhd.m3u8?src=https://dlhd.pk/watch.php?id=123
         if (params.has('src')) {
             const src = decodeURIComponent(params.get('src') || '');
             const m = src.match(/watch\.php\?id=(\d+)/i);
@@ -725,7 +725,7 @@ function extractDlhdIdFromCf(u: string): string | null {
             return /^\d+$/.test(id) ? id : null;
         }
 
-        // Caso legacy: ...manifest.m3u8?url=https://dlhd.dad/watch.php?id=123
+        // Caso legacy: ...manifest.m3u8?url=https://dlhd.pk/watch.php?id=123
         if (params.has('url')) {
             const inner = params.get('url') || '';
             const m = inner.match(/watch\.php\?id=(\d+)/i);
@@ -740,7 +740,7 @@ function extractDlhdIdFromCf(u: string): string | null {
 function buildCfProxyFromId(id: string, addonBaseUrl?: string): string {
     // Se abbiamo addonBaseUrl, usa il nuovo formato con endpoint /dlhd.m3u8
     if (addonBaseUrl) {
-        const daddyUrl = `https://dlhd.dad/watch.php?id=${id}`;
+        const daddyUrl = `https://dlhd.pk/watch.php?id=${id}`;
         const encodedSrc = encodeURIComponent(daddyUrl);
         return `${addonBaseUrl.replace(/\/$/, '')}/dlhd.m3u8?src=${encodedSrc}`;
     }
@@ -4548,13 +4548,13 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             debugLog(`[DynamicStreams][ON-DEMAND] appended ${appended}/${extraFast.length} leftover proxy/hls diretti (CAP=${CAP})`);
                         }
                         debugLog(`[DynamicStreams][ON-DEMAND] Pubblicati ${resolved.length}/${entries.length} link avvolti MFP in ${Date.now() - startDyn}ms`);
-                        // Filtro minimale senza MFP: rimuovi solo gli URL diretti dlhd.dad (duplicati CF restano)
+                        // Filtro minimale senza MFP: rimuovi solo gli URL diretti dlhd.pk (duplicati CF restano)
                         if (!mfpUrl) {
                             const beforeExt = streams.length;
                             for (let i = streams.length - 1; i >= 0; i--) {
-                                if (/^https?:\/\/dlhd\.dad\/watch\.php\?id=\d+/i.test(streams[i].url)) streams.splice(i, 1);
+                                if (/^https?:\/\/dlhd\.pk\/watch\.php\?id=\d+/i.test(streams[i].url)) streams.splice(i, 1);
                             }
-                            if (beforeExt !== streams.length) debugLog(`[DynamicStreams][EXTRACTOR][NO_MFP] rimossi ${beforeExt - streams.length} dlhd.dad, rimasti=${streams.length}`);
+                            if (beforeExt !== streams.length) debugLog(`[DynamicStreams][EXTRACTOR][NO_MFP] rimossi ${beforeExt - streams.length} dlhd.pk, rimasti=${streams.length}`);
                         }
                         // === GDPLAYER injection for dynamic (EXTRACTOR) dopo PD/Vavoo ===
                         try {
@@ -5072,8 +5072,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 for (const d of (channel as any).dynamicDUrls) {
                                     if (!d || !d.url) continue;
 
-                                    // Cerca link DLHD diretti: https://dlhd.dad/watch.php?id=XXX
-                                    const directMatch = d.url.match(/^https?:\/\/dlhd\.dad\/watch\.php\?id=(\d+)/i);
+                                    // Cerca link DLHD diretti: https://dlhd.pk/watch.php?id=XXX
+                                    const directMatch = d.url.match(/^https?:\/\/dlhd\.pk\/watch\.php\?id=(\d+)/i);
                                     if (directMatch && directMatch[1]) {
                                         // Verifica se è italiano controllando il titolo
                                         const isItalian = d.title && /🇮🇹|IT\s*$|\[ITA\]/i.test(d.title);
@@ -5092,7 +5092,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                             // Metodo 2 (fallback): Cerca negli stream già wrappati (meno affidabile)
                             if (dlhdIds.size === 0) {
-                                const dlhdStreams = streams.filter(s => /^🇮🇹(?!🔄)/.test(s.title || '') && /^https?:\/\/.*proxy\/hls\/manifest\.m3u8.*[?&]d=.*dlhd\.dad.*id[=%](\d+)/i.test(s.url));
+                                const dlhdStreams = streams.filter(s => /^🇮🇹(?!🔄)/.test(s.title || '') && /^https?:\/\/.*proxy\/hls\/manifest\.m3u8.*[?&]d=.*dlhd\.pk.*id[=%](\d+)/i.test(s.url));
                                 for (const dlhdStream of dlhdStreams) {
                                     const match = dlhdStream.url.match(/id[=%](\d+)/i);
                                     if (match && match[1]) {
@@ -5197,7 +5197,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                             }
 
                             // Normalizza solo formati legacy
-                            const legacyMatch = cfUrl.match(/manifest\.m3u8\?url=https?:\/\/dlhd\.dad\/watch\.php\?id=(\d+)/i);
+                            const legacyMatch = cfUrl.match(/manifest\.m3u8\?url=https?:\/\/dlhd\.pk\/watch\.php\?id=(\d+)/i);
                             if (legacyMatch) {
                                 // Legacy format senza addonBase: usa proxy esterno
                                 cfUrl = buildCfProxyFromId(legacyMatch[1]);
@@ -5237,7 +5237,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 }
                                 // Fallback 2: prova un diretto daddy ITA (titolo inizia 🇮🇹 ma non 🇮🇹🔄)
                                 if (!baseName) {
-                                    const directIt = streams.find(s => /^🇮🇹(?!🔄)/.test(s.title || '') && /^https?:\/\/dlhd\.dad\/watch\.php\?id=\d+/i.test(s.url));
+                                    const directIt = streams.find(s => /^🇮🇹(?!🔄)/.test(s.title || '') && /^https?:\/\/dlhd\.pk\/watch\.php\?id=\d+/i.test(s.url));
                                     if (directIt) {
                                         // rimuovi emoji + spazi + [ITA]
                                         let t = (directIt.title || '').replace(/^🇮🇹\s*/, '').trim();
@@ -5258,7 +5258,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     const s = streams[i];
                                     if (!s) continue;
                                     // Match: URL daddy diretto E titolo inizia con 🇮🇹 ma NON 🇮🇹🔄
-                                    if (/^https?:\/\/.*(?:dlhd\.dad\/watch\.php|proxy\/hls\/manifest\.m3u8.*dlhd\.dad)/i.test(s.url) &&
+                                    if (/^https?:\/\/.*(?:dlhd\.pk\/watch\.php|proxy\/hls\/manifest\.m3u8.*dlhd\.pk)/i.test(s.url) &&
                                         /^🇮🇹(?!🔄)/.test(s.title || '')) {
                                         firstDaddyIdx = i;
                                         debugLog(`[D_CF][POS] Trovato primo daddy italiano all'indice ${i}: "${s.title}"`);
