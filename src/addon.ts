@@ -6946,15 +6946,19 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }, providerLabel('guardaserie'), false, 30000);  // GuardaSerie: timeout 30s
                     }
 
-                    // VidXgo (movies + series). Uses TMDB only if api key configured.
-                    if (vidxgoEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
+                    // VidXgo (movies + series). EasyProxy-only: VidXgo signs
+                    // segment URLs with a ~5 min TTL; only EP rotates the
+                    // token via background refresh + segment URL rewrite.
+                    // Without a proxy configured we skip the provider entirely.
+                    if (vidxgoEnabled && (id.startsWith('tt') || id.startsWith('tmdb:')) && mfpUrl) {
                         scheduleProviderRun('VidXgo', true, async () => {
                             const { VidXgoProvider } = await import('./providers/vidxgo-provider');
                             const vxProvider = new VidXgoProvider({
                                 enabled: true,
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
                                 mfpUrl: mfpUrl,
-                                mfpPassword: mfpPsw
+                                mfpPassword: mfpPsw,
+                                useMediaFlow: useMediaFlow
                             });
                             if (id.startsWith('tt')) return vxProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return vxProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
