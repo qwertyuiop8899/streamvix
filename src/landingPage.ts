@@ -501,8 +501,8 @@ function landingTemplate(manifest: any) {
 					'animeunityEnabled': { title: 'Anime Unity ⛩️ - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
 					'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
 					'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
-					'vidxgoEnabled': { title: 'VidXgo 🎯 - � <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci Proxy URL per abilitare)</span>', invert: false },
-					'cinemacityEnabled': { title: 'CinemaCity 🏙️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci Proxy URL per abilitare)</span>', invert: false },
+					'vidxgoEnabled': { title: 'VidXgo 🎯 - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci EasyProxy per abilitare)</span>', invert: false },
+					'cinemacityEnabled': { title: 'CinemaCity 🏙️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci EasyProxy per abilitare)</span>', invert: false },
 					'guardoserieEnabled': { title: 'Guardoserie 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
 					'guardaflixEnabled': { title: 'Guardaflix 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
 					'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
@@ -876,6 +876,8 @@ function landingTemplate(manifest: any) {
 				var animeUnityRow = animeUnityEl ? animeUnityEl.closest('[data-toggle-row]') : null;
 				var cb01El = document.getElementById('cb01Enabled');
 				var cb01Row = cb01El ? cb01El.closest('[data-toggle-row]') : null;
+				var vidxgoEl = document.getElementById('vidxgoEnabled');
+				var vidxgoRow = vidxgoEl ? vidxgoEl.closest('[data-toggle-row]') : null;
 				var cinemacityEl = document.getElementById('cinemacityEnabled');
 				var cinemacityRow = cinemacityEl ? cinemacityEl.closest('[data-toggle-row]') : null;
 				var toonitaliaEl = document.getElementById('toonitaliaEnabled');
@@ -886,6 +888,7 @@ function landingTemplate(manifest: any) {
 				var dvrRow = dvrEl ? dvrEl.closest('[data-toggle-row]') : null;
 				var storedVixsrcState = null; // remember previous user choice
 				var storedCb01State = null; // remember previous cb01 state
+				var storedVidxgoState = null; // remember previous vidxgo state
 				var storedCinemacityState = null; // remember previous cinemacity state
 				var storedToonitaliaState = null; // remember previous toonitalia state
 				var storedDvrState = null; // remember previous dvr state
@@ -940,6 +943,25 @@ function landingTemplate(manifest: any) {
 							}
 						}
 						if (cb01Row) setRowState(cb01Row);
+					}
+					// VidXgo toggle gating (richiede MFP attivo, password opzionale)
+					if (vidxgoEl){
+						if (!on) { // Master OFF
+							if (storedVidxgoState === null) storedVidxgoState = vidxgoEl.checked;
+							vidxgoEl.checked = false;
+							vidxgoEl.disabled = true;
+							if (vidxgoRow) vidxgoRow.classList.add('dimmed');
+						} else { // Master ON
+							if (vidxgoRow) vidxgoRow.classList.remove('dimmed');
+							vidxgoEl.disabled = !canEnableWithUrl;
+							if (canEnableWithUrl) {
+								if (storedVidxgoState !== null) { vidxgoEl.checked = storedVidxgoState; storedVidxgoState = null; }
+							} else {
+								if (storedVidxgoState === null) storedVidxgoState = vidxgoEl.checked;
+								vidxgoEl.checked = false;
+							}
+						}
+						if (vidxgoRow) setRowState(vidxgoRow);
 					}
 					// CinemaCity toggle gating (richiede MFP attivo, password opzionale)
 					if (cinemacityEl){
