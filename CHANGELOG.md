@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.18.4](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.3...v1.18.4) (2026-05-19)
+
+
+### Bug Fixes
+
+* addon.ts ([2ec8b36](https://github.com/qwertyuiop8899/streamvix/commit/2ec8b3652cfbfae05b13c6e11466c13dc2327fe2))
+* landingPage.ts ([4820fac](https://github.com/qwertyuiop8899/streamvix/commit/4820fac1472c1ad830d8bc9b4645e274a3f5fa06))
+* Live.py ([8396763](https://github.com/qwertyuiop8899/streamvix/commit/8396763d47cf16817a069dc0eac7d7f4c12b525b))
+
 ## [1.18.3](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.2...v1.18.3) (2026-05-19)
 
 
