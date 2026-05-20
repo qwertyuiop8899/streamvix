@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.18.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.5...v1.18.6) (2026-05-20)
+
+
+### Bug Fixes
+
+* domains update ([9c5248d](https://github.com/qwertyuiop8899/streamvix/commit/9c5248d5888fd394acc76b7dccf442fc0b1eabc7))
+* eurostreaming-provider.ts ([8fc88eb](https://github.com/qwertyuiop8899/streamvix/commit/8fc88eb5ff8c809555856a2389e3f7f301396dc4))
+* streamhg.ts ([63ac572](https://github.com/qwertyuiop8899/streamvix/commit/63ac5727f8c86419470bbe44a45cadd07f361653))
+
 ## [1.18.5](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.4...v1.18.5) (2026-05-19)
 
 
