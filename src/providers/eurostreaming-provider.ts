@@ -258,18 +258,21 @@ export class EurostreamingProvider {
         const h = uObj.host.toLowerCase();
         if (h.includes('mixdrop')) {
           playerName = 'Mixdrop';
-          // Se configurato MFP URL, wrappiamo l'URL mixdrop nel proxy stream
-          if (this.config.mfpUrl) {
-            const base = this.config.mfpUrl.replace(/\/$/, '');
-            const encoded = encodeURIComponent(s.url);
-            const passwordParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
-            // EasyProxy: /proxy/stream con auto-resolver custom server-side.
-            // MediaFlow: serve l'extractor esplicito host=Mixdrop (.m3u8 raccomandato per HLS).
-            if ((this.config as any).useMediaFlow) {
-              finalUrl = `${base}/extractor/video.m3u8?host=Mixdrop&d=${encoded}&redirect_stream=true${passwordParam}`;
-            } else {
-              finalUrl = `${base}/proxy/stream?d=${encoded}${passwordParam}`;
-            }
+          // Mixdrop funziona SOLO via proxy (EP /proxy/stream o MFP extractor).
+          // Senza mfpUrl configurato l'URL grezzo non e' riproducibile -> skip.
+          if (!this.config.mfpUrl) {
+            console.log('[Eurostreaming] mixdrop skip (no proxy configurato)');
+            continue;
+          }
+          const base = this.config.mfpUrl.replace(/\/$/, '');
+          const encoded = encodeURIComponent(s.url);
+          const passwordParam = this.config.mfpPassword ? `&api_password=${encodeURIComponent(this.config.mfpPassword)}` : '';
+          // EasyProxy: /proxy/stream con auto-resolver custom server-side.
+          // MediaFlow: serve l'extractor esplicito host=Mixdrop (.m3u8 raccomandato per HLS).
+          if ((this.config as any).useMediaFlow) {
+            finalUrl = `${base}/extractor/video.m3u8?host=Mixdrop&d=${encoded}&redirect_stream=true${passwordParam}`;
+          } else {
+            finalUrl = `${base}/proxy/stream?d=${encoded}${passwordParam}`;
           }
         } else if (h.includes('maxstream') || h.includes('uprot') || /^Maxstream$/i.test(s.player || '')) {
           playerName = 'Maxstream';
