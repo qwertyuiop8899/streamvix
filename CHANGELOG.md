@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.18.7](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.6...v1.18.7) (2026-05-22)
+
+
+### Bug Fixes
+
+* addon.ts ([d3eb519](https://github.com/qwertyuiop8899/streamvix/commit/d3eb519d59293adffcbeb091bdeacd5773f66135))
+* domains update ([53c64ea](https://github.com/qwertyuiop8899/streamvix/commit/53c64ea89b233d01719ee1c9cede30b20cc73aa3))
+* landingPage.ts ([8e2a098](https://github.com/qwertyuiop8899/streamvix/commit/8e2a09800454027dcd3cf6296ebcf41990198522))
+* shortenerResolver.ts ([fcd1ab8](https://github.com/qwertyuiop8899/streamvix/commit/fcd1ab8e50f8b0c3199a3e5b886a7b2b3f182cf0))
+
 ## [1.18.6](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.5...v1.18.6) (2026-05-20)
 
 
