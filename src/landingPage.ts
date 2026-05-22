@@ -1346,7 +1346,52 @@ function landingTemplate(manifest: any) {
 			<img src="${logo}">
 			</div>
 			<h1 class="name">${manifest.name}</h1>
-			<h2 class="version">v${manifest.version || '0.0.0'}</h2>
+			<h2 class="version">v${manifest.version || '0.0.0'}
+				<a href="/chapta" id="svxChaptaStatus" title="Stato whitelist uprot / clicka — clicca per gestire" style="display:inline-block;margin-left:.6em;font-size:.85em;vertical-align:middle;text-decoration:none;font-weight:normal;letter-spacing:.04em;">
+					<span title="uprot.net" style="display:inline-flex;align-items:center;gap:4px;margin-right:.5em;padding:2px 8px;border-radius:999px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.15);color:#ddd;">
+						U <span id="svxDotU" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#6b7280;box-shadow:0 0 4px rgba(0,0,0,0.6);"></span>
+					</span>
+					<span title="clicka.cc" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.15);color:#ddd;">
+						C <span id="svxDotC" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#6b7280;box-shadow:0 0 4px rgba(0,0,0,0.6);"></span>
+					</span>
+				</a>
+			</h2>
+			<script>
+			// Semaforo U/C: polling leggero su /api/whitelist-status.
+			(function(){
+				function paint(id, ok, tip){
+					var el = document.getElementById(id);
+					if(!el) return;
+					el.style.background = ok ? '#22c55e' : '#ef4444';
+					el.style.boxShadow = '0 0 6px ' + (ok ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)');
+					if(tip) el.parentElement && el.parentElement.setAttribute('title', tip);
+				}
+				function fmtAge(ms){
+					if(ms == null) return 'mai';
+					var m = Math.round(ms/60000);
+					if(m < 60) return m + 'm fa';
+					var h = Math.floor(m/60); var mr = m % 60;
+					return h + 'h' + (mr ? mr + 'm' : '') + ' fa';
+				}
+				function tick(){
+					fetch('/api/whitelist-status', { cache:'no-store' }).then(function(r){return r.json();}).then(function(j){
+						if(!j || !j.uprot || !j.clicka) return;
+						paint('svxDotU', !!j.uprot.whitelisted,
+							'uprot.net — ' + (j.uprot.whitelisted ? 'OK' : 'KO') +
+							' · slot ' + (j.uprot.activeSlot||'?') +
+							' (' + (j.uprot.activeProxyHost||'?') + ')' +
+							' · state ' + fmtAge(j.uprot.stateAgeMs));
+						paint('svxDotC', !!j.clicka.whitelisted,
+							'clicka.cc — ' + (j.clicka.whitelisted ? 'OK' : 'KO') +
+							' · slot ' + (j.clicka.activeSlot||'?') +
+							' (' + (j.clicka.activeProxyHost||'?') + ')' +
+							' · state ' + fmtAge(j.clicka.stateAgeMs));
+					}).catch(function(){ /* ignore */ });
+				}
+				tick();
+				setInterval(tick, 30000);
+			})();
+			</script>
 			<h2 class="description">StreamViX addon con StreamingCommunity, Guardaserie, Altadefinizione, AnimeUnity, AnimeSaturn, AnimeWorld, TV ed Eventi Live</h2>
 
 			<!-- Sezione informativa ElfHosted (sotto la descrizione) -->
