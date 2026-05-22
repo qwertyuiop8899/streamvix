@@ -356,6 +356,8 @@ export function getActiveSlot(domain: DomainKey): ProxySlot {
 export function setActiveSlot(domain: DomainKey, slot: ProxySlot): void {
   try {
     fs.writeFileSync(slotPathFor(domain), slot);
+    // L'IP egress puo' cambiare: invalida cache cosi' la prossima probe rilegge.
+    _egressCache.delete(slot);
   } catch (e) {
     console.warn(`[shortenerResolver] setActiveSlot(${domain}, ${slot}) failed:`, (e as Error).message);
   }
@@ -463,6 +465,108 @@ export async function submitManualSolve(sessionFilePath: string, guess: string):
   return { ok: true, domain, proxySlot: slot, guess: r.guess || guess };
 }
 
+// ---------------------------------------------------------------------------
+// Egress probe — scopre l'IP reale dietro lo slot proxy attivo
+// ---------------------------------------------------------------------------
+// Usa cloudflare cdn-cgi/trace: 1 sola richiesta, ritorna ip/warp/colo/loc.
+// Per DIRECT bypassa il proxy: cosi' vediamo se il container sta uscendo via
+// WARP (warp=on/plus) o via IP nativo (warp=off, pericoloso per uprot).
+// Per PROXY/PROXY_BACKUP esce attraverso il proxy: l'IP riportato e' quello
+// che uprot/clicka vede davvero in ingresso.
+
+export interface EgressProbe {
+  ok: boolean;
+  ip?: string;
+  warp?: string;          // on | plus | off
+  colo?: string;
+  loc?: string;
+  ms?: number;
+  error?: string;
+}
+
+const EGRESS_PROBE_TIMEOUT_MS = parseInt(process.env.EGRESS_PROBE_TIMEOUT_MS || '', 10) || 6000;
+const EGRESS_PROBE_TTL_MS = parseInt(process.env.EGRESS_PROBE_TTL_MS || '', 10) || 60 * 1000;
+const _egressCache: Map<string, { at: number; v: EgressProbe }> = new Map();
+
+function _parseTrace(body: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of body.split('\n')) {
+    const i = line.indexOf('=');
+    if (i > 0) out[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  }
+  return out;
+}
+
+export async function egressProbe(slot: ProxySlot, opts?: { force?: boolean }): Promise<EgressProbe> {
+  const cacheKey = slot;
+  if (!opts?.force) {
+    const cached = _egressCache.get(cacheKey);
+    if (cached && (Date.now() - cached.at) < EGRESS_PROBE_TTL_MS) return cached.v;
+  }
+  const url = process.env.EGRESS_PROBE_URL || 'https://www.cloudflare.com/cdn-cgi/trace';
+  const proxyUrl = slot === 'DIRECT' ? '' : (process.env[slot] || '').trim();
+  if (slot !== 'DIRECT' && !proxyUrl) {
+    const v: EgressProbe = { ok: false, error: `${slot} env var unset` };
+    _egressCache.set(cacheKey, { at: Date.now(), v });
+    return v;
+  }
+  const t0 = Date.now();
+  try {
+    const https = await import('https');
+    const http = await import('http');
+    const urlMod = await import('url');
+    let agent: any = undefined;
+    if (proxyUrl) {
+      // proxyUrl may be "user:pass@host:port" without scheme; default to http
+      const withScheme = /^https?:\/\//i.test(proxyUrl) ? proxyUrl : `http://${proxyUrl}`;
+      const { HttpsProxyAgent } = await import('https-proxy-agent');
+      agent = new HttpsProxyAgent(withScheme);
+    }
+    const u = urlMod.parse(url);
+    const lib = u.protocol === 'http:' ? http : https;
+    const body: string = await new Promise((resolve, reject) => {
+      const req = lib.request({
+        method: 'GET',
+        protocol: u.protocol,
+        hostname: u.hostname,
+        port: u.port || (u.protocol === 'http:' ? 80 : 443),
+        path: u.path || '/',
+        agent,
+        headers: { 'User-Agent': 'streamvix-egress-probe/1.0', 'Accept': 'text/plain' },
+        timeout: EGRESS_PROBE_TIMEOUT_MS,
+      }, (resp) => {
+        const chunks: Buffer[] = [];
+        resp.on('data', (c: Buffer) => chunks.push(c));
+        resp.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      });
+      req.on('timeout', () => { req.destroy(new Error('timeout')); });
+      req.on('error', reject);
+      req.end();
+    });
+    const kv = _parseTrace(body);
+    const v: EgressProbe = {
+      ok: !!kv.ip,
+      ip: kv.ip,
+      warp: kv.warp,
+      colo: kv.colo,
+      loc: kv.loc,
+      ms: Date.now() - t0,
+    };
+    if (!v.ok) v.error = 'no ip in trace';
+    _egressCache.set(cacheKey, { at: Date.now(), v });
+    return v;
+  } catch (e) {
+    const v: EgressProbe = { ok: false, error: (e as Error).message, ms: Date.now() - t0 };
+    _egressCache.set(cacheKey, { at: Date.now(), v });
+    return v;
+  }
+}
+
+export function invalidateEgressCache(slot?: ProxySlot): void {
+  if (slot) _egressCache.delete(slot);
+  else _egressCache.clear();
+}
+
 /** Stato di whitelisting per la pagina /chapta. */
 export interface WhitelistDomainStatus {
   domain: 'uprot' | 'clicka';
@@ -471,6 +575,7 @@ export interface WhitelistDomainStatus {
   activeSlot: ProxySlot;
   activeProxyHost: string;
   lastError?: string;
+  egress?: EgressProbe;
 }
 
 export function getWhitelistStatus(): { uprot: WhitelistDomainStatus; clicka: WhitelistDomainStatus } {
@@ -496,4 +601,19 @@ export function getWhitelistStatus(): { uprot: WhitelistDomainStatus; clicka: Wh
     };
   };
   return { uprot: build('uprot'), clicka: build('clicka') };
+}
+
+/** Variante async di getWhitelistStatus: include la egress probe per slot.
+ *  La probe e' cached (EGRESS_PROBE_TTL_MS, default 60s), quindi chiamate
+ *  ripetute dall'UI sono economiche. */
+export async function getWhitelistStatusWithEgress():
+  Promise<{ uprot: WhitelistDomainStatus; clicka: WhitelistDomainStatus }> {
+  const base = getWhitelistStatus();
+  const [eu, ec] = await Promise.all([
+    egressProbe(base.uprot.activeSlot),
+    egressProbe(base.clicka.activeSlot),
+  ]);
+  base.uprot.egress = eu;
+  base.clicka.egress = ec;
+  return base;
 }
