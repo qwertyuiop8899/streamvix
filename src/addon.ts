@@ -7544,6 +7544,46 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
         ${banner}
         ${cards.map(card).join('')}
         <p style="text-align:center"><a href="/chapta">Ricarica entrambe le card</a></p>
+
+        <!-- WARP rotate: 3 pulsanti in basso, chiedono conferma prima di sparare l'hook.
+             Gli URL stanno nelle env PROXY_ROTATE / PROXY_BACKUP_ROTATE / DIRECT_ROTATE
+             lato server: il client conosce solo gli slot, mai gli URL/IP. -->
+        <div style="margin:2em 0 1em;padding-top:1em;border-top:1px dashed #444">
+          <h2 style="margin:0 0 .4em;font-size:1.1em">Forza WARP rotate</h2>
+          <p style="opacity:.75;font-size:.9em;margin:.2em 0 .8em">Ognuno cambia l'IP egress dell'host corrispondente. Richiede conferma.</p>
+          <div id="svxRotateBtns" style="text-align:center">
+            <button type="button" data-slot="DIRECT" data-label="Direct Priv" style="margin:.25em;background:#16a34a">Direct Priv</button>
+            <button type="button" data-slot="PROXY_BACKUP" data-label="PROXY_BACKUP" style="margin:.25em;background:#7c3aed">PROXY_BACKUP</button>
+            <button type="button" data-slot="PROXY" data-label="PROXY" style="margin:.25em;background:#2563eb">PROXY</button>
+          </div>
+          <p id="svxRotateMsg" style="text-align:center;min-height:1.3em;margin:.6em 0 0;font-size:.9em"></p>
+        </div>
+        <script>
+        (function(){
+          var msg = document.getElementById('svxRotateMsg');
+          function setMsg(t, color){ if(!msg) return; msg.textContent = t || ''; msg.style.color = color || '#9ca3af'; }
+          document.querySelectorAll('#svxRotateBtns button').forEach(function(b){
+            b.addEventListener('click', function(){
+              var slot = b.getAttribute('data-slot');
+              var label = b.getAttribute('data-label') || slot;
+              if(!confirm('Confermi WARP rotate per ' + label + '?\\n(Cambia l\\'IP egress dell\\'host ' + slot + '.)')) return;
+              b.disabled = true;
+              setMsg('Rotating ' + label + '\u2026', '#9ca3af');
+              fetch('/chapta/rotate?slot=' + encodeURIComponent(slot), { method:'POST' })
+                .then(function(r){ return r.json().then(function(j){ return { st:r.status, j:j }; }); })
+                .then(function(out){
+                  if(out.st >= 200 && out.st < 300 && out.j && out.j.ok){
+                    setMsg('\u2713 ' + label + ' rotated (HTTP ' + (out.j.upstreamStatus||'?') + ', ' + (out.j.ms||'?') + 'ms)', '#22c55e');
+                  } else {
+                    setMsg('\u2717 ' + label + ' FAIL: ' + ((out.j && out.j.error) || ('HTTP ' + out.st)), '#ef4444');
+                  }
+                })
+                .catch(function(e){ setMsg('\u2717 ' + label + ' FAIL: ' + e.message, '#ef4444'); })
+                .finally(function(){ b.disabled = false; });
+            });
+          });
+        })();
+        </script>
         </body></html>`;
     }
 
@@ -7770,6 +7810,80 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
             res.json(status);
         } catch (e) {
             res.status(500).json({ error: (e as Error).message });
+        }
+    });
+
+    // WARP rotate: invoca un hook HTTP per ruotare l'IP egress dell'host
+    // corrispondente allo slot. Gli URL stanno in env (PROXY_ROTATE /
+    // PROXY_BACKUP_ROTATE / DIRECT_ROTATE) — il client non li vede mai.
+    // L'env puo' contenere "http(s)://host/path" oppure "curl http://host/path";
+    // in entrambi i casi viene estratto solo l'URL.
+    function _extractRotateUrl(raw: string): string {
+        let s = (raw || '').trim();
+        if (!s) return '';
+        // Togli prefisso "curl " e opzioni semplici (-X GET, -fsS, ecc.)
+        s = s.replace(/^curl\s+/i, '');
+        // Cerca primo token che inizia con http:// o https://
+        const m = s.match(/https?:\/\/[^\s'"]+/i);
+        return m ? m[0] : '';
+    }
+
+    app.post('/chapta/rotate', async (req: Request, res: Response) => {
+        const t0 = Date.now();
+        try {
+            const slot = String(req.query.slot || '').trim();
+            const envName = slot === 'DIRECT' ? 'DIRECT_ROTATE'
+                          : slot === 'PROXY_BACKUP' ? 'PROXY_BACKUP_ROTATE'
+                          : slot === 'PROXY' ? 'PROXY_ROTATE'
+                          : '';
+            if (!envName) {
+                res.status(400).json({ ok: false, error: `slot non valido: ${slot}` });
+                return;
+            }
+            const url = _extractRotateUrl(process.env[envName] || '');
+            if (!url) {
+                res.status(400).json({ ok: false, error: `env ${envName} non configurata o non contiene un URL http(s)` });
+                return;
+            }
+            // GET diretta (no proxy, no agent) all'hook. Timeout 10s.
+            const http = await import('http');
+            const https = await import('https');
+            const urlMod = await import('url');
+            const u = urlMod.parse(url);
+            const lib = u.protocol === 'http:' ? http : https;
+            const result: { status: number; body: string } = await new Promise((resolve, reject) => {
+                const r = lib.request({
+                    method: 'GET',
+                    protocol: u.protocol,
+                    hostname: u.hostname,
+                    port: u.port || (u.protocol === 'http:' ? 80 : 443),
+                    path: u.path || '/',
+                    timeout: 10000,
+                    headers: { 'User-Agent': 'streamvix-rotate/1.0' },
+                }, (resp: any) => {
+                    const chunks: any[] = [];
+                    resp.on('data', (c: any) => chunks.push(c));
+                    resp.on('end', () => resolve({
+                        status: resp.statusCode || 0,
+                        body: Buffer.concat(chunks).toString('utf8').slice(0, 500),
+                    }));
+                });
+                r.on('timeout', () => { r.destroy(new Error('timeout')); });
+                r.on('error', reject);
+                r.end();
+            });
+            const ok = result.status >= 200 && result.status < 400;
+            // Invalida cache egress cosi' il prossimo refresh /chapta mostra il nuovo IP.
+            try {
+                const sr = require('./utils/shortenerResolver');
+                if (typeof sr.invalidateEgressCache === 'function') sr.invalidateEgressCache(slot);
+            } catch { /* ignore */ }
+            res.status(ok ? 200 : 502).json({
+                ok, slot, upstreamStatus: result.status,
+                bodyPreview: result.body, ms: Date.now() - t0,
+            });
+        } catch (e) {
+            res.status(500).json({ ok: false, error: (e as Error).message, ms: Date.now() - t0 });
         }
     });
 }
