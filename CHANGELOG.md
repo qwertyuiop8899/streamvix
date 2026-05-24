@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.18.9](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.8...v1.18.9) (2026-05-24)
+
+
+### Bug Fixes
+
+* addon.ts ([7fe06cc](https://github.com/qwertyuiop8899/streamvix/commit/7fe06ccd85701f7bdc29909eb7be2373a356f6bd))
+* cincit ([8be6865](https://github.com/qwertyuiop8899/streamvix/commit/8be6865ee63e236271903566713f5d79ab183562))
+
 ## [1.18.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.7...v1.18.8) (2026-05-24)
 
 
