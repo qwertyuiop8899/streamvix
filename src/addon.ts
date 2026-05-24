@@ -7845,34 +7845,75 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
                 res.status(400).json({ ok: false, error: `env ${envName} non configurata o non contiene un URL http(s)` });
                 return;
             }
-            // GET diretta (no proxy, no agent) all'hook. Timeout 10s.
+            // GET diretta (no proxy, no agent) all'hook. Timeout configurabile.
+            // NOTA: l'hook warp-rotate riavvia la rete dell'host target → la
+            // connessione TCP viene resettata mentre il body sta arrivando.
+            // Trattiamo ECONNRESET / "socket hang up" come SUCCESS se abbiamo
+            // gia' ricevuto la response (status code) o del body: e' il
+            // pattern atteso, non un errore.
             const http = await import('http');
             const https = await import('https');
             const urlMod = await import('url');
             const u = urlMod.parse(url);
             const lib = u.protocol === 'http:' ? http : https;
-            const result: { status: number; body: string } = await new Promise((resolve, reject) => {
+            const timeoutMs = parseInt(process.env.ROTATE_TIMEOUT_MS || '', 10) || 60000;
+            const result: { status: number; body: string; resetButGotResponse?: boolean } =
+                await new Promise((resolve, reject) => {
+                let gotResponse = false;
+                let respStatus = 0;
+                const chunks: any[] = [];
                 const r = lib.request({
                     method: 'GET',
                     protocol: u.protocol,
                     hostname: u.hostname,
                     port: u.port || (u.protocol === 'http:' ? 80 : 443),
                     path: u.path || '/',
-                    timeout: 10000,
-                    headers: { 'User-Agent': 'streamvix-rotate/1.0' },
+                    timeout: timeoutMs,
+                    headers: { 'User-Agent': 'streamvix-rotate/1.0', 'Connection': 'close' },
                 }, (resp: any) => {
-                    const chunks: any[] = [];
+                    gotResponse = true;
+                    respStatus = resp.statusCode || 0;
                     resp.on('data', (c: any) => chunks.push(c));
                     resp.on('end', () => resolve({
-                        status: resp.statusCode || 0,
+                        status: respStatus,
                         body: Buffer.concat(chunks).toString('utf8').slice(0, 500),
                     }));
+                    resp.on('error', (err: any) => {
+                        // Reset mid-body: se abbiamo headers + del body, e' OK.
+                        const msg = String(err && err.message || err);
+                        if (/ECONNRESET|socket hang up/i.test(msg) && chunks.length > 0) {
+                            resolve({
+                                status: respStatus,
+                                body: Buffer.concat(chunks).toString('utf8').slice(0, 500),
+                                resetButGotResponse: true,
+                            });
+                        } else {
+                            reject(err);
+                        }
+                    });
                 });
                 r.on('timeout', () => { r.destroy(new Error('timeout')); });
-                r.on('error', reject);
+                r.on('error', (err: any) => {
+                    const msg = String(err && err.message || err);
+                    // Se la response e' gia' arrivata (anche solo headers) e poi
+                    // il socket si chiude bruscamente per il restart di rete:
+                    // trattiamo come successo.
+                    if (/ECONNRESET|socket hang up/i.test(msg) && gotResponse) {
+                        resolve({
+                            status: respStatus,
+                            body: Buffer.concat(chunks).toString('utf8').slice(0, 500),
+                            resetButGotResponse: true,
+                        });
+                    } else {
+                        reject(err);
+                    }
+                });
                 r.end();
             });
-            const ok = result.status >= 200 && result.status < 400;
+            // Considera OK se status 2xx/3xx, oppure se la connessione e' stata
+            // resettata DOPO aver ricevuto una risposta (warp-rotate pattern).
+            const ok = (result.status >= 200 && result.status < 400)
+                    || !!result.resetButGotResponse;
             // Invalida cache egress cosi' il prossimo refresh /chapta mostra il nuovo IP.
             try {
                 const sr = require('./utils/shortenerResolver');
@@ -7881,6 +7922,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
             res.status(ok ? 200 : 502).json({
                 ok, slot, upstreamStatus: result.status,
                 bodyPreview: result.body, ms: Date.now() - t0,
+                note: result.resetButGotResponse ? 'connection reset after response (warp-rotate restarted network) — treated as OK' : undefined,
             });
         } catch (e) {
             res.status(500).json({ ok: false, error: (e as Error).message, ms: Date.now() - t0 });
