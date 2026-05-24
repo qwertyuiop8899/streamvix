@@ -908,7 +908,7 @@ const baseManifest: Manifest = {
         { key: "guardaflixEnabled", title: "Enable Guardaflix", type: "checkbox" },
         { key: "guardahdEnabled", title: "Enable GuardaHD", type: "checkbox" },
         { key: "adnEnabled", title: "Enable ADN (AltadefinizioneStreaming CDN)", type: "checkbox" },
-        { key: "cinemacityEnabled", title: "Enable CinemaCity (EasyProxy only)", type: "checkbox" },
+        ...(process.env.CINEMACITY_DISABLE === '1' ? [] : [{ key: "cinemacityEnabled", title: "Enable CinemaCity (EasyProxy only)", type: "checkbox" }]),
         { key: "eurostreamingEnabled", title: "Eurostreaming", type: "checkbox" },
         { key: "toonitaliaEnabled", title: "Enable ToonItalia", type: "checkbox" },
         { key: "toonEnabled", title: "Enable TOON", type: "checkbox" },
@@ -6334,7 +6334,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const animeWorldEnabled = envFlag('ANIMEWORLD_ENABLED') ?? (isDirectAPICall || config.animeworldEnabled === true || rc?.animeworldEnabled === true);
                 const guardaSerieEnabled = envFlag('GUARDASERIE_ENABLED') ?? (isDirectAPICall || config.guardaserieEnabled === true || rc?.guardaserieEnabled === true);
                 const vidxgoEnabled = envFlag('VIDXGO_ENABLED') ?? (isDirectAPICall || config.vidxgoEnabled === true || rc?.vidxgoEnabled === true);
-                const cinemacityEnabled = (envFlag('CINEMACITY_ENABLED') ?? (isDirectAPICall || config.cinemacityEnabled === true || rc?.cinemacityEnabled === true)) && !!mfpUrl;
+                const cinemacityEnabled = process.env.CINEMACITY_DISABLE === '1'
+                    ? false
+                    : (envFlag('CINEMACITY_ENABLED') ?? (isDirectAPICall || config.cinemacityEnabled === true || rc?.cinemacityEnabled === true)) && !!mfpUrl;
                 const guardaHdEnabled = envFlag('GUARDAHD_ENABLED') ?? (isDirectAPICall || config.guardahdEnabled === true || rc?.guardahdEnabled === true);
                 const adnEnabled = envFlag('ADN_ENABLED') ?? (isDirectAPICall || (config as any).adnEnabled === true || rc?.adnEnabled === true);
                 const cb01Enabled = envFlag('CB01_ENABLED') ?? (isDirectAPICall || (config as any).cb01Enabled === true || rc?.cb01Enabled === true);
