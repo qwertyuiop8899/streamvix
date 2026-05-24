@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.8](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.7...v1.18.8) (2026-05-24)
+
+
+### Bug Fixes
+
+* add button rotate ([a42c8ac](https://github.com/qwertyuiop8899/streamvix/commit/a42c8ac7c63e891410d8f1523c68c304d6ee4f67))
+
 ## [1.18.7](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.6...v1.18.7) (2026-05-22)
 
 
