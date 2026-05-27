@@ -7547,9 +7547,24 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
         ${cards.map(card).join('')}
         <p style="text-align:center"><a href="/chapta">Ricarica entrambe le card</a></p>
 
-        <!-- WARP rotate: 3 pulsanti in basso, chiedono conferma prima di sparare l'hook.
-             Gli URL stanno nelle env PROXY_ROTATE / PROXY_BACKUP_ROTATE / DIRECT_ROTATE
-             lato server: il client conosce solo gli slot, mai gli URL/IP. -->
+        <!-- Test risoluzione: incolla un URL uprot.net o clicka.cc, l'addon
+             esegue resolveShortener() e mostra l'URL finale (m3u8 per maxstream,
+             deltabit per clicka) oppure l'errore. Usa lo slot attivo corrente. -->
+        <div style="margin:2em 0 1em;padding-top:1em;border-top:1px dashed #444">
+          <h2 style="margin:0 0 .4em;font-size:1.1em">Test risoluzione URL</h2>
+          <p style="opacity:.75;font-size:.9em;margin:.2em 0 .8em">Incolla un link <code>uprot.net</code> (→ maxstream m3u8) o <code>clicka.cc</code> (→ deltabit, richiede proxy attivo lato Python). Usa lo slot attivo correntemente impostato.</p>
+          <div style="display:flex;gap:.4em;flex-wrap:wrap;align-items:center;justify-content:center;margin-bottom:.5em">
+            <button type="button" class="svxTestPreset" data-url="https://uprot.net/msf/7did0film6i9" style="background:#334155;font-size:.85em;padding:.4em .7em">uprot demo</button>
+            <button type="button" class="svxTestPreset" data-url="https://clicka.cc/delta/mfua6zl4cb9p" style="background:#334155;font-size:.85em;padding:.4em .7em">clicka demo</button>
+            <button type="button" id="svxTestClear" style="background:#475569;font-size:.85em;padding:.4em .7em">cancella</button>
+          </div>
+          <div style="display:flex;gap:.4em;flex-wrap:wrap;align-items:center;justify-content:center">
+            <input id="svxTestUrl" type="text" placeholder="https://uprot.net/…  oppure  https://clicka.cc/…" style="flex:1;min-width:260px;padding:.55em .7em;border-radius:6px;border:1px solid #444;background:#1e1e1e;color:#eee;font-size:.95em">
+            <button id="svxTestBtn" type="button" style="background:#0891b2">Risolvi</button>
+          </div>
+          <pre id="svxTestOut" style="margin:.6em 0 0;padding:.6em;background:#0f0f0f;border:1px solid #1f1f1f;border-radius:6px;font-size:.85em;white-space:pre-wrap;word-break:break-all;min-height:1.2em;color:#cbd5e1"></pre>
+        </div>
+
         <div style="margin:2em 0 1em;padding-top:1em;border-top:1px dashed #444">
           <h2 style="margin:0 0 .4em;font-size:1.1em">Forza WARP rotate</h2>
           <p style="opacity:.75;font-size:.9em;margin:.2em 0 .8em">Ognuno cambia l'IP egress dell'host corrispondente. Richiede conferma.</p>
@@ -7583,6 +7598,61 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
                 .catch(function(e){ setMsg('\u2717 ' + label + ' FAIL: ' + e.message, '#ef4444'); })
                 .finally(function(){ b.disabled = false; });
             });
+          });
+
+          // --- Test risoluzione URL ---
+          var testBtn = document.getElementById('svxTestBtn');
+          var testInp = document.getElementById('svxTestUrl');
+          var testOut = document.getElementById('svxTestOut');
+          function runTest(){
+            if(!testInp || !testOut || !testBtn) return;
+            var url = (testInp.value||'').trim();
+            if(!url){ testOut.textContent = 'Inserisci un URL.'; testOut.style.color='#f59e0b'; return; }
+            if(!/^https?:\\/\\//i.test(url)){ testOut.textContent = 'URL non valido (manca http/https).'; testOut.style.color='#ef4444'; return; }
+            testBtn.disabled = true;
+            var t0 = Date.now();
+            testOut.style.color='#9ca3af';
+            testOut.textContent = 'Risolvendo\u2026';
+            fetch('/chapta/test-resolve', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url: url }) })
+              .then(function(r){ return r.json().then(function(j){ return { st:r.status, j:j }; }); })
+              .then(function(out){
+                var ms = Date.now() - t0;
+                var j = out.j || {};
+                if(out.st >= 200 && out.st < 300 && j.ok){
+                  var lines = ['\u2713 OK (' + ms + 'ms) \u2014 kind: ' + (j.kind||'?') + ' \u2014 slot: ' + (j.slot||'?')];
+                  if(j.kind === 'maxstream'){
+                    lines.push('m3u8: ' + j.m3u8);
+                    if(j.headers) lines.push('headers: ' + JSON.stringify(j.headers));
+                  } else if(j.kind === 'deltabit'){
+                    lines.push('deltabit: ' + j.deltabit);
+                  } else if(j.kind === 'folder'){
+                    lines.push('entries: ' + (j.entries ? j.entries.length : 0));
+                    if(j.entries) lines.push(JSON.stringify(j.entries, null, 2));
+                  } else {
+                    lines.push(JSON.stringify(j, null, 2));
+                  }
+                  testOut.style.color = '#22c55e';
+                  testOut.textContent = lines.join('\\n');
+                } else {
+                  testOut.style.color = '#ef4444';
+                  testOut.textContent = '\u2717 FAIL (' + ms + 'ms) \u2014 ' + (j.error || ('HTTP ' + out.st)) + (j.diag ? '\\n' + JSON.stringify(j.diag, null, 2) : '');
+                }
+              })
+              .catch(function(e){ testOut.style.color='#ef4444'; testOut.textContent='\u2717 FAIL: ' + e.message; })
+              .finally(function(){ testBtn.disabled = false; });
+          }
+          if(testBtn) testBtn.addEventListener('click', runTest);
+          if(testInp) testInp.addEventListener('keydown', function(ev){ if(ev.key === 'Enter'){ ev.preventDefault(); runTest(); } });
+          document.querySelectorAll('.svxTestPreset').forEach(function(p){
+            p.addEventListener('click', function(){
+              var u = p.getAttribute('data-url') || '';
+              if(testInp){ testInp.value = u; testInp.focus(); }
+            });
+          });
+          var testClr = document.getElementById('svxTestClear');
+          if(testClr) testClr.addEventListener('click', function(){
+            if(testInp){ testInp.value = ''; testInp.focus(); }
+            if(testOut){ testOut.textContent = ''; }
           });
         })();
         </script>
@@ -7926,6 +7996,48 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
                 bodyPreview: result.body, ms: Date.now() - t0,
                 note: result.resetButGotResponse ? 'connection reset after response (warp-rotate restarted network) — treated as OK' : undefined,
             });
+        } catch (e) {
+            res.status(500).json({ ok: false, error: (e as Error).message, ms: Date.now() - t0 });
+        }
+    });
+
+    // POST /chapta/test-resolve  body: { url }
+    // Esegue resolveShortener(url) usando lo slot attivo del dominio coerente
+    // con l'URL (uprot.net -> uprot slot, clicka.cc -> clicka slot, gestito
+    // dal python tramite i file /tmp/<dom>_active_proxy_slot.txt).
+    // Risponde: { ok, kind, m3u8/deltabit/entries, headers, slot, ms } oppure
+    // { ok:false, error, diag, ms }.
+    app.post('/chapta/test-resolve', express.json({ limit: '8kb' }), async (req: Request, res: Response) => {
+        const t0 = Date.now();
+        try {
+            const url = String((req.body && req.body.url) || '').trim();
+            if (!url || !/^https?:\/\//i.test(url)) {
+                res.status(400).json({ ok: false, error: 'URL mancante o non valido' });
+                return;
+            }
+            const sr = require('./utils/shortenerResolver');
+            const lc = url.toLowerCase();
+            let domain: 'uprot' | 'clicka' | null = null;
+            if (lc.includes('uprot.')) domain = 'uprot';
+            else if (lc.includes('clicka.')) domain = 'clicka';
+            let activeSlot: string | undefined;
+            try {
+                if (domain && typeof sr.getActiveSlot === 'function') activeSlot = sr.getActiveSlot(domain);
+            } catch { /* ignore */ }
+            const timeoutMs = parseInt(process.env.TEST_RESOLVE_TIMEOUT_MS || '', 10) || 30000;
+            const result = await sr.resolveShortener(url, timeoutMs);
+            const ms = Date.now() - t0;
+            if (result && result.ok) {
+                res.status(200).json({ ...result, slot: activeSlot, ms });
+            } else {
+                res.status(200).json({
+                    ok: false,
+                    error: (result && result.error) || 'unknown_error',
+                    diag: result && result.diag,
+                    slot: activeSlot,
+                    ms,
+                });
+            }
         } catch (e) {
             res.status(500).json({ ok: false, error: (e as Error).message, ms: Date.now() - t0 });
         }
