@@ -17,12 +17,28 @@ import {
 
 const AS_FETCH_TIMEOUT = Number.parseInt(process.env.ANIMESATURN_FETCH_TIMEOUT_MS || '10000', 10) || 10000;
 const asCaches = createCaches();
+const AS_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
+
+function buildSaturnHeaders(referer?: string): Record<string, string> {
+  const h: Record<string, string> = {
+    'user-agent': AS_USER_AGENT,
+    'accept-language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+  };
+  if (referer) h.referer = referer;
+  return h;
+}
 
 function getSaturnBaseUrl(): string {
   const configured = getProviderUrl('animesaturn', ['ANIMESATURN_BASE_URL', 'AS_BASE_URL']);
-  if (configured) return configured.replace(/\/+$/, '');
-  const host = getDomain('animesaturn') || 'animesaturn.cx';
-  return `https://www.${host}`;
+  const raw = configured || `https://${getDomain('animesaturn') || 'animesaturn.cx'}`;
+  try {
+    const u = new URL(String(raw).replace(/\/+$/, ''));
+    if (!/^www\./i.test(u.hostname)) u.hostname = `www.${u.hostname}`;
+    return u.origin;
+  } catch {
+    const host = (getDomain('animesaturn') || 'animesaturn.cx').replace(/^www\./i, '');
+    return `https://www.${host}`;
+  }
 }
 
 function normalizeAnimeSaturnPath(pathOrUrl: string | null | undefined): string | null {
@@ -173,8 +189,42 @@ function collectMediaLinksFromWatchHtml(html: string): string[] {
 }
 
 async function asSearch(query: string): Promise<AnimeSaturnResult[]> {
-  const q = encodeURIComponent(String(query || '').trim());
+  const qRaw = String(query || '').trim();
+  const q = encodeURIComponent(qRaw);
   if (!q) return [];
+
+  // Primary path: same JSON endpoint used by AnimeSaturn live-search UI.
+  try {
+    const apiUrl = `${getSaturnBaseUrl()}/index.php?search=1&key=${q}`;
+    const apiData = await fetchResource(apiUrl, asCaches, {
+      ttlMs: 2 * 60 * 1000,
+      cacheKey: `as-search-api:${qRaw.toLowerCase()}`,
+      as: 'json',
+      timeoutMs: AS_FETCH_TIMEOUT,
+      headers: {
+        ...buildSaturnHeaders(`${getSaturnBaseUrl()}/`),
+        accept: 'application/json,text/javascript,*/*;q=0.01',
+        'x-requested-with': 'XMLHttpRequest',
+      },
+    });
+
+    const outFromApi: AnimeSaturnResult[] = [];
+    const seen = new Set<string>();
+    if (Array.isArray(apiData)) {
+      for (const item of apiData) {
+        const link = String(item?.link || '').trim();
+        const path = normalizeAnimeSaturnPath(`/anime/${link}`);
+        if (!path || seen.has(path)) continue;
+        seen.add(path);
+        const title = String(item?.name || link || path).replace(/\s+/g, ' ').trim();
+        outFromApi.push({ title, url: buildSaturnUrl(path) || `${getSaturnBaseUrl()}${path}` });
+      }
+    }
+    if (outFromApi.length) return outFromApi;
+  } catch (err: any) {
+    console.warn('[AnimeSaturn][Search] live-search API failed, fallback HTML:', err?.message || err);
+  }
+
   const urls = [
     `${getSaturnBaseUrl()}/?search=${q}`,
     `${getSaturnBaseUrl()}/anime?search=${q}`,
@@ -184,7 +234,12 @@ async function asSearch(query: string): Promise<AnimeSaturnResult[]> {
   for (const url of urls) {
     let html = '';
     try {
-      html = await fetchResource(url, asCaches, { ttlMs: 2 * 60 * 1000, cacheKey: `as-search:${url}`, timeoutMs: AS_FETCH_TIMEOUT });
+      html = await fetchResource(url, asCaches, {
+        ttlMs: 2 * 60 * 1000,
+        cacheKey: `as-search:${url}`,
+        timeoutMs: AS_FETCH_TIMEOUT,
+        headers: buildSaturnHeaders(`${getSaturnBaseUrl()}/`),
+      });
     } catch {
       continue;
     }
@@ -195,6 +250,11 @@ async function asSearch(query: string): Promise<AnimeSaturnResult[]> {
       if (!path || seen.has(path)) return;
       seen.add(path);
       const title = String($(el).attr('title') || $(el).text() || path).replace(/\s+/g, ' ').trim();
+      if (title && qRaw) {
+        const t = normalizeUnicodeToAscii(title.toLowerCase());
+        const qn = normalizeUnicodeToAscii(qRaw.toLowerCase());
+        if (!t.includes(qn) && !qn.includes(t)) return;
+      }
       out.push({ title, url: buildSaturnUrl(path) || `${getSaturnBaseUrl()}${path}` });
     });
     if (out.length) break;
@@ -208,7 +268,12 @@ async function asGetEpisodes(animeUrl: string): Promise<AnimeSaturnEpisode[]> {
   if (!finalUrl) return [];
   let html = '';
   try {
-    html = await fetchResource(finalUrl, asCaches, { ttlMs: 5 * 60 * 1000, cacheKey: `as-anime:${finalUrl}`, timeoutMs: AS_FETCH_TIMEOUT });
+    html = await fetchResource(finalUrl, asCaches, {
+      ttlMs: 5 * 60 * 1000,
+      cacheKey: `as-anime:${finalUrl}`,
+      timeoutMs: AS_FETCH_TIMEOUT,
+      headers: buildSaturnHeaders(`${getSaturnBaseUrl()}/`),
+    });
   } catch {
     return [];
   }
@@ -241,9 +306,20 @@ async function asGetStream(episodeUrl: string): Promise<{ url: string | null; he
 
   let html = '';
   try {
-    html = await fetchResource(entryUrl, asCaches, { ttlMs: 5 * 60 * 1000, cacheKey: `as-ep:${entryUrl}`, timeoutMs: AS_FETCH_TIMEOUT });
+    html = await fetchResource(entryUrl, asCaches, {
+      ttlMs: 5 * 60 * 1000,
+      cacheKey: `as-ep:${entryUrl}`,
+      timeoutMs: AS_FETCH_TIMEOUT,
+      headers: buildSaturnHeaders(`${getSaturnBaseUrl()}/`),
+    });
   } catch {
     return { url: null };
+  }
+
+  // Some episodes expose media directly on /ep/... without a /watch hop.
+  const directFromEpisode = collectMediaLinksFromWatchHtml(String(html || ''));
+  if (directFromEpisode.length) {
+    return { url: directFromEpisode[0] };
   }
 
   const initialWatch = extractWatchUrlsFromHtml(String(html || ''));
@@ -257,7 +333,16 @@ async function asGetStream(episodeUrl: string): Promise<{ url: string | null; he
     processed += 1;
     let watchHtml = '';
     try {
-      watchHtml = await fetchResource(watchUrl, asCaches, { ttlMs: 5 * 60 * 1000, cacheKey: `as-watch:${watchUrl}`, timeoutMs: AS_FETCH_TIMEOUT });
+      watchHtml = await fetchResource(watchUrl, asCaches, {
+        ttlMs: 5 * 60 * 1000,
+        cacheKey: `as-watch:${watchUrl}`,
+        timeoutMs: AS_FETCH_TIMEOUT,
+        headers: {
+          ...buildSaturnHeaders(entryUrl),
+          accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'upgrade-insecure-requests': '1',
+        },
+      });
     } catch {
       continue;
     }
@@ -268,6 +353,29 @@ async function asGetStream(episodeUrl: string): Promise<{ url: string | null; he
   }
 
   return { url: null };
+}
+
+function pickSaturnEpisode(
+  episodes: AnimeSaturnEpisode[],
+  requestedEpisode: number,
+  isMovie: boolean,
+): AnimeSaturnEpisode | undefined {
+  if (!episodes.length) return undefined;
+  if (isMovie) return episodes[0];
+
+  const target = Number(requestedEpisode);
+  // 1) Prefer exact episode number from URL/title parsing.
+  const exact = episodes.find((ep, index) => {
+    const parsedFromUrl = parseAsEpisodeNumber(ep.url, -1);
+    if (parsedFromUrl === target) return true;
+    const parsedFromTitle = parseAsEpisodeNumber(ep.title, index + 1);
+    return parsedFromTitle === target;
+  });
+  if (exact) return exact;
+
+  // 2) Conservative fallback to positional index.
+  if (target > 0 && target <= episodes.length) return episodes[target - 1];
+  return episodes[0];
 }
 
 // Adapter drop-in: preserva chiamate legacy invokePythonScraper ma in pure TypeScript.
@@ -583,13 +691,7 @@ export class AnimeSaturnProvider {
     console.log('[AnimeSaturn][Mapping] episodes found:', episodes.length, 'for', normalizedPath);
     if (!episodes.length) return [];
 
-    let targetEpisode: AnimeSaturnEpisode | undefined;
-    if (isMovie) targetEpisode = episodes[0];
-    else targetEpisode = episodes.find((ep) => {
-      const match = String(ep.title || '').match(/E(\d+)/i);
-      if (match) return parseInt(match[1], 10) === requestedEpisode;
-      return String(ep.title || '').includes(String(requestedEpisode));
-    }) || episodes[0];
+    const targetEpisode = pickSaturnEpisode(episodes, requestedEpisode, isMovie);
     if (!targetEpisode) return [];
 
     const streamResult = await invokePythonScraper(['get_stream', '--episode-url', targetEpisode.url]).catch((err: any) => {
@@ -894,19 +996,13 @@ export class AnimeSaturnProvider {
       }
       console.log(`[AnimeSaturn] Episodi trovati per ${version.title}:`, episodes.map(e => e.title));
       let targetEpisode: AnimeSaturnEpisode | undefined;
-      if (isMovie) {
-        targetEpisode = episodes[0];
-        console.log(`[AnimeSaturn] Selezionato primo episodio (movie):`, targetEpisode?.title);
-      } else if (episodeNumber != null) {
-        // Pattern semplice originale: cerca E<number>, altrimenti include del numero
-        targetEpisode = episodes.find(ep => {
-          const match = ep.title.match(/E(\d+)/i);
-            if (match) {
-              return parseInt(match[1]) === episodeNumber;
-            }
-            return ep.title.includes(String(episodeNumber));
-        });
-        console.log(`[AnimeSaturn] Episodio selezionato per E${episodeNumber}:`, targetEpisode?.title);
+      if (episodeNumber != null || isMovie) {
+        targetEpisode = pickSaturnEpisode(episodes, episodeNumber ?? 1, isMovie);
+        if (isMovie) {
+          console.log(`[AnimeSaturn] Selezionato episodio movie:`, targetEpisode?.title);
+        } else {
+          console.log(`[AnimeSaturn] Episodio selezionato per E${episodeNumber}:`, targetEpisode?.title);
+        }
       } else {
         targetEpisode = episodes[0];
         console.log(`[AnimeSaturn] Selezionato primo episodio (default):`, targetEpisode?.title);
