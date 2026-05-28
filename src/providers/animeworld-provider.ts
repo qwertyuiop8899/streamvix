@@ -433,8 +433,10 @@ function findEpisodeUrlTokenInHtml(html: string, episodeNumber: number | null | 
 async function awExtractEpisodeStreamFromPlayPage(slug: string, episodeNumber: number | null | undefined): Promise<string | null> {
   const animeUrl = `${getWorldBaseUrl()}/play/${slug}`;
   let playHtml = '';
+  let pageCtx: AwPageContext | null = null;
   try {
-    playHtml = await awFetchHtml(animeUrl, { ttlMs: 5 * 60 * 1000, cacheKey: `aw-play:${slug}` });
+    pageCtx = await fetchAnimePageContext(animeUrl, `play:${slug}`);
+    playHtml = String(pageCtx?.html || '');
   } catch (err: any) {
     console.error('[AnimeWorld][Stream] play page fetch failed for', slug, err?.message);
     return null;
@@ -444,6 +446,36 @@ async function awExtractEpisodeStreamFromPlayPage(slug: string, episodeNumber: n
     console.log('[AnimeWorld][Stream] no urlToken found for', slug, 'ep=', episodeNumber);
     return null;
   }
+
+  // Upstream-compatible path: ask AnimeWorld API for the active player HTML
+  // for this episode token, then extract mp4/m3u8 from that payload.
+  try {
+    const apiUrl = `${getWorldBaseUrl()}/api/episode/serverPlayerAnimeWorld?id=${encodeURIComponent(urlToken)}`;
+    const apiHeaders: Record<string, string> = {
+      'user-agent': AW_USER_AGENT,
+      'accept-language': 'it-IT,it;q=0.9,en;q=0.8',
+      'x-requested-with': 'XMLHttpRequest',
+      referer: `${getWorldBaseUrl()}/play/${slug}/${urlToken}`,
+    };
+    if (pageCtx?.csrfToken) apiHeaders['csrf-token'] = pageCtx.csrfToken;
+    const cookieHeader = mergeCookies(awSecurityCookie, pageCtx?.sessionCookie || null);
+    if (cookieHeader) apiHeaders.cookie = cookieHeader;
+
+    const playerHtml = await fetchResource(apiUrl, awCaches, {
+      ttlMs: 2 * 60 * 1000,
+      cacheKey: `aw-player:${slug}:${urlToken}`,
+      timeoutMs: AW_FETCH_TIMEOUT,
+      headers: apiHeaders,
+    });
+
+    const fromApi = collectMediaLinksFromHtml(String(playerHtml || ''))[0] || null;
+    if (fromApi) return fromApi;
+    console.log('[AnimeWorld][Stream] no media link in serverPlayer payload for', slug, urlToken);
+  } catch (err: any) {
+    console.warn('[AnimeWorld][Stream] serverPlayer request failed, fallback to episode HTML:', slug, urlToken, err?.message || err);
+  }
+
+  // Fallback path: parse direct episode HTML as before.
   const epUrl = `${getWorldBaseUrl()}/play/${slug}/${urlToken}`;
   let epHtml = '';
   try {
