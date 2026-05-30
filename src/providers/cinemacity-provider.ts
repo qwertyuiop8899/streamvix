@@ -1,20 +1,31 @@
 // CinemaCity provider — port of realbestia1/easystreams providers/cinemacity.js
-// EasyProxy-only mode: we never decrypt the player ourselves; we just resolve
-// the canonical cinemacity.cc page URL for the IMDB/TMDB id and hand it to the
-// configured EasyProxy `/extractor/video.m3u8?host=city&d=…&redirect_stream=true`.
+// Two modes, chosen automatically per request:
+//   A) EasyProxy mode — when `mfpUrl` is configured. We resolve the canonical
+//      cinemacity.cc page URL for the IMDB/TMDB id and hand it to the
+//      configured EasyProxy `/extractor/video.m3u8?host=city&d=…` (encoding
+//      the episode as `?s=&e=` for series). The EasyProxy backend takes care
+//      of decrypting the player.
+//   B) Direct mode — when no EasyProxy is configured. We fetch the catalog
+//      page through the upstream Cloudflare Worker, then extract a direct
+//      HLS URL ourselves (anchor scan + atob/JSON `file:` reconstruction).
+//      This mirrors the upstream easystreams behaviour.
 //
-// Resolution strategy (mirrors upstream):
+// Resolution strategy is shared by both modes:
 //   1) Resolve the request to an IMDB id (tt…). TMDB ids are mapped via TMDB.
 //   2) Get TMDB metadata for that id → expected titles + year.
-//   3) Fetch `https://cinemacity.cc/news_pages.xml` (1h in-memory cache) and
-//      parse <loc> entries; pick the best title-match for the right kind
-//      (movies vs tv-series), with optional IMDB verification on the page.
-//   4) Build target URL: movie → page URL as-is; series → `?s=<S>&e=<E>`.
-//   5) Wrap through EasyProxy. If no EasyProxy is configured we return [].
+//   3) Fetch `https://cinemacity.cc/news_pages.xml` paginated through the
+//      worker (1h in-memory cache); parse <loc> entries; pick the best
+//      title-match for the right kind (movies vs tv-series), with IMDB
+//      verification on the top candidates when we have a tt id.
 //
 // Notes:
-//   - The default session cookie + UA from upstream are kept so the sitemap
-//     fetch behaves like a logged-in browser (cinemacity.cc requires this).
+//   - cinemacity.cc is fronted by Cloudflare. We mirror the upstream approach
+//     and go through a public Cloudflare Worker (`cc.leanhhu061206.workers.dev`)
+//     that proxies the origin and returns the raw response. No session cookie
+//     is needed in this mode.
+//   - The sitemap is paginated (`?page=N&perPage=500`); we read the
+//     `x-total-entries` header on page 1 and fan out the remaining pages in
+//     parallel.
 //   - We intentionally do NOT implement the legacy search fallback paths —
 //     the sitemap alone covers current content and matches upstream default.
 
@@ -28,16 +39,15 @@ export interface CinemaCityConfig {
 }
 
 const BASE_URL = 'https://cinemacity.cc';
-const SITEMAP_URL = `${BASE_URL}/news_pages.xml`;
+const SITEMAP_PATH = '/news_pages.xml';
+const SITEMAP_PAGE_SIZE = 500;
 const SITEMAP_TTL_MS = 60 * 60 * 1000; // 1h
 const FETCH_TIMEOUT_MS = 10_000;
 const USER_AGENT =
   'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
-// Session cookies from upstream (base64 of `dle_user_id=...; dle_password=...;`).
-const SESSION_COOKIE = Buffer.from(
-  'ZGxlX3VzZXJfaWQ9MzI3Mjk7IGRsZV9wYXNzd29yZD04OTQxNzFjNmE4ZGFiMThlZTU5NGQ1YzY1MjAwOWEzNTs=',
-  'base64',
-).toString('utf-8');
+// Cloudflare Worker that proxies cinemacity.cc and bypasses the CF challenge
+// (mirrors the upstream easystreams/providers/cinemacity.js approach).
+const WORKER_HOST = Buffer.from('Y2MubGVhbmhodTA2MTIwNi53b3JrZXJzLmRldg==', 'base64').toString('utf-8');
 
 function logC(...args: any[]) { try { console.log('[CinemaCity]', ...args); } catch { /* */ } }
 
@@ -99,6 +109,114 @@ function parseSitemapEntries(xml: string): SitemapEntry[] {
   return entries;
 }
 
+// --- direct HLS extraction (no-EasyProxy mode) ------------------------------
+// Mirrors easystreams: parse the catalog page (fetched via worker) and pull
+// out a playable URL. Two strategies in order:
+//   1) <a href="...mp4|m3u8|mkv"> anchors, preferring italian-labelled ones
+//   2) atob('…') blobs in <script>: decode → JSON `file:` array → reconstruct
+//      a CDN `/public_files/.../<file>.urlset/master.m3u8` URL with italian
+//      audio + 1080p video parts.
+
+function base64DecodeSafe(s: string): string {
+  try { return Buffer.from(s, 'base64').toString('utf-8'); } catch { return ''; }
+}
+
+function buildDownloadUrl(fileVal: string): string | null {
+  const idx = fileVal.indexOf('/public_files/');
+  if (idx === -1) return null;
+  const cdnBase = fileVal.substring(0, idx + '/public_files/'.length);
+  const rest = fileVal.substring(idx + '/public_files/'.length);
+  const parts = rest.split(',');
+  const video = parts.find(p => p.includes('1080p') && p.endsWith('.mp4')) || parts.find(p => p.endsWith('.mp4'));
+  const itaAudio = parts.find(p => /italian|italiano/i.test(p) && p.endsWith('.m4a'));
+  if (!itaAudio || !video) return null;
+  const m3u8Entry = parts.find(p => p.includes('.m3u8'));
+  return cdnBase + rest + (m3u8Entry ? '' : '.urlset/master.m3u8');
+}
+
+function extractStreamFromAtob(html: string, season: number | null, episode: number | null): string | null {
+  const re = /atob\s*\(\s*['"]([^"']{20,})['"]\s*\)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const decoded = base64DecodeSafe(m[1]);
+    if (!decoded) continue;
+    const jm = decoded.match(/file\s*:\s*'(\[.*?\])'/s);
+    if (!jm) continue;
+    try {
+      const parsed = JSON.parse(jm[1]);
+      if (!Array.isArray(parsed) || parsed.length === 0) continue;
+      if (parsed[0]?.folder && Array.isArray(parsed[0].folder)) {
+        const sIdx = Math.max(0, (season || 1) - 1);
+        const s = parsed[sIdx];
+        const eIdx = Math.max(0, (episode || 1) - 1);
+        const ep = s?.folder?.[eIdx];
+        if (ep?.file) return buildDownloadUrl(ep.file) || ep.file;
+      }
+      const fileVal = parsed[0]?.file;
+      if (typeof fileVal === 'string' && fileVal.startsWith('http')) {
+        return buildDownloadUrl(fileVal) || fileVal;
+      }
+    } catch { /* keep scanning */ }
+  }
+  return null;
+}
+
+function extractDownloadLinks(html: string): { url: string; text: string }[] {
+  const out: { url: string; text: string }[] = [];
+  const re = /<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const href = m[1].trim();
+    if (!/\.(mp4|m3u8|mkv|avi|mov|webm)([?#].*)?$/i.test(href)) continue;
+    if (href.length < 10) continue;
+    out.push({ url: href, text: m[2].replace(/<[^>]+>/g, '').trim().toLowerCase() });
+  }
+  return out;
+}
+
+function pickItalianLink(links: { url: string; text: string }[]): string | null {
+  for (const l of links) {
+    const t = l.text;
+    if (t.includes('ita') || t.includes('italian') || t.includes('italiano')) return l.url;
+  }
+  for (const l of links) if (!l.text.includes('eng') && !l.text.includes('sub')) return l.url;
+  return links[0]?.url || null;
+}
+
+function resolveAbsUrl(base: string, rel: string): string {
+  if (/^https?:\/\//i.test(rel)) return rel;
+  try { return new URL(rel, base).toString(); } catch { return rel; }
+}
+
+async function extractDirectStream(
+  pageUrl: string,
+  isMovie: boolean,
+  season: number | null,
+  episode: number | null,
+): Promise<string | null> {
+  const r = await fetchViaWorker(pageUrl, {
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Referer': `${BASE_URL}/`,
+  });
+  if (!r || r.status < 200 || r.status >= 400) {
+    logC('direct extract: page status', r?.status);
+    return null;
+  }
+  const html = r.text;
+  if (html.length < 500) { logC('direct extract: page too small'); return null; }
+
+  // Strategy 1: anchor links (often present for movies)
+  const anchors = extractDownloadLinks(html);
+  let picked = pickItalianLink(anchors);
+  // Strategy 2: atob-encoded JSON player config
+  if (!picked) {
+    picked = extractStreamFromAtob(html, isMovie ? null : season, isMovie ? null : episode);
+  }
+  if (!picked) { logC('direct extract: no playable url'); return null; }
+  return resolveAbsUrl(pageUrl, picked);
+}
+
 async function fetchWithTimeout(url: string, opts: any = {}): Promise<Response> {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), opts.timeout || FETCH_TIMEOUT_MS);
@@ -107,98 +225,81 @@ async function fetchWithTimeout(url: string, opts: any = {}): Promise<Response> 
   } finally { clearTimeout(t); }
 }
 
-// --- CF-aware fetch via PROXY / PROXY_BACKUP --------------------------------
-// Cinemacity is gated by Cloudflare. We first try a direct fetch; on a blocked
-// status (403/429/503/520/521) or HTML carrying CF challenge markers we retry
-// through `process.env.PROXY`, then `process.env.PROXY_BACKUP`. Both env vars
-// can be standard `http(s)://user:pass@host:port` URLs (undici.ProxyAgent).
-//
-// We only use this for cinemacity.cc itself. TMDB and the EasyProxy never
-// go through these proxies.
-// NB: `/cdn-cgi/challenge-platform/scripts/jsd/main.js` is shipped on ALL
-// pages by CF for telemetry — it is NOT a challenge marker. The real challenge
-// page path is `/cdn-cgi/challenge-platform/h/...`. We match that one.
-const CF_MARKERS = /cf-turnstile|__cf_chl_|Just a moment\.\.\.|enable javascript and cookies to continue|\/cdn-cgi\/challenge-platform\/h\/|Cloudflare has blocked/i;
-
-function isBlockedStatus(s: number): boolean {
-  return s === 0 || s === 403 || s === 429 || s === 503 || s === 520 || s === 521 || s === 522;
+// --- Worker-proxied fetch ---------------------------------------------------
+// cinemacity.cc is gated by Cloudflare. The upstream easystreams provider goes
+// through a public Cloudflare Worker (`cc.leanhhu061206.workers.dev`) that
+// forwards the request to the origin and returns the raw response. We do the
+// same here. Only used for cinemacity.cc itself — TMDB and the EasyProxy
+// extractor never go through it.
+function workerUrl(pathAndQuery: string): string {
+  const p = pathAndQuery.startsWith('/') ? pathAndQuery : '/' + pathAndQuery;
+  return `https://${WORKER_HOST}${p}`;
 }
 
-function maskProxy(p: string): string { return p.replace(/:[^@/]+@/, ':***@'); }
-
-async function tryFetchOnce(
-  url: string,
-  headers: Record<string, string>,
-  proxyUrl?: string,
-): Promise<{ status: number; text: string } | null> {
+async function fetchViaWorker(
+  absoluteOrPath: string,
+  extraHeaders: Record<string, string> = {},
+): Promise<{ status: number; text: string; headers: Headers } | null> {
+  let pathAndQuery: string;
+  if (/^https?:\/\//i.test(absoluteOrPath)) {
+    try {
+      const u = new URL(absoluteOrPath);
+      pathAndQuery = u.pathname + u.search;
+    } catch { return null; }
+  } else {
+    pathAndQuery = absoluteOrPath;
+  }
+  const target = workerUrl(pathAndQuery);
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
-  const init: any = { headers, signal: ctl.signal };
-  if (proxyUrl) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const undici = require('undici');
-      init.dispatcher = new undici.ProxyAgent(proxyUrl);
-    } catch (e: any) {
-      logC('undici ProxyAgent unavailable, skipping proxy attempt:', e?.message || e);
-      clearTimeout(t);
-      return null;
-    }
-  }
   try {
-    const r: Response = await fetch(url, init);
+    const r: Response = await fetch(target, {
+      headers: { 'User-Agent': USER_AGENT, ...extraHeaders },
+      signal: ctl.signal,
+    });
     const text = await r.text();
-    return { status: r.status, text };
+    return { status: r.status, text, headers: r.headers };
   } catch (e: any) {
-    logC('fetch err', proxyUrl ? `(via ${maskProxy(proxyUrl)})` : '(direct)', e?.message || e);
+    logC('worker fetch err:', e?.message || e);
     return null;
   } finally { clearTimeout(t); }
 }
 
-function isUsable(r: { status: number; text: string } | null): boolean {
-  if (!r) return false;
-  if (isBlockedStatus(r.status)) return false;
-  if (r.status >= 200 && r.status < 400 && !CF_MARKERS.test(r.text)) return true;
-  return false;
-}
-
-async function cfAwareFetch(
-  url: string,
-  headers: Record<string, string>,
-): Promise<{ status: number; text: string } | null> {
-  let last = await tryFetchOnce(url, headers);
-  if (isUsable(last)) return last;
-  const env = (typeof process !== 'undefined' ? process.env : {}) as any;
-  const primary = String(env.PROXY || '').trim();
-  const backup = String(env.PROXY_BACKUP || '').trim();
-  const chain = [primary, backup].filter(Boolean);
-  for (const p of chain) {
-    logC('retry via', maskProxy(p), '(prev status=' + (last ? last.status : 'err') + ')');
-    const r = await tryFetchOnce(url, headers, p);
-    if (isUsable(r)) return r;
-    if (r) last = r;
-  }
-  if (last && !isUsable(last)) {
-    logC('all attempts blocked. final status=' + last.status);
-  }
-  return last;
-}
-
 async function fetchSitemap(): Promise<SitemapEntry[]> {
   if (sitemapCache && sitemapCache.expiresAt > Date.now()) return sitemapCache.entries;
-  logC('fetching sitemap', SITEMAP_URL);
-  const r = await cfAwareFetch(SITEMAP_URL, {
-    'User-Agent': USER_AGENT,
-    'Accept': 'application/xml,text/xml,text/html;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
-    'Referer': `${BASE_URL}/`,
-    'Cookie': SESSION_COOKIE,
-  });
-  if (!r || r.status < 200 || r.status >= 400) throw new Error(`sitemap HTTP ${r ? r.status : 'err'}`);
-  const entries = parseSitemapEntries(r.text);
-  sitemapCache = { entries, expiresAt: Date.now() + SITEMAP_TTL_MS };
-  logC('sitemap loaded:', entries.length, 'entries');
-  return entries;
+  logC('fetching paginated sitemap via worker');
+
+  let all: SitemapEntry[] = [];
+  // First page tells us how many entries exist (x-total-entries header).
+  const first = await fetchViaWorker(`${SITEMAP_PATH}?page=1&perPage=${SITEMAP_PAGE_SIZE}`);
+  if (first && first.status >= 200 && first.status < 400) {
+    all = parseSitemapEntries(first.text);
+    const total = parseInt(first.headers.get('x-total-entries') || '0', 10);
+    if (Number.isInteger(total) && total > all.length) {
+      const totalPages = Math.ceil(total / SITEMAP_PAGE_SIZE);
+      const tasks: Promise<void>[] = [];
+      for (let p = 2; p <= totalPages; p++) {
+        tasks.push((async () => {
+          const r = await fetchViaWorker(`${SITEMAP_PATH}?page=${p}&perPage=${SITEMAP_PAGE_SIZE}`);
+          if (r && r.status >= 200 && r.status < 400) {
+            all = all.concat(parseSitemapEntries(r.text));
+          }
+        })());
+      }
+      await Promise.all(tasks);
+    }
+  }
+
+  // Fallback: single-shot full sitemap if paginated mode returned nothing.
+  if (all.length === 0) {
+    const r = await fetchViaWorker(SITEMAP_PATH);
+    if (r && r.status >= 200 && r.status < 400) all = parseSitemapEntries(r.text);
+  }
+
+  if (all.length === 0) throw new Error('sitemap empty');
+  sitemapCache = { entries: all, expiresAt: Date.now() + SITEMAP_TTL_MS };
+  logC('sitemap loaded:', all.length, 'entries');
+  return all;
 }
 
 interface TmdbMeta { title?: string; name?: string; original_title?: string; original_name?: string; release_date?: string; first_air_date?: string }
@@ -260,12 +361,10 @@ function scoreEntry(entry: SitemapEntry, expectedTitles: string[], expectedYear:
 }
 
 async function verifyImdbOnPage(url: string, expectedImdb: string): Promise<boolean> {
-  const r = await cfAwareFetch(url, {
-    'User-Agent': USER_AGENT,
+  const r = await fetchViaWorker(url, {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
     'Referer': `${BASE_URL}/`,
-    'Cookie': SESSION_COOKIE,
   });
   if (!r || r.status < 200 || r.status >= 400) return false;
   const m = (r.text.match(/\btt\d{5,}\b/gi) || [])[0];
@@ -346,29 +445,45 @@ export class CinemaCityProvider {
     isMovie: boolean = true,
   ): Promise<{ streams: StreamForStremio[] }> {
     if (!this.config.enabled) return { streams: [] };
-    if (!this.config.mfpUrl) { logC('no EasyProxy configured -> skip'); return { streams: [] }; }
     const id = (imdbId || '').split(':')[0];
     if (!/^tt\d+$/i.test(id)) return { streams: [] };
     const found = await searchBySitemap(id, isMovie, this.apiKey);
     if (!found) return { streams: [] };
-    let target = found.url;
-    if (!isMovie && season && episode) {
-      const sep = target.includes('?') ? '&' : '?';
-      target += `${sep}s=${season}&e=${episode}`;
-    }
-    const proxyUrl = buildProxyUrl(target, this.config.mfpUrl, this.config.mfpPassword);
+    const pageUrl = found.url;
     const titleLine = isMovie
       ? `Movie\n💾 CinemaCity`
       : `S${season}E${episode}\n💾 CinemaCity`;
-    const stream: StreamForStremio = {
-      title: titleLine,
-      url: proxyUrl,
-      behaviorHints: {
-        notWebReady: true,
-        bingeGroup: 'cinemacity-std',
-      } as any,
+
+    // Branch A: EasyProxy configured → wrap through MFP extractor (host=city).
+    // EasyProxy expects the series episode encoded as ?s=&e= on the target.
+    if (this.config.mfpUrl) {
+      let target = pageUrl;
+      if (!isMovie && season && episode) {
+        const sep = target.includes('?') ? '&' : '?';
+        target += `${sep}s=${season}&e=${episode}`;
+      }
+      const proxyUrl = buildProxyUrl(target, this.config.mfpUrl, this.config.mfpPassword);
+      return {
+        streams: [{
+          title: titleLine,
+          url: proxyUrl,
+          behaviorHints: { notWebReady: true, bingeGroup: 'cinemacity-std' } as any,
+        }],
+      };
+    }
+
+    // Branch B: no EasyProxy → resolve directly via worker (easystreams mode).
+    // The catalog page itself carries the full season/episode tree inside the
+    // atob blob; we pick the right ep from there. No ?s=&e= needed.
+    const directUrl = await extractDirectStream(pageUrl, isMovie, season || null, episode || null);
+    if (!directUrl) { logC('direct mode: no stream resolved'); return { streams: [] }; }
+    return {
+      streams: [{
+        title: titleLine,
+        url: directUrl,
+        behaviorHints: { notWebReady: true, bingeGroup: 'cinemacity-std' } as any,
+      }],
     };
-    return { streams: [stream] };
   }
 
   async handleTmdbRequest(
@@ -378,7 +493,6 @@ export class CinemaCityProvider {
     isMovie: boolean = true,
   ): Promise<{ streams: StreamForStremio[] }> {
     if (!this.config.enabled) return { streams: [] };
-    if (!this.config.mfpUrl) return { streams: [] };
     const clean = (tmdbId || '').replace(/^tmdb:/, '').split(':')[0];
     if (!/^\d+$/.test(clean)) return { streams: [] };
     try {
