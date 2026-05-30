@@ -1,22 +1,21 @@
 // ADN Provider — AltadefinizioneStreaming CDN-only direct API.
-// Mirrors the easystreams `altadefinizionestreaming.js` logic for the
-// `provider === 'cdn'` source returned by /api/player-sources/{movie|tv}/...
 //
-// IP binding note: the CDN URLs returned by /api/player-sources/... carry an
-// `ipsig` parameter bound to the IP that made the API call. If the addon
-// (server) and the playback device are on different IPs, the device gets
-// HTTP 410 DENIED. Two mitigations are wired in:
-//   1) If `mfpUrl` (EasyProxy/MediaFlowProxy) is configured, the CDN .mp4
-//      URL is wrapped through `/proxy/stream/...` so playback egresses from
-//      the same IP that performed the API call.
-//   2) When the direct fetch to altadefinizionestreaming.com fails (network
-//      error, non-OK status, or empty payload), the request is retried via
-//      `process.env.PROXY_BACKUP` (standard HTTP(S) proxy URL) using
-//      undici.ProxyAgent. This is useful when ADN blocks the addon's host.
+// ipsig binding: the CDN URLs returned by /api/player-sources/... embed an
+// HMAC of the caller's IP. Cross-IP playback → CDN replies 410 DENIED. The
+// only correct fix is to make the API call from the same IP that serves the
+// playback bytes — i.e. delegate the whole resolve to EasyProxy through its
+// `/extractor/video.mp4?host=adn&d=<api url>&redirect_stream=true` endpoint.
+//
+// Modes:
+//   A) EasyProxy mode (`mfpUrl` set) — preferred. Requires an `adn`
+//      extractor in EasyProxy.
+//   B) Direct mode — addon resolves itself; the raw CDN URL is returned to
+//      the player. Works only when addon and player egress from the same IP
+//      (rare). PROXY_BACKUP only helps if ADN blocks the addon's host for
+//      the API call — it does NOT solve ipsig mismatch.
 
 import type { StreamForStremio } from '../types/animeunity';
 import { getTmdbIdFromImdbId } from '../extractor';
-import { formatMediaFlowUrl } from '../utils/mediaflow';
 
 export interface AdnConfig {
     enabled: boolean;
@@ -104,6 +103,44 @@ export class AdnProvider {
             ? `${BASE_URL}/api/player-sources/movie/${encodeURIComponent(tmdbId)}`
             : `${BASE_URL}/api/player-sources/tv/${encodeURIComponent(tmdbId)}/${s}/${e}`;
 
+        // Resolve a friendly title via TMDB (Italian). Cheap and always
+        // reachable — we do it in both modes.
+        let showTitle: string | undefined;
+        if (this.config.tmdbApiKey) {
+            try {
+                const ep = isMovie ? 'movie' : 'tv';
+                const meta = await fetchJson(`https://api.themoviedb.org/3/${ep}/${tmdbId}?api_key=${this.config.tmdbApiKey}&language=it-IT`);
+                showTitle = meta?.title || meta?.name || meta?.original_title || meta?.original_name;
+            } catch { /* ignore */ }
+        }
+        const base = showTitle || (isMovie ? 'Film' : 'Serie');
+        const displayTitle = isMovie ? base : `${base} ${s}x${e}`;
+
+        // ── Mode A: EasyProxy extractor ─────────────────────────────────
+        // Delegate the whole API call + CDN selection + playback to
+        // EasyProxy. The addon never sees the signed URL, so ipsig is
+        // naturally bound to the EasyProxy egress IP that will also serve
+        // the bytes via /proxy/stream.
+        if (this.config.mfpUrl) {
+            const mfpBase = this.config.mfpUrl.replace(/\/+$/, '');
+            const params = new URLSearchParams();
+            params.set('host', 'adn');
+            params.set('d', endpoint);
+            params.set('redirect_stream', 'true');
+            if (this.config.mfpPassword) params.set('api_password', this.config.mfpPassword);
+            const proxyUrl = `${mfpBase}/extractor/video.mp4?${params.toString()}`;
+
+            console.log('[ADN] EasyProxy wrap', proxyUrl);
+            return {
+                streams: [{
+                    url: proxyUrl,
+                    title: `📁 ${displayTitle}\n💾 720p • ADN CDN • EasyProxy`,
+                    behaviorHints: { notWebReady: true, bingeGroup: 'adn-std' } as any,
+                }],
+            };
+        }
+
+        // ── Mode B: direct (no EasyProxy) ───────────────────────────────
         console.log('[ADN] GET', endpoint);
         const payload = await fetchJson(endpoint, /* allowBackup */ true);
         const sources: any[] = Array.isArray(payload?.sources) ? payload.sources : [];
@@ -118,45 +155,22 @@ export class AdnProvider {
             return { streams: [] };
         }
 
-        // Resolve a friendly title via TMDB (Italian).
-        let showTitle: string | undefined;
-        if (this.config.tmdbApiKey) {
-            try {
-                const ep = isMovie ? 'movie' : 'tv';
-                const meta = await fetchJson(`https://api.themoviedb.org/3/${ep}/${tmdbId}?api_key=${this.config.tmdbApiKey}&language=it-IT`);
-                showTitle = meta?.title || meta?.name || meta?.original_title || meta?.original_name;
-            } catch { /* ignore */ }
-        }
-        const base = showTitle || (isMovie ? 'Film' : 'Serie');
-        const displayTitle = isMovie ? base : `${base} ${s}x${e}`;
-
         const playbackHeaders = {
             'User-Agent': USER_AGENT,
             'Referer': `${BASE_URL}/`
         };
 
-        // ipsig binding workaround: when MFP is configured, wrap the CDN .mp4
-        // URL through /proxy/stream so playback egresses from the same IP
-        // that requested the API. Otherwise we hand the direct URL to the
-        // player (works only if the player's IP matches the addon's IP).
-        const directUrl = String(cdn.url);
-        const finalUrl = this.config.mfpUrl
-            ? formatMediaFlowUrl(directUrl, this.config.mfpUrl, this.config.mfpPassword || '')
-            : directUrl;
-        const wrappedTag = this.config.mfpUrl ? ' • MFP' : '';
-
         const stream: StreamForStremio = {
-            url: finalUrl,
-            title: `📁 ${displayTitle}\n💾 720p • ADN CDN${wrappedTag}`,
+            url: String(cdn.url),
+            title: `📁 ${displayTitle}\n💾 720p • ADN CDN`,
             behaviorHints: {
                 notWebReady: true,
                 proxyHeaders: { request: playbackHeaders }
             } as any
         };
-        // Root headers for clients that read them (e.g., Nuvio)
         (stream as any).headers = playbackHeaders;
 
-        console.log('[ADN] returning 1 CDN stream for', displayTitle, this.config.mfpUrl ? '(wrapped via MFP)' : '(direct)');
+        console.log('[ADN] returning 1 CDN stream for', displayTitle, '(direct — ipsig bound to addon IP)');
         return { streams: [stream] };
     }
 }
