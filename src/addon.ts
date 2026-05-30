@@ -6336,7 +6336,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 const vidxgoEnabled = envFlag('VIDXGO_ENABLED') ?? (isDirectAPICall || config.vidxgoEnabled === true || rc?.vidxgoEnabled === true);
                 const cinemacityEnabled = process.env.CINEMACITY_DISABLE === '1'
                     ? false
-                    : (envFlag('CINEMACITY_ENABLED') ?? (isDirectAPICall || config.cinemacityEnabled === true || rc?.cinemacityEnabled === true)) && !!mfpUrl;
+                    : (envFlag('CINEMACITY_ENABLED') ?? (isDirectAPICall || config.cinemacityEnabled === true || rc?.cinemacityEnabled === true));
                 const guardaHdEnabled = envFlag('GUARDAHD_ENABLED') ?? (isDirectAPICall || config.guardahdEnabled === true || rc?.guardahdEnabled === true);
                 const adnEnabled = envFlag('ADN_ENABLED') ?? (isDirectAPICall || (config as any).adnEnabled === true || rc?.adnEnabled === true);
                 const cb01Enabled = envFlag('CB01_ENABLED') ?? (isDirectAPICall || (config as any).cb01Enabled === true || rc?.cb01Enabled === true);
