@@ -502,7 +502,7 @@ function landingTemplate(manifest: any) {
 					'animesaturnEnabled': { title: 'Anime Saturn 🪐 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Alcuni flussi hanno bisogno di MFP)</span>', invert: false },
 					'animeworldEnabled': { title: 'Anime World 🌍 - 🔓', invert: false },
 					'vidxgoEnabled': { title: 'VidXgo 🎯 - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci EasyProxy per abilitare)</span>', invert: false },
-					'cinemacityEnabled': { title: 'CinemaCity 🏙️ - 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Inserisci EasyProxy per abilitare)</span>', invert: false },
+					'cinemacityEnabled': { title: 'CinemaCity 🏙️ - � 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">(Senza EasyProxy solo player esterno)</span>', invert: false },
 					'guardoserieEnabled': { title: 'Guardoserie 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
 					'guardaflixEnabled': { title: 'Guardaflix 📼 - 🔓 🔒 <span style="font-size:0.65rem; opacity:0.75; font-weight:600;">Senza Proxy solo player esterno</span>', invert: false },
 					'guardahdEnabled': { title: 'GuardaHD 🎬 - 🔓', invert: false },
@@ -963,7 +963,8 @@ function landingTemplate(manifest: any) {
 						}
 						if (vidxgoRow) setRowState(vidxgoRow);
 					}
-					// CinemaCity toggle gating (richiede MFP attivo, password opzionale)
+					// CinemaCity toggle gating: works both with EasyProxy and direct
+					// (worker fallback). No URL/password gating — just the Master switch.
 					if (cinemacityEl){
 						if (!on) { // Master OFF
 							if (storedCinemacityState === null) storedCinemacityState = cinemacityEl.checked;
@@ -972,13 +973,8 @@ function landingTemplate(manifest: any) {
 							if (cinemacityRow) cinemacityRow.classList.add('dimmed');
 						} else { // Master ON
 							if (cinemacityRow) cinemacityRow.classList.remove('dimmed');
-							cinemacityEl.disabled = !canEnableWithUrl;
-							if (canEnableWithUrl) {
-								if (storedCinemacityState !== null) { cinemacityEl.checked = storedCinemacityState; storedCinemacityState = null; }
-							} else {
-								if (storedCinemacityState === null) storedCinemacityState = cinemacityEl.checked;
-								cinemacityEl.checked = false;
-							}
+							cinemacityEl.disabled = false;
+							if (storedCinemacityState !== null) { cinemacityEl.checked = storedCinemacityState; storedCinemacityState = null; }
 						}
 						if (cinemacityRow) setRowState(cinemacityRow);
 					}
