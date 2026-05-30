@@ -7003,13 +7003,17 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }, providerLabel('guardahd'), true, 30000);  // GuardaHD: timeout 30s
                     }
 
-                    // ADN (AltadefinizioneStreaming CDN-only, no proxy)
+                    // ADN (AltadefinizioneStreaming CDN). Direct fetch with
+                    // optional PROXY_BACKUP fallback; if MFP is configured the
+                    // .mp4 URL is wrapped to bypass the ipsig IP binding.
                     if (adnEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
                         scheduleProviderRun('ADN', true, async () => {
                             const { AdnProvider } = await import('./providers/adn-provider');
                             const adnProvider = new AdnProvider({
                                 enabled: true,
-                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0'
+                                tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
+                                mfpUrl: mfpUrl,
+                                mfpPassword: mfpPsw
                             });
                             if (id.startsWith('tt')) return adnProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return adnProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
