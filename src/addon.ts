@@ -6968,8 +6968,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }, providerLabel('vidxgo'), false, 30000);  // VidXgo: timeout 30s
                     }
 
-                    // CinemaCity (movies + series). EasyProxy-only: requires MFP url.
-                    if (cinemacityEnabled && (id.startsWith('tt') || id.startsWith('tmdb:')) && mfpUrl) {
+                    // CinemaCity (movies + series). Uses EasyProxy when mfpUrl
+                    // is configured, otherwise falls back to direct worker
+                    // extraction (easystreams-style).
+                    if (cinemacityEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
                         scheduleProviderRun('CinemaCity', true, async () => {
                             const { CinemaCityProvider } = await import('./providers/cinemacity-provider');
                             const ccProvider = new CinemaCityProvider({
