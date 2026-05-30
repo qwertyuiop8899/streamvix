@@ -1,37 +1,74 @@
 // ADN Provider — AltadefinizioneStreaming CDN-only direct API.
 // Mirrors the easystreams `altadefinizionestreaming.js` logic for the
 // `provider === 'cdn'` source returned by /api/player-sources/{movie|tv}/...
-// No proxy, no MFP — direct fetch to altadefinizionestreaming.com.
+//
+// IP binding note: the CDN URLs returned by /api/player-sources/... carry an
+// `ipsig` parameter bound to the IP that made the API call. If the addon
+// (server) and the playback device are on different IPs, the device gets
+// HTTP 410 DENIED. Two mitigations are wired in:
+//   1) If `mfpUrl` (EasyProxy/MediaFlowProxy) is configured, the CDN .mp4
+//      URL is wrapped through `/proxy/stream/...` so playback egresses from
+//      the same IP that performed the API call.
+//   2) When the direct fetch to altadefinizionestreaming.com fails (network
+//      error, non-OK status, or empty payload), the request is retried via
+//      `process.env.PROXY_BACKUP` (standard HTTP(S) proxy URL) using
+//      undici.ProxyAgent. This is useful when ADN blocks the addon's host.
 
 import type { StreamForStremio } from '../types/animeunity';
 import { getTmdbIdFromImdbId } from '../extractor';
+import { formatMediaFlowUrl } from '../utils/mediaflow';
 
 export interface AdnConfig {
     enabled: boolean;
     tmdbApiKey?: string;
+    mfpUrl?: string;
+    mfpPassword?: string;
 }
 
 const BASE_URL = 'https://altadefinizionestreaming.com';
 const USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36';
 
-async function fetchJson(url: string): Promise<any | null> {
+async function rawFetchJson(url: string, proxyUrl?: string): Promise<any | null> {
+    const init: any = {
+        headers: {
+            'User-Agent': USER_AGENT,
+            'Referer': `${BASE_URL}/`,
+            'Accept': 'application/json,text/plain,*/*'
+        }
+    };
+    if (proxyUrl) {
+        try {
+            const undici = await import('undici');
+            init.dispatcher = new (undici as any).ProxyAgent(proxyUrl);
+        } catch (e: any) {
+            console.log('[ADN] undici ProxyAgent unavailable', e?.message || e);
+            return null;
+        }
+    }
     try {
-        const r = await fetch(url, {
-            headers: {
-                'User-Agent': USER_AGENT,
-                'Referer': `${BASE_URL}/`,
-                'Accept': 'application/json,text/plain,*/*'
-            }
-        });
+        const r = await fetch(url, init);
         if (!r.ok) {
-            console.log('[ADN] fetchJson non-ok', r.status, url);
+            console.log('[ADN] fetch non-ok', r.status, proxyUrl ? '(via PROXY_BACKUP)' : '(direct)', url);
             return null;
         }
         return await r.json();
     } catch (e: any) {
-        console.log('[ADN] fetchJson error', e?.message || e);
+        console.log('[ADN] fetch error', proxyUrl ? '(via PROXY_BACKUP)' : '(direct)', e?.message || e);
         return null;
     }
+}
+
+// Fetch with optional PROXY_BACKUP fallback. Only the cdn API host benefits
+// from the fallback — TMDB calls go direct (Google's CDN is universally
+// reachable and the proxy would just slow them down).
+async function fetchJson(url: string, allowBackup = false): Promise<any | null> {
+    const direct = await rawFetchJson(url);
+    if (direct) return direct;
+    if (!allowBackup) return null;
+    const backup = String(process.env.PROXY_BACKUP || '').trim();
+    if (!backup) return null;
+    console.log('[ADN] retrying via PROXY_BACKUP');
+    return rawFetchJson(url, backup);
 }
 
 export class AdnProvider {
@@ -68,7 +105,7 @@ export class AdnProvider {
             : `${BASE_URL}/api/player-sources/tv/${encodeURIComponent(tmdbId)}/${s}/${e}`;
 
         console.log('[ADN] GET', endpoint);
-        const payload = await fetchJson(endpoint);
+        const payload = await fetchJson(endpoint, /* allowBackup */ true);
         const sources: any[] = Array.isArray(payload?.sources) ? payload.sources : [];
         if (!sources.length) {
             console.log('[ADN] no sources in payload');
@@ -98,9 +135,19 @@ export class AdnProvider {
             'Referer': `${BASE_URL}/`
         };
 
+        // ipsig binding workaround: when MFP is configured, wrap the CDN .mp4
+        // URL through /proxy/stream so playback egresses from the same IP
+        // that requested the API. Otherwise we hand the direct URL to the
+        // player (works only if the player's IP matches the addon's IP).
+        const directUrl = String(cdn.url);
+        const finalUrl = this.config.mfpUrl
+            ? formatMediaFlowUrl(directUrl, this.config.mfpUrl, this.config.mfpPassword || '')
+            : directUrl;
+        const wrappedTag = this.config.mfpUrl ? ' • MFP' : '';
+
         const stream: StreamForStremio = {
-            url: String(cdn.url),
-            title: `📁 ${displayTitle}\n💾 720p • ADN CDN`,
+            url: finalUrl,
+            title: `📁 ${displayTitle}\n💾 720p • ADN CDN${wrappedTag}`,
             behaviorHints: {
                 notWebReady: true,
                 proxyHeaders: { request: playbackHeaders }
@@ -109,7 +156,7 @@ export class AdnProvider {
         // Root headers for clients that read them (e.g., Nuvio)
         (stream as any).headers = playbackHeaders;
 
-        console.log('[ADN] returning 1 CDN stream for', displayTitle);
+        console.log('[ADN] returning 1 CDN stream for', displayTitle, this.config.mfpUrl ? '(wrapped via MFP)' : '(direct)');
         return { streams: [stream] };
     }
 }
