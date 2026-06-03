@@ -6968,17 +6968,18 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                         }, providerLabel('vidxgo'), false, 30000);  // VidXgo: timeout 30s
                     }
 
-                    // CinemaCity (movies + series). Uses EasyProxy when mfpUrl
-                    // is configured, otherwise falls back to direct worker
-                    // extraction (easystreams-style).
+                    // CinemaCity (movies + series). Always uses the direct
+                    // worker extraction path (easystreams-style): the worker
+                    // bypasses Cloudflare and returns a signed stream URL that
+                    // does NOT need to be wrapped by EasyProxy.
                     if (cinemacityEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
                         scheduleProviderRun('CinemaCity', true, async () => {
                             const { CinemaCityProvider } = await import('./providers/cinemacity-provider');
                             const ccProvider = new CinemaCityProvider({
                                 enabled: true,
                                 tmdbApiKey: config.tmdbApiKey || process.env.TMDB_API_KEY || '40a9faa1f6741afb2c0c40238d85f8d0',
-                                mfpUrl: mfpUrl,
-                                mfpPassword: mfpPsw
+                                mfpUrl: undefined,
+                                mfpPassword: undefined
                             });
                             if (id.startsWith('tt')) return ccProvider.handleImdbRequest(id, seasonNumber, episodeNumber, isMovie);
                             if (id.startsWith('tmdb:')) return ccProvider.handleTmdbRequest(id.replace('tmdb:', ''), seasonNumber, episodeNumber, isMovie);
