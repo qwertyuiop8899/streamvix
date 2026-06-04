@@ -7722,7 +7722,19 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
             });
             q.t = token;
         }
-        if (!provided || provided !== CHAPTA_TOKEN) {
+        if (!provided) {
+            // No token provided: redirect to /chapta?t= with other params preserved
+            const qs = new URLSearchParams();
+            qs.set('t', '');
+            const otherParams = ['set_uprot', 'set_clicka', 'fresh'];
+            for (const p of otherParams) {
+                const v = req.query[p];
+                if (typeof v === 'string' && v.length > 0) qs.set(p, v);
+            }
+            return res.redirect(`/chapta?${qs.toString()}`);
+        }
+        if (provided !== CHAPTA_TOKEN) {
+            // Token provided but incorrect
             const wantsHtml = String(req.headers.accept || '').includes('text/html');
             if (wantsHtml) {
                 const safeToken = _escapeAttr(token || '');
