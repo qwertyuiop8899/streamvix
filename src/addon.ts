@@ -7376,6 +7376,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
 {
     const chaptaSessions = new Map<string, { filePath: string; createdMs: number; domain: 'uprot' | 'clicka' }>();
     const CHAPTA_SESSION_TTL_MS = 10 * 60 * 1000;
+    const CHAPTA_TOKEN = String(process.env.CHAPTA_TOKEN || '').trim();
     // Captcha "vivo" per dominio: serve a NON resettare l'altro dominio quando
     // l'utente ricarica / submitta solo uno dei due. Riusato finche' non scade
     // o finche' lo slot non cambia.
@@ -7421,6 +7422,35 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
             (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;'));
     }
 
+    function _escapeAttr(s: string): string {
+        return _escapeHtml(s);
+    }
+
+    function _withToken(pathname: string, token: string, extra?: Record<string, string>): string {
+        const q = new URLSearchParams();
+        if (token) q.set('t', token);
+        if (extra) {
+            for (const [k, v] of Object.entries(extra)) {
+                if (typeof v === 'string' && v.length > 0) q.set(k, v);
+            }
+        }
+        const qs = q.toString();
+        if (!qs) return pathname;
+        return `${pathname}${pathname.includes('?') ? '&' : '?'}${qs}`;
+    }
+
+    function _extractTokenAndLegacyQuery(req: Request): { token: string; legacy: URLSearchParams } {
+        const rawQ = ((req.query as any)?.t ?? '') as string;
+        const raw = typeof rawQ === 'string' ? rawQ.trim() : '';
+        if (!raw) return { token: '', legacy: new URLSearchParams() };
+        const cut = raw.indexOf('?');
+        if (cut < 0) return { token: raw, legacy: new URLSearchParams() };
+        const token = raw.slice(0, cut).trim();
+        const tail = raw.slice(cut + 1).trim();
+        const legacy = new URLSearchParams(tail.startsWith('&') ? tail.slice(1) : tail);
+        return { token, legacy };
+    }
+
     interface CardData {
         domain: 'uprot' | 'clicka';
         label: string;
@@ -7446,7 +7476,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
         submitGuess?: string;
     }
 
-    function _renderSlotPicker(c: CardData): string {
+    function _renderSlotPicker(c: CardData, token: string): string {
         // Pulsanti SEMPRE visibili (whitelisted / captcha / error). Cambiare
         // slot pulisce lo state file e il captcha corrente per quel dominio,
         // senza toccare l'altro.
@@ -7460,7 +7490,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
             const style = isCurrent
                 ? 'background:#374151;color:#9ca3af;cursor:default;border:1px solid #4b5563'
                 : 'background:#2563eb;color:#fff;border:0';
-            const href = isCurrent ? '#' : `/chapta?set_${c.domain}=${s.key}`;
+            const href = isCurrent ? '#' : _withToken('/chapta', token, { [`set_${c.domain}`]: s.key });
             const onclick = isCurrent ? 'return false;' : '';
             return `<a href="${href}" onclick="${onclick}" style="display:inline-block;margin:.25em;padding:.45em .8em;border-radius:6px;text-decoration:none;font-size:.9em;${style}" title="${_escapeHtml(s.host)}">${_escapeHtml(s.label)}${isCurrent ? ' &check;' : ''}</a>`;
         }).join('');
@@ -7496,7 +7526,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
              + `</p>`;
     }
 
-    function _renderChapta(cards: CardData[], topMessage?: { kind: 'ok' | 'err' | 'info'; text: string }): string {
+    function _renderChapta(cards: CardData[], token: string, topMessage?: { kind: 'ok' | 'err' | 'info'; text: string }): string {
         const card = (c: CardData) => {
             const ageMin = (c.stateAgeMs != null) ? Math.round(c.stateAgeMs / 60000) : null;
             const statusLine = c.whitelisted
@@ -7511,19 +7541,19 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
                 body = `<p style="color:#ef4444"><b>Errore caricamento captcha:</b><br><code>${_escapeHtml(c.prepareError)}</code></p>`
                      + `<p style="opacity:.7;font-size:.9em">Suggerimento: il proxy attivo (${_escapeHtml(c.activeProxyHost)}) potrebbe essere bannato o down. Il warmup loop ruoter&agrave; automaticamente lo slot fra 30 min, oppure scegli manualmente uno slot qui sotto.</p>`;
             } else if (c.pngB64 && c.sid) {
-                body = `<form method="POST" action="/chapta">`
+                 body = `<form method="POST" action="${_withToken('/chapta', token)}">`
                      + `<input type="hidden" name="domain" value="${c.domain}">`
                      + `<div><img alt="captcha ${c.domain}" src="data:image/png;base64,${c.pngB64}" style="background:#fff;padding:6px;border-radius:6px;max-width:240px"></div>`
                      + `<input type="hidden" name="${c.domain}_sid" value="${_escapeHtml(c.sid)}">`
                      + `<p style="margin:.6em 0 .3em">Cifre captcha:</p>`
                      + `<input type="text" name="${c.domain}_code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" autofocus style="font-size:1.4em;padding:.4em;width:7em;border-radius:6px;border:1px solid #555;background:#222;color:#eee">`
                      + ` <button type="submit" style="font-size:1.05em;padding:.55em 1em;border-radius:8px;border:0;background:#2563eb;color:#fff;cursor:pointer">Invia ${c.label}</button>`
-                     + ` <a href="/chapta?fresh=${c.domain}" style="margin-left:.6em;font-size:.9em">&#x21bb; nuovo captcha</a>`
+                     + ` <a href="${_withToken('/chapta', token, { fresh: c.domain })}" style="margin-left:.6em;font-size:.9em">&#x21bb; nuovo captcha</a>`
                      + `<p style="opacity:.7;font-size:.85em;margin:.4em 0 0">la POST uscir&agrave; dallo slot <code>${_escapeHtml(c.sessionProxySlot || c.activeSlot)}</code> (lo stesso della GET).</p>`
                      + `</form>`;
             } else {
                 body = `<p style="opacity:.7">Nessun captcha caricato.</p>`
-                     + `<p><a href="/chapta?fresh=${c.domain}">Carica captcha per ${c.label}</a></p>`;
+                     + `<p><a href="${_withToken('/chapta', token, { fresh: c.domain })}">Carica captcha per ${c.label}</a></p>`;
             }
             let submit = '';
             if (c.submitOk) {
@@ -7539,7 +7569,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
               ${_renderEgress(c)}
               ${body}
               ${submit}
-              ${_renderSlotPicker(c)}
+                            ${_renderSlotPicker(c, token)}
             </div>`;
         };
         const banner = topMessage ? `
@@ -7552,7 +7582,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
         <p style="opacity:.8">I due domini sono <b>indipendenti</b>: aggiornare/risolvere uno non resetta l'altro. Ogni card ha il suo form e i suoi pulsanti.</p>
         ${banner}
         ${cards.map(card).join('')}
-        <p style="text-align:center"><a href="/chapta">Ricarica entrambe le card</a></p>
+        <p style="text-align:center"><a href="${_withToken('/chapta', token)}">Ricarica entrambe le card</a></p>
 
         <!-- Test risoluzione: incolla un URL uprot.net o clicka.cc, l'addon
              esegue resolveShortener() e mostra l'URL finale (m3u8 per maxstream,
@@ -7584,6 +7614,19 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
         </div>
         <script>
         (function(){
+                    var chaptaToken = ${JSON.stringify(token || '')};
+                    function chaptaUrl(path, extra){
+                        var p = new URLSearchParams();
+                        if(chaptaToken) p.set('t', chaptaToken);
+                        if(extra){
+                            Object.keys(extra).forEach(function(k){
+                                if(extra[k] !== undefined && extra[k] !== null && extra[k] !== '') p.set(k, String(extra[k]));
+                            });
+                        }
+                        var qs = p.toString();
+                        if(!qs) return path;
+                        return path + (path.indexOf('?') >= 0 ? '&' : '?') + qs;
+                    }
           var msg = document.getElementById('svxRotateMsg');
           function setMsg(t, color){ if(!msg) return; msg.textContent = t || ''; msg.style.color = color || '#9ca3af'; }
           document.querySelectorAll('#svxRotateBtns button').forEach(function(b){
@@ -7593,7 +7636,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
               if(!confirm('Confermi WARP rotate per ' + label + '?\\n(Cambia l\\'IP egress dell\\'host ' + slot + '.)')) return;
               b.disabled = true;
               setMsg('Rotating ' + label + '\u2026', '#9ca3af');
-              fetch('/chapta/rotate?slot=' + encodeURIComponent(slot), { method:'POST' })
+                            fetch(chaptaUrl('/chapta/rotate', { slot: slot }), { method:'POST' })
                 .then(function(r){ return r.json().then(function(j){ return { st:r.status, j:j }; }); })
                 .then(function(out){
                   if(out.st >= 200 && out.st < 300 && out.j && out.j.ok){
@@ -7620,7 +7663,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
             var t0 = Date.now();
             testOut.style.color='#9ca3af';
             testOut.textContent = 'Risolvendo\u2026';
-            fetch('/chapta/test-resolve', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url: url }) })
+                        fetch(chaptaUrl('/chapta/test-resolve'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url: url }) })
               .then(function(r){ return r.json().then(function(j){ return { st:r.status, j:j }; }); })
               .then(function(out){
                 var ms = Date.now() - t0;
@@ -7665,6 +7708,37 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
         </script>
         </body></html>`;
     }
+
+    // Access control for /chapta when CHAPTA_TOKEN is configured.
+    app.use('/chapta', (req: Request, res: Response, next: NextFunction) => {
+        if (!CHAPTA_TOKEN) return next();
+        const { token, legacy } = _extractTokenAndLegacyQuery(req);
+        const headerToken = String(req.header('x-chapta-token') || '').trim();
+        const provided = token || headerToken;
+        if (legacy.size > 0) {
+            const q: any = req.query as any;
+            legacy.forEach((v, k) => {
+                if (typeof q[k] === 'undefined' || q[k] === '') q[k] = v;
+            });
+            q.t = token;
+        }
+        if (!provided || provided !== CHAPTA_TOKEN) {
+            const wantsHtml = String(req.headers.accept || '').includes('text/html');
+            if (wantsHtml) {
+                const safeToken = _escapeAttr(token || '');
+                res.status(401).type('html').send(
+                    `<!doctype html><html><head><meta charset="utf-8"><title>Unauthorized /chapta</title></head>`
+                    + `<body style="font-family:ui-sans-serif,system-ui,sans-serif;background:#0b0b0b;color:#eee;max-width:640px;margin:2em auto;padding:0 1em">`
+                    + `<h1>Unauthorized</h1><p>Token richiesto. Usa <code>/chapta?t=CHAPTA_TOKEN</code>.</p>`
+                    + `<p style="opacity:.75">Token ricevuto: <code>${safeToken || '(missing)'}</code></p></body></html>`
+                );
+            } else {
+                res.status(401).json({ ok: false, error: 'invalid_chapta_token' });
+            }
+            return;
+        }
+        return next();
+    });
 
     /** Costruisce la card di un dominio. Riusa il captcha gia' preparato se
      *  fresco e con lo stesso slot, altrimenti chiama prepareManualSolve.
@@ -7746,6 +7820,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
     app.get('/chapta', async (req: Request, res: Response) => {
         try {
             _cleanupChaptaSessions();
+            const token = _extractTokenAndLegacyQuery(req).token;
             const sr = require('./utils/shortenerResolver');
             const { setActiveSlot } = sr;
             const VALID = new Set(['PROXY', 'PROXY_BACKUP', 'DIRECT']);
@@ -7771,7 +7846,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
                 _buildCardForGET('uprot', 'uprot.net', { forcePrepare: isFreshUprot }),
                 _buildCardForGET('clicka', 'clicka.cc', { forcePrepare: isFreshClicka }),
             ]);
-            res.type('html').send(_renderChapta([u, c]));
+            res.type('html').send(_renderChapta([u, c], token));
         } catch (e) {
             res.status(500).type('html').send(`<pre>chapta GET error: ${_escapeHtml((e as Error).message)}</pre>`);
         }
@@ -7780,6 +7855,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
     app.post('/chapta', express.urlencoded({ extended: false }), async (req: Request, res: Response) => {
         try {
             _cleanupChaptaSessions();
+            const token = _extractTokenAndLegacyQuery(req).token;
             const sr = require('./utils/shortenerResolver');
             const { submitManualSolve, getWhitelistStatus, egressProbe } = sr;
             const body = (req.body || {}) as Record<string, string>;
@@ -7866,7 +7942,7 @@ app.use('/public', express.static(path.join(__dirname, '..', 'public')));
                     : anyFail
                         ? { kind: 'err' as const, text: `Submit ${targetDomain} fallito. Vedi dettagli sotto.` }
                         : undefined;
-            res.type('html').send(_renderChapta(cards, top));
+            res.type('html').send(_renderChapta(cards, token, top));
         } catch (e) {
             res.status(500).type('html').send(`<pre>chapta POST error: ${_escapeHtml((e as Error).message)}</pre>`);
         }
