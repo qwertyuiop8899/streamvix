@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.17](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.16...v1.18.17) (2026-06-05)
+
+
+### Bug Fixes
+
+* animeTitleResolver.ts ([250c447](https://github.com/qwertyuiop8899/streamvix/commit/250c447ffd4443f4e7ca8b01846ec01d0f8ed543))
+
 ## [1.18.16](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.15...v1.18.16) (2026-06-05)
 
 
