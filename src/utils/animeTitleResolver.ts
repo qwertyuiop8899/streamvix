@@ -105,7 +105,7 @@ async function getTitleFromTmdb(tmdbId: string, tmdbKey: string): Promise<string
 
 // ─── NUOVI HELPERS per IMDB/TMDB ────────────────────────────────────
 
-const ANIMEMAPPING_BASE = 'https://animemapping.stremio.dpdns.org';
+const ANIMEMAPPING_BASE = 'https://animemapping.stremio-italia.eu';
 
 /** Ottieni TMDB ID da IMDB ID usando l'extractor del codebase */
 async function getTmdbIdFromImdb(imdbId: string, tmdbKey: string): Promise<string | null> {
