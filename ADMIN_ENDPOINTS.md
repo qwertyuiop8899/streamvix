@@ -10,7 +10,7 @@ senza riavviare il container.
 
 ## Configurazione
 
-### Variabile d'ambiente
+### Variabile d'ambiente 
 
 | Env | Obbligatoria? | Effetto |
 |---|---|---|
