@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.18.18](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.17...v1.18.18) (2026-06-09)
+
+
+### Bug Fixes
+
+* ADMIN_ENDPOINTS.md ([5a0a86c](https://github.com/qwertyuiop8899/streamvix/commit/5a0a86c97d132978cf5ff7f6da721436d5979e9f))
+* domains update ([535ac02](https://github.com/qwertyuiop8899/streamvix/commit/535ac0244c967c20f4f39c27f120eb2f9de62f8e))
+
 ## [1.18.17](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.16...v1.18.17) (2026-06-05)
 
 
