@@ -986,7 +986,7 @@ export async function getStreamContent(id: string, type: ContentType, config: Ex
     const useMf = !!(config as any).useMediaFlow;
     const finalStreamUrl = useMf
       ? `${cleanedMfpUrl}/extractor/video.m3u8?host=VixCloud&d=${encodeURIComponent(url)}&redirect_stream=true&max_res=true${passwordParam}`
-      : `${cleanedMfpUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&redirect_stream=true${passwordParam}`;
+      : `${cleanedMfpUrl}/extractor/video.m3u8?host=vixsrc&d=${encodeURIComponent(url)}&redirect_stream=true${passwordParam}`;
     console.log(`[VixSrc][Proxy] Built ${useMf ? 'MediaFlow extractor' : 'EasyProxy generic'} URL: ${finalStreamUrl}`);
 
     // Ottieni il titolo dalla TMDB API
