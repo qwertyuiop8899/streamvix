@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.20](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.19...v1.18.20) (2026-06-14)
+
+
+### Bug Fixes
+
+* addon.ts ([1f8ade0](https://github.com/qwertyuiop8899/streamvix/commit/1f8ade0a2df8a41558e89a1dacccf8b04fc8e8f9))
+
 ## [1.18.19](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.18...v1.18.19) (2026-06-12)
 
 
