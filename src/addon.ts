@@ -258,32 +258,35 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
 
         // Prepare ping payload with client IP in ipLocation
         const uniqueId = crypto.randomBytes(8).toString('hex');
+        const nowMs = Date.now();
         const pingBody: any = {
-            token: 'ldCvE092e7gER0rVIajfsXIvRhwlrAzP6_1oEJ4q6HH89QHt24v6NNL_jQJO219hiLOXF2hqEfsUuEWitEIGN4EaHHEHb7Cd7gojc5SQYRFzU3XWo_kMeryAUbcwWnQrnf0-',
-            reason: 'app-blur',
+            token: '',
+            reason: 'app-focus',
             locale: 'de',
             theme: 'dark',
             metadata: {
-                device: { type: 'Handset', brand: 'google', model: 'Nexus', name: '21081111RG', uniqueId },
-                os: { name: 'android', version: '7.1.2', abis: ['arm64-v8a'], host: 'android' },
-                app: { platform: 'android', version: '1.1.0', buildId: '97215000', engine: 'hbc85', signatures: ['6e8a975e3cbf07d5de823a760d4c2547f86c1403105020adee5de67ac510999e'], installer: 'com.android.vending' },
-                version: { package: 'app.lokke.main', binary: '1.1.0', js: '1.1.0' }
+                device: { type: 'phone', uniqueId },
+                os: { name: 'android', version: '14', abis: ['arm64-v8a'], host: 'android' },
+                app: { platform: 'android' },
+                version: { package: 'net.vypn.app', binary: '1.4.1', js: '1.4.1' }
             },
             appFocusTime: 0,
             playerActive: false,
             playDuration: 0,
-            devMode: true,
+            devMode: false,
             hasAddon: true,
             castConnected: false,
-            package: 'app.lokke.main',
-            version: '1.1.0',
+            package: 'net.vypn.app',
+            version: '1.4.1',
             process: 'app',
-            firstAppStart: Date.now() - 86400000,
-            lastAppStart: Date.now(),
+            firstAppStart: nowMs - 86400000,
+            lastAppStart: nowMs,
             ipLocation: clientIp || null,
-            adblockEnabled: false,
-            proxy: { supported: ['ss', 'openvpn'], engine: 'openvpn', ssVersion: 1, enabled: false, autoServer: true, id: 'fi-hel' },
-            iap: { supported: true }
+            adblockEnabled: true,
+            migrationApplied: false,
+            migrationTargetInstalled: false,
+            proxy: { supported: ['ss'], engine: 'Mu', ssVersion: '2022', enabled: false, autoServer: true, id: '' },
+            iap: { supported: false, error: '' }
         };
         const pingHeaders: Record<string, string> = {
             'user-agent': VAVOO_API_UA,
@@ -300,8 +303,8 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
             vdbg('Ping will use SERVER IP (no client IP observed)');
         }
 
-        vdbg('Ping POST https://www.lokke.app/api/app/ping', { ipLocation: pingBody.ipLocation });
-        const pingRes = await fetch('https://www.lokke.app/api/app/ping', {
+        vdbg('Ping POST https://www.vypn.net/api/app/ping', { ipLocation: pingBody.ipLocation });
+        const pingRes = await fetch('https://www.vypn.net/api/app/ping', {
             method: 'POST',
             headers: pingHeaders,
             body: JSON.stringify(pingBody),
@@ -323,7 +326,7 @@ async function resolveVavooCleanUrl(vavooPlayUrl: string, clientIp: string | nul
                 'accept-encoding': 'gzip'
             };
             vdbg('Ping FALLBACK without client headers/ipLocation');
-            const pingRes2 = await fetch('https://www.lokke.app/api/app/ping', {
+            const pingRes2 = await fetch('https://www.vypn.net/api/app/ping', {
                 method: 'POST',
                 headers: fallbackHeaders,
                 body: JSON.stringify(fallbackBody),
