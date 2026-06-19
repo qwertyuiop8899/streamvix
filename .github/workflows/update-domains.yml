@@ -2,7 +2,7 @@ name: Update Domains
 
 on:
   schedule:
-    - cron: '0 22 * * *' # Every day at 22:00 UTC
+    - cron: '0 22,8,12,18 * * *' # Every day at 22:00 UTC
   workflow_dispatch: {}
 
 jobs:
