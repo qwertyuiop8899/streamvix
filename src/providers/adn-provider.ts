@@ -31,13 +31,17 @@ const USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, l
 
 function getCookie(config?: AdnConfig): string {
     try {
-        return (
+        let val = (
             config?.cookie ||
             (globalThis as any)?.SCRAPER_SETTINGS?.altadefinizioneCookie ||
             process.env.ADN_COOKIES ||
             process.env.ALTADEFINIZIONE_COOKIE ||
             ''
         ).trim();
+        if (val && !val.startsWith('sid=')) {
+            val = `sid=${val}`;
+        }
+        return val;
     } catch (e) {
         return '';
     }
