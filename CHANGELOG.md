@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.18.22](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.21...v1.18.22) (2026-06-19)
+
+
+### Bug Fixes
+
+* addon.ts ([c00cc1c](https://github.com/qwertyuiop8899/streamvix/commit/c00cc1c03d12210132780f856e40f9fadae3437e))
+* adn ([0ec5b59](https://github.com/qwertyuiop8899/streamvix/commit/0ec5b5965afc37f641215e4ebfd18c711ef74e18))
+* adn ([218cc5a](https://github.com/qwertyuiop8899/streamvix/commit/218cc5ab14c5d44e87b26beaf2cb0ca47cbc5c17))
+* adn-provider.ts ([d64993f](https://github.com/qwertyuiop8899/streamvix/commit/d64993fde39ef2f891d96bd3916e88d5fc564e28))
+
 ## [1.18.21](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.20...v1.18.21) (2026-06-19)
 
 
