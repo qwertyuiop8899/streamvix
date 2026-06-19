@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.21](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.20...v1.18.21) (2026-06-19)
+
+
+### Bug Fixes
+
+* adn ([8ffbe0a](https://github.com/qwertyuiop8899/streamvix/commit/8ffbe0a7379c5f26186168b821af27a12ad45f9c))
+
 ## [1.18.20](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.19...v1.18.20) (2026-06-14)
 
 
