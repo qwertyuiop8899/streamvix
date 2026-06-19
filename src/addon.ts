@@ -7010,7 +7010,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // ADN (AltadefinizioneStreaming CDN). Direct fetch with
                     // optional PROXY_BACKUP fallback; if MFP is configured the
                     // .mp4 URL is wrapped to bypass the ipsig IP binding.
-                    if (adnEnabled && (id.startsWith('tt') || id.startsWith('tmdb:')) && mfpUrl) {
+                    if (adnEnabled && (id.startsWith('tt') || id.startsWith('tmdb:'))) {
                         scheduleProviderRun('ADN', true, async () => {
                             const { AdnProvider } = await import('./providers/adn-provider');
                             const adnProvider = new AdnProvider({
