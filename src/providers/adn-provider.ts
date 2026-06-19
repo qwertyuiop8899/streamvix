@@ -4,7 +4,7 @@
 // HMAC of the caller's IP. Cross-IP playback → CDN replies 410 DENIED. The
 // only correct fix is to make the API call from the same IP that serves the
 // playback bytes — i.e. delegate the whole resolve to EasyProxy through its
-// `/extractor/video.mp4?host=adn&d=<api url>&redirect_stream=true` endpoint.
+// `/extractor/video.mp4?host=adn&d=<api url>&redirect_stream=true` endpoint. 
 //
 // Modes:
 //   A) EasyProxy mode (`mfpUrl` set) — preferred. Requires an `adn`
