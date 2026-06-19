@@ -22,12 +22,26 @@ export interface AdnConfig {
     tmdbApiKey?: string;
     mfpUrl?: string;
     mfpPassword?: string;
+    cookie?: string;
 }
 
 const BASE_URL = 'https://altadefinizionestreaming.com';
 const USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36';
+function getCookie(config?: AdnConfig): string {
+    try {
+        return (
+            config?.cookie ||
+            (globalThis as any)?.SCRAPER_SETTINGS?.altadefinizioneCookie ||
+            process.env.ADN_COOKIES ||
+            process.env.ALTADEFINIZIONE_COOKIE ||
+            ''
+        ).trim();
+    } catch (e) {
+        return '';
+    }
+}
 
-async function rawFetchJson(url: string, proxyUrl?: string): Promise<any | null> {
+async function rawFetchJson(url: string, cookie?: string, proxyUrl?: string): Promise<any | null> {
     const init: any = {
         headers: {
             'User-Agent': USER_AGENT,
@@ -35,6 +49,9 @@ async function rawFetchJson(url: string, proxyUrl?: string): Promise<any | null>
             'Accept': 'application/json,text/plain,*/*'
         }
     };
+    if (cookie && url.startsWith(BASE_URL)) {
+        init.headers.Cookie = cookie;
+    }
     if (proxyUrl) {
         try {
             const undici = await import('undici');
@@ -60,14 +77,14 @@ async function rawFetchJson(url: string, proxyUrl?: string): Promise<any | null>
 // Fetch with optional PROXY_BACKUP fallback. Only the cdn API host benefits
 // from the fallback — TMDB calls go direct (Google's CDN is universally
 // reachable and the proxy would just slow them down).
-async function fetchJson(url: string, allowBackup = false): Promise<any | null> {
-    const direct = await rawFetchJson(url);
+async function fetchJson(url: string, cookie?: string, allowBackup = false): Promise<any | null> {
+    const direct = await rawFetchJson(url, cookie);
     if (direct) return direct;
     if (!allowBackup) return null;
     const backup = String(process.env.PROXY_BACKUP || '').trim();
     if (!backup) return null;
     console.log('[ADN] retrying via PROXY_BACKUP');
-    return rawFetchJson(url, backup);
+    return rawFetchJson(url, cookie, backup);
 }
 
 export class AdnProvider {
@@ -109,7 +126,7 @@ export class AdnProvider {
         if (this.config.tmdbApiKey) {
             try {
                 const ep = isMovie ? 'movie' : 'tv';
-                const meta = await fetchJson(`https://api.themoviedb.org/3/${ep}/${tmdbId}?api_key=${this.config.tmdbApiKey}&language=it-IT`);
+                const meta = await fetchJson(`https://api.themoviedb.org/3/${ep}/${tmdbId}?api_key=${this.config.tmdbApiKey}&language=it-IT`, undefined, false);
                 showTitle = meta?.title || meta?.name || meta?.original_title || meta?.original_name;
             } catch { /* ignore */ }
         }
@@ -142,7 +159,8 @@ export class AdnProvider {
 
         // ── Mode B: direct (no EasyProxy) ───────────────────────────────
         console.log('[ADN] GET', endpoint);
-        const payload = await fetchJson(endpoint, /* allowBackup */ true);
+        const cookie = getCookie(this.config);
+        const payload = await fetchJson(endpoint, cookie, /* allowBackup */ true);
         const sources: any[] = Array.isArray(payload?.sources) ? payload.sources : [];
         if (!sources.length) {
             console.log('[ADN] no sources in payload');
