@@ -16,6 +16,7 @@
 
 import type { StreamForStremio } from '../types/animeunity';
 import { getTmdbIdFromImdbId } from '../extractor';
+import { extractFromUrl } from '../extractors';
 
 export interface AdnConfig {
     enabled: boolean;
@@ -27,6 +28,7 @@ export interface AdnConfig {
 
 const BASE_URL = 'https://altadefinizionestreaming.com';
 const USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36';
+
 function getCookie(config?: AdnConfig): string {
     try {
         return (
@@ -41,13 +43,46 @@ function getCookie(config?: AdnConfig): string {
     }
 }
 
+function absoluteUrl(url: string): string | null {
+    if (!url) return null;
+    try {
+        return new URL(url, BASE_URL).toString();
+    } catch {
+        return null;
+    }
+}
+
+async function resolveDownloadToMixDrop(url: string, cookie?: string): Promise<string | null> {
+    const downloadUrl = absoluteUrl(url);
+    if (!downloadUrl) return null;
+    const withGo = `${downloadUrl}${downloadUrl.includes('?') ? '&' : '?'}go=1`;
+
+    try {
+        const headers: any = {
+            'User-Agent': USER_AGENT,
+            'Referer': `${BASE_URL}/`
+        };
+        if (cookie && withGo.startsWith(BASE_URL)) headers.Cookie = cookie;
+        const response = await fetch(withGo, { headers });
+        const finalUrl = String(response.url || '').replace(/\?download$/i, '');
+        if (/mixdrop|m1xdrop|mxdrop/i.test(finalUrl)) return finalUrl;
+    } catch {
+        return null;
+    }
+    return null;
+}
+
 async function rawFetchJson(url: string, cookie?: string, proxyUrl?: string): Promise<any | null> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
+
     const init: any = {
         headers: {
             'User-Agent': USER_AGENT,
             'Referer': `${BASE_URL}/`,
             'Accept': 'application/json,text/plain,*/*'
-        }
+        },
+        signal: controller.signal
     };
     if (cookie && url.startsWith(BASE_URL)) {
         init.headers.Cookie = cookie;
@@ -58,32 +93,35 @@ async function rawFetchJson(url: string, cookie?: string, proxyUrl?: string): Pr
             init.dispatcher = new (undici as any).ProxyAgent(proxyUrl);
         } catch (e: any) {
             console.log('[ADN] undici ProxyAgent unavailable', e?.message || e);
+            clearTimeout(timeoutId);
             return null;
         }
     }
     try {
         const r = await fetch(url, init);
+        clearTimeout(timeoutId);
         if (!r.ok) {
-            console.log('[ADN] fetch non-ok', r.status, proxyUrl ? '(via PROXY_BACKUP)' : '(direct)', url);
+            console.log('[ADN] fetch non-ok', r.status, proxyUrl ? '(via PROXY)' : '(direct)', url);
             return null;
         }
         return await r.json();
     } catch (e: any) {
-        console.log('[ADN] fetch error', proxyUrl ? '(via PROXY_BACKUP)' : '(direct)', e?.message || e);
+        clearTimeout(timeoutId);
+        console.log('[ADN] fetch error', proxyUrl ? '(via PROXY)' : '(direct)', e?.message || e);
         return null;
     }
 }
 
-// Fetch with optional PROXY_BACKUP fallback. Only the cdn API host benefits
+// Fetch with optional PROXY_BACKUP / PROXY fallback. Only the cdn API host benefits
 // from the fallback — TMDB calls go direct (Google's CDN is universally
 // reachable and the proxy would just slow them down).
 async function fetchJson(url: string, cookie?: string, allowBackup = false): Promise<any | null> {
     const direct = await rawFetchJson(url, cookie);
     if (direct) return direct;
     if (!allowBackup) return null;
-    const backup = String(process.env.PROXY_BACKUP || '').trim();
+    const backup = String(process.env.PROXY_BACKUP || process.env.PROXY || '').trim();
     if (!backup) return null;
-    console.log('[ADN] retrying via PROXY_BACKUP');
+    console.log('[ADN] retrying via PROXY:', backup);
     return rawFetchJson(url, cookie, backup);
 }
 
@@ -133,62 +171,80 @@ export class AdnProvider {
         const base = showTitle || (isMovie ? 'Film' : 'Serie');
         const displayTitle = isMovie ? base : `${base} ${s}x${e}`;
 
-        // ── Mode A: EasyProxy extractor ─────────────────────────────────
-        // Delegate the whole API call + CDN selection + playback to
-        // EasyProxy. The addon never sees the signed URL, so ipsig is
-        // naturally bound to the EasyProxy egress IP that will also serve
-        // the bytes via /proxy/stream.
-        if (this.config.mfpUrl) {
-            const mfpBase = this.config.mfpUrl.replace(/\/+$/, '');
-            const params = new URLSearchParams();
-            params.set('host', 'adn');
-            params.set('d', endpoint);
-            params.set('redirect_stream', 'true');
-            if (this.config.mfpPassword) params.set('api_password', this.config.mfpPassword);
-            const proxyUrl = `${mfpBase}/extractor/video.mp4?${params.toString()}`;
+        const streams: StreamForStremio[] = [];
 
-            console.log('[ADN] EasyProxy wrap', proxyUrl);
-            return {
-                streams: [{
-                    url: proxyUrl,
-                    title: `📁 ${displayTitle}\n💾 720p • ADN CDN • EasyProxy`,
-                    behaviorHints: { notWebReady: true, bingeGroup: 'adn-std' } as any,
-                }],
-            };
-        }
-
-        // ── Mode B: direct (no EasyProxy) ───────────────────────────────
+        // 1. Direct CDN resolution
         console.log('[ADN] GET', endpoint);
         const cookie = getCookie(this.config);
         const payload = await fetchJson(endpoint, cookie, /* allowBackup */ true);
         const sources: any[] = Array.isArray(payload?.sources) ? payload.sources : [];
-        if (!sources.length) {
-            console.log('[ADN] no sources in payload');
-            return { streams: [] };
+
+        const isAllowed = (src: any) => src?.url && !/vixsrc\.to/i.test(String(src.url));
+        const cdn = sources.find(x => String(x?.provider || '').toLowerCase() === 'cdn' && isAllowed(x))
+            || sources.find(x => isAllowed(x));
+
+        if (cdn?.url) {
+            const playbackHeaders = {
+                'User-Agent': USER_AGENT,
+                'Referer': `${BASE_URL}/`
+            };
+
+            const stream: StreamForStremio = {
+                url: String(cdn.url),
+                title: `📁 ${displayTitle}\n💾 720p • ADN CDN`,
+                behaviorHints: {
+                    notWebReady: true,
+                    proxyHeaders: { request: playbackHeaders }
+                } as any
+            };
+            (stream as any).headers = playbackHeaders;
+            streams.push(stream);
         }
 
-        const cdn = sources.find(x => String(x?.provider || '').toLowerCase() === 'cdn' && x?.url);
-        if (!cdn?.url) {
-            console.log('[ADN] no cdn source; providers=', sources.map(x => x?.provider).join(','));
-            return { streams: [] };
+        // 2. MixDrop backup resolution (only when mfpUrl is configured)
+        if (this.config.mfpUrl) {
+            try {
+                let downloadEntry: string | null = null;
+                if (isMovie) {
+                    const downloadPayload = await fetchJson(`${BASE_URL}/api/download/${tmdbId}`, cookie, true);
+                    if (downloadPayload?.available && downloadPayload?.url) {
+                        downloadEntry = downloadPayload.url;
+                    }
+                } else {
+                    const downloadPayload = await fetchJson(`${BASE_URL}/api/download-episodes/${tmdbId}`, cookie, true);
+                    const episodes = Array.isArray(downloadPayload?.episodes) ? downloadPayload.episodes : [];
+                    const match = episodes.find((item: any) => Number(item?.season) === Number(s) && Number(item?.episode) === Number(e));
+                    if (downloadPayload?.available && match?.url) {
+                        downloadEntry = match.url;
+                    }
+                }
+
+                if (downloadEntry) {
+                    const mixdropUrl = await resolveDownloadToMixDrop(downloadEntry, cookie);
+                    if (mixdropUrl) {
+                        const extracted = await extractFromUrl(mixdropUrl, {
+                            mfpUrl: this.config.mfpUrl,
+                            mfpPassword: this.config.mfpPassword,
+                            referer: `${BASE_URL}/`,
+                            titleHint: displayTitle
+                        });
+                        if (extracted?.streams?.length) {
+                            for (const str of extracted.streams) {
+                                streams.push({
+                                    url: str.url,
+                                    title: str.title.replace('Mixdrop', 'ADN MixDrop'),
+                                    behaviorHints: str.behaviorHints
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch (e: any) {
+                console.log('[ADN] MixDrop extraction error', e?.message || e);
+            }
         }
 
-        const playbackHeaders = {
-            'User-Agent': USER_AGENT,
-            'Referer': `${BASE_URL}/`
-        };
-
-        const stream: StreamForStremio = {
-            url: String(cdn.url),
-            title: `📁 ${displayTitle}\n💾 720p • ADN CDN`,
-            behaviorHints: {
-                notWebReady: true,
-                proxyHeaders: { request: playbackHeaders }
-            } as any
-        };
-        (stream as any).headers = playbackHeaders;
-
-        console.log('[ADN] returning 1 CDN stream for', displayTitle, '(direct — ipsig bound to addon IP)');
-        return { streams: [stream] };
+        console.log('[ADN] returning', streams.length, 'streams for', displayTitle);
+        return { streams };
     }
 }
