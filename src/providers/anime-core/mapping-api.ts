@@ -36,6 +36,8 @@ export interface ProviderContext {
   kitsuId?: string | number | null;
   tmdbId?: string | number | null;
   imdbId?: string | null;
+  mappingLanguage?: string | null;
+  easyCatalogsLangIt?: boolean | string | null;
 }
 
 export interface MappingPayload {
@@ -230,10 +232,24 @@ export function resolveLookupRequest(
  * @param caches - The provider's cache maps
  * @param providerTag - Logging tag (e.g. 'AnimeUnity')
  */
+function getMappingLanguage(providerContext: ProviderContext | null = null): string | null {
+  const explicit = String(providerContext?.mappingLanguage || '').trim().toLowerCase();
+  if (explicit === 'it') return 'it';
+  
+  const configVal = providerContext?.easyCatalogsLangIt;
+  if (configVal === true) return 'it';
+  if (typeof configVal === 'string') {
+    const normalized = configVal.trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on', 'enabled', 'checked'].includes(normalized)) return 'it';
+  }
+  return null;
+}
+
 export async function fetchMappingPayload(
   lookup: LookupRequest | null,
   caches: ProviderCaches,
-  providerTag: string = 'Mapping'
+  providerTag: string = 'Mapping',
+  providerContext: ProviderContext | null = null
 ): Promise<MappingPayload | null> {
   if (!lookup?.provider || !lookup?.externalId) return null;
 
@@ -245,7 +261,9 @@ export async function fetchMappingPayload(
   if (!['kitsu', 'imdb', 'tmdb'].includes(provider)) return null;
   if (!externalId) return null;
 
-  const cacheKey = `${provider}:${externalId}:s=${requestedSeason ?? 'na'}:ep=${requestedEpisode}`;
+  const mappingLanguage = provider === 'kitsu' ? 'it' : getMappingLanguage(providerContext);
+  const mappingLanguageToken = mappingLanguage || 'default';
+  const cacheKey = `${provider}:${externalId}:s=${requestedSeason ?? 'na'}:ep=${requestedEpisode}:lang=${mappingLanguageToken}`;
   const cached = getCached(caches.mapping, cacheKey);
   if (cached !== undefined) return cached;
 
@@ -253,6 +271,9 @@ export async function fetchMappingPayload(
   params.set('ep', String(requestedEpisode));
   if (Number.isInteger(requestedSeason) && (requestedSeason as number) >= 0) {
     params.set('s', String(requestedSeason));
+  }
+  if (mappingLanguage === 'it') {
+    params.set('lang', 'it');
   }
 
   const url = `${getMappingApiBase()}/${provider}/${encodeURIComponent(externalId)}?${params.toString()}`;
