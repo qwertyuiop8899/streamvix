@@ -3,7 +3,7 @@
  * Mapping API interaction: ID parsing, lookup resolution, payload fetching, episode resolution.
  * Ported 1:1 from the identical logic shared by all 3 easystreams anime providers.
  *
- * This module does NOT know about specific providers (AnimeUnity/AnimeWorld/AnimeSaturn).
+ * This module does NOT know about specific providers (AnimeUnity/AnimeWorld/AnimeSaturn). 
  * Callers extract provider-specific paths from the mapping payload themselves.
  */
 
