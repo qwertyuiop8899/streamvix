@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.18.24](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.23...v1.18.24) (2026-07-02)
+
+
+### Bug Fixes
+
+* animesaturn ([e3570f8](https://github.com/qwertyuiop8899/streamvix/commit/e3570f83816faea60b000b5607b2623a36d19e8d))
+* domains update ([3bf5013](https://github.com/qwertyuiop8899/streamvix/commit/3bf50134b576ca3a9f2dc56c8806b5aa38ddc532))
+* domains update ([d6709fd](https://github.com/qwertyuiop8899/streamvix/commit/d6709fd9c0ecb726051abb84531265582743f11e))
+
 ## [1.18.23](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.22...v1.18.23) (2026-06-26)
 
 
