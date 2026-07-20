@@ -945,8 +945,9 @@ export class AnimeUnityProvider {
 
       try {
         const embedReferer = streamResult.episode_page || animeUrl || 'https://animeunity.so/';
-        const proxyPlaylistUrl = `${cleanMfp}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(streamResult.embed_url)}${pwdParam}`
-          + `&h_Origin=${encodeURIComponent('https://vixcloud.co')}`
+        const targetEmbedUrl = (streamResult.embed_url || '').replace('vixcloud.co', 'vixsrc.to');
+        const proxyPlaylistUrl = `${cleanMfp}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(targetEmbedUrl)}${pwdParam}`
+          + `&h_Origin=${encodeURIComponent('https://vixsrc.to')}`
           + `&h_Referer=${encodeURIComponent(embedReferer)}`;
         console.log('[AnimeUnity][MFP] Built generic proxy URL:', proxyPlaylistUrl);
 
