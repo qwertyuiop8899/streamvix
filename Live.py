@@ -663,19 +663,52 @@ def main():
         c = c.strip()
         # Rimuove eventuale suffisso " :" finale
         c = re.sub(r"\s*:\s*$", '', c)
-        # Normalizzazioni note tra sorgente e target
-        if c == 'Spain - La Liga':
-            c = 'Spain - Liga'
-        # Varianti senza trattino: "Italy Serie A/B/C"
-        if re.fullmatch(r'(?i)Italy\s+Serie\s*A', c):
-            c = 'Italy - Serie A'
-        if re.fullmatch(r'(?i)Italy\s+Serie\s*B', c):
-            c = 'Italy - Serie B'
-        if re.fullmatch(r'(?i)Italy\s+Serie\s*C', c):
-            c = 'Italy - Serie C'
-        if c == 'Bundesliga':
-            c = 'Germany - Bundesliga'
-        return c
+
+        # Rimuove emoji e caratteri speciali unicode non-ascii
+        c_ascii = c.encode('ascii', 'ignore').decode('ascii').strip()
+        c_lower = c_ascii.lower()
+
+        # Mappatura basata su parole chiave per allineare alle BASE_CATEGORIES
+        if 'soccer' in c_lower:
+            return 'Soccer'
+        if 'tennis' in c_lower or 'wta' in c_lower or 'atp' in c_lower:
+            return 'Tennis'
+        if 'motorsport' in c_lower or 'motor sports' in c_lower or 'motorsports' in c_lower:
+            return 'Motorsport'
+        if 'basketball' in c_lower:
+            return 'Basketball'
+        if 'volleyball' in c_lower:
+            return 'Volleyball'
+        if 'baseball' in c_lower:
+            return 'Baseball'
+        if 'darts' in c_lower:
+            return 'Darts'
+        if 'wwe' in c_lower:
+            return 'WWE'
+        if 'wrestling' in c_lower:
+            return 'Wrestling'
+        if 'boxing' in c_lower:
+            return 'Boxing'
+        if 'mma' in c_lower or 'ufc' in c_lower:
+            return 'MMA'
+        if 'football' in c_lower:
+            return 'Football'
+        if 'ice hockey' in c_lower:
+            return 'Ice Hockey'
+
+        # Fallback alle normalizzazioni note
+        c_clean = c_ascii
+        if c_clean == 'Spain - La Liga':
+            c_clean = 'Spain - Liga'
+        if re.fullmatch(r'(?i)Italy\s+Serie\s*A', c_clean):
+            c_clean = 'Italy - Serie A'
+        if re.fullmatch(r'(?i)Italy\s+Serie\s*B', c_clean):
+            c_clean = 'Italy - Serie B'
+        if re.fullmatch(r'(?i)Italy\s+Serie\s*C', c_clean):
+            c_clean = 'Italy - Serie C'
+        if c_clean == 'Bundesliga':
+            c_clean = 'Germany - Bundesliga'
+        return c_clean
 
     debug_categories = {}
 
