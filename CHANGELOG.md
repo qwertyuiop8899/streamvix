@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.25](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.24...v1.18.25) (2026-07-21)
+
+
+### Bug Fixes
+
+* Live.py ([861caba](https://github.com/qwertyuiop8899/streamvix/commit/861cabab5d263402aa2cf4d58210895f47bc3215))
+
 ## [1.18.24](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.23...v1.18.24) (2026-07-20)
 
 
