@@ -6,7 +6,7 @@ Endpoint diagnostico per testare connettività e risposte HTTP dal server Stream
 
 ## Route
 
-```
+``` 
 GET  /debug/fetch
 POST /debug/fetch
 ```
