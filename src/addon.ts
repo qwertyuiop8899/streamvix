@@ -55,13 +55,9 @@ import { getTrailerStreams, isTrailerProviderAvailable } from './providers/trail
 import { getDvrStreamsForChannel, getDvrConfig, buildDvrRecordEntry } from './utils/easyproxyDvr';
 
 // ================= TYPES & INTERFACES =================
-// Deliberately project-scoped: the legacy DISABLE_LIVE_EVENTS injected by the
-// hosting platform is ignored. Live/Eventi stay enabled unless this image is
-// explicitly configured with STREAMVIX_DISABLE_LIVE_EVENTS.
-const DISABLE_LIVE_EVENTS = (() => {
-    const value = (process.env.STREAMVIX_DISABLE_LIVE_EVENTS || '').toLowerCase();
-    return value === 'true' || value === '1' || value === 'on' || value === 'yes';
-})();
+// Legacy Kubernetes flag intentionally ignored: Live/Eventi are always enabled.
+// const DISABLE_LIVE_EVENTS = process.env.DISABLE_LIVE_EVENTS === 'true';
+const DISABLE_LIVE_EVENTS = false;
 const IS_MH_DISABLED = (() => { try { const v = (process.env.DISABLE_MH || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
 const IS_SS_DISABLED = (() => { try { const v = (process.env.DISABLE_SPS || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
 // ThisNot e Sports99: OPT-IN (default OFF). Per accenderli: THISNOT_ENABLE=1 / SP99_ENABLE=1.
