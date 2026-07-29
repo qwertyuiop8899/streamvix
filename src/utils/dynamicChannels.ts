@@ -50,6 +50,9 @@ const NO_DYNAMIC_CACHE: boolean = (() => {
     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
   } catch { return true; }
 })();
+// Legacy Kubernetes flag intentionally ignored: dynamic Live/Eventi stay enabled.
+// const DISABLE_LIVE_EVENTS: boolean = process.env.DISABLE_LIVE_EVENTS === 'true';
+const DISABLE_LIVE_EVENTS: boolean = false;
 // Flag per disabilitare il filtro runtime su date.
 // CAMBIO: default ora = OFF (0) così il comportamento "purge automatico" torna quello atteso:
 //   - Prima delle 08:00 Rome: mantieni anche eventi di ieri (grace)
@@ -129,7 +132,7 @@ function resolveDynamicFile(): string {
       return b.size - a.size;
     });
     const chosen = existing[0];
-    if (process.env.DISABLE_LIVE_EVENTS === 'true') return chosen.p;
+    if (DISABLE_LIVE_EVENTS) return chosen.p;
     try { if (DC_VERBOSE) console.log('[DynamicChannels] Path selezionato:', chosen.p, 'size=', chosen.size, 'nested=', chosen.nested, 'tiny=', chosen.tiny); } catch { }
     return chosen.p;
   }
@@ -157,7 +160,7 @@ export function getDynamicFileStats(): { exists: boolean; size: number; mtimeMs:
 // Time helpers were moved to EPG manager (src/utils/epg.ts)
 
 export function loadDynamicChannels(force = false): DynamicChannel[] {
-  if (process.env.DISABLE_LIVE_EVENTS === 'true') {
+  if (DISABLE_LIVE_EVENTS) {
       return [];
   }
   const now = Date.now();
