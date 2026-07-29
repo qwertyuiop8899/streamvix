@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.18.27](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.26...v1.18.27) (2026-07-29)
+
+
+### Bug Fixes
+
+* addon.ts ([03301d8](https://github.com/qwertyuiop8899/streamvix/commit/03301d842cc8794d613acc5cb099588124ab2e60))
+* addon.ts ([c0ef982](https://github.com/qwertyuiop8899/streamvix/commit/c0ef98229d572f685bf3c5715525f9f1fd23f4f4))
+* dynamicChannels.ts ([de6694c](https://github.com/qwertyuiop8899/streamvix/commit/de6694cb066855ce1c409a249ac7eb3166d6c575))
+
 ## [1.18.26](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.25...v1.18.26) (2026-07-28)
 
 
