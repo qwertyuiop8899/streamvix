@@ -55,7 +55,13 @@ import { getTrailerStreams, isTrailerProviderAvailable } from './providers/trail
 import { getDvrStreamsForChannel, getDvrConfig, buildDvrRecordEntry } from './utils/easyproxyDvr';
 
 // ================= TYPES & INTERFACES =================
-const DISABLE_LIVE_EVENTS = process.env.DISABLE_LIVE_EVENTS === 'true';
+// Deliberately project-scoped: the legacy DISABLE_LIVE_EVENTS injected by the
+// hosting platform is ignored. Live/Eventi stay enabled unless this image is
+// explicitly configured with STREAMVIX_DISABLE_LIVE_EVENTS.
+const DISABLE_LIVE_EVENTS = (() => {
+    const value = (process.env.STREAMVIX_DISABLE_LIVE_EVENTS || '').toLowerCase();
+    return value === 'true' || value === '1' || value === 'on' || value === 'yes';
+})();
 const IS_MH_DISABLED = (() => { try { const v = (process.env.DISABLE_MH || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
 const IS_SS_DISABLED = (() => { try { const v = (process.env.DISABLE_SPS || '').toLowerCase(); return v === 'true' || v === '1' || v === 'on'; } catch { return false; } })();
 // ThisNot e Sports99: OPT-IN (default OFF). Per accenderli: THISNOT_ENABLE=1 / SP99_ENABLE=1.
@@ -1899,8 +1905,8 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                 );
             }
 
-            // ENV: DISABLE_LIVE_EVENTS — rimuovi solo Live + Eventi, lascia TV statica
-            if (process.env.DISABLE_LIVE_EVENTS === 'true' || process.env.DISABLE_LIVE_EVENTS === '1') {
+            // Config progetto: rimuovi solo Live + Eventi, lascia TV statica
+            if (DISABLE_LIVE_EVENTS) {
                 filtered.catalogs = (filtered.catalogs || []).filter((c: any) =>
                     !(c && ((c as any).id === 'streamvix_live' || (c as any).id === 'streamvix_eventi' || (c as any).id === 'streamvix_live_search' || (c as any).id === 'streamvix_eventi_search'))
                 );
@@ -8227,8 +8233,8 @@ app.get(['/manifest.json', '/:config/manifest.json', '/cfg/:config/manifest.json
             );
         }
 
-        // ENV: DISABLE_LIVE_EVENTS — rimuovi solo Live + Eventi, lascia TV statica
-        if (process.env.DISABLE_LIVE_EVENTS === 'true' || process.env.DISABLE_LIVE_EVENTS === '1') {
+        // Config progetto: rimuovi solo Live + Eventi, lascia TV statica
+        if (DISABLE_LIVE_EVENTS) {
             filtered.catalogs = (filtered.catalogs || []).filter((c: any) =>
                 !(c && ((c as any).id === 'streamvix_live' || (c as any).id === 'streamvix_eventi' || (c as any).id === 'streamvix_live_search' || (c as any).id === 'streamvix_eventi_search'))
             );
