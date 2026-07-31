@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.18.28](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.27...v1.18.28) (2026-07-31)
+
+
+### Bug Fixes
+
+* adn-provider.ts ([132d98d](https://github.com/qwertyuiop8899/streamvix/commit/132d98de4420d55b1d6c8d9be56b8a464d4f9117))
+* domains update ([64c0a4b](https://github.com/qwertyuiop8899/streamvix/commit/64c0a4bfabaf44978fcb55c8e3340a82c56cd82b))
+* domains update ([c7be34c](https://github.com/qwertyuiop8899/streamvix/commit/c7be34c3e3ea5821e367b0bb7533a34cae5a6dd8))
+* domains update ([2080ae2](https://github.com/qwertyuiop8899/streamvix/commit/2080ae2875d1c89955cc4fb4c78f5666f02f8fac))
+* domains update ([6f0a4a9](https://github.com/qwertyuiop8899/streamvix/commit/6f0a4a9ca468e0dd4d0c77307f26ac405b591ed9))
+
 ## [1.18.27](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.26...v1.18.27) (2026-07-29)
 
 
