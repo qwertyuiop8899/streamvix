@@ -6,7 +6,7 @@ RUN echo "Cache bust: $CACHE_BUST"
 # Installa python3, pip e dipendenze per compilazione  
 USER root 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-dev \
+    python3 python3-pip python3-dev curl \
     build-essential ca-certificates \
     tesseract-ocr tesseract-ocr-ita tesseract-ocr-eng \
     libtesseract-dev libleptonica-dev \
