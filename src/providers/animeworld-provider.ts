@@ -1523,10 +1523,21 @@ export class AnimeWorldProvider {
         console.log('[AnimeWorld][FallbackFilter] No results from filter year search');
         return { streams: [] };
       }
-      // Prendi massimo due risultati (ordine naturale) per imitare i/0 Original i/1 Italian
-      const picked = results.slice(0,2);
+      // Il vecchio codice prendeva results[0] e results[1] etichettandoli per posizione
+      // (0 = Original, 1 = Italian): con due SUB in cima serviva un SUB spacciato per ITA,
+      // spesso pure di un'altra parte della stagione. Ora la lingua viene dallo slug.
+      // I candidati restano ancorati allo slug base del primo risultato, altrimenti senza
+      // versione ITA si pescherebbe lo slug -ita di un anime completamente diverso.
+      const anchor = animeWorldSlugBase(results[0].slug || results[0].id || results[0].name);
+      const related = anchor
+        ? results.filter(r => animeWorldSlugBase(r.slug || r.id || r.name).startsWith(anchor))
+        : results;
+      console.log('[AnimeWorld][FallbackFilter] Anchor base:', anchor, 'correlati:', related.length, '/', results.length);
+      const picked = [
+        ...related.filter(r => isItaSlug(r.slug || r.id || r.name)).slice(0, 1),
+        ...related.filter(r => !isItaSlug(r.slug || r.id || r.name)).slice(0, 1),
+      ];
       const streams: StreamForStremio[] = [];
-      let idx = 0;
       for (const r of picked) {
         const slug = r.slug || r.id || r.name;
         if (!slug) continue;
@@ -1548,7 +1559,7 @@ export class AnimeWorldProvider {
           }
           const mp4 = streamData?.mp4_url;
           if (!mp4) continue;
-          const lang = idx === 0 ? 'Original' : 'Italian';
+          const lang = isItaSlug(slug) ? 'Italian' : 'Original';
           const sNum = seasonNumber || 1;
           let baseName = (r.name || slug || normalizedTitle).toString().trim();
           if (baseName.includes('\n')) baseName = baseName.replace(/\s+/g,' ').trim();
@@ -1556,7 +1567,6 @@ export class AnimeWorldProvider {
           if (episodeNumber) titleStream += `E${episodeNumber}`;
           const streamOut = buildAnimeWorldStreamOutput(mp4, slug, this.config, { bingeGroup: 'animeworld-fallback' });
           streams.push({ title: titleStream, url: streamOut.url, behaviorHints: streamOut.behaviorHints });
-          idx++;
         } catch (e) {
           console.warn('[AnimeWorld][FallbackFilter] error processing slug', r.slug, e);
         }
@@ -1568,6 +1578,21 @@ export class AnimeWorldProvider {
       return { streams: [] };
     }
   }
+}
+
+/** AnimeWorld marca il doppiaggio italiano col suffisso -ita / -cr-ita / -ita-cr sullo slug base. */
+export function isItaSlug(slugOrName: string): boolean {
+  const base = String(slugOrName || '').split('.')[0].toLowerCase();
+  if (/(?:^|[-_])sub[-_]?ita$/.test(base)) return false;
+  return /(?:^|[-_])(?:ita|cr[-_]?ita|ita[-_]?cr)$/.test(base);
+}
+
+/** Slug senza id random finale e senza suffisso di lingua: identifica l'opera, non la versione. */
+export function animeWorldSlugBase(slugOrName: string): string {
+  return String(slugOrName || '')
+    .split('.')[0]
+    .toLowerCase()
+    .replace(/(?:^|[-_])(?:sub[-_]?ita|cr[-_]?ita|ita[-_]?cr|ita)$/, '');
 }
 
 function capitalize(str: string) {
