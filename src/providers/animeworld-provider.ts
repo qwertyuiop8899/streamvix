@@ -359,17 +359,34 @@ async function awSearch(query: string, date?: string): Promise<AnimeWorldResult[
       continue;
     }
     const $ = cheerio.load(String(html || ''));
+    const bySlug = new Map<string, AnimeWorldResult>();
     $('a[href*="/play/"]').each((_, el) => {
       const href = String($(el).attr('href') || '').trim();
       const path = normalizeAnimeWorldPath(href);
       if (!path || !path.startsWith('/play/')) return;
       const slug = path.replace('/play/', '');
-      if (!slug || seen.has(slug)) return;
+      if (!slug) return;
+      // Ogni scheda compare due volte: prima <a class="poster"> (nessun titolo, il testo
+      // sono i badge tipo "DUB") e poi <a class="name"> col titolo vero. Il primo definisce
+      // l'ordine di rilevanza, il secondo il titolo: teniamo entrambi.
+      const jtitle = String($(el).attr('data-jtitle') || '').replace(/\s+/g, ' ').trim();
+      const titleAttr = String($(el).attr('title') || '').replace(/\s+/g, ' ').trim();
+      const text = String($(el).text() || '').replace(/\s+/g, ' ').trim();
+      // Solo l'anchor col titolo espone data-jtitle; il testo del poster sono i badge
+      // ("DUB"), non un titolo, quindi non va preso come searchTitle.
+      const searchTitle = jtitle ? text : '';
+      const existing = bySlug.get(slug);
+      if (existing) {
+        if (searchTitle && !existing.searchTitle) existing.searchTitle = searchTitle;
+        return;
+      }
+      // `name` resta identico a prima (primo anchor incontrato): vedi AnimeWorldResult.
+      const name = String(jtitle || titleAttr || text || slug).replace(/\s+/g, ' ').trim();
+      const entry: AnimeWorldResult = { id: slug, slug, name, episodes_count: 0, language_type: 'SUB ITA' };
+      if (searchTitle) entry.searchTitle = searchTitle;
+      bySlug.set(slug, entry);
       seen.add(slug);
-      const name = String($(el).attr('data-jtitle') || $(el).attr('title') || $(el).text() || slug)
-        .replace(/\s+/g, ' ')
-        .trim();
-      out.push({ id: slug, slug, name, episodes_count: 0, language_type: 'SUB ITA' });
+      out.push(entry);
     });
     if (out.length) break;
   }
@@ -1508,11 +1525,23 @@ export class AnimeWorldProvider {
       // spesso pure di un'altra parte della stagione. Ora la lingua viene dallo slug.
       // I candidati restano ancorati allo slug base del primo risultato, altrimenti senza
       // versione ITA si pescherebbe lo slug -ita di un anime completamente diverso.
-      const anchor = animeWorldSlugBase(results[0].slug || results[0].id || results[0].name);
-      const related = anchor
-        ? results.filter(r => animeWorldSlugBase(r.slug || r.id || r.name).startsWith(anchor))
-        : results;
-      console.log('[AnimeWorld][FallbackFilter] Anchor base:', anchor, 'correlati:', related.length, '/', results.length);
+      // Preferenza: il titolo mostrato nei risultati, che e' nella stessa lingua della query
+      // (a meno del marcatore "(ITA)"). Gli slug non bastano: AnimeWorld nomina la stessa
+      // parte in modi diversi per SUB e ITA (…-2nd-season-part-2 contro …-2-part-2-ita),
+      // quindi un confronto per prefisso di slug perde la versione ITA.
+      const wanted = normalizeSearchTitleKey(normalizedTitle);
+      let related = results.filter(r => r.searchTitle && normalizeSearchTitleKey(r.searchTitle) === wanted);
+      if (related.length) {
+        console.log('[AnimeWorld][FallbackFilter] Match per titolo:', wanted, '->', related.length, '/', results.length);
+      } else {
+        // Nessun titolo utile (markup cambiato, o titolo diverso dalla query): ripiego
+        // sull'ancora dello slug del primo risultato, che segue la rilevanza della ricerca.
+        const anchor = animeWorldSlugBase(results[0].slug || results[0].id || results[0].name);
+        related = anchor
+          ? results.filter(r => animeWorldSlugBase(r.slug || r.id || r.name).startsWith(anchor))
+          : results;
+        console.log('[AnimeWorld][FallbackFilter] Nessun match per titolo, anchor base:', anchor, '->', related.length, '/', results.length);
+      }
       const picked = [
         ...related.filter(r => isItaSlug(r.slug || r.id || r.name)).slice(0, 1),
         ...related.filter(r => !isItaSlug(r.slug || r.id || r.name)).slice(0, 1),
@@ -1539,7 +1568,7 @@ export class AnimeWorldProvider {
           }
           const mp4 = streamData?.mp4_url;
           if (!mp4) continue;
-          const baseName = animeWorldDisplayName(r.name, slug, normalizedTitle);
+          const baseName = animeWorldDisplayName(r.searchTitle || r.name, slug, normalizedTitle);
           let titleStream = `${capitalize(baseName)} ▪ ${isItaSlug(slug) ? 'ITA' : 'SUB'}`;
           const epTag = episodeTag(seasonNumber, episodeNumber);
           if (epTag) titleStream += ` ▪ ${epTag}`;
@@ -1595,6 +1624,19 @@ export function episodeTag(seasonNumber: number | null, episodeNumber: number | 
   const s = seasonNumber != null ? `S${seasonNumber}` : '';
   const e = episodeNumber != null ? `E${episodeNumber}` : '';
   return `${s}${e}`;
+}
+
+/**
+ * Chiave di confronto fra il titolo cercato e quello mostrato nei risultati: via i marcatori
+ * di versione "(ITA)" / "(CR)" e la punteggiatura, cosi' "That Time I Got Reincarnated as a
+ * Slime 2 Part 2 (ITA)" e la query "…Slime 2 Part 2" collassano sulla stessa chiave.
+ */
+export function normalizeSearchTitleKey(title: string): string {
+  return String(title || '')
+    .replace(/\((?:ITA|CR|SUB\s*ITA)\)/gi, ' ')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 }
 
 /** Slug senza id random finale e senza suffisso di lingua: identifica l'opera, non la versione. */

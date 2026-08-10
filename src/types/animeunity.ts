@@ -85,6 +85,11 @@ export interface AnimeWorldResult {
   name: string;
   episodes_count: number;
   language_type?: string; // inferred (ITA, SUB ITA, CR ITA, ORIGINAL)
+  // Titolo mostrato nei risultati di ricerca (<a class="name">), es.
+  // "That Time I Got Reincarnated as a Slime 2 Part 2 (ITA)". Tenuto separato da `name`:
+  // quest'ultimo resta com'e' perche' un name vuoto e' il segnale su cui si regge
+  // AdjustEmptyName nella classificazione di lingua.
+  searchTitle?: string;
 }
 
 export interface AnimeWorldEpisode {
