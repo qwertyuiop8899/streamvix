@@ -359,17 +359,34 @@ async function awSearch(query: string, date?: string): Promise<AnimeWorldResult[
       continue;
     }
     const $ = cheerio.load(String(html || ''));
+    const bySlug = new Map<string, AnimeWorldResult>();
     $('a[href*="/play/"]').each((_, el) => {
       const href = String($(el).attr('href') || '').trim();
       const path = normalizeAnimeWorldPath(href);
       if (!path || !path.startsWith('/play/')) return;
       const slug = path.replace('/play/', '');
-      if (!slug || seen.has(slug)) return;
+      if (!slug) return;
+      // Ogni scheda compare due volte: prima <a class="poster"> (nessun titolo, il testo
+      // sono i badge tipo "DUB") e poi <a class="name"> col titolo vero. Il primo definisce
+      // l'ordine di rilevanza, il secondo il titolo: teniamo entrambi.
+      const jtitle = String($(el).attr('data-jtitle') || '').replace(/\s+/g, ' ').trim();
+      const titleAttr = String($(el).attr('title') || '').replace(/\s+/g, ' ').trim();
+      const text = String($(el).text() || '').replace(/\s+/g, ' ').trim();
+      // Solo l'anchor col titolo espone data-jtitle; il testo del poster sono i badge
+      // ("DUB"), non un titolo, quindi non va preso come searchTitle.
+      const searchTitle = jtitle ? text : '';
+      const existing = bySlug.get(slug);
+      if (existing) {
+        if (searchTitle && !existing.searchTitle) existing.searchTitle = searchTitle;
+        return;
+      }
+      // `name` resta identico a prima (primo anchor incontrato): vedi AnimeWorldResult.
+      const name = String(jtitle || titleAttr || text || slug).replace(/\s+/g, ' ').trim();
+      const entry: AnimeWorldResult = { id: slug, slug, name, episodes_count: 0, language_type: 'SUB ITA' };
+      if (searchTitle) entry.searchTitle = searchTitle;
+      bySlug.set(slug, entry);
       seen.add(slug);
-      const name = String($(el).attr('data-jtitle') || $(el).attr('title') || $(el).text() || slug)
-        .replace(/\s+/g, ' ')
-        .trim();
-      out.push({ id: slug, slug, name, episodes_count: 0, language_type: 'SUB ITA' });
+      out.push(entry);
     });
     if (out.length) break;
   }
@@ -1043,10 +1060,10 @@ export class AnimeWorldProvider {
       const slugBase = slug.split('.')[0] || '';
       if (/[-_]ita$/i.test(slugBase)) langLabel = 'ITA';
     }
-    const sNum = seasonNumber || 1;
     const epNum = isMovie ? Number(target.number || 1) : requestedEpisode;
-    let titleStream = `${capitalize(cleanName || titleFallback)} ▪ ${langLabel} ▪ S${sNum}`;
-    if (!isMovie && epNum) titleStream += `E${epNum}`;
+    let titleStream = `${capitalize(cleanName || titleFallback)} ▪ ${langLabel}`;
+    const epTag = isMovie ? '' : episodeTag(seasonNumber, epNum ?? null);
+    if (epTag) titleStream += ` ▪ ${epTag}`;
 
     const streamOut = buildAnimeWorldStreamOutput(mp4, slug, this.config);
     return [{ title: titleStream, url: streamOut.url, behaviorHints: streamOut.behaviorHints }];
@@ -1154,7 +1171,7 @@ export class AnimeWorldProvider {
       }
       // Try mapping API first — no expensive title resolution yet
       const fromMapping = await this.getStreamsFromMapping(
-        `kitsu:${kitsuId}`, seasonNumber, episodeNumber, isMovie, { kitsuId }, quickTitle
+        `kitsu:${kitsuId}`, null, episodeNumber, isMovie, { kitsuId }, quickTitle
       );
       if (fromMapping.length) {
         console.log('[AnimeWorld] Mapping hit (Kitsu): skipped heavy title resolution.');
@@ -1163,7 +1180,9 @@ export class AnimeWorldProvider {
       // Mapping miss → now do full title resolution for the title search fallback
       console.log('[AnimeWorld] Mapping miss (Kitsu): resolving full English title...');
       const englishTitle = await getEnglishTitleFromAnyId(kitsuId, 'kitsu', this.config.tmdbApiKey);
-      return this.handleTitleRequest(englishTitle, seasonNumber, episodeNumber, isMovie);
+      // seasonNumber qui vale sempre 1 (su Kitsu ogni stagione e' un anime separato): non e'
+      // la stagione dell'opera, quindi non va usato per l'etichetta.
+      return this.handleTitleRequest(englishTitle, null, episodeNumber, isMovie);
     } catch (e) {
       console.error('[AnimeWorld] kitsu handler error', e);
       return { streams: [] };
@@ -1454,38 +1473,16 @@ export class AnimeWorldProvider {
         if (seen.has(finalUrl)) return null;
         seen.add(finalUrl);
 
-        let cleanName = v.name.replace(/\r?\n+/g, ' ').replace(/\s{2,}/g, ' ').trim();
-        cleanName = cleanName
-          .replace(/\bDUB\b/gi, '')
-          .replace(/\(ITA\)/gi, '')
-          .replace(/\(CR\)/gi, '')
-          .replace(/CR/gi, '')
-          .replace(/ITA/gi, '')
-          .replace(/Movie/gi, '')
-          .replace(/Special/gi, '')
-          .replace(/\s{2,}/g, ' ')
-          .trim();
+        const baseName = animeWorldDisplayName(v.name, v.slug, normalized || title);
 
-        let baseName = cleanName;
-        const looksLikeLangOnly = /^[A-Z]{2,4}$/i.test(baseName || '');
-        if (!baseName || baseName.length < 3 || looksLikeLangOnly) {
-          const slugBase = ((v.slug || '') as string).toLowerCase().split('.')[0];
-          let fromSlug = slugBase
-            .replace(/(?:^|[-_])(sub[-_]?ita|cr[-_]?ita|ita[-_]?cr|ita)(?:$|[-_])/gi, ' ')
-            .replace(/[^a-z0-9]+/gi, ' ')
-            .trim();
-          if (!fromSlug) fromSlug = (normalized || title || '').toString();
-          baseName = fromSlug;
-        }
-
-        const sNum = seasonNumber || 1;
         let langLabel = 'SUB';
         if (v.language_type === 'ITA') langLabel = 'ITA';
         else if (v.language_type === 'SUB ITA') langLabel = 'SUB';
         else if (v.language_type === 'CR ITA') langLabel = 'CR';
 
-        let titleStream = `${capitalize(baseName)} ▪ ${langLabel} ▪ S${sNum}`;
-        if (episodeNumber) titleStream += `E${episodeNumber}`;
+        let titleStream = `${capitalize(baseName)} ▪ ${langLabel}`;
+        const epTag = episodeTag(seasonNumber, episodeNumber);
+        if (epTag) titleStream += ` ▪ ${epTag}`;
 
         return { title: titleStream, url: finalUrl, behaviorHints: streamOut.behaviorHints } as StreamForStremio;
       } catch (e) {
@@ -1523,10 +1520,33 @@ export class AnimeWorldProvider {
         console.log('[AnimeWorld][FallbackFilter] No results from filter year search');
         return { streams: [] };
       }
-      // Prendi massimo due risultati (ordine naturale) per imitare i/0 Original i/1 Italian
-      const picked = results.slice(0,2);
+      // Il vecchio codice prendeva results[0] e results[1] etichettandoli per posizione
+      // (0 = Original, 1 = Italian): con due SUB in cima serviva un SUB spacciato per ITA,
+      // spesso pure di un'altra parte della stagione. Ora la lingua viene dallo slug.
+      // I candidati restano ancorati allo slug base del primo risultato, altrimenti senza
+      // versione ITA si pescherebbe lo slug -ita di un anime completamente diverso.
+      // Preferenza: il titolo mostrato nei risultati, che e' nella stessa lingua della query
+      // (a meno del marcatore "(ITA)"). Gli slug non bastano: AnimeWorld nomina la stessa
+      // parte in modi diversi per SUB e ITA (…-2nd-season-part-2 contro …-2-part-2-ita),
+      // quindi un confronto per prefisso di slug perde la versione ITA.
+      const wanted = normalizeSearchTitleKey(normalizedTitle);
+      let related = results.filter(r => r.searchTitle && normalizeSearchTitleKey(r.searchTitle) === wanted);
+      if (related.length) {
+        console.log('[AnimeWorld][FallbackFilter] Match per titolo:', wanted, '->', related.length, '/', results.length);
+      } else {
+        // Nessun titolo utile (markup cambiato, o titolo diverso dalla query): ripiego
+        // sull'ancora dello slug del primo risultato, che segue la rilevanza della ricerca.
+        const anchor = animeWorldSlugBase(results[0].slug || results[0].id || results[0].name);
+        related = anchor
+          ? results.filter(r => animeWorldSlugBase(r.slug || r.id || r.name).startsWith(anchor))
+          : results;
+        console.log('[AnimeWorld][FallbackFilter] Nessun match per titolo, anchor base:', anchor, '->', related.length, '/', results.length);
+      }
+      const picked = [
+        ...related.filter(r => isItaSlug(r.slug || r.id || r.name)).slice(0, 1),
+        ...related.filter(r => !isItaSlug(r.slug || r.id || r.name)).slice(0, 1),
+      ];
       const streams: StreamForStremio[] = [];
-      let idx = 0;
       for (const r of picked) {
         const slug = r.slug || r.id || r.name;
         if (!slug) continue;
@@ -1548,15 +1568,12 @@ export class AnimeWorldProvider {
           }
           const mp4 = streamData?.mp4_url;
           if (!mp4) continue;
-          const lang = idx === 0 ? 'Original' : 'Italian';
-          const sNum = seasonNumber || 1;
-          let baseName = (r.name || slug || normalizedTitle).toString().trim();
-          if (baseName.includes('\n')) baseName = baseName.replace(/\s+/g,' ').trim();
-          let titleStream = `${baseName} ▪ ${lang === 'Original' ? 'SUB' : 'ITA'} ▪ S${sNum}`;
-          if (episodeNumber) titleStream += `E${episodeNumber}`;
+          const baseName = animeWorldDisplayName(r.searchTitle || r.name, slug, normalizedTitle);
+          let titleStream = `${capitalize(baseName)} ▪ ${isItaSlug(slug) ? 'ITA' : 'SUB'}`;
+          const epTag = episodeTag(seasonNumber, episodeNumber);
+          if (epTag) titleStream += ` ▪ ${epTag}`;
           const streamOut = buildAnimeWorldStreamOutput(mp4, slug, this.config, { bingeGroup: 'animeworld-fallback' });
           streams.push({ title: titleStream, url: streamOut.url, behaviorHints: streamOut.behaviorHints });
-          idx++;
         } catch (e) {
           console.warn('[AnimeWorld][FallbackFilter] error processing slug', r.slug, e);
         }
@@ -1568,6 +1585,66 @@ export class AnimeWorldProvider {
       return { streams: [] };
     }
   }
+}
+
+/** AnimeWorld marca il doppiaggio italiano col suffisso -ita / -cr-ita / -ita-cr sullo slug base. */
+export function isItaSlug(slugOrName: string): boolean {
+  const base = String(slugOrName || '').split('.')[0].toLowerCase();
+  if (/(?:^|[-_])sub[-_]?ita$/.test(base)) return false;
+  return /(?:^|[-_])(?:ita|cr[-_]?ita|ita[-_]?cr)$/.test(base);
+}
+
+/**
+ * Nome da mostrare in etichetta. La ricerca di AnimeWorld stampa due <a> per scheda
+ * (prima il poster coi soli badge, poi il titolo vero) e la deduplica tiene il primo:
+ * il `name` che arriva qui e' spesso vuoto, un badge di lingua ("DUB") o lo slug nudo.
+ * Non si puo' sistemare in awSearch: un name vuoto e' il segnale su cui si regge
+ * AdjustEmptyName, che corregge in SUB ITA gli slug base che il LangProbe sbaglia.
+ */
+export function animeWorldDisplayName(name: string | undefined, slug: string, fallback = ''): string {
+  const clean = String(name || '')
+    .replace(/\r?\n+/g, ' ')
+    .replace(/\b(?:DUB|SUB|CR)\b/gi, '')
+    .replace(/\((?:ITA|CR)\)/gi, '')
+    .replace(/\b(?:ITA|Movie|Special)\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  const looksLikeSlug = /^[a-z0-9]+(?:[-_][a-z0-9]+)*(?:\.[A-Za-z0-9_-]+)?$/.test(clean) && !clean.includes(' ');
+  if (clean.length >= 3 && !looksLikeSlug) return clean;
+  const fromSlug = animeWorldSlugBase(slug).replace(/[^a-z0-9]+/gi, ' ').trim();
+  return fromSlug || String(fallback || '').trim() || slug;
+}
+
+/**
+ * Etichetta S/E. La stagione si stampa solo quando e' davvero nota: negli id Kitsu ogni
+ * stagione e' un anime a se', quindi il campo season vale sempre 1 e stamparlo mette "S1"
+ * su episodi di S2. Per IMDB/TMDB la stagione e' reale e resta.
+ */
+export function episodeTag(seasonNumber: number | null, episodeNumber: number | null): string {
+  const s = seasonNumber != null ? `S${seasonNumber}` : '';
+  const e = episodeNumber != null ? `E${episodeNumber}` : '';
+  return `${s}${e}`;
+}
+
+/**
+ * Chiave di confronto fra il titolo cercato e quello mostrato nei risultati: via i marcatori
+ * di versione "(ITA)" / "(CR)" e la punteggiatura, cosi' "That Time I Got Reincarnated as a
+ * Slime 2 Part 2 (ITA)" e la query "…Slime 2 Part 2" collassano sulla stessa chiave.
+ */
+export function normalizeSearchTitleKey(title: string): string {
+  return String(title || '')
+    .replace(/\((?:ITA|CR|SUB\s*ITA)\)/gi, ' ')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/** Slug senza id random finale e senza suffisso di lingua: identifica l'opera, non la versione. */
+export function animeWorldSlugBase(slugOrName: string): string {
+  return String(slugOrName || '')
+    .split('.')[0]
+    .toLowerCase()
+    .replace(/(?:^|[-_])(?:sub[-_]?ita|cr[-_]?ita|ita[-_]?cr|ita)$/, '');
 }
 
 function capitalize(str: string) {
