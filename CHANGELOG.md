@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.18.30](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.29...v1.18.30) (2026-08-24)
+
+
+### Bug Fixes
+
+* animemapping ([76ad861](https://github.com/qwertyuiop8899/streamvix/commit/76ad861417bb42cdc8cd6cd8e5d128c7f6b7ed34))
+* domains update ([ca9e677](https://github.com/qwertyuiop8899/streamvix/commit/ca9e677c79b4aa56be647c94792d5ae11a130ba5))
+* domains update ([f23254a](https://github.com/qwertyuiop8899/streamvix/commit/f23254a617a44633fa88ad656b4797daaaa14e28))
+* domains update ([66fc5c5](https://github.com/qwertyuiop8899/streamvix/commit/66fc5c5a81aba9098bfd1d5215663b3392493a1f))
+* domains update ([f47fe59](https://github.com/qwertyuiop8899/streamvix/commit/f47fe59114188f3b18e775dd1d1df1aff640dd9f))
+* domains update ([455216c](https://github.com/qwertyuiop8899/streamvix/commit/455216c60ef8f53eb181561e898e1ecafcc6c8ed))
+* domains update ([f6854e2](https://github.com/qwertyuiop8899/streamvix/commit/f6854e26d5b0ad947ada5fda4156d92a7e63d201))
+* domains update ([627dd4f](https://github.com/qwertyuiop8899/streamvix/commit/627dd4f505a12e6a1a117ec7fadf0b590af20700))
+* domains update ([994dc2d](https://github.com/qwertyuiop8899/streamvix/commit/994dc2d2ed57cef54290b85a01aee74069f73b91))
+* domains update ([6dadfc0](https://github.com/qwertyuiop8899/streamvix/commit/6dadfc063ddd0a3c868d7bbb7fc63c2d275559e5))
+* domains update ([3325d3b](https://github.com/qwertyuiop8899/streamvix/commit/3325d3b53abd32a4f3a4bb18053e2165dd169447))
+* update anime mapping API endpoint ([e5071c8](https://github.com/qwertyuiop8899/streamvix/commit/e5071c850b2eea7190df0a3fad24e50b122b4bce))
+* update anime mapping API endpoint ([aa06225](https://github.com/qwertyuiop8899/streamvix/commit/aa0622592fdc01ff3947c59cdaadcabf5dbddb45))
+
 ## [1.18.29](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.28...v1.18.29) (2026-08-05)
 
 
