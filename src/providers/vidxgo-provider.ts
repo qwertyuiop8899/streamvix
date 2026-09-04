@@ -1,27 +1,25 @@
-// VidXgo provider — EasyProxy-only.
+// VidXgo provider — EasyProxy / MediaFlow Proxy extractor integration.
 //
 // URL pattern (movie):  {VD_DOMAIN}/{imdb_id}
 // URL pattern (series): {VD_DOMAIN}/{imdb_id}/{season}/{episode}
 //
-// VidXgo signs each .ts segment URL with a ~5 min TTL (`e=` ms epoch).
-// Direct playback (player ↔ CDN) therefore stops after ~5 min, and a
-// classic MediaFlow Proxy wrap stops too because MFP does not rotate the
-// signed token. Only EasyProxy (this repo's `EasyProxy-main/`) is able
-// to refresh the token in background and rewrite segment URLs on the fly,
-// so the provider produces a stream ONLY when an EP-style proxy is
-// configured. Without one (or with `useMediaFlow=true`) we return zero
-// streams.
+// VidXgo signs each .ts segment URL with a short TTL (~5 min).
+// When an EP/MFP proxy is configured, the provider hands off the embed URL
+// to the proxy's extractor endpoint:
+//   /extractor/video.m3u8?host=vidxgo&d=<url>&redirect_stream=true(&api_password=...)
+// The proxy performs extraction, handles Cloudflare / anti-bot bypass,
+// and manages token rotation and stream delivery.
 
 import type { StreamForStremio } from '../types/animeunity';
 
 export interface VidXgoConfig {
   enabled: boolean;
-  /** EasyProxy base URL (e.g. https://ep.example.com or http://127.0.0.1:7860). */
+  /** EasyProxy / MediaFlow Proxy base URL (e.g. https://ep.example.com or http://127.0.0.1:7860). */
   mfpUrl?: string;
-  /** EasyProxy api_password. */
+  /** Proxy api_password. */
   mfpPassword?: string;
   tmdbApiKey?: string;
-  /** When true the user picked MediaFlow Proxy (legacy/incompatible). */
+  /** When true the user picked MediaFlow Proxy backend. */
   useMediaFlow?: boolean;
 }
 
@@ -35,19 +33,16 @@ function buildUrl(imdbId: string, season?: number | null, episode?: number | nul
   return `${VD_DOMAIN}/${id}/${season}/${episode}`;
 }
 
-// EasyProxy wrapper: hand off the embed URL to EP's auto-detect extractor.
-// EP will call its VidXgoExtractor (registered via the "vidxgo" hostname
-// branch in services/hls_proxy.py), perform extraction, fetch the m3u8,
-// cache the captured manifests, and run a background refresh loop that
-// rotates the signed CDN token before its ~5 min TTL expires. EP's
-// segment proxy handler also rewrites the per-segment `?t=&e=&b=` tokens
-// at fetch time using the freshest captured manifest.
-function wrapEp(embedUrl: string, epUrl: string, epPassword: string): string {
+// Wrapper for MediaFlow Proxy / EasyProxy extractor endpoint:
+// ${base}/extractor/video.m3u8?host=vidxgo&d=${embedUrl}&redirect_stream=true(&api_password=...)
+function wrapEp(embedUrl: string, epUrl: string, epPassword?: string): string {
   const base = epUrl.replace(/\/+$/, '');
   const params = new URLSearchParams();
-  if (epPassword) params.set('api_password', epPassword);
+  params.set('host', 'vidxgo');
   params.set('d', embedUrl);
-  return `${base}/proxy/hls/manifest.m3u8?${params.toString()}`;
+  params.set('redirect_stream', 'true');
+  if (epPassword) params.set('api_password', epPassword);
+  return `${base}/extractor/video.m3u8?${params.toString()}`;
 }
 
 export class VidXgoProvider {
@@ -62,13 +57,9 @@ export class VidXgoProvider {
     if (!this.config.enabled) return { streams: [] };
     if (!imdbId) return { streams: [] };
 
-    // EasyProxy is mandatory for VidXgo.
+    // Proxy is mandatory for VidXgo (EasyProxy or MediaFlow Proxy with extractor endpoint).
     const proxyUrl = this.config.mfpUrl;
-    if (!proxyUrl) { logV('no proxy configured -> skip (EP required)'); return { streams: [] }; }
-    if (this.config.useMediaFlow === true) {
-      logV('MediaFlow Proxy is not compatible with VidXgo token rotation -> skip');
-      return { streams: [] };
-    }
+    if (!proxyUrl) { logV('no proxy configured -> skip (proxy required)'); return { streams: [] }; }
 
     const url = buildUrl(imdbId, season, episode, isMovie);
     logV('EP path ->', url);
