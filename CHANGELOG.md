@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.32](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.31...v1.18.32) (2026-09-04)
+
+
+### Bug Fixes
+
+* vid url check ([c33ffbf](https://github.com/qwertyuiop8899/streamvix/commit/c33ffbf09540b42bd3ee570c399005ed41a685bf))
+
 ## [1.18.31](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.30...v1.18.31) (2026-08-24)
 
 
