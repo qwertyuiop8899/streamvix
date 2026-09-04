@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.18.31](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.30...v1.18.31) (2026-08-24)
+
+
+### Bug Fixes
+
+* anime ([d5e695a](https://github.com/qwertyuiop8899/streamvix/commit/d5e695a19d9bed42f2bb4c444a82f1f42ea11c99))
+* **animeworld:** il fallback serviva la versione giapponese etichettata ITA ([d5e695a](https://github.com/qwertyuiop8899/streamvix/commit/d5e695a19d9bed42f2bb4c444a82f1f42ea11c99))
+
 ## [1.18.30](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.29...v1.18.30) (2026-08-24)
 
 
