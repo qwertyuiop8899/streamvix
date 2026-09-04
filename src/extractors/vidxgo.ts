@@ -9,16 +9,45 @@
 //   - In the decrypted JS, find `currentSrc.+"(https:[^";]+)"` → that's the HLS URL.
 //   - Replace backslashes in the URL.
 //
-// Playback headers (proxyHeaders.request) mirror MammaMia exactly.
+// Streamcore routing:
+//   - Wraps the source URL or extracted HLS into the Streamcore extractor format.
 
 import { HostExtractor, ExtractResult, ExtractorContext } from './base';
 import type { StreamForStremio } from '../types/animeunity';
-// cheerio.load was replaced by a streaming regex scan in decodeVidXgoHtml —
-// see the comment there. Building a full DOM via parse5 just to look up
-// the 6th <script> tag was ~3% of total CPU in production profiles.
 
 const VIDXGO_DEFAULT_DOMAIN = 'https://v.vidxgo.co';
 const VIDXGO_HOST_RE = /vidxgo/i;
+
+// Configurazione Streamcore (configurabile tramite variabili d'ambiente o fallback predefinito)
+const STREAMCORE_BASE_URL = (process.env.STREAMCORE_URL || 'https://ep.streamcore.qzz.io').replace(/\/+$/, '');
+const STREAMCORE_API_PASSWORD = process.env.STREAMCORE_PASSWORD || process.env.API_PASSWORD || '';
+
+/**
+ * Costruisce l'endpoint proxy di Streamcore formattando i parametri di query.
+ */
+export function buildStreamcoreUrl(
+  destinationUrl: string,
+  options?: {
+    baseUrl?: string;
+    apiPassword?: string;
+    redirectStream?: boolean;
+    host?: string;
+  }
+): string {
+  const base = (options?.baseUrl || STREAMCORE_BASE_URL).replace(/\/+$/, '');
+  const params = new URLSearchParams({
+    host: options?.host || 'vidxgo',
+    d: destinationUrl,
+    redirect_stream: String(options?.redirectStream ?? true),
+  });
+
+  const pwd = options?.apiPassword !== undefined ? options.apiPassword : STREAMCORE_API_PASSWORD;
+  if (pwd) {
+    params.set('api_password', pwd);
+  }
+
+  return `${base}/extractor/video.m3u8?${params.toString()}`;
+}
 
 // Headers used for the embed-page GET. Copied 1:1 from MammaMia.
 const VIDXGO_GET_HEADERS: Record<string, string> = {
@@ -48,9 +77,6 @@ export interface VidXgoExtractResult {
 /**
  * Fetch a VidXgo embed page and extract the m3u8 URL.
  * Returns null if the page cannot be parsed/decoded.
- *
- * `domain` should be the same origin that was used to build the URL (used
- * as Referer/Origin on playback so MFP/CDN see consistent headers).
  */
 export async function fetchAndExtractVidXgo(
   url: string,
@@ -90,28 +116,16 @@ export async function fetchAndExtractVidXgo(
 
 /**
  * Decode the VidXgo HTML payload to the final HLS URL. Pure function (no IO).
- * Exported for tests; returns null if any step fails.
- *
- * The previous implementation used `cheerio.load(html)` to find the 6th
- * <script> tag, which invokes parse5's full HTML tokenizer and builds a
- * complete DOM tree. Per CPU profile this was ~3% of total profile time
- * on this hot path. We only need to find the script tag and regex on its
- * contents, which a streaming regex does in microseconds with zero
- * retained DOM allocations (was also driving GC pressure).
  */
 export function decodeVidXgoHtml(html: string): string | null {
   try {
-    // Walk all <script>...</script> blocks via regex. cheerio's `$('script')`
-    // returned ALL script tags (inline + external) and indexed by position;
-    // .html() on an external script returns empty string. Mirror that exact
-    // shape so external scripts still take their index slot.
     const scriptRe = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
     const scriptBodies: string[] = [];
     let sm: RegExpExecArray | null;
     while ((sm = scriptRe.exec(html)) !== null) {
       const attrs = sm[1] || '';
       if (/\bsrc\s*=/i.test(attrs)) {
-        scriptBodies.push(''); // external: index slot preserved, body empty
+        scriptBodies.push('');
       } else {
         scriptBodies.push(sm[2] || '');
       }
@@ -120,7 +134,7 @@ export function decodeVidXgoHtml(html: string): string | null {
       console.log('[VidXgo][decode] not enough <script> tags:', scriptBodies.length);
       return null;
     }
-    // MammaMia uses scripts[5] (the 6th script tag). Get its inline text.
+
     const target = scriptBodies[5] || '';
     if (!target) {
       console.log('[VidXgo][decode] script[5] empty');
@@ -155,29 +169,28 @@ export function decodeVidXgoHtml(html: string): string | null {
 
 /**
  * HostExtractor wrapper so /vidxgo/ URLs flowing through `extractFromUrl`
- * also get resolved (defensive — the primary path is the VidXgoProvider).
+ * also get resolved.
  */
 export class VidXgoExtractor implements HostExtractor {
   id = 'vidxgo';
   supports(url: string): boolean { return VIDXGO_HOST_RE.test(url); }
 
   async extract(rawUrl: string, ctx: ExtractorContext): Promise<ExtractResult> {
-    // Use the rawUrl host as domain so Referer/Origin match.
-    let domain = VIDXGO_DEFAULT_DOMAIN;
-    try { const u = new URL(rawUrl); domain = `${u.protocol}//${u.host}`; } catch { /* keep default */ }
-    const r = await fetchAndExtractVidXgo(rawUrl, domain);
-    if (!r) return { streams: [] };
     const baseTitle = ctx.titleHint || 'VidXgo';
     const title = `${baseTitle} • [ITA]\n💾 VidXgo`;
+
+    // Costruisce direttamente l'URL per Streamcore passando il rawUrl come parametro d
+    const streamUrl = buildStreamcoreUrl(rawUrl);
+
     const stream: StreamForStremio = {
       title,
-      url: r.m3u8,
+      url: streamUrl,
       behaviorHints: {
-        notWebReady: true,
+        notWebReady: false,
         bingeGroup: 'vidxgo',
-        proxyHeaders: { request: r.playbackHeaders },
       } as any,
     };
+
     return { streams: [stream] };
   }
 }
