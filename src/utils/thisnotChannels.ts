@@ -7,6 +7,7 @@ import { CookieJar } from 'tough-cookie';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import * as fs from 'fs';
 import * as path from 'path';
+import { redactLogText, redactLogValue } from './logRedaction';
 
 const THISNOT_CATEGORY = 'thisnot';
 const BASE_URL = "https://thisnot.business";
@@ -143,7 +144,7 @@ async function performLogin(url: string, pwd: string): Promise<string | null> {
 
         return null;
     } catch (e) {
-        console.error(`❌ [ThisNot] Errore login: ${e}`);
+        console.error(`❌ [ThisNot] Errore login: ${redactLogText(String(e))}`);
         return null;
     }
 }
@@ -153,7 +154,7 @@ async function getPageContent(url: string): Promise<string | null> {
         const response = await makeRequest(url);
         return response.data;
     } catch (e) {
-        console.log(`Errore nel caricamento di ${url}: ${e}`);
+        console.log(`Errore nel caricamento di ${redactLogText(url)}: ${redactLogText(String(e))}`);
         return null;
     }
 }
@@ -257,7 +258,7 @@ async function processEventsJson(eventi: any[]): Promise<ThisNotChannel[]> {
             const playerContent = await getPageContent(playerUrl);
 
             if (!playerContent) {
-                console.log(`⚠️ [ThisNot] Impossibile caricare player per: ${matchName} (${playerUrl})`);
+                console.log(`⚠️ [ThisNot] Impossibile caricare player per: ${matchName} (${redactLogText(playerUrl)})`);
                 continue;
             }
 
@@ -318,7 +319,7 @@ async function processEventsJson(eventi: any[]): Promise<ThisNotChannel[]> {
             });
 
         } catch (e: any) {
-            console.error(`❌ [ThisNot] Errore processamento evento: ${e.message}`);
+            console.error(`❌ [ThisNot] Errore processamento evento: ${redactLogText(String(e?.message || e))}`);
             continue;
         }
     }
@@ -401,7 +402,7 @@ function saveThisNotChannels(channels: DynamicChannel[]): void {
         const data = JSON.stringify(channels, null, 2);
         fs.writeFileSync(THISNOT_FILE, data, 'utf-8');
     } catch (error) {
-        console.error(`❌ [ThisNot] Errore salvataggio: ${error}`);
+        console.error('❌ [ThisNot] Errore salvataggio:', redactLogValue(error));
         throw error;
     }
 }
@@ -447,7 +448,7 @@ export async function updateThisNotChannels(): Promise<void> {
         console.log(`✅ [ThisNot] ${newThisNotChannels.length} eventi OGGI aggiornati`);
 
     } catch (error) {
-        console.error('❌ [ThisNot] Errore aggiornamento:', error);
+        console.error('❌ [ThisNot] Errore aggiornamento:', redactLogValue(error));
         throw error;
     }
 }
