@@ -10,7 +10,7 @@ import { StreamtapeExtractor } from './streamtape';
 import { DoodStreamExtractor } from './doodstream';
 import { VixCloudHlsExtractor } from './vixcloud';
 import { StreamHgExtractor } from './streamhg';
-import { VidXgoExtractor } from './vidxgo';
+// import { VidXgoExtractor } from './vidxgo';
 // Temporarily disabled adapters to avoid pulling full webstreamr TS tree into build
 // import { WsDroploadAdapter, WsDoodAdapter } from './webstreamr-adapters';
 
