@@ -23,7 +23,7 @@ const extractors: HostExtractor[] = [
   new DoodStreamExtractor(), // legacy
   new VixCloudHlsExtractor(),
   new StreamHgExtractor(),
-  new VidXgoExtractor(),
+//   new VidXgoExtractor(),
   // new WsDoodAdapter()
 ];
 
