@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.18.35](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.34...v1.18.35) (2026-09-23)
+
+
+### Bug Fixes
+
+* domains update ([ee8e881](https://github.com/qwertyuiop8899/streamvix/commit/ee8e88177140406bd368f8ec704ea8ab9fcce49e))
+* domains update ([92ade47](https://github.com/qwertyuiop8899/streamvix/commit/92ade47f4ae46a2fcafa99fd4ad8e7606222eefb))
+* domains update ([4699c25](https://github.com/qwertyuiop8899/streamvix/commit/4699c25109cb7453302745800e6864c65ab51997))
+* domains update ([2f877a4](https://github.com/qwertyuiop8899/streamvix/commit/2f877a401fcba35a2e50a3c743744732470277e6))
+* index.ts ([31a694b](https://github.com/qwertyuiop8899/streamvix/commit/31a694b37c4efdb1a32a70e5997f4c7abc4cfd80))
+* index.ts ([23526bb](https://github.com/qwertyuiop8899/streamvix/commit/23526bbeb1f52d80baeb8fdd4c4734dde7e6fc71))
+
 ## [1.18.34](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.33...v1.18.34) (2026-09-22)
 
 
