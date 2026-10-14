@@ -779,6 +779,36 @@ def _levenshtein(a: str, b: str) -> int:
         prev = cur
     return prev[la]
 
+# Matches one result of the HTML search page (/?s=...): <li id="post-123" class="post-123 post type-post ...">
+_HTML_SEARCH_RESULT_RE = re.compile(r'<li id="post-(\d+)" class="post-\1 post type-post')
+
+async def _search_post_ids(client, showname, headers):
+    """Return search results as [{'id': ...}] (same shape as /wp/v2/search).
+
+    The site's Cloudflare firewall now answers 403 to REST searches
+    (/wp-json/wp/v2/search and /wp-json/wp/v2/posts?search=), while the
+    HTML search page and /wp-json/wp/v2/posts/{id} still work. Try the REST
+    search first and fall back to the HTML search page when it is blocked.
+    """
+    q = urllib.parse.quote(showname)
+    try:
+        response = await _cf_safe_get(client, f"{ES_DOMAIN}/wp-json/wp/v2/search?search={q}&_fields=id", headers=headers)
+        if 'json' in response.headers.get('content-type', '').lower():
+            results = response.json()
+            if isinstance(results, list):
+                return results
+        log('search: wp-json search blocked (status', response.status_code, '), falling back to HTML search')
+    except Exception as e:
+        log('search: wp-json search exception, falling back to HTML search', e)
+
+    q_html = urllib.parse.quote_plus(showname.replace('+', ' '))
+    response = await _cf_safe_get(client, f"{ES_DOMAIN}/?s={q_html}", headers=headers)
+    ids = []
+    for post_id in _HTML_SEARCH_RESULT_RE.findall(response.text):
+        if int(post_id) not in ids:
+            ids.append(int(post_id))
+    return [{'id': post_id} for post_id in ids[:10]]
+
 #############################################
 # ADVANCED SEARCH (current default)
 # Can be forced via ES_SEARCH_MODE=advanced
@@ -789,12 +819,10 @@ async def search_advanced(showname, date, season, episode, MFP, client, skip_yea
     reason = None
     debug = { 'candidates': [], 'matched': [], 'filtered_tokens': [], 'rejected': [], 'phase': None, 'skip_year_check': skip_year_check }
     try:
-        q = urllib.parse.quote(showname)
-        response = await _cf_safe_get(client, f"{ES_DOMAIN}/wp-json/wp/v2/search?search={q}&_fields=id", headers=headers)
+        results = await _search_post_ids(client, showname, headers)
     except Exception as e:
         log('search: wp search exception', e)
         return None, 'search_request_failed', debug
-    results = response.json()
     if not isinstance(results, list) or not results:
         log('search: no results')
         return None, 'no_search_results', debug
@@ -1124,12 +1152,10 @@ async def search_legacy(showname, date, season, episode, MFP, client, skip_year_
     debug = { 'mode': 'legacy', 'year': date, 'skip_year_check': skip_year_check }
     headers = random_headers.generate()
     try:
-        q = urllib.parse.quote(showname)
-        response = await _cf_safe_get(client, f"{ES_DOMAIN}/wp-json/wp/v2/search?search={q}&_fields=id", headers=headers)
+        results = await _search_post_ids(client, showname, headers)
     except Exception as e:
         debug['error'] = str(e)
         return None, 'search_request_failed', debug
-    results = response.json()
     if not isinstance(results, list) or not results:
         return None, 'no_search_results', debug
     season_s = str(season)
