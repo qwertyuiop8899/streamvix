@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.18.37](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.36...v1.18.37) (2026-10-17)
+
+
+### Bug Fixes
+
+* domains update ([1afef7f](https://github.com/qwertyuiop8899/streamvix/commit/1afef7fff4de8eda942f0917364f849268bfc008))
+* domains update ([7743589](https://github.com/qwertyuiop8899/streamvix/commit/774358984ebdb0e9e6fac5d25a14901267ffba3b))
+* domains update ([f9f6445](https://github.com/qwertyuiop8899/streamvix/commit/f9f64453d7102f8f13ff210152d9a43dd8119ad0))
+* domains update ([5ed3748](https://github.com/qwertyuiop8899/streamvix/commit/5ed3748562035a930cfb0b4865744126c8f846d1))
+* domains update ([3fce4c8](https://github.com/qwertyuiop8899/streamvix/commit/3fce4c82fbe5fa01e868dc8526c0091d336f45be))
+* domains update ([36edd33](https://github.com/qwertyuiop8899/streamvix/commit/36edd33d81495660e463937435911624ee4d4d4d))
+* domains update ([4ff11db](https://github.com/qwertyuiop8899/streamvix/commit/4ff11db1ce6dbc562a2794875f79fe3bda214369))
+* domains update ([70338c6](https://github.com/qwertyuiop8899/streamvix/commit/70338c6ef6304b214f33c6c9bd86f4b450384c3b))
+* domains update ([fab63b6](https://github.com/qwertyuiop8899/streamvix/commit/fab63b600020ba47986e428a1e0250b9bf6126c8))
+* **eurostreaming:** fall back to HTML search when REST search is blocked ([7f2073b](https://github.com/qwertyuiop8899/streamvix/commit/7f2073bae69f170f505283fe959ac78f258910ae))
+* **eurostreaming:** ricerca bloccata da Cloudflare (403) – fallback sulla ricerca HTML ([8da3a9a](https://github.com/qwertyuiop8899/streamvix/commit/8da3a9a2c974459edcbdd273e0fe2bc32f1982e5))
+
 ## [1.18.36](https://github.com/qwertyuiop8899/streamvix/compare/v1.18.35...v1.18.36) (2026-10-06)
 
 
