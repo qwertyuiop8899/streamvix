@@ -10,6 +10,7 @@ import { AnimeUnityProvider } from './providers/animeunity-provider';
 import { AnimeWorldProvider } from './providers/animeworld-provider';
 import { KitsuProvider } from './providers/kitsu';
 import { formatMediaFlowUrl } from './utils/mediaflow';
+import { formatLogPreview, redactLogValue } from './utils/logRedaction';
 import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels, getDynamicFilePath, getDynamicFileStats } from './utils/dynamicChannels';
 // --- Lightweight declarations to avoid TS complaints if @types/node non installati ---
 // (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.) 
@@ -100,7 +101,7 @@ const DEBUG_LOG_ENABLED: boolean = (() => {
         return v === '1' || v === 'true' || v === 'on' || v === 'yes';
     } catch { return false; }
 })();
-function debugLog(...args: any[]) { if (!DEBUG_LOG_ENABLED) return; try { console.log('[DEBUG]', ...args); } catch { } }
+function debugLog(...args: any[]) { if (!DEBUG_LOG_ENABLED) return; try { console.log('[DEBUG]', ...args.map(arg => redactLogValue(arg))); } catch { } }
 
 const VAVOO_DEBUG: boolean = (() => {
     try {
@@ -112,7 +113,7 @@ const VAVOO_DEBUG: boolean = (() => {
         return true;
     } catch { return true; }
 })();
-function vdbg(...args: any[]) { if (!VAVOO_DEBUG) return; try { console.log('[VAVOO-DEBUG]', ...args); } catch { } }
+function vdbg(...args: any[]) { if (!VAVOO_DEBUG) return; try { console.log('[VAVOO-DEBUG]', ...args.map(arg => redactLogValue(arg))); } catch { } }
 
 const VAVOO_FORCE_SERVER_IP: boolean = (() => {
     try {
@@ -552,13 +553,13 @@ function decodeBase64(str: string): string {
 // Funzione per decodificare URL statici (sempre in base64)
 function decodeStaticUrl(url: string): string {
     if (!url) return url;
-    console.log(`🔧 [Base64] Decodifica URL (sempre base64): ${url.substring(0, 50)}...`);
+    console.log(`🔧 [Base64] Decodifica URL (sempre base64): ${formatLogPreview(url, 50)}`);
     try {
         // Assicura padding corretto (lunghezza multipla di 4)
         let paddedUrl = url;
         while (paddedUrl.length % 4 !== 0) paddedUrl += '=';
         const decoded = decodeBase64(paddedUrl);
-        console.log(`✅ [Base64] URL decodificato: ${decoded}`);
+        console.log(`✅ [Base64] URL decodificato: ${formatLogPreview(decoded, 150)}`);
         return decoded;
     } catch (error) {
         console.error(`❌ [Base64] Errore nella decodifica: ${error}`);
@@ -975,7 +976,7 @@ function parseConfigFromArgs(args: any): AddonConfig {
     }
 
     if (typeof args === 'string') {
-        debugLog(`Configuration string: ${args.substring(0, 50)}... (length: ${args.length})`);
+        debugLog(`Configuration string: ${formatLogPreview(args, 50)} (length: ${args.length})`);
 
         // PASSO 1: Prova JSON diretto
         try {
@@ -1020,9 +1021,9 @@ function parseConfigFromArgs(args: any): AddonConfig {
                     paddedBase64 += '=';
                 }
 
-                debugLog(`Trying base64 decode: ${paddedBase64.substring(0, 20)}...`);
+                debugLog(`Trying base64 decode: ${formatLogPreview(paddedBase64, 20)}`);
                 const decoded = Buffer.from(paddedBase64, 'base64').toString('utf-8');
-                debugLog(`Base64 decoded result: ${decoded.substring(0, 50)}...`);
+                debugLog(`Base64 decoded result: ${formatLogPreview(decoded, 50)}`);
 
                 if (decoded.includes('{') && decoded.includes('}')) {
                     try {
@@ -3503,7 +3504,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     let decodedUrl = '';
                                     try {
                                         decodedUrl = Buffer.from(stream.url, 'base64').toString('utf-8');
-                                        console.log(`🔓 Decoded ThisNot stream URL: ${decodedUrl.substring(0, 100)}...`);
+                                        console.log(`🔓 Decoded ThisNot stream URL: ${formatLogPreview(decodedUrl, 100)}`);
                                     } catch (e) {
                                         console.error('❌ Error decoding ThisNot stream URL:', e);
                                         continue;
@@ -3525,7 +3526,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             if (param) finalUrl += `&${param}`;
                                         }
                                         proxyUsed = true;
-                                        console.log(`🔒 Wrapped ThisNot with MFP: ${finalUrl.substring(0, 100)}...`);
+                                        console.log(`🔒 Wrapped ThisNot with MFP: ${formatLogPreview(finalUrl, 100)}`);
                                     } else {
                                         console.warn('⚠️ MediaflowProxy not configured for ThisNot streams');
                                     }
@@ -4829,10 +4830,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
 
                     // staticUrl (solo se enableMpd è attivo)
                     if ((channel as any).staticUrl && mpdEnabled) {
-                        console.log(`🔧 [staticUrl] Raw URL: ${(channel as any).staticUrl}`);
+                        console.log(`🔧 [staticUrl] Raw URL: ${formatLogPreview((channel as any).staticUrl, 150)}`);
                         const decodedUrl = decodeStaticUrl((channel as any).staticUrl);
-                        console.log(`🔧 [staticUrl] Decoded URL: ${decodedUrl}`);
-                        console.log(`🔧 [staticUrl] mfpUrl: ${mfpUrl}`);
+                        console.log(`🔧 [staticUrl] Decoded URL: ${formatLogPreview(decodedUrl, 150)}`);
+                        console.log(`🔧 [staticUrl] mfpUrl: ${formatLogPreview(mfpUrl, 150)}`);
                         console.log(`🔧 [staticUrl] mfpPsw: ${mfpPsw ? '***' : 'NOT SET'}`);
 
                         if (mfpUrl) {
@@ -4877,10 +4878,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     }
                     // staticUrl2 (solo se enableMpd è attivo)
                     if ((channel as any).staticUrl2 && mpdEnabled) {
-                        console.log(`🔧 [staticUrl2] Raw URL: ${(channel as any).staticUrl2}`);
+                        console.log(`🔧 [staticUrl2] Raw URL: ${formatLogPreview((channel as any).staticUrl2, 150)}`);
                         const decodedUrl = decodeStaticUrl((channel as any).staticUrl2);
-                        console.log(`🔧 [staticUrl2] Decoded URL: ${decodedUrl}`);
-                        console.log(`🔧 [staticUrl2] mfpUrl: ${mfpUrl}`);
+                        console.log(`🔧 [staticUrl2] Decoded URL: ${formatLogPreview(decodedUrl, 150)}`);
+                        console.log(`🔧 [staticUrl2] mfpUrl: ${formatLogPreview(mfpUrl, 150)}`);
                         console.log(`🔧 [staticUrl2] mfpPsw: ${mfpPsw ? '***' : 'NOT SET'}`);
 
                         if (mfpUrl) {
@@ -4935,7 +4936,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 url: proxyUrl,
                                 title: `[🎬MPDh] ${channel.name} [ITA]`
                             });
-                            debugLog(`Aggiunto staticUrlMpdh Proxy (MFP): ${proxyUrl.substring(0, 150)}...`);
+                            debugLog(`Aggiunto staticUrlMpdh Proxy (MFP): ${formatLogPreview(proxyUrl, 150)}`);
                         } else {
                             debugLog(`(NASCONDI) staticUrlMpdh Direct senza MFP: ${decodedUrlh}`);
                         }
@@ -4944,10 +4945,10 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // staticUrlMpd (sempre attivo se presente, non dipende da enableMpd) - SECONDO
                     console.log(`🔧 [staticUrlMpd] DEBUG - channel has staticUrlMpd? ${!!(channel as any).staticUrlMpd}`);
                     if ((channel as any).staticUrlMpd) {
-                        console.log(`🔧 [staticUrlMpd] Raw URL: ${(channel as any).staticUrlMpd}`);
+                        console.log(`🔧 [staticUrlMpd] Raw URL: ${formatLogPreview((channel as any).staticUrlMpd, 150)}`);
                         const decodedUrl = decodeStaticUrl((channel as any).staticUrlMpd);
-                        console.log(`🔧 [staticUrlMpd] Decoded URL: ${decodedUrl}`);
-                        console.log(`🔧 [staticUrlMpd] mfpUrl: ${mfpUrl}`);
+                        console.log(`🔧 [staticUrlMpd] Decoded URL: ${formatLogPreview(decodedUrl, 150)}`);
+                        console.log(`🔧 [staticUrlMpd] mfpUrl: ${formatLogPreview(mfpUrl, 150)}`);
                         console.log(`🔧 [staticUrlMpd] mfpPsw: ${mfpPsw ? '***' : 'NOT SET'}`);
 
                         if (mfpUrl) {
@@ -4981,9 +4982,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     // staticUrlMpd2 (RM - seconda sorgente MPD)
                     console.log(`🔧 [staticUrlMpd2] DEBUG - channel has staticUrlMpd2? ${!!(channel as any).staticUrlMpd2}`);
                     if ((channel as any).staticUrlMpd2) {
-                        console.log(`🔧 [staticUrlMpd2] Raw URL: ${(channel as any).staticUrlMpd2}`);
+                        console.log(`🔧 [staticUrlMpd2] Raw URL: ${formatLogPreview((channel as any).staticUrlMpd2, 150)}`);
                         const decodedUrl2 = decodeStaticUrl((channel as any).staticUrlMpd2);
-                        console.log(`🔧 [staticUrlMpd2] Decoded URL: ${decodedUrl2.substring(0, 100)}...`);
+                        console.log(`🔧 [staticUrlMpd2] Decoded URL: ${formatLogPreview(decodedUrl2, 100)}`);
 
                         if (mfpUrl) {
                             const urlParts = decodedUrl2.split('&');
@@ -5003,7 +5004,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                 url: proxyUrl,
                                 title: `[🎬MPD2] ${channel.name} [ITA]`
                             });
-                            console.log(`[DEBUG] Aggiunto staticUrlMpd2 Proxy (MFP): ${proxyUrl.substring(0, 150)}...`);
+                            console.log(`[DEBUG] Aggiunto staticUrlMpd2 Proxy (MFP): ${formatLogPreview(proxyUrl, 150)}`);
                         } else {
                             debugLog(`(NASCONDI) staticUrlMpd2 Direct senza MFP: ${decodedUrl2}`);
                         }
@@ -5033,7 +5034,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     url: proxyUrl,
                                     title: `[🎬MPDz] ${channel.name} [ITA]`
                                 });
-                                debugLog(`Aggiunto staticUrlMpdz Proxy (MFP): ${proxyUrl.substring(0, 150)}...`);
+                                debugLog(`Aggiunto staticUrlMpdz Proxy (MFP): ${formatLogPreview(proxyUrl, 150)}`);
                             } else {
                                 debugLog(`(NASCONDI) staticUrlMpdz Direct senza MFP: ${decodedUrlz}`);
                             }
@@ -8487,7 +8488,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     } catch { }
 
     const configString = req.path.split('/')[1];
-    debugLog(`Config string extracted: "${configString}" (length: ${configString ? configString.length : 0})`);
+    debugLog(`Config string extracted: "${formatLogPreview(configString, 100)}" (length: ${configString ? configString.length : 0})`);
 
     // ...
 
