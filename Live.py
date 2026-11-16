@@ -34,6 +34,7 @@ REMOTE_SCHEDULE_URL = 'https://raw.githubusercontent.com/qwertyuiop8899/logo/mai
 # Default: usa una posizione scrivibile nel container/host
 OUTPUT_FILE = os.environ.get('DYNAMIC_FILE') or '/tmp/dynamic_channels.json'
 TV_CHANNELS_DB = os.path.join(BASE_DIR, 'config', 'tv_channels.json')
+DOMAINS_FILE = os.path.join(BASE_DIR, 'config', 'domains.json')
 
 LOGO_BASE = 'https://raw.githubusercontent.com/qwertyuiop8899/logo/main'
 
@@ -641,8 +642,11 @@ def build_event_id(name: str, start_dt: datetime.datetime) -> str:
     return f"{slug}-{start_dt.strftime('%Y%m%d')}"
 
 def get_stream_url(channel_obj: Any) -> str | None:
+    with open(DOMAINS_FILE, 'r', encoding='utf-8') as f:
+        domains = json.load(f)
+        
     if isinstance(channel_obj, dict) and channel_obj.get('channel_id'):
-        return f"https://dlive.sx/watch.php?id={channel_obj['channel_id']}"
+        return f"https://{domains['dlhd']}/watch.php?id={channel_obj['channel_id']}"
     return None
 
 def main():
