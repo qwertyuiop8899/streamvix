@@ -10,6 +10,7 @@ import { AnimeUnityProvider } from './providers/animeunity-provider';
 import { AnimeWorldProvider } from './providers/animeworld-provider';
 import { KitsuProvider } from './providers/kitsu';
 import { formatMediaFlowUrl } from './utils/mediaflow';
+import { redactLogArgs, redactLogText, redactLogValue } from './utils/logRedaction';
 import { mergeDynamic, loadDynamicChannels, purgeOldDynamicEvents, invalidateDynamicChannels, getDynamicFilePath, getDynamicFileStats } from './utils/dynamicChannels';
 // --- Lightweight declarations to avoid TS complaints if @types/node non installati ---
 // (Non sostituiscono l'uso consigliato di @types/node, ma evitano errori bloccanti.) 
@@ -100,7 +101,7 @@ const DEBUG_LOG_ENABLED: boolean = (() => {
         return v === '1' || v === 'true' || v === 'on' || v === 'yes';
     } catch { return false; }
 })();
-function debugLog(...args: any[]) { if (!DEBUG_LOG_ENABLED) return; try { console.log('[DEBUG]', ...args); } catch { } }
+function debugLog(...args: any[]) { if (!DEBUG_LOG_ENABLED) return; try { console.log('[DEBUG]', ...redactLogArgs(args)); } catch { } }
 
 const VAVOO_DEBUG: boolean = (() => {
     try {
@@ -112,7 +113,7 @@ const VAVOO_DEBUG: boolean = (() => {
         return true;
     } catch { return true; }
 })();
-function vdbg(...args: any[]) { if (!VAVOO_DEBUG) return; try { console.log('[VAVOO-DEBUG]', ...args); } catch { } }
+function vdbg(...args: any[]) { if (!VAVOO_DEBUG) return; try { console.log('[VAVOO-DEBUG]', ...redactLogArgs(args)); } catch { } }
 
 const VAVOO_FORCE_SERVER_IP: boolean = (() => {
     try {
@@ -552,16 +553,16 @@ function decodeBase64(str: string): string {
 // Funzione per decodificare URL statici (sempre in base64)
 function decodeStaticUrl(url: string): string {
     if (!url) return url;
-    console.log(`🔧 [Base64] Decodifica URL (sempre base64): ${url.substring(0, 50)}...`);
+    console.log(`🔧 [Base64] Decodifica URL (lunghezza: ${url.length})`);
     try {
         // Assicura padding corretto (lunghezza multipla di 4)
         let paddedUrl = url;
         while (paddedUrl.length % 4 !== 0) paddedUrl += '=';
         const decoded = decodeBase64(paddedUrl);
-        console.log(`✅ [Base64] URL decodificato: ${decoded}`);
+        console.log(`✅ [Base64] URL decodificato: ${redactLogText(decoded).substring(0, 150)}...`);
         return decoded;
     } catch (error) {
-        console.error(`❌ [Base64] Errore nella decodifica: ${error}`);
+        console.error(`❌ [Base64] Errore nella decodifica: ${redactLogText(String(error))}`);
         console.log(`🔧 [Base64] Ritorno URL originale per errore`);
         return url;
     }
@@ -975,7 +976,7 @@ function parseConfigFromArgs(args: any): AddonConfig {
     }
 
     if (typeof args === 'string') {
-        debugLog(`Configuration string: ${args.substring(0, 50)}... (length: ${args.length})`);
+        debugLog(`Configuration string received (length: ${args.length})`);
 
         // PASSO 1: Prova JSON diretto
         try {
@@ -1020,9 +1021,9 @@ function parseConfigFromArgs(args: any): AddonConfig {
                     paddedBase64 += '=';
                 }
 
-                debugLog(`Trying base64 decode: ${paddedBase64.substring(0, 20)}...`);
+                debugLog(`Trying base64 decode (length: ${paddedBase64.length})`);
                 const decoded = Buffer.from(paddedBase64, 'base64').toString('utf-8');
-                debugLog(`Base64 decoded result: ${decoded.substring(0, 50)}...`);
+                debugLog(`Base64 decoded result: ${redactLogText(decoded).substring(0, 50)}...`);
 
                 if (decoded.includes('{') && decoded.includes('}')) {
                     try {
@@ -2030,7 +2031,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const cfg = requestConfig && Object.keys(requestConfig).length > 0
                         ? { ...requestConfig }
                         : { ...configCache };
-                    console.log(`📹 DVR catalog: Using config dvrEnabled=${cfg.dvrEnabled}, mediaFlowProxyUrl=${cfg.mediaFlowProxyUrl?.substring(0, 30)}...`);
+                    console.log(`📹 DVR catalog: Using config dvrEnabled=${cfg.dvrEnabled}, mediaFlowProxyUrl=${redactLogText(cfg.mediaFlowProxyUrl || '').substring(0, 30)}...`);
                     const dvrConfig = getDvrConfig(cfg);
 
                     if (!dvrConfig) {
@@ -2585,7 +2586,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                     const cfg = requestConfig && Object.keys(requestConfig).length > 0
                         ? { ...requestConfig }
                         : { ...configCache };
-                    console.log(`📹 DVR meta: Using config dvrEnabled=${cfg.dvrEnabled}, mediaFlowProxyUrl=${cfg.mediaFlowProxyUrl?.substring(0, 30)}...`);
+                    console.log(`📹 DVR meta: Using config dvrEnabled=${cfg.dvrEnabled}, mediaFlowProxyUrl=${redactLogText(cfg.mediaFlowProxyUrl || '').substring(0, 30)}...`);
                     const dvrConfig = getDvrConfig(cfg);
 
                     if (!dvrConfig) {
@@ -3503,9 +3504,9 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                     let decodedUrl = '';
                                     try {
                                         decodedUrl = Buffer.from(stream.url, 'base64').toString('utf-8');
-                                        console.log(`🔓 Decoded ThisNot stream URL: ${decodedUrl.substring(0, 100)}...`);
+                                        console.log(`🔓 Decoded ThisNot stream URL: ${redactLogText(decodedUrl).substring(0, 100)}...`);
                                     } catch (e) {
-                                        console.error('❌ Error decoding ThisNot stream URL:', e);
+                                        console.error('❌ Error decoding ThisNot stream URL:', redactLogValue(e));
                                         continue;
                                     }
 
@@ -3525,7 +3526,7 @@ function createBuilder(initialConfig: AddonConfig = {}) {
                                             if (param) finalUrl += `&${param}`;
                                         }
                                         proxyUsed = true;
-                                        console.log(`🔒 Wrapped ThisNot with MFP: ${finalUrl.substring(0, 100)}...`);
+                                        console.log(`🔒 Wrapped ThisNot with MFP: ${redactLogText(finalUrl).substring(0, 100)}...`);
                                     } else {
                                         console.warn('⚠️ MediaflowProxy not configured for ThisNot streams');
                                     }
