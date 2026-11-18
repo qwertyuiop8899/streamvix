@@ -53,6 +53,16 @@ import { getGuardaflixStreams } from './providers/guardaflix';
 import { getTrailerStreams, isTrailerProviderAvailable } from './providers/trailerProvider';
 // EasyProxy DVR integration
 import { getDvrStreamsForChannel, getDvrConfig, buildDvrRecordEntry } from './utils/easyproxyDvr';
+import { Agent, setGlobalDispatcher } from 'undici';
+
+// Timeout di rete per il fetch nativo (quello usato dai provider senza import).
+// cheerio carica undici 7, che al primo import installa come dispatcher globale un
+// Agent con i default: 10s per connettersi, 300s per header e body. Così ogni fetch
+// senza timeout (Jikan, arm.haglund.dev, kitsu.io nei provider anime) teneva ferma
+// l'intera risposta stream 10s quando il servizio è giù, e fino a 5 minuti se accetta
+// la connessione ma non risponde. Va dopo gli import per sovrascrivere quello di cheerio.
+// Le chiamate con un dispatcher proprio (proxy/WARP) non sono toccate.
+setGlobalDispatcher(new Agent({ connectTimeout: 4_000, headersTimeout: 20_000, bodyTimeout: 20_000 }));
 
 // ================= TYPES & INTERFACES =================
 // Legacy Kubernetes flag intentionally ignored: Live/Eventi are always enabled.
